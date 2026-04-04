@@ -1,8 +1,10 @@
 import { describe, expect, it } from "vitest";
 import {
-  createReconciliationWorkspaceModel,
   createLedgerWorkspaceModel,
   createOverviewCards,
+  createReconciliationWorkspaceModel,
+  findAccountSearchExactMatch,
+  getAccountSearchMatches,
   getNextPostingAmountFocusTarget,
   getNextPostingFocusTarget,
   getNextLedgerTransactionId,
@@ -338,6 +340,61 @@ describe("web shell view model", () => {
         postingIndex: 1,
       }),
     ).toBe(2);
+  });
+
+  it("ranks account search matches by exactness and keeps the selected account visible", () => {
+    const accounts = [
+      { code: "1000", id: "acct-checking", name: "Checking", type: "asset" as const },
+      { code: "1010", id: "acct-savings", name: "Savings", type: "asset" as const },
+      { code: "6100", id: "acct-expense-groceries", name: "Groceries", type: "expense" as const },
+    ];
+
+    expect(
+      getAccountSearchMatches({
+        accounts,
+        query: "gro",
+      }).map((match) => match.account.id),
+    ).toEqual(["acct-expense-groceries"]);
+
+    expect(
+      getAccountSearchMatches({
+        accounts,
+        query: "",
+        selectedAccountId: "acct-savings",
+      }).map((match) => match.account.id),
+    ).toEqual(["acct-savings", "acct-checking", "acct-expense-groceries"]);
+  });
+
+  it("resolves exact account matches from id, name, code, or composed label", () => {
+    const accounts = [
+      { code: "1000", id: "acct-checking", name: "Checking", type: "asset" as const },
+      { code: "6100", id: "acct-expense-groceries", name: "Groceries", type: "expense" as const },
+    ];
+
+    expect(
+      findAccountSearchExactMatch({
+        accounts,
+        query: "acct-checking",
+      })?.id,
+    ).toBe("acct-checking");
+    expect(
+      findAccountSearchExactMatch({
+        accounts,
+        query: "groceries",
+      })?.id,
+    ).toBe("acct-expense-groceries");
+    expect(
+      findAccountSearchExactMatch({
+        accounts,
+        query: "6100",
+      })?.id,
+    ).toBe("acct-expense-groceries");
+    expect(
+      findAccountSearchExactMatch({
+        accounts,
+        query: "Checking (1000)",
+      })?.id,
+    ).toBe("acct-checking");
   });
 
   it("builds reconciliation matching state with cleared totals and latest session", () => {

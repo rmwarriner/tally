@@ -575,6 +575,60 @@ th {
   background: rgba(255, 250, 241, 0.8);
 }
 
+.account-search-field {
+  position: relative;
+}
+
+.account-search-menu {
+  position: absolute;
+  top: calc(100% + 6px);
+  left: 0;
+  right: 0;
+  z-index: 4;
+  display: grid;
+  gap: 6px;
+  max-height: 220px;
+  overflow-y: auto;
+  padding: 8px;
+  border: 1px solid rgba(201, 193, 180, 0.8);
+  border-radius: 12px;
+  background: rgba(255, 250, 241, 0.98);
+  box-shadow: 0 16px 30px rgba(76, 65, 43, 0.12);
+}
+
+.account-search-option,
+.account-search-empty {
+  width: 100%;
+  display: grid;
+  gap: 4px;
+  padding: 10px 12px;
+  border-radius: 10px;
+  text-align: left;
+}
+
+.account-search-option {
+  border: 1px solid transparent;
+  background: transparent;
+  color: inherit;
+}
+
+.account-search-option span,
+.account-search-empty {
+  color: var(--text-muted);
+  font-size: 12px;
+  font-family: var(--mono-font);
+}
+
+.account-search-option.active,
+.account-search-option:hover {
+  background: #fff1cf;
+  border-color: rgba(181, 129, 40, 0.32);
+}
+
+.account-search-empty {
+  background: #f3ebdb;
+}
+
 .posting-editor-row {
   display: flex;
   align-items: center;

@@ -15,6 +15,8 @@ import {
   type WorkspaceResponse,
 } from "./api";
 import {
+  findAccountSearchExactMatch,
+  getAccountSearchMatches,
   createReconciliationWorkspaceModel,
   createLedgerWorkspaceModel,
   createOverviewCards,
@@ -35,6 +37,7 @@ const workspaceId = "workspace-household-demo";
 
 interface TransactionEditorPosting {
   accountId: string;
+  accountQuery: string;
   amount: string;
   cleared: boolean;
   memo: string;
@@ -69,6 +72,10 @@ function createEntityId(prefix: string): string {
   return `${prefix}-${Date.now()}`;
 }
 
+function formatAccountOptionLabel(account: WorkspaceResponse["workspace"]["accounts"][number]): string {
+  return account.code ? `${account.name} (${account.code})` : account.name;
+}
+
 function parseCsvRows(csvText: string) {
   return csvText
     .split("\n")
@@ -87,17 +94,25 @@ function parseCsvRows(csvText: string) {
     });
 }
 
-function createTransactionEditorState(transaction: WorkspaceResponse["workspace"]["transactions"][number]): TransactionEditorState {
+function createTransactionEditorState(
+  transaction: WorkspaceResponse["workspace"]["transactions"][number],
+  accounts: WorkspaceResponse["workspace"]["accounts"],
+): TransactionEditorState {
   return {
     description: transaction.description,
     occurredOn: transaction.occurredOn,
     payee: transaction.payee ?? "",
-    postings: transaction.postings.map((posting) => ({
-      accountId: posting.accountId,
-      amount: String(posting.amount.quantity),
-      cleared: Boolean(posting.cleared),
-      memo: posting.memo ?? "",
-    })),
+    postings: transaction.postings.map((posting) => {
+      const account = accounts.find((candidate) => candidate.id === posting.accountId);
+
+      return {
+        accountId: posting.accountId,
+        accountQuery: account ? formatAccountOptionLabel(account) : posting.accountId,
+        amount: String(posting.amount.quantity),
+        cleared: Boolean(posting.cleared),
+        memo: posting.memo ?? "",
+      };
+    }),
     tags: transaction.tags?.join(", ") ?? "",
     transactionId: transaction.id,
   };
@@ -167,6 +182,10 @@ export function App() {
   const [selectedLedgerAccountId, setSelectedLedgerAccountId] = useState<string | null>(null);
   const [selectedLedgerTransactionId, setSelectedLedgerTransactionId] = useState<string | null>(null);
   const [transactionEditor, setTransactionEditor] = useState<TransactionEditorState | null>(null);
+  const [activePostingAccountSearchIndex, setActivePostingAccountSearchIndex] = useState<number | null>(
+    null,
+  );
+  const [highlightedPostingAccountMatchIndex, setHighlightedPostingAccountMatchIndex] = useState(0);
   const [pendingPostingFocusTarget, setPendingPostingFocusTarget] = useState<{
     field: PostingFocusField;
     focusIndex: number;
@@ -178,7 +197,7 @@ export function App() {
   const [busy, setBusy] = useState<string | null>(null);
   const [statusMessage, setStatusMessage] = useState<string | null>(null);
   const ledgerSearchInputRef = useRef<HTMLInputElement | null>(null);
-  const postingAccountInputRefs = useRef<Array<HTMLSelectElement | null>>([]);
+  const postingAccountInputRefs = useRef<Array<HTMLInputElement | null>>([]);
   const postingAmountInputRefs = useRef<Array<HTMLInputElement | null>>([]);
   const postingMemoInputRefs = useRef<Array<HTMLInputElement | null>>([]);
 
@@ -400,6 +419,7 @@ export function App() {
   useEffect(() => {
     if (!selectedTransactionRecord) {
       setTransactionEditor(null);
+      setActivePostingAccountSearchIndex(null);
       return;
     }
 
@@ -408,9 +428,9 @@ export function App() {
         return current;
       }
 
-      return createTransactionEditorState(selectedTransactionRecord);
+      return createTransactionEditorState(selectedTransactionRecord, loadedWorkspace.accounts);
     });
-  }, [selectedTransactionRecord]);
+  }, [loadedWorkspace.accounts, selectedTransactionRecord]);
 
   useEffect(() => {
     if (!pendingPostingFocusTarget) {
@@ -449,17 +469,21 @@ export function App() {
       }
 
       const nextIndex = current.postings.length;
+      const defaultAccount = loadedWorkspace.accounts[0];
       setPendingPostingFocusTarget({
         field: "account",
         focusIndex: nextIndex,
       });
+      setActivePostingAccountSearchIndex(nextIndex);
+      setHighlightedPostingAccountMatchIndex(0);
 
       return {
         ...current,
         postings: [
           ...current.postings,
           {
-            accountId: loadedWorkspace.accounts[0]?.id ?? "",
+            accountId: defaultAccount?.id ?? "",
+            accountQuery: defaultAccount ? formatAccountOptionLabel(defaultAccount) : "",
             amount: "0",
             cleared: false,
             memo: "",
@@ -492,6 +516,8 @@ export function App() {
         field: "account",
         focusIndex: targetIndex,
       });
+      setActivePostingAccountSearchIndex(targetIndex);
+      setHighlightedPostingAccountMatchIndex(0);
 
       return {
         ...current,
@@ -506,7 +532,62 @@ export function App() {
       return;
     }
 
-    setTransactionEditor(createTransactionEditorState(selectedTransactionRecord));
+    setTransactionEditor(createTransactionEditorState(selectedTransactionRecord, loadedWorkspace.accounts));
+    setActivePostingAccountSearchIndex(null);
+    setHighlightedPostingAccountMatchIndex(0);
+  }
+
+  function updatePostingAccountSearch(index: number, nextQuery: string) {
+    const exactMatch = findAccountSearchExactMatch({
+      accounts: loadedWorkspace.accounts,
+      query: nextQuery,
+    });
+
+    setTransactionEditor((current) =>
+      current
+        ? {
+            ...current,
+            postings: current.postings.map((candidate, candidateIndex) =>
+              candidateIndex === index
+                ? {
+                    ...candidate,
+                    accountId: exactMatch?.id ?? "",
+                    accountQuery: nextQuery,
+                  }
+                : candidate,
+            ),
+          }
+        : current,
+    );
+    setActivePostingAccountSearchIndex(index);
+    setHighlightedPostingAccountMatchIndex(0);
+  }
+
+  function selectPostingAccount(index: number, accountId: string) {
+    const account = loadedWorkspace.accounts.find((candidate) => candidate.id === accountId);
+
+    if (!account) {
+      return;
+    }
+
+    setTransactionEditor((current) =>
+      current
+        ? {
+            ...current,
+            postings: current.postings.map((candidate, candidateIndex) =>
+              candidateIndex === index
+                ? {
+                    ...candidate,
+                    accountId: account.id,
+                    accountQuery: formatAccountOptionLabel(account),
+                  }
+                : candidate,
+            ),
+          }
+        : current,
+    );
+    setActivePostingAccountSearchIndex(null);
+    setHighlightedPostingAccountMatchIndex(0);
   }
 
   async function saveTransactionEditor() {
@@ -1890,16 +1971,41 @@ export function App() {
                     />
                   </label>
                   <div className="detail-stack">
-                    {transactionEditor.postings.map((posting, index) => (
-                      <div key={`${transactionEditor.transactionId}:posting:${index}`} className="posting-card">
+                    {transactionEditor.postings.map((posting, index) => {
+                      const accountMatches = getAccountSearchMatches({
+                        accounts: loadedWorkspace.accounts,
+                        query: posting.accountQuery,
+                        selectedAccountId: posting.accountId,
+                      });
+                      const highlightedMatch =
+                        accountMatches[
+                          Math.min(highlightedPostingAccountMatchIndex, Math.max(accountMatches.length - 1, 0))
+                        ] ?? null;
+
+                      return (
+                        <div key={`${transactionEditor.transactionId}:posting:${index}`} className="posting-card">
                         <div className="form-inline">
-                          <label>
+                          <label className="account-search-field">
                             Account
-                            <select
+                            <input
                               ref={(element) => {
                                 postingAccountInputRefs.current[index] = element;
                               }}
-                              value={posting.accountId}
+                              value={posting.accountQuery}
+                              placeholder="Search by name, code, or id"
+                              role="combobox"
+                              aria-autocomplete="list"
+                              aria-expanded={activePostingAccountSearchIndex === index}
+                              aria-controls={`posting-account-options-${index}`}
+                              onFocus={() => {
+                                setActivePostingAccountSearchIndex(index);
+                                setHighlightedPostingAccountMatchIndex(0);
+                              }}
+                              onBlur={() => {
+                                setActivePostingAccountSearchIndex((current) =>
+                                  current === index ? null : current,
+                                );
+                              }}
                               onKeyDown={(event) => {
                                 if (event.altKey && event.key === "ArrowUp") {
                                   event.preventDefault();
@@ -1913,11 +2019,39 @@ export function App() {
                                   return;
                                 }
 
+                                if (event.key === "ArrowDown") {
+                                  event.preventDefault();
+                                  setActivePostingAccountSearchIndex(index);
+                                  setHighlightedPostingAccountMatchIndex((current) =>
+                                    Math.min(current + 1, Math.max(accountMatches.length - 1, 0)),
+                                  );
+                                  return;
+                                }
+
+                                if (event.key === "ArrowUp") {
+                                  event.preventDefault();
+                                  setActivePostingAccountSearchIndex(index);
+                                  setHighlightedPostingAccountMatchIndex((current) =>
+                                    Math.max(current - 1, 0),
+                                  );
+                                  return;
+                                }
+
                                 if (event.key !== "Enter" || event.ctrlKey || event.metaKey || event.shiftKey) {
+                                  if (event.key === "Escape") {
+                                    setActivePostingAccountSearchIndex(null);
+                                  }
                                   return;
                                 }
 
                                 event.preventDefault();
+
+                                if (highlightedMatch) {
+                                  selectPostingAccount(index, highlightedMatch.account.id);
+                                } else if (!posting.accountId.trim()) {
+                                  return;
+                                }
+
                                 const nextTarget = getNextPostingFocusTarget({
                                   field: "account",
                                   postingCount: transactionEditor.postings.length,
@@ -1928,27 +2062,40 @@ export function App() {
                                   focusIndex: nextTarget.focusIndex,
                                 });
                               }}
-                              onChange={(event) =>
-                                setTransactionEditor((current) =>
-                                  current
-                                    ? {
-                                        ...current,
-                                        postings: current.postings.map((candidate, candidateIndex) =>
-                                          candidateIndex === index
-                                            ? { ...candidate, accountId: event.target.value }
-                                            : candidate,
-                                        ),
-                                      }
-                                    : current,
-                                )
-                              }
-                            >
-                              {loadedWorkspace.accounts.map((account) => (
-                                <option key={account.id} value={account.id}>
-                                  {account.name}
-                                </option>
-                              ))}
-                            </select>
+                              onChange={(event) => updatePostingAccountSearch(index, event.target.value)}
+                            />
+                            {activePostingAccountSearchIndex === index ? (
+                              <div
+                                id={`posting-account-options-${index}`}
+                                className="account-search-menu"
+                                role="listbox"
+                              >
+                                {accountMatches.length > 0 ? (
+                                  accountMatches.map((match, matchIndex) => (
+                                    <button
+                                      key={match.account.id}
+                                      className={`account-search-option${
+                                        matchIndex === highlightedPostingAccountMatchIndex ? " active" : ""
+                                      }`}
+                                      type="button"
+                                      onMouseDown={(event) => {
+                                        event.preventDefault();
+                                        selectPostingAccount(index, match.account.id);
+                                        setPendingPostingFocusTarget({
+                                          field: "amount",
+                                          focusIndex: index,
+                                        });
+                                      }}
+                                    >
+                                      <strong>{match.label}</strong>
+                                      <span>{match.meta}</span>
+                                    </button>
+                                  ))
+                                ) : (
+                                  <div className="account-search-empty">No matching accounts.</div>
+                                )}
+                              </div>
+                            ) : null}
                           </label>
                           <label>
                             Signed amount
@@ -2098,7 +2245,7 @@ export function App() {
                           <button
                             disabled={transactionEditor.postings.length <= 2}
                             type="button"
-                            onClick={() =>
+                            onClick={() => {
                               setTransactionEditor((current) =>
                                 current
                                   ? {
@@ -2108,14 +2255,26 @@ export function App() {
                                       ),
                                     }
                                   : current,
-                              )
-                            }
+                              );
+                              setActivePostingAccountSearchIndex((current) => {
+                                if (current === null) {
+                                  return current;
+                                }
+
+                                if (current === index) {
+                                  return null;
+                                }
+
+                                return current > index ? current - 1 : current;
+                              });
+                            }}
                           >
                             Remove posting
                           </button>
                         </div>
                       </div>
-                    ))}
+                      );
+                    })}
                   </div>
                   <button
                     type="button"

@@ -83,6 +83,133 @@ export interface ReconciliationWorkspaceModel {
   statementBalance: number | null;
 }
 
+export interface AccountSearchMatch {
+  account: FinanceWorkspaceDocument["accounts"][number];
+  label: string;
+  meta: string;
+}
+
+function normalizeAccountSearchValue(value: string): string {
+  return value.trim().toLowerCase();
+}
+
+function getAccountSearchLabel(account: FinanceWorkspaceDocument["accounts"][number]): string {
+  return account.code ? `${account.name} (${account.code})` : account.name;
+}
+
+function getAccountSearchMeta(account: FinanceWorkspaceDocument["accounts"][number]): string {
+  return [account.type, account.id].filter(Boolean).join(" · ");
+}
+
+function scoreAccountSearchMatch(input: {
+  account: FinanceWorkspaceDocument["accounts"][number];
+  query: string;
+}): number {
+  if (!input.query) {
+    return 0;
+  }
+
+  const name = normalizeAccountSearchValue(input.account.name);
+  const code = normalizeAccountSearchValue(input.account.code ?? "");
+  const id = normalizeAccountSearchValue(input.account.id);
+  const type = normalizeAccountSearchValue(input.account.type);
+
+  if (name === input.query || code === input.query || id === input.query) {
+    return 400;
+  }
+
+  if (name.startsWith(input.query)) {
+    return 300;
+  }
+
+  if (code.startsWith(input.query)) {
+    return 260;
+  }
+
+  if (id.startsWith(input.query)) {
+    return 220;
+  }
+
+  if (name.includes(input.query)) {
+    return 180;
+  }
+
+  if (code.includes(input.query)) {
+    return 150;
+  }
+
+  if (type.includes(input.query) || id.includes(input.query)) {
+    return 100;
+  }
+
+  return -1;
+}
+
+export function findAccountSearchExactMatch(input: {
+  accounts: FinanceWorkspaceDocument["accounts"];
+  query: string;
+}): FinanceWorkspaceDocument["accounts"][number] | null {
+  const query = normalizeAccountSearchValue(input.query);
+
+  if (!query) {
+    return null;
+  }
+
+  return (
+    input.accounts.find((account) => {
+      const values = [
+        account.id,
+        account.name,
+        account.code ?? "",
+        getAccountSearchLabel(account),
+      ].map(normalizeAccountSearchValue);
+
+      return values.includes(query);
+    }) ?? null
+  );
+}
+
+export function getAccountSearchMatches(input: {
+  accounts: FinanceWorkspaceDocument["accounts"];
+  limit?: number;
+  query: string;
+  selectedAccountId?: string | null;
+}): AccountSearchMatch[] {
+  const query = normalizeAccountSearchValue(input.query);
+  const matches = input.accounts
+    .map((account) => ({
+      account,
+      score: scoreAccountSearchMatch({
+        account,
+        query,
+      }),
+    }))
+    .filter(({ score }) => (query ? score >= 0 : true))
+    .sort((left, right) => {
+      if (input.selectedAccountId) {
+        const leftSelected = left.account.id === input.selectedAccountId;
+        const rightSelected = right.account.id === input.selectedAccountId;
+
+        if (leftSelected !== rightSelected) {
+          return leftSelected ? -1 : 1;
+        }
+      }
+
+      if (left.score !== right.score) {
+        return right.score - left.score;
+      }
+
+      return left.account.name.localeCompare(right.account.name);
+    })
+    .slice(0, input.limit ?? 8);
+
+  return matches.map(({ account }) => ({
+    account,
+    label: getAccountSearchLabel(account),
+    meta: getAccountSearchMeta(account),
+  }));
+}
+
 export function getLedgerSelectionIndex(input: {
   selectedTransactionId: string | null;
   transactions: LedgerTransactionDetail[];
