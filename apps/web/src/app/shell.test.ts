@@ -3,7 +3,9 @@ import {
   createReconciliationWorkspaceModel,
   createLedgerWorkspaceModel,
   createOverviewCards,
+  getNextPostingAmountFocusTarget,
   getNextLedgerTransactionId,
+  getTransactionEditorHotkeyAction,
   getLedgerSelectionIndex,
   getWorkspaceViewDefinition,
   shouldHandleLedgerHotkey,
@@ -229,6 +231,58 @@ describe("web shell view model", () => {
     expect(shouldHandleLedgerHotkey({ tagName: "DIV" } as unknown as EventTarget)).toBe(true);
     expect(shouldHandleLedgerHotkey({ tagName: "INPUT" } as unknown as EventTarget)).toBe(false);
     expect(shouldHandleLedgerHotkey({ tagName: "TEXTAREA" } as unknown as EventTarget)).toBe(false);
+  });
+
+  it("maps transaction editor shortcuts to save and reset actions", () => {
+    expect(
+      getTransactionEditorHotkeyAction({
+        ctrlKey: true,
+        key: "s",
+        metaKey: false,
+      }),
+    ).toBe("save");
+    expect(
+      getTransactionEditorHotkeyAction({
+        ctrlKey: false,
+        key: "Enter",
+        metaKey: true,
+      }),
+    ).toBe("save");
+    expect(
+      getTransactionEditorHotkeyAction({
+        ctrlKey: false,
+        key: "Escape",
+        metaKey: false,
+      }),
+    ).toBe("reset");
+    expect(
+      getTransactionEditorHotkeyAction({
+        ctrlKey: false,
+        key: "Enter",
+        metaKey: false,
+      }),
+    ).toBeNull();
+  });
+
+  it("computes next posting amount focus targets for inline editing", () => {
+    expect(
+      getNextPostingAmountFocusTarget({
+        postingCount: 3,
+        postingIndex: 0,
+      }),
+    ).toEqual({
+      addPosting: false,
+      focusIndex: 1,
+    });
+    expect(
+      getNextPostingAmountFocusTarget({
+        postingCount: 3,
+        postingIndex: 2,
+      }),
+    ).toEqual({
+      addPosting: true,
+      focusIndex: 3,
+    });
   });
 
   it("builds reconciliation matching state with cleared totals and latest session", () => {

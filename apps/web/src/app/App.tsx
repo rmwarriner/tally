@@ -18,7 +18,9 @@ import {
   createReconciliationWorkspaceModel,
   createLedgerWorkspaceModel,
   createOverviewCards,
+  getNextPostingAmountFocusTarget,
   getNextLedgerTransactionId,
+  getTransactionEditorHotkeyAction,
   getWorkspaceViewDefinition,
   shouldHandleLedgerHotkey,
   type WorkspaceView,
@@ -163,6 +165,7 @@ export function App() {
   const [selectedLedgerAccountId, setSelectedLedgerAccountId] = useState<string | null>(null);
   const [selectedLedgerTransactionId, setSelectedLedgerTransactionId] = useState<string | null>(null);
   const [transactionEditor, setTransactionEditor] = useState<TransactionEditorState | null>(null);
+  const [pendingPostingAmountFocusIndex, setPendingPostingAmountFocusIndex] = useState<number | null>(null);
   const [dashboard, setDashboard] = useState<DashboardResponse["dashboard"] | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
@@ -170,6 +173,7 @@ export function App() {
   const [busy, setBusy] = useState<string | null>(null);
   const [statusMessage, setStatusMessage] = useState<string | null>(null);
   const ledgerSearchInputRef = useRef<HTMLInputElement | null>(null);
+  const postingAmountInputRefs = useRef<Array<HTMLInputElement | null>>([]);
 
   const [transactionForm, setTransactionForm] = useState({
     amount: "65.00",
@@ -401,6 +405,15 @@ export function App() {
     });
   }, [selectedTransactionRecord]);
 
+  useEffect(() => {
+    if (pendingPostingAmountFocusIndex === null) {
+      return;
+    }
+
+    postingAmountInputRefs.current[pendingPostingAmountFocusIndex]?.focus();
+    setPendingPostingAmountFocusIndex(null);
+  }, [pendingPostingAmountFocusIndex, transactionEditor]);
+
   async function runMutation(label: string, operation: () => Promise<void>) {
     try {
       setBusy(label);
@@ -414,6 +427,70 @@ export function App() {
     } finally {
       setBusy(null);
     }
+  }
+
+  function addPostingToEditor() {
+    setTransactionEditor((current) => {
+      if (!current) {
+        return current;
+      }
+
+      const nextIndex = current.postings.length;
+      setPendingPostingAmountFocusIndex(nextIndex);
+
+      return {
+        ...current,
+        postings: [
+          ...current.postings,
+          {
+            accountId: loadedWorkspace.accounts[0]?.id ?? "",
+            amount: "0",
+            cleared: false,
+            memo: "",
+          },
+        ],
+      };
+    });
+  }
+
+  function resetTransactionEditorDraft() {
+    if (!selectedTransactionRecord) {
+      setTransactionEditor(null);
+      return;
+    }
+
+    setTransactionEditor(createTransactionEditorState(selectedTransactionRecord));
+  }
+
+  async function saveTransactionEditor() {
+    if (!transactionEditor || transactionEditorErrors.length > 0) {
+      return;
+    }
+
+    await runMutation("Transaction update", async () => {
+      await putTransaction(workspaceId, transactionEditor.transactionId, {
+        actor: "Primary",
+        transaction: {
+          description: transactionEditor.description.trim(),
+          id: transactionEditor.transactionId,
+          occurredOn: transactionEditor.occurredOn.trim(),
+          payee: transactionEditor.payee.trim() || undefined,
+          postings: transactionEditor.postings.map((posting) => ({
+            accountId: posting.accountId.trim(),
+            amount: {
+              commodityCode: loadedWorkspace.baseCommodityCode,
+              quantity: Number.parseFloat(posting.amount),
+            },
+            cleared: posting.cleared || undefined,
+            memo: posting.memo.trim() || undefined,
+          })),
+          tags: transactionEditor.tags
+            .split(",")
+            .map((tag) => tag.trim())
+            .filter(Boolean),
+        },
+      });
+    });
   }
 
   function renderMainPanels() {
@@ -1695,37 +1772,27 @@ export function App() {
               {transactionEditor ? (
                 <form
                   className="form-stack"
-                  onSubmit={(event) => {
-                    event.preventDefault();
+                  onKeyDown={(event) => {
+                    const action = getTransactionEditorHotkeyAction({
+                      ctrlKey: event.ctrlKey,
+                      key: event.key,
+                      metaKey: event.metaKey,
+                    });
 
-                    if (!transactionEditor || transactionEditorErrors.length > 0) {
+                    if (action === "reset") {
+                      event.preventDefault();
+                      resetTransactionEditorDraft();
                       return;
                     }
 
-                    void runMutation("Transaction update", async () => {
-                      await putTransaction(workspaceId, transactionEditor.transactionId, {
-                        actor: "Primary",
-                        transaction: {
-                          description: transactionEditor.description.trim(),
-                          id: transactionEditor.transactionId,
-                          occurredOn: transactionEditor.occurredOn.trim(),
-                          payee: transactionEditor.payee.trim() || undefined,
-                          postings: transactionEditor.postings.map((posting) => ({
-                            accountId: posting.accountId.trim(),
-                            amount: {
-                              commodityCode: loadedWorkspace.baseCommodityCode,
-                              quantity: Number.parseFloat(posting.amount),
-                            },
-                            cleared: posting.cleared || undefined,
-                            memo: posting.memo.trim() || undefined,
-                          })),
-                          tags: transactionEditor.tags
-                            .split(",")
-                            .map((tag) => tag.trim())
-                            .filter(Boolean),
-                        },
-                      });
-                    });
+                    if (action === "save") {
+                      event.preventDefault();
+                      void saveTransactionEditor();
+                    }
+                  }}
+                  onSubmit={(event) => {
+                    event.preventDefault();
+                    void saveTransactionEditor();
                   }}
                 >
                   <label>
@@ -1808,7 +1875,28 @@ export function App() {
                           <label>
                             Signed amount
                             <input
+                              ref={(element) => {
+                                postingAmountInputRefs.current[index] = element;
+                              }}
                               value={posting.amount}
+                              onKeyDown={(event) => {
+                                if (event.key !== "Enter" || event.ctrlKey || event.metaKey || event.shiftKey) {
+                                  return;
+                                }
+
+                                event.preventDefault();
+                                const nextTarget = getNextPostingAmountFocusTarget({
+                                  postingCount: transactionEditor.postings.length,
+                                  postingIndex: index,
+                                });
+
+                                if (nextTarget.addPosting) {
+                                  addPostingToEditor();
+                                  return;
+                                }
+
+                                postingAmountInputRefs.current[nextTarget.focusIndex]?.focus();
+                              }}
                               onChange={(event) =>
                                 setTransactionEditor((current) =>
                                   current
@@ -1892,27 +1980,13 @@ export function App() {
                   </div>
                   <button
                     type="button"
-                    onClick={() =>
-                      setTransactionEditor((current) =>
-                        current
-                          ? {
-                              ...current,
-                              postings: [
-                                ...current.postings,
-                                {
-                                  accountId: loadedWorkspace.accounts[0]?.id ?? "",
-                                  amount: "0",
-                                  cleared: false,
-                                  memo: "",
-                                },
-                              ],
-                            }
-                          : current,
-                      )
-                    }
+                    onClick={() => addPostingToEditor()}
                   >
                     Add posting
                   </button>
+                  <p className="form-hint">
+                    Shortcuts: `Ctrl/Cmd+S` save, `Ctrl/Cmd+Enter` save, `Esc` reset, `Enter` in amount moves to the next posting
+                  </p>
                   {transactionEditorErrors.length > 0 ? (
                     <div className="error-stack">
                       {transactionEditorErrors.map((issue) => (
@@ -1929,11 +2003,7 @@ export function App() {
                   <div className="posting-editor-row">
                     <button
                       type="button"
-                      onClick={() =>
-                        selectedTransactionRecord
-                          ? setTransactionEditor(createTransactionEditorState(selectedTransactionRecord))
-                          : setTransactionEditor(null)
-                      }
+                      onClick={() => resetTransactionEditorDraft()}
                     >
                       Reset draft
                     </button>

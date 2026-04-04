@@ -143,6 +143,41 @@ export function shouldHandleLedgerHotkey(target: EventTarget | null): boolean {
   return !candidate.isContentEditable;
 }
 
+export function getTransactionEditorHotkeyAction(input: {
+  ctrlKey: boolean;
+  key: string;
+  metaKey: boolean;
+}): "reset" | "save" | null {
+  const normalizedKey = input.key.toLowerCase();
+
+  if (normalizedKey === "escape") {
+    return "reset";
+  }
+
+  if ((input.ctrlKey || input.metaKey) && (normalizedKey === "s" || normalizedKey === "enter")) {
+    return "save";
+  }
+
+  return null;
+}
+
+export function getNextPostingAmountFocusTarget(input: {
+  postingCount: number;
+  postingIndex: number;
+}): { addPosting: boolean; focusIndex: number } {
+  if (input.postingIndex >= input.postingCount - 1) {
+    return {
+      addPosting: true,
+      focusIndex: input.postingCount,
+    };
+  }
+
+  return {
+    addPosting: false,
+    focusIndex: input.postingIndex + 1,
+  };
+}
+
 function getTransactionAmountForAccount(
   transaction: FinanceWorkspaceDocument["transactions"][number],
   accountId: string,
