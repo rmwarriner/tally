@@ -87,6 +87,7 @@ export interface AccountSearchMatch {
   account: FinanceWorkspaceDocument["accounts"][number];
   label: string;
   meta: string;
+  recommended: boolean;
 }
 
 function normalizeAccountSearchValue(value: string): string {
@@ -99,6 +100,16 @@ function getAccountSearchLabel(account: FinanceWorkspaceDocument["accounts"][num
 
 function getAccountSearchMeta(account: FinanceWorkspaceDocument["accounts"][number]): string {
   return [account.type, account.id].filter(Boolean).join(" · ");
+}
+
+export function getPreferredAccountTypesForPostingAmount(amountText: string): string[] {
+  const amount = Number.parseFloat(amountText);
+
+  if (!Number.isFinite(amount) || amount === 0) {
+    return [];
+  }
+
+  return amount > 0 ? ["asset", "expense"] : ["liability", "equity", "income"];
 }
 
 function scoreAccountSearchMatch(input: {
@@ -172,13 +183,18 @@ export function findAccountSearchExactMatch(input: {
 export function getAccountSearchMatches(input: {
   accounts: FinanceWorkspaceDocument["accounts"];
   limit?: number;
+  preferredAccountTypes?: string[];
   query: string;
   selectedAccountId?: string | null;
 }): AccountSearchMatch[] {
   const query = normalizeAccountSearchValue(input.query);
+  const preferredTypes = new Set(
+    (input.preferredAccountTypes ?? []).map((type) => normalizeAccountSearchValue(type)),
+  );
   const matches = input.accounts
     .map((account) => ({
       account,
+      preferred: preferredTypes.has(normalizeAccountSearchValue(account.type)),
       score: scoreAccountSearchMatch({
         account,
         query,
@@ -199,14 +215,19 @@ export function getAccountSearchMatches(input: {
         return right.score - left.score;
       }
 
+      if (left.preferred !== right.preferred) {
+        return left.preferred ? -1 : 1;
+      }
+
       return left.account.name.localeCompare(right.account.name);
     })
     .slice(0, input.limit ?? 8);
 
-  return matches.map(({ account }) => ({
+  return matches.map(({ account, preferred }) => ({
     account,
     label: getAccountSearchLabel(account),
     meta: getAccountSearchMeta(account),
+    recommended: preferred,
   }));
 }
 

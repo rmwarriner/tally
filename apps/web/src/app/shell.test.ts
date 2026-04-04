@@ -9,6 +9,7 @@ import {
   getNextPostingFocusTarget,
   getNextLedgerTransactionId,
   getTransactionEditorHotkeyAction,
+  getPreferredAccountTypesForPostingAmount,
   getLedgerSelectionIndex,
   getWorkspaceViewDefinition,
   movePostingIndex,
@@ -347,6 +348,7 @@ describe("web shell view model", () => {
       { code: "1000", id: "acct-checking", name: "Checking", type: "asset" as const },
       { code: "1010", id: "acct-savings", name: "Savings", type: "asset" as const },
       { code: "6100", id: "acct-expense-groceries", name: "Groceries", type: "expense" as const },
+      { code: "2100", id: "acct-credit-card", name: "Credit Card", type: "liability" as const },
     ];
 
     expect(
@@ -362,7 +364,22 @@ describe("web shell view model", () => {
         query: "",
         selectedAccountId: "acct-savings",
       }).map((match) => match.account.id),
-    ).toEqual(["acct-savings", "acct-checking", "acct-expense-groceries"]);
+    ).toEqual(["acct-savings", "acct-checking", "acct-credit-card", "acct-expense-groceries"]);
+    expect(
+      getAccountSearchMatches({
+        accounts,
+        preferredAccountTypes: ["liability"],
+        query: "",
+      }).map((match) => ({
+        id: match.account.id,
+        recommended: match.recommended,
+      })),
+    ).toEqual([
+      { id: "acct-credit-card", recommended: true },
+      { id: "acct-checking", recommended: false },
+      { id: "acct-expense-groceries", recommended: false },
+      { id: "acct-savings", recommended: false },
+    ]);
   });
 
   it("resolves exact account matches from id, name, code, or composed label", () => {
@@ -395,6 +412,17 @@ describe("web shell view model", () => {
         query: "Checking (1000)",
       })?.id,
     ).toBe("acct-checking");
+  });
+
+  it("maps posting amount direction to preferred account types", () => {
+    expect(getPreferredAccountTypesForPostingAmount("25")).toEqual(["asset", "expense"]);
+    expect(getPreferredAccountTypesForPostingAmount("-25")).toEqual([
+      "liability",
+      "equity",
+      "income",
+    ]);
+    expect(getPreferredAccountTypesForPostingAmount("0")).toEqual([]);
+    expect(getPreferredAccountTypesForPostingAmount("not-a-number")).toEqual([]);
   });
 
   it("builds reconciliation matching state with cleared totals and latest session", () => {
