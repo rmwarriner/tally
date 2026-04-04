@@ -86,6 +86,7 @@ Typed configuration and API error-handling standards are documented in [docs/con
 - Current project status: [docs/project-status.md](/Users/robert/Projects/gnucash-ng/docs/project-status.md)
 - Engineering standards roadmap: [docs/engineering-roadmap.md](/Users/robert/Projects/gnucash-ng/docs/engineering-roadmap.md)
 - Git workflow: [docs/git-workflow.md](/Users/robert/Projects/gnucash-ng/docs/git-workflow.md)
+- Native desktop wrapper assessment: [docs/native-desktop-assessment.md](/Users/robert/Projects/gnucash-ng/docs/native-desktop-assessment.md)
 - GitHub roadmap project: `https://github.com/users/rmwarriner/projects/1`
 
 Ideas that are not ready for roadmap execution should stay in a separate GitHub issue inbox with the `idea` label until they are clear enough to prioritize. The promotion rule is documented in [docs/git-workflow.md](/Users/robert/Projects/gnucash-ng/docs/git-workflow.md).

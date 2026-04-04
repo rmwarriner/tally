@@ -17,6 +17,7 @@ This repository currently includes:
 - GitHub issue and PR templates for idea intake, roadmap work, bug reports, refactors, and pull requests
 - documented weekly roadmap review cadence and direct-to-`main` exception for small admin/docs changes
 - repo-local Codex plugin scaffolds for GitHub roadmap work, workspace health checks, and financial-boundary review
+- first-pass native desktop wrapper assessment for the desktop shell, with a Tauri-first recommendation and Electron fallback criteria
 
 ## Completed
 
@@ -103,3 +104,4 @@ This repository currently includes:
 
 - extract the mobile quick-transaction and quick-envelope cards into dedicated components so `apps/mobile/src/App.tsx` becomes mostly screen composition and API orchestration
 - keep GitHub roadmap issues, milestones, and the `GnuCash NG Roadmap` project board aligned as execution moves forward
+- keep native desktop wrapper work in idea/discovery state until a bounded wrapper spike is ready to prove local launch, file access, and local API coordination
