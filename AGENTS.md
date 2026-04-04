@@ -67,6 +67,7 @@ Branch workflow for this repository:
 - commit and push at reasonable milestones instead of batching too much local work
 - run `pnpm ci:verify` before merge when the change is broad enough to justify it
 - prefer squash merges and avoid direct pushes to `main`
+- verify Git state sequentially after push operations to avoid misleading stale status output
 
 See [docs/git-workflow.md](/Users/robert/Projects/gnucash-ng/docs/git-workflow.md) for the full workflow.
 

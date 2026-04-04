@@ -73,6 +73,8 @@ Promote an idea to the roadmap only when:
 - push the working branch after meaningful verified progress, even before the final PR is ready
 - prefer small, reviewable commits that preserve a clear implementation story
 - avoid waiting until the end of a long session to save all local work
+- verify Git state sequentially after commit and push operations instead of running `git push` and `git status` in parallel
+- after a push, run a fresh `git status --short --branch`; if needed, confirm with `git rev-parse HEAD` and `git rev-parse origin/main`
 
 ## Local Workflow
 
