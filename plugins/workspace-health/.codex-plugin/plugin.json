@@ -17,6 +17,7 @@
     "health"
   ],
   "skills": "./skills/",
+  "hooks": "./hooks.json",
   "interface": {
     "displayName": "Workspace Health",
     "shortDescription": "Runs and summarizes the repo's standard health checks.",
