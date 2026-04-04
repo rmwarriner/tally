@@ -22,14 +22,17 @@ Review the desktop shell with this sequence:
    - reports placeholder
 3. In ledger:
    - filter by account from the sidebar and balance cards
-   - search by description, payee, account, and memo
+   - change the date range and confirm the register updates to match
+   - search by description, payee, account, memo, tag, account code, and status
    - use `/`, `j`, `k`, arrow keys, and `Esc`
    - confirm row selection stays aligned with filters
+   - confirm transaction status is visible in the register and detail pane
 4. Open a transaction in the register detail pane:
    - edit description, date, payee, and tags
    - edit split accounts, amounts, memos, and cleared flags
    - add, remove, and reorder splits
    - use `Enter`, `Alt+Up`, `Alt+Down`, `Ctrl/Cmd+S`, and `Esc`
+   - confirm a new posting defaults to the remaining balancing amount
    - confirm balance validation blocks invalid saves
 5. In the account picker:
    - search by name

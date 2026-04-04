@@ -59,7 +59,7 @@ This repository currently includes:
 - web workspace reads now load through service-backed API calls
 - web transaction posting, transaction editing, CSV import, and reconciliation now write through service-backed API calls
 - web baseline budget editing, envelope setup/allocation, and schedule editing now write through service-backed API calls
-- web desktop shell now includes workspace navigation, ledger drill-down, keyboard register navigation, reconciliation matching, account autocomplete, and a fuller register detail pane
+- web desktop shell now includes workspace navigation, ledger drill-down, keyboard register navigation, account code/name search, account autocomplete, active-ledger balance context, transaction status display, date-range register filtering, reconciliation matching, and a fuller register detail pane
 - mobile workspace reads and dashboard reads now load through service-backed API calls
 - mobile envelope operations, transaction capture, schedule editing, due-schedule approvals, and schedule exceptions now write through the same authenticated service boundary
 - mobile reconciliation capture now records statement sessions through the same service boundary

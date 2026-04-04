@@ -32,7 +32,7 @@ This repository currently bootstraps:
 - a domain model for accounts, transactions, schedules, budgets, and envelopes
 - a workspace document model with write flows and file-backed persistence
 - a service layer with HTTP transport for workspace reads, writes, reconciliation, and CSV import
-- a desktop/web shell with workspace navigation, ledger drill-down, reconciliation matching, and inline transaction editing through the service boundary
+- a desktop/web shell with workspace navigation, ledger drill-down, status-aware register filtering, reconciliation matching, and inline transaction editing through the service boundary
 - a mobile shell that now connects to the same API for workspace reads, dashboard reads, transaction capture, reconciliation capture, schedule editing, approvals, exceptions, and envelope operations
 - a GitHub-backed roadmap with issues, milestones, and a project board for near-term execution planning
 - an architectural baseline for a ledger-first finance platform
