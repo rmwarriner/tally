@@ -178,6 +178,56 @@ export function getNextPostingAmountFocusTarget(input: {
   };
 }
 
+export type PostingFocusField = "account" | "amount" | "memo";
+
+export function getNextPostingFocusTarget(input: {
+  field: PostingFocusField;
+  postingCount: number;
+  postingIndex: number;
+}): { addPosting: boolean; field: PostingFocusField; focusIndex: number } {
+  if (input.field === "account") {
+    return {
+      addPosting: false,
+      field: "amount",
+      focusIndex: input.postingIndex,
+    };
+  }
+
+  if (input.field === "amount") {
+    return {
+      addPosting: false,
+      field: "memo",
+      focusIndex: input.postingIndex,
+    };
+  }
+
+  if (input.postingIndex >= input.postingCount - 1) {
+    return {
+      addPosting: true,
+      field: "account",
+      focusIndex: input.postingCount,
+    };
+  }
+
+  return {
+    addPosting: false,
+    field: "account",
+    focusIndex: input.postingIndex + 1,
+  };
+}
+
+export function movePostingIndex(input: {
+  direction: "up" | "down";
+  postingCount: number;
+  postingIndex: number;
+}): number {
+  if (input.direction === "up") {
+    return Math.max(0, input.postingIndex - 1);
+  }
+
+  return Math.min(input.postingCount - 1, input.postingIndex + 1);
+}
+
 function getTransactionAmountForAccount(
   transaction: FinanceWorkspaceDocument["transactions"][number],
   accountId: string,

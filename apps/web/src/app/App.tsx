@@ -18,10 +18,12 @@ import {
   createReconciliationWorkspaceModel,
   createLedgerWorkspaceModel,
   createOverviewCards,
-  getNextPostingAmountFocusTarget,
+  getNextPostingFocusTarget,
   getNextLedgerTransactionId,
   getTransactionEditorHotkeyAction,
   getWorkspaceViewDefinition,
+  movePostingIndex,
+  type PostingFocusField,
   shouldHandleLedgerHotkey,
   type WorkspaceView,
   workspaceViews,
@@ -165,7 +167,10 @@ export function App() {
   const [selectedLedgerAccountId, setSelectedLedgerAccountId] = useState<string | null>(null);
   const [selectedLedgerTransactionId, setSelectedLedgerTransactionId] = useState<string | null>(null);
   const [transactionEditor, setTransactionEditor] = useState<TransactionEditorState | null>(null);
-  const [pendingPostingAmountFocusIndex, setPendingPostingAmountFocusIndex] = useState<number | null>(null);
+  const [pendingPostingFocusTarget, setPendingPostingFocusTarget] = useState<{
+    field: PostingFocusField;
+    focusIndex: number;
+  } | null>(null);
   const [dashboard, setDashboard] = useState<DashboardResponse["dashboard"] | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
@@ -173,7 +178,9 @@ export function App() {
   const [busy, setBusy] = useState<string | null>(null);
   const [statusMessage, setStatusMessage] = useState<string | null>(null);
   const ledgerSearchInputRef = useRef<HTMLInputElement | null>(null);
+  const postingAccountInputRefs = useRef<Array<HTMLSelectElement | null>>([]);
   const postingAmountInputRefs = useRef<Array<HTMLInputElement | null>>([]);
+  const postingMemoInputRefs = useRef<Array<HTMLInputElement | null>>([]);
 
   const [transactionForm, setTransactionForm] = useState({
     amount: "65.00",
@@ -406,13 +413,19 @@ export function App() {
   }, [selectedTransactionRecord]);
 
   useEffect(() => {
-    if (pendingPostingAmountFocusIndex === null) {
+    if (!pendingPostingFocusTarget) {
       return;
     }
 
-    postingAmountInputRefs.current[pendingPostingAmountFocusIndex]?.focus();
-    setPendingPostingAmountFocusIndex(null);
-  }, [pendingPostingAmountFocusIndex, transactionEditor]);
+    const refsByField = {
+      account: postingAccountInputRefs.current,
+      amount: postingAmountInputRefs.current,
+      memo: postingMemoInputRefs.current,
+    };
+
+    refsByField[pendingPostingFocusTarget.field][pendingPostingFocusTarget.focusIndex]?.focus();
+    setPendingPostingFocusTarget(null);
+  }, [pendingPostingFocusTarget, transactionEditor]);
 
   async function runMutation(label: string, operation: () => Promise<void>) {
     try {
@@ -436,7 +449,10 @@ export function App() {
       }
 
       const nextIndex = current.postings.length;
-      setPendingPostingAmountFocusIndex(nextIndex);
+      setPendingPostingFocusTarget({
+        field: "account",
+        focusIndex: nextIndex,
+      });
 
       return {
         ...current,
@@ -449,6 +465,37 @@ export function App() {
             memo: "",
           },
         ],
+      };
+    });
+  }
+
+  function movePosting(direction: "up" | "down", postingIndex: number) {
+    setTransactionEditor((current) => {
+      if (!current) {
+        return current;
+      }
+
+      const targetIndex = movePostingIndex({
+        direction,
+        postingCount: current.postings.length,
+        postingIndex,
+      });
+
+      if (targetIndex === postingIndex) {
+        return current;
+      }
+
+      const nextPostings = [...current.postings];
+      const [movedPosting] = nextPostings.splice(postingIndex, 1);
+      nextPostings.splice(targetIndex, 0, movedPosting);
+      setPendingPostingFocusTarget({
+        field: "account",
+        focusIndex: targetIndex,
+      });
+
+      return {
+        ...current,
+        postings: nextPostings,
       };
     });
   }
@@ -1849,7 +1896,38 @@ export function App() {
                           <label>
                             Account
                             <select
+                              ref={(element) => {
+                                postingAccountInputRefs.current[index] = element;
+                              }}
                               value={posting.accountId}
+                              onKeyDown={(event) => {
+                                if (event.altKey && event.key === "ArrowUp") {
+                                  event.preventDefault();
+                                  movePosting("up", index);
+                                  return;
+                                }
+
+                                if (event.altKey && event.key === "ArrowDown") {
+                                  event.preventDefault();
+                                  movePosting("down", index);
+                                  return;
+                                }
+
+                                if (event.key !== "Enter" || event.ctrlKey || event.metaKey || event.shiftKey) {
+                                  return;
+                                }
+
+                                event.preventDefault();
+                                const nextTarget = getNextPostingFocusTarget({
+                                  field: "account",
+                                  postingCount: transactionEditor.postings.length,
+                                  postingIndex: index,
+                                });
+                                setPendingPostingFocusTarget({
+                                  field: nextTarget.field,
+                                  focusIndex: nextTarget.focusIndex,
+                                });
+                              }}
                               onChange={(event) =>
                                 setTransactionEditor((current) =>
                                   current
@@ -1880,12 +1958,25 @@ export function App() {
                               }}
                               value={posting.amount}
                               onKeyDown={(event) => {
+                                if (event.altKey && event.key === "ArrowUp") {
+                                  event.preventDefault();
+                                  movePosting("up", index);
+                                  return;
+                                }
+
+                                if (event.altKey && event.key === "ArrowDown") {
+                                  event.preventDefault();
+                                  movePosting("down", index);
+                                  return;
+                                }
+
                                 if (event.key !== "Enter" || event.ctrlKey || event.metaKey || event.shiftKey) {
                                   return;
                                 }
 
                                 event.preventDefault();
-                                const nextTarget = getNextPostingAmountFocusTarget({
+                                const nextTarget = getNextPostingFocusTarget({
+                                  field: "amount",
                                   postingCount: transactionEditor.postings.length,
                                   postingIndex: index,
                                 });
@@ -1895,7 +1986,10 @@ export function App() {
                                   return;
                                 }
 
-                                postingAmountInputRefs.current[nextTarget.focusIndex]?.focus();
+                                setPendingPostingFocusTarget({
+                                  field: nextTarget.field,
+                                  focusIndex: nextTarget.focusIndex,
+                                });
                               }}
                               onChange={(event) =>
                                 setTransactionEditor((current) =>
@@ -1917,7 +2011,44 @@ export function App() {
                         <label>
                           Memo
                           <input
+                            ref={(element) => {
+                              postingMemoInputRefs.current[index] = element;
+                            }}
                             value={posting.memo}
+                            onKeyDown={(event) => {
+                              if (event.altKey && event.key === "ArrowUp") {
+                                event.preventDefault();
+                                movePosting("up", index);
+                                return;
+                              }
+
+                              if (event.altKey && event.key === "ArrowDown") {
+                                event.preventDefault();
+                                movePosting("down", index);
+                                return;
+                              }
+
+                              if (event.key !== "Enter" || event.ctrlKey || event.metaKey || event.shiftKey) {
+                                return;
+                              }
+
+                              event.preventDefault();
+                              const nextTarget = getNextPostingFocusTarget({
+                                field: "memo",
+                                postingCount: transactionEditor.postings.length,
+                                postingIndex: index,
+                              });
+
+                              if (nextTarget.addPosting) {
+                                addPostingToEditor();
+                                return;
+                              }
+
+                              setPendingPostingFocusTarget({
+                                field: nextTarget.field,
+                                focusIndex: nextTarget.focusIndex,
+                              });
+                            }}
                             onChange={(event) =>
                               setTransactionEditor((current) =>
                                 current
@@ -1935,6 +2066,14 @@ export function App() {
                           />
                         </label>
                         <div className="posting-editor-row">
+                          <div className="posting-reorder-row">
+                            <button type="button" onClick={() => movePosting("up", index)}>
+                              Move up
+                            </button>
+                            <button type="button" onClick={() => movePosting("down", index)}>
+                              Move down
+                            </button>
+                          </div>
                           <label className="checkbox-row">
                             <input
                               checked={posting.cleared}
@@ -1985,7 +2124,7 @@ export function App() {
                     Add posting
                   </button>
                   <p className="form-hint">
-                    Shortcuts: `Ctrl/Cmd+S` save, `Ctrl/Cmd+Enter` save, `Esc` reset, `Enter` in amount moves to the next posting
+                    Shortcuts: `Ctrl/Cmd+S` save, `Ctrl/Cmd+Enter` save, `Esc` reset, `Enter` advances across posting fields, `Alt+Up/Down` reorders the current split
                   </p>
                   {transactionEditorErrors.length > 0 ? (
                     <div className="error-stack">

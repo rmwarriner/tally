@@ -583,6 +583,18 @@ th {
   margin-top: 10px;
 }
 
+.posting-reorder-row {
+  display: flex;
+  gap: 8px;
+}
+
+.posting-reorder-row button {
+  padding: 8px 10px;
+  border: 1px solid rgba(201, 193, 180, 0.7);
+  border-radius: 10px;
+  background: #fff7e8;
+}
+
 .error-stack {
   display: grid;
   gap: 6px;

@@ -4,10 +4,12 @@ import {
   createLedgerWorkspaceModel,
   createOverviewCards,
   getNextPostingAmountFocusTarget,
+  getNextPostingFocusTarget,
   getNextLedgerTransactionId,
   getTransactionEditorHotkeyAction,
   getLedgerSelectionIndex,
   getWorkspaceViewDefinition,
+  movePostingIndex,
   shouldHandleLedgerHotkey,
   workspaceViews,
 } from "./shell";
@@ -283,6 +285,59 @@ describe("web shell view model", () => {
       addPosting: true,
       focusIndex: 3,
     });
+  });
+
+  it("computes per-field posting focus flow across rows", () => {
+    expect(
+      getNextPostingFocusTarget({
+        field: "account",
+        postingCount: 2,
+        postingIndex: 0,
+      }),
+    ).toEqual({
+      addPosting: false,
+      field: "amount",
+      focusIndex: 0,
+    });
+    expect(
+      getNextPostingFocusTarget({
+        field: "amount",
+        postingCount: 2,
+        postingIndex: 0,
+      }),
+    ).toEqual({
+      addPosting: false,
+      field: "memo",
+      focusIndex: 0,
+    });
+    expect(
+      getNextPostingFocusTarget({
+        field: "memo",
+        postingCount: 2,
+        postingIndex: 1,
+      }),
+    ).toEqual({
+      addPosting: true,
+      field: "account",
+      focusIndex: 2,
+    });
+  });
+
+  it("bounds posting reordering targets within the current list", () => {
+    expect(
+      movePostingIndex({
+        direction: "up",
+        postingCount: 4,
+        postingIndex: 0,
+      }),
+    ).toBe(0);
+    expect(
+      movePostingIndex({
+        direction: "down",
+        postingCount: 4,
+        postingIndex: 1,
+      }),
+    ).toBe(2);
   });
 
   it("builds reconciliation matching state with cleared totals and latest session", () => {
