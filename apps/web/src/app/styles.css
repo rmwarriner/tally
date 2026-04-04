@@ -345,6 +345,31 @@ textarea {
   gap: 8px;
 }
 
+.ledger-range-row {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 180px)) minmax(180px, 1fr);
+  gap: 12px;
+  align-items: end;
+}
+
+.ledger-balance-chip {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  min-height: 46px;
+  padding: 10px 12px;
+  border: 1px solid rgba(201, 193, 180, 0.7);
+  border-radius: 12px;
+  background: #fffaf1;
+}
+
+.ledger-balance-chip span {
+  color: var(--text-muted);
+  font-size: 12px;
+  font-family: var(--mono-font);
+}
+
 .ledger-chip,
 .metric-button {
   border: 1px solid rgba(201, 193, 180, 0.7);
@@ -600,6 +625,32 @@ th {
   color: var(--text-muted);
 }
 
+.status-chip {
+  display: inline-flex;
+  align-items: center;
+  padding: 4px 10px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-family: var(--mono-font);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.status-chip.open {
+  background: #f3ebdb;
+  color: #6f5a36;
+}
+
+.status-chip.cleared {
+  background: #fff1cf;
+  color: #8b5c12;
+}
+
+.status-chip.reconciled {
+  background: rgba(232, 245, 233, 0.95);
+  color: #2f6f37;
+}
+
 .status-list {
   display: grid;
   gap: 10px;
@@ -810,6 +861,7 @@ th {
   }
 
   .form-inline,
+  .ledger-range-row,
   .reconciliation-summary-grid,
   .overview-card-grid,
   .view-tabs {

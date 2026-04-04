@@ -74,6 +74,17 @@ function createEntityId(prefix: string): string {
   return `${prefix}-${Date.now()}`;
 }
 
+function formatTransactionStatus(status: "cleared" | "open" | "reconciled"): string {
+  switch (status) {
+    case "reconciled":
+      return "Reconciled";
+    case "cleared":
+      return "Cleared";
+    default:
+      return "Open";
+  }
+}
+
 function formatAccountOptionLabel(account: WorkspaceResponse["workspace"]["accounts"][number]): string {
   return account.code ? `${account.name} (${account.code})` : account.name;
 }
@@ -181,6 +192,7 @@ function ShellState(props: { message: string; title: string }) {
 export function App() {
   const [activeView, setActiveView] = useState<WorkspaceView>("overview");
   const [ledgerSearchText, setLedgerSearchText] = useState("");
+  const [ledgerRange, setLedgerRange] = useState(aprilRange);
   const [selectedLedgerAccountId, setSelectedLedgerAccountId] = useState<string | null>(null);
   const [selectedLedgerTransactionId, setSelectedLedgerTransactionId] = useState<string | null>(null);
   const [transactionEditor, setTransactionEditor] = useState<TransactionEditorState | null>(null);
@@ -328,8 +340,10 @@ export function App() {
   const selectedTransactionRecord =
     workspaceTransactions.find((transaction) => transaction.id === selectedLedgerTransactionId) ?? null;
   const ledgerWorkspace = loadedWorkspace
-    ? createLedgerWorkspaceModel({
+      ? createLedgerWorkspaceModel({
         accountBalances,
+        rangeEnd: ledgerRange.to,
+        rangeStart: ledgerRange.from,
         searchText: ledgerSearchText,
         selectedAccountId: selectedLedgerAccountId,
         selectedTransactionId: selectedLedgerTransactionId,
@@ -339,6 +353,7 @@ export function App() {
         availableAccounts: [],
         filteredBalances: [],
         filteredTransactions: [],
+        selectedAccountBalance: null,
         selectedAccount: null,
         selectedTransaction: null,
       };
@@ -695,6 +710,10 @@ export function App() {
                       ? ledgerWorkspace.selectedTransaction.tags.join(", ")
                       : "None"}
                   </strong>
+                </div>
+                <div className="status-item">
+                  <span>Status</span>
+                  <strong>{formatTransactionStatus(ledgerWorkspace.selectedTransaction.status)}</strong>
                 </div>
               </div>
               <div className="detail-stack">
@@ -1272,10 +1291,36 @@ export function App() {
                   <input
                     ref={ledgerSearchInputRef}
                     value={ledgerSearchText}
-                    placeholder="description, payee, account, memo"
+                    placeholder="description, payee, account, tag, status"
                     onChange={(event) => setLedgerSearchText(event.target.value)}
                   />
                 </label>
+                <div className="ledger-range-row">
+                  <label className="ledger-filter">
+                    <span className="muted">From</span>
+                    <input
+                      value={ledgerRange.from}
+                      onChange={(event) =>
+                        setLedgerRange((current) => ({ ...current, from: event.target.value }))
+                      }
+                    />
+                  </label>
+                  <label className="ledger-filter">
+                    <span className="muted">To</span>
+                    <input
+                      value={ledgerRange.to}
+                      onChange={(event) =>
+                        setLedgerRange((current) => ({ ...current, to: event.target.value }))
+                      }
+                    />
+                  </label>
+                  {ledgerWorkspace.selectedAccountBalance ? (
+                    <div className="ledger-balance-chip">
+                      <span>Active balance</span>
+                      <strong>{formatCurrency(ledgerWorkspace.selectedAccountBalance.balance)}</strong>
+                    </div>
+                  ) : null}
+                </div>
                 <div className="ledger-chip-row">
                   <button
                     className={`ledger-chip${selectedLedgerAccountId === null ? " active" : ""}`}
@@ -1296,13 +1341,15 @@ export function App() {
                   ))}
                 </div>
                 <p className="form-hint">
-                  Hotkeys: `/` search, `j` or down move later, `k` or up move earlier, `Esc` clear selection
+                  Hotkeys: `/` search, `j` or down move later, `k` or up move earlier, `Esc` clear
+                  selection. Search supports tags, account code/name, and status tokens.
                 </p>
               </div>
               <table>
                 <thead>
                   <tr>
                     <th>Date</th>
+                    <th>Status</th>
                     <th>Description</th>
                     <th>Payee</th>
                     <th>Accounts</th>
@@ -1320,6 +1367,11 @@ export function App() {
                         onClick={() => setSelectedLedgerTransactionId(transaction.id)}
                       >
                         <td>{transaction.occurredOn}</td>
+                        <td>
+                          <span className={`status-chip ${transaction.status}`}>
+                            {formatTransactionStatus(transaction.status)}
+                          </span>
+                        </td>
                         <td>{transaction.description}</td>
                         <td>{transaction.payee ?? "Unassigned"}</td>
                         <td>{transaction.postings.map((posting) => posting.accountName).join(", ")}</td>
@@ -1328,9 +1380,9 @@ export function App() {
                     ))
                   ) : (
                     <tr>
-                      <td colSpan={5}>
+                      <td colSpan={6}>
                         <div className="table-empty-state">
-                          No transactions match the current account filter and search text.
+                          No transactions match the current account filter, date range, and search text.
                         </div>
                       </td>
                     </tr>
