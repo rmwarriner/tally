@@ -34,6 +34,7 @@ This repository currently bootstraps:
 - a service layer with HTTP transport for workspace reads, writes, reconciliation, and CSV import
 - a web shell that now loads dashboard data and submits ledger, budget, envelope, schedule, reconciliation, and CSV write flows through the service boundary
 - a mobile shell that now connects to the same API for workspace reads, dashboard reads, transaction capture, reconciliation capture, schedule editing, approvals, exceptions, and envelope operations
+- a GitHub-backed roadmap with issues, milestones, and a project board for near-term execution planning
 - an architectural baseline for a ledger-first finance platform
 - initial UI shells for a VS Code-inspired workspace and mobile experience
 
@@ -83,3 +84,4 @@ Typed configuration and API error-handling standards are documented in [docs/con
 
 - Current project status: [docs/project-status.md](/Users/robert/Projects/gnucash-ng/docs/project-status.md)
 - Engineering standards roadmap: [docs/engineering-roadmap.md](/Users/robert/Projects/gnucash-ng/docs/engineering-roadmap.md)
+- GitHub roadmap project: `https://github.com/users/rmwarriner/projects/1`

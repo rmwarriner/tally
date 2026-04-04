@@ -50,7 +50,7 @@ Focus tests on domain rules, workspace commands, API handlers, and critical clie
 
 ## Commit & Pull Request Guidelines
 
-Local `.git` history is not available in this workspace, so follow a simple imperative style for commits, for example: `Add mobile schedule exception handling`.
+Git history is now initialized for this workspace. Follow a simple imperative style for commits, for example: `Add mobile schedule exception handling`.
 
 Pull requests should include:
 
@@ -58,6 +58,12 @@ Pull requests should include:
 - linked issue or roadmap item when applicable
 - test evidence such as `pnpm test` and `pnpm typecheck`
 - screenshots or screen recordings for web/mobile UI changes
+
+Active roadmap tracking also lives on GitHub:
+
+- repository: `rmwarriner/gnucash-ng`
+- roadmap project: `GnuCash NG Roadmap`
+- current roadmap issues cover operations, import/export, mobile cleanup, reporting, and resilience work
 
 ## Security & Architecture Notes
 

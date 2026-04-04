@@ -12,13 +12,17 @@ Implemented pieces:
 - write service for transaction creation
 - write service for reconciliation
 - write service for CSV import
+- write service for baseline budget lines, envelopes, envelope allocations, scheduled transaction execution, and schedule exceptions
 - HTTP request handler for read and write routes
 - Node HTTP server adapter
 - structured service-layer logging
 - persistence of workspace mutations back to disk
 - web read integration for workspace and dashboard loading
-- web write integration for transaction posting, reconciliation, and CSV import
+- web write integration for transaction posting, reconciliation, CSV import, budgets, envelopes, and schedules
+- mobile read integration for workspace and dashboard loading
+- mobile write integration for transaction capture, reconciliation capture, schedules, due approvals, schedule exceptions, and envelope operations
 - strict request schema validation for core write routes
+- auth, authorization, actor handling, body limits, security headers, and rate limiting at the HTTP boundary
 
 ## Current Shape
 
@@ -59,17 +63,16 @@ The web app proxies `/api` requests to `http://127.0.0.1:4000` during Vite devel
 ## Current Gaps
 
 - no production runtime/bootstrap script yet
-- no auth or actor identity integration beyond explicit request fields
-- no request validation middleware
 - no metrics or tracing
 - no external audit stream beyond workspace persistence
-- no mobile client integration yet
-- no richer UI workflows for envelopes, schedules, or budget editing
+- no OFX, QFX, QIF, or GnuCash XML adapters yet
+- no reporting or close workflow yet
+- no backup, migration, or restore strategy yet
 
 ## Recommended Next Steps
 
-1. Add typed configuration and error handling
-2. Add auth, permissions, and request correlation ids
-3. Add rate limiting, metrics, and tracing
-4. Add mobile client integration
-5. Add richer UI workflows for envelopes, schedules, and budget editing
+1. Add metrics, tracing, and health checks
+2. Add configuration and secret management operations
+3. Extend import/export support beyond CSV
+4. Add reporting engine and close workflow
+5. Add backup, migration, and restore strategy

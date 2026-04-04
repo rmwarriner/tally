@@ -55,8 +55,8 @@ Required for:
 
 ## Implementation Order
 
-1. HTTP transport and client integration
-2. Mobile and richer UI workflows
-3. Metrics and tracing
-4. Configuration and deployment operations
-5. Broader security and deployment hardening
+1. Metrics, tracing, and health checks
+2. Configuration and deployment operations
+3. Import/export expansion beyond CSV
+4. Reporting engine and close workflow
+5. Backup, migration, restore, and broader resilience hardening

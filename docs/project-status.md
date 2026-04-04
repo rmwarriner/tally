@@ -9,10 +9,10 @@ This repository currently includes:
 - workspace document model with commands, selectors, reconciliation, and CSV import
 - application service layer for read/write orchestration and persistence
 - HTTP transport for service-layer routes
-- initial web and mobile shells
-- web shell switched to service-backed read and write paths
+- service-backed web and mobile clients for core household finance workflows
 - TDD baseline with automated unit tests
 - structured logging foundation with workspace-layer instrumentation
+- GitHub issue, milestone, and project-board tracking for the current roadmap
 
 ## Completed
 
@@ -21,6 +21,7 @@ This repository currently includes:
 - product positioning and core requirements documented
 - architecture baseline documented
 - service-layer next move documented
+- GitHub repository initialized and roadmap execution tracking established
 
 ### Domain And Workspace
 
@@ -97,3 +98,4 @@ This repository currently includes:
 ## Deferred Follow-Up
 
 - extract the mobile quick-transaction and quick-envelope cards into dedicated components so `apps/mobile/src/App.tsx` becomes mostly screen composition and API orchestration
+- keep GitHub roadmap issues, milestones, and the `GnuCash NG Roadmap` project board aligned as execution moves forward
