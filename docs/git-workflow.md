@@ -8,6 +8,11 @@ This repository uses a light trunk-based workflow:
 - all feature, fix, refactor, and documentation work starts on a short-lived branch
 - changes merge through pull requests, not direct pushes to `main`
 
+Exception:
+
+- small administrative or documentation-only changes may go directly to `main`
+- documentation or admin changes that are part of a significant feature should stay on that feature branch and land with the feature work
+
 This repository's CI and security gates are defined in [docs/ci-and-security-gates.md](/Users/robert/Projects/gnucash-ng/docs/ci-and-security-gates.md) and [docs/security-standards.md](/Users/robert/Projects/gnucash-ng/docs/security-standards.md).
 
 ## Branch Strategy
@@ -101,6 +106,16 @@ git checkout -b feat/5-metrics-and-tracing
 pnpm ci:verify
 git push -u origin feat/5-metrics-and-tracing
 ```
+
+## Weekly Review Cadence
+
+At least once a week:
+
+- review new `idea` issues and either keep parked, promote, or close them
+- re-rank open roadmap issues against current priorities
+- check the roadmap project for stale or missing items
+- check CI status so repeated failures do not become background noise
+- close or relabel issues whose scope has changed
 
 ## Current Constraint
 

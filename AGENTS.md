@@ -64,6 +64,8 @@ Branch workflow for this repository:
 - branch from `main` for each issue or focused work slice
 - prefer names such as `feat/5-metrics-and-tracing` or `refactor/6-mobile-action-cards`
 - keep branches short-lived and scoped to one coherent change
+- small administrative or documentation-only changes may go directly to `main`
+- documentation or admin changes tied to a significant feature should stay on that feature branch
 - commit and push at reasonable milestones instead of batching too much local work
 - run `pnpm ci:verify` before merge when the change is broad enough to justify it
 - prefer squash merges and avoid direct pushes to `main`
