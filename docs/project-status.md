@@ -16,6 +16,7 @@ This repository currently includes:
 - documented branch, PR, and merge workflow for ongoing execution
 - GitHub issue and PR templates for idea intake, roadmap work, bug reports, refactors, and pull requests
 - documented weekly roadmap review cadence and direct-to-`main` exception for small admin/docs changes
+- repo-local Codex plugin scaffolds for GitHub roadmap work, workspace health checks, and financial-boundary review
 
 ## Completed
 

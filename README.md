@@ -91,3 +91,11 @@ Typed configuration and API error-handling standards are documented in [docs/con
 Ideas that are not ready for roadmap execution should stay in a separate GitHub issue inbox with the `idea` label until they are clear enough to prioritize. The promotion rule is documented in [docs/git-workflow.md](/Users/robert/Projects/gnucash-ng/docs/git-workflow.md).
 GitHub issue templates now cover ideas, roadmap-ready execution work, bugs, and refactors, and pull requests use the repo-level template in [.github/PULL_REQUEST_TEMPLATE.md](/Users/robert/Projects/gnucash-ng/.github/PULL_REQUEST_TEMPLATE.md).
 Small admin or documentation-only changes may go directly to `main`, but docs/admin work that supports a major feature should stay on that feature branch. The weekly review cadence is documented in [docs/git-workflow.md](/Users/robert/Projects/gnucash-ng/docs/git-workflow.md).
+
+## Local Plugins
+
+Repo-local Codex plugin scaffolds live under `plugins/` and are registered in [.agents/plugins/marketplace.json](/Users/robert/Projects/gnucash-ng/.agents/plugins/marketplace.json):
+
+- `github-roadmap`
+- `workspace-health`
+- `finance-boundary-review`

@@ -1,0 +1,40 @@
+{
+  "name": "finance-boundary-review",
+  "version": "0.1.0",
+  "description": "Boundary-focused review helpers for financial mutations and API-facing changes.",
+  "author": {
+    "name": "Robert Warriner",
+    "email": "rmwarriner@users.noreply.github.com",
+    "url": "https://github.com/rmwarriner"
+  },
+  "homepage": "https://github.com/rmwarriner/gnucash-ng",
+  "repository": "https://github.com/rmwarriner/gnucash-ng",
+  "license": "UNLICENSED",
+  "keywords": [
+    "security",
+    "review",
+    "financial-controls",
+    "api"
+  ],
+  "skills": "./skills/",
+  "interface": {
+    "displayName": "Finance Boundary Review",
+    "shortDescription": "Reviews changes for validation, auth, audit, and logging risks.",
+    "longDescription": "Targets the repo's financial-boundary requirements: validate external inputs, avoid trusting caller identity, preserve audit events, and keep structured logging at operational boundaries.",
+    "developerName": "Robert Warriner",
+    "category": "Productivity",
+    "capabilities": [
+      "Interactive",
+      "Write"
+    ],
+    "websiteURL": "https://github.com/rmwarriner/gnucash-ng",
+    "privacyPolicyURL": "https://github.com/rmwarriner/gnucash-ng",
+    "termsOfServiceURL": "https://github.com/rmwarriner/gnucash-ng",
+    "defaultPrompt": [
+      "Review this API change for financial boundary risks.",
+      "Check these files for auth, audit, and validation gaps.",
+      "Summarize missing tests for high-risk mutation paths."
+    ],
+    "brandColor": "#D93F0B"
+  }
+}

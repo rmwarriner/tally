@@ -1,0 +1,40 @@
+{
+  "name": "github-roadmap",
+  "version": "0.1.0",
+  "description": "Repo-specific GitHub roadmap and issue-management helpers.",
+  "author": {
+    "name": "Robert Warriner",
+    "email": "rmwarriner@users.noreply.github.com",
+    "url": "https://github.com/rmwarriner"
+  },
+  "homepage": "https://github.com/rmwarriner/gnucash-ng",
+  "repository": "https://github.com/rmwarriner/gnucash-ng",
+  "license": "UNLICENSED",
+  "keywords": [
+    "github",
+    "roadmap",
+    "issues",
+    "project-management"
+  ],
+  "skills": "./skills/",
+  "interface": {
+    "displayName": "GitHub Roadmap",
+    "shortDescription": "Issue, milestone, and project-board helpers for this repo.",
+    "longDescription": "Supports roadmap issue intake, project-board maintenance, milestone discipline, and GitHub workflow conventions specific to GnuCash NG.",
+    "developerName": "Robert Warriner",
+    "category": "Productivity",
+    "capabilities": [
+      "Interactive",
+      "Write"
+    ],
+    "websiteURL": "https://github.com/rmwarriner/gnucash-ng",
+    "privacyPolicyURL": "https://github.com/rmwarriner/gnucash-ng",
+    "termsOfServiceURL": "https://github.com/rmwarriner/gnucash-ng",
+    "defaultPrompt": [
+      "Create a roadmap-ready issue from this feature slice.",
+      "Triage this idea into issue, roadmap, or current work.",
+      "Sync labels, milestone, and project placement for this issue."
+    ],
+    "brandColor": "#0052CC"
+  }
+}

@@ -1,0 +1,40 @@
+{
+  "name": "workspace-health",
+  "version": "0.1.0",
+  "description": "Standard verification and repo-health checks for the monorepo.",
+  "author": {
+    "name": "Robert Warriner",
+    "email": "rmwarriner@users.noreply.github.com",
+    "url": "https://github.com/rmwarriner"
+  },
+  "homepage": "https://github.com/rmwarriner/gnucash-ng",
+  "repository": "https://github.com/rmwarriner/gnucash-ng",
+  "license": "UNLICENSED",
+  "keywords": [
+    "ci",
+    "verification",
+    "testing",
+    "health"
+  ],
+  "skills": "./skills/",
+  "interface": {
+    "displayName": "Workspace Health",
+    "shortDescription": "Runs and summarizes the repo's standard health checks.",
+    "longDescription": "Focuses on the monorepo verification commands such as typecheck, test, coverage, CI verification, and related repo-health summaries.",
+    "developerName": "Robert Warriner",
+    "category": "Productivity",
+    "capabilities": [
+      "Interactive",
+      "Write"
+    ],
+    "websiteURL": "https://github.com/rmwarriner/gnucash-ng",
+    "privacyPolicyURL": "https://github.com/rmwarriner/gnucash-ng",
+    "termsOfServiceURL": "https://github.com/rmwarriner/gnucash-ng",
+    "defaultPrompt": [
+      "Run the standard repo health checks and summarize failures.",
+      "Tell me the smallest verification command for this change.",
+      "Explain which CI gate is failing and why."
+    ],
+    "brandColor": "#1F883D"
+  }
+}
