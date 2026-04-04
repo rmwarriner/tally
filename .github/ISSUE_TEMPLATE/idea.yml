@@ -1,0 +1,69 @@
+name: Idea
+description: Capture an idea that is not yet ready for the roadmap
+title: "Idea: "
+labels:
+  - idea
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem or opportunity
+      description: What problem are you trying to solve, or what opportunity do you see?
+      placeholder: Describe the idea in plain language.
+    validations:
+      required: true
+
+  - type: textarea
+    id: value
+    attributes:
+      label: Why it matters
+      description: Why is this worth considering?
+      placeholder: Explain the user, product, or operational value.
+    validations:
+      required: true
+
+  - type: dropdown
+    id: area
+    attributes:
+      label: Likely area
+      description: Which part of the system is most likely involved?
+      options:
+        - mobile
+        - web
+        - api
+        - domain
+        - workspace
+        - operations
+        - docs
+        - other
+    validations:
+      required: true
+
+  - type: textarea
+    id: unknowns
+    attributes:
+      label: Open questions
+      description: What is still unclear or needs validation?
+      placeholder: List unknowns, risks, or decisions that would need follow-up.
+    validations:
+      required: false
+
+  - type: textarea
+    id: timing
+    attributes:
+      label: Why now or why later
+      description: Is there a reason to consider this soon, or should it stay parked for now?
+      placeholder: Note urgency, dependencies, or reasons to defer.
+    validations:
+      required: false
+
+  - type: checkboxes
+    id: readiness
+    attributes:
+      label: Promotion check
+      description: Leave unchecked if this is still just an idea.
+      options:
+        - label: The desired outcome is clear enough to execute
+        - label: The rough implementation area is known
+        - label: This can be prioritized against current roadmap work
+        - label: Someone is ready to work this in the near term
