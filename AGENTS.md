@@ -47,6 +47,7 @@ TDD is the default workflow: write a failing test first, implement the smallest 
 - coverage thresholds: 70% statements, 75% branches, 85% functions, 70% lines
 
 Focus tests on domain rules, workspace commands, API handlers, and critical client API flows.
+For user-facing web and mobile changes, also run focused manual review using [docs/ui-review-checklist.md](/Users/robert/Projects/gnucash-ng/docs/ui-review-checklist.md) and treat repeat regressions as candidates for higher-level automated workflow coverage.
 
 ## Commit & Pull Request Guidelines
 
