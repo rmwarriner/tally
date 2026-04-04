@@ -62,6 +62,7 @@ See [docs/service-layer.md](/Users/robert/Projects/gnucash-ng/docs/service-layer
 
 TDD workflow and testing expectations are documented in [docs/testing-and-tdd.md](/Users/robert/Projects/gnucash-ng/docs/testing-and-tdd.md).
 UI review workflows are documented in [docs/ui-review-checklist.md](/Users/robert/Projects/gnucash-ng/docs/ui-review-checklist.md).
+`pnpm dev:api` now seeds the local demo workspace automatically if `data/workspace-household-demo.json` is missing, so the desktop and mobile shells have reviewable data on first run.
 CI and security merge gates are documented in [docs/ci-and-security-gates.md](/Users/robert/Projects/gnucash-ng/docs/ci-and-security-gates.md).
 Git branch and pull request workflow is documented in [docs/git-workflow.md](/Users/robert/Projects/gnucash-ng/docs/git-workflow.md).
 
