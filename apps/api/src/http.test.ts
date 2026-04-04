@@ -107,6 +107,49 @@ describe("api http transport", () => {
     await fixture.cleanup();
   });
 
+  it("accepts transaction updates over HTTP", async () => {
+    const fixture = await createFixture();
+    const service = createWorkspaceService({
+      repository: createFileSystemWorkspaceRepository({ rootDirectory: fixture.directory }),
+    });
+    const handler = createHttpHandler({ service });
+
+    const response = await handler(
+      new Request(`http://localhost/api/workspaces/${fixture.workspace.id}/transactions/txn-grocery-1`, {
+        body: JSON.stringify({
+          actor: "Primary",
+          transaction: {
+            id: "txn-grocery-1",
+            occurredOn: "2026-04-02",
+            description: "HTTP-updated groceries",
+            postings: [
+              {
+                accountId: "acct-expense-groceries",
+                amount: { commodityCode: "USD", quantity: 151.5 },
+              },
+              {
+                accountId: "acct-checking",
+                amount: { commodityCode: "USD", quantity: -151.5 },
+                cleared: true,
+              },
+            ],
+          },
+        }),
+        headers: { "content-type": "application/json" },
+        method: "PUT",
+      }),
+    );
+    const body = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(
+      body.workspace.transactions.find((item: { id: string }) => item.id === "txn-grocery-1").description,
+    ).toBe("HTTP-updated groceries");
+    expect(body.workspace.auditEvents.at(-1).eventType).toBe("transaction.updated");
+
+    await fixture.cleanup();
+  });
+
   it("accepts budget line and envelope writes over HTTP", async () => {
     const fixture = await createFixture();
     const service = createWorkspaceService({

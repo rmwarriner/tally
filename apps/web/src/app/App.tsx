@@ -10,6 +10,7 @@ import {
   postReconciliation,
   postScheduledTransaction,
   postTransaction,
+  putTransaction,
   type DashboardResponse,
   type WorkspaceResponse,
 } from "./api";
@@ -27,6 +28,22 @@ import "../app/styles.css";
 
 const aprilRange = { from: "2026-04-01", to: "2026-04-30" };
 const workspaceId = "workspace-household-demo";
+
+interface TransactionEditorPosting {
+  accountId: string;
+  amount: string;
+  cleared: boolean;
+  memo: string;
+}
+
+interface TransactionEditorState {
+  description: string;
+  occurredOn: string;
+  payee: string;
+  postings: TransactionEditorPosting[];
+  tags: string;
+  transactionId: string;
+}
 
 function formatCurrency(amount: number): string {
   return amount.toLocaleString("en-US", {
@@ -66,6 +83,59 @@ function parseCsvRows(csvText: string) {
     });
 }
 
+function createTransactionEditorState(transaction: WorkspaceResponse["workspace"]["transactions"][number]): TransactionEditorState {
+  return {
+    description: transaction.description,
+    occurredOn: transaction.occurredOn,
+    payee: transaction.payee ?? "",
+    postings: transaction.postings.map((posting) => ({
+      accountId: posting.accountId,
+      amount: String(posting.amount.quantity),
+      cleared: Boolean(posting.cleared),
+      memo: posting.memo ?? "",
+    })),
+    tags: transaction.tags?.join(", ") ?? "",
+    transactionId: transaction.id,
+  };
+}
+
+function validateTransactionEditorState(editor: TransactionEditorState): string[] {
+  const errors: string[] = [];
+
+  if (!editor.description.trim()) {
+    errors.push("Description is required.");
+  }
+
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(editor.occurredOn.trim())) {
+    errors.push("Occurred on must use YYYY-MM-DD format.");
+  }
+
+  if (editor.postings.length < 2) {
+    errors.push("At least two postings are required.");
+  }
+
+  let total = 0;
+  editor.postings.forEach((posting, index) => {
+    if (!posting.accountId.trim()) {
+      errors.push(`Posting ${index + 1} account is required.`);
+    }
+
+    const amount = Number.parseFloat(posting.amount);
+    if (!Number.isFinite(amount)) {
+      errors.push(`Posting ${index + 1} amount must be a number.`);
+      return;
+    }
+
+    total += amount;
+  });
+
+  if (editor.postings.length >= 2 && Math.abs(total) > 0.000001) {
+    errors.push("Transaction postings must balance to zero.");
+  }
+
+  return errors;
+}
+
 function EmptyPanel(props: { message: string; title: string }) {
   return (
     <article className="panel empty-panel">
@@ -92,6 +162,7 @@ export function App() {
   const [ledgerSearchText, setLedgerSearchText] = useState("");
   const [selectedLedgerAccountId, setSelectedLedgerAccountId] = useState<string | null>(null);
   const [selectedLedgerTransactionId, setSelectedLedgerTransactionId] = useState<string | null>(null);
+  const [transactionEditor, setTransactionEditor] = useState<TransactionEditorState | null>(null);
   const [dashboard, setDashboard] = useState<DashboardResponse["dashboard"] | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
@@ -233,6 +304,8 @@ export function App() {
   const nextScheduledTransactions = [...loadedWorkspace.scheduledTransactions]
     .sort((left, right) => left.nextDueOn.localeCompare(right.nextDueOn))
     .slice(0, 5);
+  const selectedTransactionRecord =
+    loadedWorkspace.transactions.find((transaction) => transaction.id === selectedLedgerTransactionId) ?? null;
   const ledgerWorkspace = createLedgerWorkspaceModel({
     accountBalances,
     searchText: ledgerSearchText,
@@ -247,6 +320,7 @@ export function App() {
     statementDate: reconciliationForm.statementDate,
     workspace: loadedWorkspace,
   });
+  const transactionEditorErrors = transactionEditor ? validateTransactionEditorState(transactionEditor) : [];
 
   useEffect(() => {
     if (activeView !== "ledger") {
@@ -311,6 +385,21 @@ export function App() {
       setSelectedLedgerTransactionId(ledgerWorkspace.filteredTransactions[0]?.id ?? null);
     }
   }, [ledgerWorkspace.filteredTransactions, selectedLedgerTransactionId]);
+
+  useEffect(() => {
+    if (!selectedTransactionRecord) {
+      setTransactionEditor(null);
+      return;
+    }
+
+    setTransactionEditor((current) => {
+      if (current?.transactionId === selectedTransactionRecord.id) {
+        return current;
+      }
+
+      return createTransactionEditorState(selectedTransactionRecord);
+    });
+  }, [selectedTransactionRecord]);
 
   async function runMutation(label: string, operation: () => Promise<void>) {
     try {
@@ -1602,38 +1691,265 @@ export function App() {
             </div>
 
             <div className="inspector-section">
-              <h3>Posting inspector</h3>
-              {ledgerWorkspace.selectedTransaction ? (
-                <>
-                  <p>
-                    {ledgerWorkspace.selectedTransaction.description}
-                    {ledgerWorkspace.selectedTransaction.payee
-                      ? ` · ${ledgerWorkspace.selectedTransaction.payee}`
-                      : ""}
-                  </p>
+              <h3>Inline draft editor</h3>
+              {transactionEditor ? (
+                <form
+                  className="form-stack"
+                  onSubmit={(event) => {
+                    event.preventDefault();
+
+                    if (!transactionEditor || transactionEditorErrors.length > 0) {
+                      return;
+                    }
+
+                    void runMutation("Transaction update", async () => {
+                      await putTransaction(workspaceId, transactionEditor.transactionId, {
+                        actor: "Primary",
+                        transaction: {
+                          description: transactionEditor.description.trim(),
+                          id: transactionEditor.transactionId,
+                          occurredOn: transactionEditor.occurredOn.trim(),
+                          payee: transactionEditor.payee.trim() || undefined,
+                          postings: transactionEditor.postings.map((posting) => ({
+                            accountId: posting.accountId.trim(),
+                            amount: {
+                              commodityCode: loadedWorkspace.baseCommodityCode,
+                              quantity: Number.parseFloat(posting.amount),
+                            },
+                            cleared: posting.cleared || undefined,
+                            memo: posting.memo.trim() || undefined,
+                          })),
+                          tags: transactionEditor.tags
+                            .split(",")
+                            .map((tag) => tag.trim())
+                            .filter(Boolean),
+                        },
+                      });
+                    });
+                  }}
+                >
+                  <label>
+                    Description
+                    <input
+                      value={transactionEditor.description}
+                      onChange={(event) =>
+                        setTransactionEditor((current) =>
+                          current ? { ...current, description: event.target.value } : current,
+                        )
+                      }
+                    />
+                  </label>
+                  <div className="form-inline">
+                    <label>
+                      Occurred on
+                      <input
+                        value={transactionEditor.occurredOn}
+                        onChange={(event) =>
+                          setTransactionEditor((current) =>
+                            current ? { ...current, occurredOn: event.target.value } : current,
+                          )
+                        }
+                      />
+                    </label>
+                    <label>
+                      Payee
+                      <input
+                        value={transactionEditor.payee}
+                        onChange={(event) =>
+                          setTransactionEditor((current) =>
+                            current ? { ...current, payee: event.target.value } : current,
+                          )
+                        }
+                      />
+                    </label>
+                  </div>
+                  <label>
+                    Tags
+                    <input
+                      value={transactionEditor.tags}
+                      placeholder="comma-separated"
+                      onChange={(event) =>
+                        setTransactionEditor((current) =>
+                          current ? { ...current, tags: event.target.value } : current,
+                        )
+                      }
+                    />
+                  </label>
                   <div className="detail-stack">
-                    {ledgerWorkspace.selectedTransaction.postings.map((posting) => (
-                      <div key={`${ledgerWorkspace.selectedTransaction?.id}:${posting.accountId}:${posting.amount}`} className="posting-card">
-                        <div className="status-item">
-                          <span>{posting.accountName}</span>
-                          <strong>{formatCurrency(posting.amount)}</strong>
+                    {transactionEditor.postings.map((posting, index) => (
+                      <div key={`${transactionEditor.transactionId}:posting:${index}`} className="posting-card">
+                        <div className="form-inline">
+                          <label>
+                            Account
+                            <select
+                              value={posting.accountId}
+                              onChange={(event) =>
+                                setTransactionEditor((current) =>
+                                  current
+                                    ? {
+                                        ...current,
+                                        postings: current.postings.map((candidate, candidateIndex) =>
+                                          candidateIndex === index
+                                            ? { ...candidate, accountId: event.target.value }
+                                            : candidate,
+                                        ),
+                                      }
+                                    : current,
+                                )
+                              }
+                            >
+                              {loadedWorkspace.accounts.map((account) => (
+                                <option key={account.id} value={account.id}>
+                                  {account.name}
+                                </option>
+                              ))}
+                            </select>
+                          </label>
+                          <label>
+                            Signed amount
+                            <input
+                              value={posting.amount}
+                              onChange={(event) =>
+                                setTransactionEditor((current) =>
+                                  current
+                                    ? {
+                                        ...current,
+                                        postings: current.postings.map((candidate, candidateIndex) =>
+                                          candidateIndex === index
+                                            ? { ...candidate, amount: event.target.value }
+                                            : candidate,
+                                        ),
+                                      }
+                                    : current,
+                                )
+                              }
+                            />
+                          </label>
                         </div>
-                        <div className="posting-meta">
-                          <span>{posting.cleared ? "Cleared" : "Open"}</span>
-                          <span>{posting.memo ?? "No memo"}</span>
+                        <label>
+                          Memo
+                          <input
+                            value={posting.memo}
+                            onChange={(event) =>
+                              setTransactionEditor((current) =>
+                                current
+                                  ? {
+                                      ...current,
+                                      postings: current.postings.map((candidate, candidateIndex) =>
+                                        candidateIndex === index
+                                          ? { ...candidate, memo: event.target.value }
+                                          : candidate,
+                                      ),
+                                    }
+                                  : current,
+                              )
+                            }
+                          />
+                        </label>
+                        <div className="posting-editor-row">
+                          <label className="checkbox-row">
+                            <input
+                              checked={posting.cleared}
+                              type="checkbox"
+                              onChange={(event) =>
+                                setTransactionEditor((current) =>
+                                  current
+                                    ? {
+                                        ...current,
+                                        postings: current.postings.map((candidate, candidateIndex) =>
+                                          candidateIndex === index
+                                            ? { ...candidate, cleared: event.target.checked }
+                                            : candidate,
+                                        ),
+                                      }
+                                    : current,
+                                )
+                              }
+                            />
+                            <span>Cleared</span>
+                          </label>
+                          <button
+                            disabled={transactionEditor.postings.length <= 2}
+                            type="button"
+                            onClick={() =>
+                              setTransactionEditor((current) =>
+                                current
+                                  ? {
+                                      ...current,
+                                      postings: current.postings.filter(
+                                        (_, candidateIndex) => candidateIndex !== index,
+                                      ),
+                                    }
+                                  : current,
+                              )
+                            }
+                          >
+                            Remove posting
+                          </button>
                         </div>
                       </div>
                     ))}
                   </div>
-                </>
+                  <button
+                    type="button"
+                    onClick={() =>
+                      setTransactionEditor((current) =>
+                        current
+                          ? {
+                              ...current,
+                              postings: [
+                                ...current.postings,
+                                {
+                                  accountId: loadedWorkspace.accounts[0]?.id ?? "",
+                                  amount: "0",
+                                  cleared: false,
+                                  memo: "",
+                                },
+                              ],
+                            }
+                          : current,
+                      )
+                    }
+                  >
+                    Add posting
+                  </button>
+                  {transactionEditorErrors.length > 0 ? (
+                    <div className="error-stack">
+                      {transactionEditorErrors.map((issue) => (
+                        <p key={issue} className="form-hint error-text">
+                          {issue}
+                        </p>
+                      ))}
+                    </div>
+                  ) : null}
+                  <div className="posting-meta">
+                    <span>Transaction id</span>
+                    <span>{transactionEditor.transactionId}</span>
+                  </div>
+                  <div className="posting-editor-row">
+                    <button
+                      type="button"
+                      onClick={() =>
+                        selectedTransactionRecord
+                          ? setTransactionEditor(createTransactionEditorState(selectedTransactionRecord))
+                          : setTransactionEditor(null)
+                      }
+                    >
+                      Reset draft
+                    </button>
+                    <button type="submit" disabled={busy !== null || transactionEditorErrors.length > 0}>
+                      {busy === "Transaction update" ? "Saving..." : "Save transaction"}
+                    </button>
+                  </div>
+                </form>
               ) : (
-                <p>Select a register row to inspect the underlying postings and cleared state.</p>
+                <p>Select a register row to edit the transaction inline and save it back to the ledger.</p>
               )}
             </div>
 
             <div className="inspector-section">
               <h3>Next desktop lift</h3>
-              <p>Inline posting edits, richer reconciliation matching, and keyboard-first register navigation are the natural next ledger slices.</p>
+              <p>Native split reordering, faster keyboard-only editing, and a desktop wrapper evaluation are the natural next ledger slices.</p>
             </div>
           </>
         );

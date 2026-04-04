@@ -131,6 +131,38 @@ export async function postTransaction(
   return readJson<WorkspaceResponse>(response);
 }
 
+export async function putTransaction(
+  workspaceId: string,
+  transactionId: string,
+  body: {
+    actor?: string;
+    transaction: {
+      id: string;
+      occurredOn: string;
+      description: string;
+      payee?: string;
+      postings: Array<{
+        accountId: string;
+        amount: { commodityCode: string; quantity: number };
+        cleared?: boolean;
+        memo?: string;
+      }>;
+      tags?: string[];
+    };
+  },
+): Promise<WorkspaceResponse> {
+  const response = await fetch(`/api/workspaces/${workspaceId}/transactions/${transactionId}`, {
+    body: JSON.stringify(body),
+    headers: {
+      "content-type": "application/json",
+    },
+    method: "PUT",
+  });
+  await ensureOk(response, "Failed to update transaction.");
+
+  return readJson<WorkspaceResponse>(response);
+}
+
 export async function postReconciliation(
   workspaceId: string,
   body: {

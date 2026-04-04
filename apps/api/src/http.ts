@@ -720,6 +720,108 @@ export function createHttpHandler(params: {
       }
     }
 
+    if (request.method === "PUT") {
+      const transactionMatch = path.match(/^\/api\/workspaces\/([^/]+)\/transactions\/([^/]+)$/);
+
+      if (!request.headers.get("content-type")?.includes("application/json")) {
+        requestLogger.warn("http request validation failed", {
+          errors: ["PUT requests must use application/json."],
+        });
+        return jsonResponse(
+          415,
+          toErrorEnvelope(
+            new ApiError({
+              code: "request.unsupported_media_type",
+              message: "PUT requests must use application/json.",
+              status: 415,
+            }),
+          ),
+        );
+      }
+
+      const body = await parseJsonBody(request, maxBodyBytes);
+
+      if (body === Symbol.for("body-too-large")) {
+        requestLogger.warn("http request rejected for size limit");
+        return jsonResponse(
+          413,
+          toErrorEnvelope(
+            new ApiError({
+              code: "request.too_large",
+              message: "Request body exceeds the configured size limit.",
+              status: 413,
+            }),
+          ),
+        );
+      }
+
+      if (body === undefined) {
+        requestLogger.warn("http request validation failed", {
+          errors: ["Request body must be valid JSON."],
+        });
+        return jsonResponse(
+          400,
+          toErrorEnvelope(
+            new ApiError({
+              code: "request.invalid",
+              message: "Request body must be valid JSON.",
+              status: 400,
+            }),
+          ),
+        );
+      }
+
+      if (transactionMatch) {
+        const rateLimited = enforceRateLimit(requestKey, rateLimitPolicy.mutation, requestLogger);
+
+        if (rateLimited) {
+          return rateLimited;
+        }
+
+        const workspaceId = decodeURIComponent(transactionMatch[1]);
+        const transactionId = decodeURIComponent(transactionMatch[2]);
+
+        if (!isSafeWorkspaceId(workspaceId) || !/^[a-zA-Z0-9:_-]+$/.test(transactionId)) {
+          return jsonResponse(
+            400,
+            toErrorEnvelope(
+              new ApiError({
+                code: "repository.invalid_identifier",
+                message: "Workspace or transaction identifier is invalid.",
+                status: 400,
+              }),
+            ),
+          );
+        }
+
+        const payload = validateTransactionRequestBody(body);
+
+        if (payload.errors.length > 0 || !payload.value) {
+          requestLogger.warn("http request validation failed", { errors: payload.errors });
+          return jsonResponse(
+            400,
+            toErrorEnvelope(
+              new ApiError({
+                code: "validation.failed",
+                details: { issues: payload.errors },
+                message: payload.errors[0] ?? "Request validation failed.",
+                status: 400,
+              }),
+            ),
+          );
+        }
+
+        const response = await params.service.updateTransaction({
+          auth: auth.context,
+          transaction: payload.value.transaction,
+          transactionId,
+          workspaceId,
+        });
+        requestLogger.info("http request completed", { status: response.status });
+        return jsonResponse(response.status, response.body);
+      }
+    }
+
     requestLogger.warn("http request route not found");
     return jsonResponse(
       404,

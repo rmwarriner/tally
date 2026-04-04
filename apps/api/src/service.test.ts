@@ -171,6 +171,43 @@ describe("workspace service", () => {
     await fixture.cleanup();
   });
 
+  it("updates an existing transaction through the service layer", async () => {
+    const fixture = await createFixture();
+    const service = createWorkspaceService({
+      logger: createTestLogger([]),
+      repository: createFileSystemWorkspaceRepository({ rootDirectory: fixture.directory }),
+    });
+
+    const response = await service.updateTransaction({
+      auth: { actor: "Primary", kind: "token", role: "member", token: "token-1" },
+      transaction: {
+        id: "txn-grocery-1",
+        occurredOn: "2026-04-02",
+        description: "Updated grocery run",
+        payee: "Neighborhood Market",
+        postings: [
+          { accountId: "acct-expense-groceries", amount: createMoney("USD", 155) },
+          { accountId: "acct-checking", amount: createMoney("USD", -155), cleared: true },
+        ],
+        tags: ["household", "edited"],
+      },
+      transactionId: "txn-grocery-1",
+      workspaceId: fixture.workspace.id,
+    });
+
+    expect(response.status).toBe(200);
+    expectWorkspaceBody(response.body);
+    expect(
+      response.body.workspace.transactions.find((item) => item.id === "txn-grocery-1"),
+    ).toMatchObject({
+      description: "Updated grocery run",
+      tags: ["household", "edited"],
+    });
+    expect(response.body.workspace.auditEvents.at(-1)?.eventType).toBe("transaction.updated");
+
+    await fixture.cleanup();
+  });
+
   it("records reconciliations through the service layer", async () => {
     const fixture = await createFixture();
     const service = createWorkspaceService({

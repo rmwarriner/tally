@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { createMoney } from "@gnucash-ng/domain";
-import { addTransaction, createDemoWorkspace, reconcileAccount } from "./index";
+import { addTransaction, createDemoWorkspace, reconcileAccount, updateTransaction } from "./index";
 
 describe("workspace audit events", () => {
   it("appends a durable audit event for successful transaction creation", () => {
@@ -85,6 +85,38 @@ describe("workspace audit events", () => {
       actor: "Primary",
       eventType: "reconciliation.recorded",
       entityIds: ["acct-checking", "txn-grocery-1", "txn-paycheck-1"],
+    });
+  });
+
+  it("appends a durable audit event for successful transaction updates", () => {
+    const workspace = createDemoWorkspace();
+    const result = updateTransaction(
+      workspace,
+      "txn-grocery-1",
+      {
+        id: "txn-grocery-1",
+        occurredOn: "2026-04-02",
+        description: "Updated grocery run",
+        payee: "Neighborhood Market",
+        postings: [
+          { accountId: "acct-expense-groceries", amount: createMoney("USD", 155) },
+          { accountId: "acct-checking", amount: createMoney("USD", -155), cleared: true },
+        ],
+      },
+      {
+        audit: {
+          actor: "Primary",
+          occurredAt: "2026-04-03T12:00:00Z",
+        },
+      },
+    );
+
+    expect(result.ok).toBe(true);
+    expect(result.document.auditEvents.at(-1)).toMatchObject({
+      actor: "Primary",
+      entityIds: ["txn-grocery-1"],
+      eventType: "transaction.updated",
+      occurredAt: "2026-04-03T12:00:00Z",
     });
   });
 });

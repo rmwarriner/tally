@@ -9,6 +9,7 @@ import {
   postReconciliation,
   postScheduledTransaction,
   postTransaction,
+  putTransaction,
 } from "./api";
 
 describe("web api client", () => {
@@ -37,6 +38,31 @@ describe("web api client", () => {
       "/api/workspaces/workspace-household-demo/transactions",
       expect.objectContaining({
         method: "POST",
+      }),
+    );
+  });
+
+  it("puts transaction updates to the service route", async () => {
+    const fetchMock = vi.fn().mockResolvedValue({
+      json: async () => ({ workspace: { id: "workspace-household-demo" } }),
+      ok: true,
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    await putTransaction("workspace-household-demo", "txn-grocery-1", {
+      actor: "Primary",
+      transaction: {
+        description: "Updated groceries",
+        id: "txn-grocery-1",
+        occurredOn: "2026-04-02",
+        postings: [],
+      },
+    });
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      "/api/workspaces/workspace-household-demo/transactions/txn-grocery-1",
+      expect.objectContaining({
+        method: "PUT",
       }),
     );
   });

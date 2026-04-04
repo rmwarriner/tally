@@ -11,6 +11,7 @@ import {
   executeScheduledTransaction,
   importTransactionsFromCsvRows,
   reconcileAccount,
+  updateTransaction,
 } from "./index";
 import { loadWorkspaceFromFile, saveWorkspaceToFile } from "./storage-node";
 
@@ -67,6 +68,60 @@ describe("workspace commands", () => {
 
     expect(paycheckPosting?.cleared).toBe(true);
     expect(paycheckPosting?.reconciledAt).toBe("2026-04-02");
+  });
+
+  it("updates an existing transaction and records an audit event", () => {
+    const workspace = createDemoWorkspace();
+    const result = updateTransaction(
+      workspace,
+      "txn-grocery-1",
+      {
+        id: "txn-grocery-1",
+        occurredOn: "2026-04-02",
+        description: "Weekly groceries and supplies",
+        payee: "Neighborhood Market",
+        postings: [
+          { accountId: "acct-expense-groceries", amount: createMoney("USD", 160) },
+          { accountId: "acct-checking", amount: createMoney("USD", -160), cleared: true },
+        ],
+        tags: ["household", "edited"],
+      },
+      {
+        audit: { actor: "Primary" },
+      },
+    );
+
+    expect(result.ok).toBe(true);
+    expect(
+      result.document.transactions.find((transaction) => transaction.id === "txn-grocery-1"),
+    ).toMatchObject({
+      description: "Weekly groceries and supplies",
+      tags: ["household", "edited"],
+    });
+    expect(result.document.auditEvents.at(-1)?.eventType).toBe("transaction.updated");
+  });
+
+  it("rejects updates for missing transactions", () => {
+    const workspace = createDemoWorkspace();
+    const result = updateTransaction(
+      workspace,
+      "txn-missing",
+      {
+        id: "txn-missing",
+        occurredOn: "2026-04-02",
+        description: "Missing",
+        postings: [
+          { accountId: "acct-expense-groceries", amount: createMoney("USD", 100) },
+          { accountId: "acct-checking", amount: createMoney("USD", -100) },
+        ],
+      },
+      {
+        audit: { actor: "Primary" },
+      },
+    );
+
+    expect(result.ok).toBe(false);
+    expect(result.errors).toEqual(["Transaction txn-missing does not exist."]);
   });
 
   it("imports csv transactions and skips duplicates by fingerprint", () => {

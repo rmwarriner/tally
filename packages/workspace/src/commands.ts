@@ -133,6 +133,74 @@ export function addTransaction(
   };
 }
 
+export function updateTransaction(
+  document: FinanceWorkspaceDocument,
+  transactionId: string,
+  transaction: Transaction,
+  options: CommandOptions = {},
+): CommandResult {
+  const logger = (options.logger ?? createNoopLogger()).child({
+    command: "updateTransaction",
+    transactionId,
+    workspaceId: document.id,
+  });
+  logger.info("workspace command started");
+
+  if (transaction.id !== transactionId) {
+    const errors = ["Transaction id in payload must match the route identifier."];
+    logger.warn("workspace command validation failed", { errors });
+    return { ok: false, errors, document };
+  }
+
+  const existingTransaction = document.transactions.find((candidate) => candidate.id === transactionId);
+
+  if (!existingTransaction) {
+    const errors = [`Transaction ${transactionId} does not exist.`];
+    logger.warn("workspace command validation failed", { errors });
+    return { ok: false, errors, document };
+  }
+
+  const validation = validateTransactionForLedger(transaction, document.accounts);
+
+  if (!validation.ok) {
+    logger.warn("workspace command validation failed", { errors: validation.errors });
+    return { ok: false, errors: validation.errors, document };
+  }
+
+  const nextTransactions = document.transactions.map((candidate) =>
+    candidate.id === transactionId ? transaction : candidate,
+  );
+
+  logger.info("workspace command completed", {
+    postingCount: transaction.postings.length,
+    transactionCount: nextTransactions.length,
+  });
+
+  const nextDocument = appendAuditEvent(
+    {
+      ...document,
+      transactions: nextTransactions,
+    },
+    {
+      entityIds: [transactionId],
+      eventType: "transaction.updated",
+      summary: {
+        description: transaction.description,
+        occurredOn: transaction.occurredOn,
+        postingCount: transaction.postings.length,
+        previousOccurredOn: existingTransaction.occurredOn,
+      },
+    },
+    options.audit,
+  );
+
+  return {
+    ok: true,
+    errors: [],
+    document: nextDocument,
+  };
+}
+
 export function upsertScheduledTransaction(
   document: FinanceWorkspaceDocument,
   schedule: ScheduledTransaction,

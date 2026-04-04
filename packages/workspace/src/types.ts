@@ -31,6 +31,7 @@ export interface ReconciliationSession {
 
 export type AuditEventType =
   | "transaction.created"
+  | "transaction.updated"
   | "schedule.upserted"
   | "schedule.executed"
   | "schedule.exception.applied"

@@ -32,6 +32,13 @@ export interface PostTransactionRequest {
   workspaceId: string;
 }
 
+export interface UpdateTransactionRequest {
+  auth: AuthContext;
+  transaction: Transaction;
+  transactionId: string;
+  workspaceId: string;
+}
+
 export interface PostReconciliationRequest {
   auth: AuthContext;
   payload: {

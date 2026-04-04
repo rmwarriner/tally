@@ -575,6 +575,23 @@ th {
   background: rgba(255, 250, 241, 0.8);
 }
 
+.posting-editor-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-top: 10px;
+}
+
+.error-stack {
+  display: grid;
+  gap: 6px;
+}
+
+.error-text {
+  color: #8f2d1f;
+}
+
 .posting-meta {
   display: flex;
   justify-content: space-between;
