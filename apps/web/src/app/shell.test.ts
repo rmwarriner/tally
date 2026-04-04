@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  createLedgerWorkspaceModel,
   createOverviewCards,
   getWorkspaceViewDefinition,
   workspaceViews,
@@ -59,5 +60,112 @@ describe("web shell view model", () => {
         summary: "ledger warnings surfaced",
       },
     ]);
+  });
+
+  it("builds account-filtered ledger drill-down state with posting details", () => {
+    const model = createLedgerWorkspaceModel({
+      accountBalances: [
+        {
+          accountId: "acct-checking",
+          accountName: "Checking",
+          accountType: "asset",
+          balance: 3051.58,
+          commodityCode: "USD",
+        },
+        {
+          accountId: "acct-expense-groceries",
+          accountName: "Groceries",
+          accountType: "expense",
+          balance: 148.42,
+          commodityCode: "USD",
+        },
+      ],
+      searchText: "market",
+      selectedAccountId: "acct-checking",
+      selectedTransactionId: "txn-grocery-1",
+      workspace: {
+        accounts: [
+          { code: "1000", id: "acct-checking", name: "Checking", type: "asset" },
+          { code: "6100", id: "acct-expense-groceries", name: "Groceries", type: "expense" },
+          { code: "4000", id: "acct-income-salary", name: "Salary", type: "income" },
+        ],
+        auditEvents: [],
+        baseCommodityCode: "USD",
+        baselineBudgetLines: [],
+        commodities: [],
+        envelopeAllocations: [],
+        envelopes: [],
+        householdMembers: ["Primary"],
+        id: "workspace-household-demo",
+        importBatches: [],
+        name: "Household",
+        reconciliationSessions: [],
+        schemaVersion: 1,
+        scheduledTransactions: [],
+        transactions: [
+          {
+            description: "April paycheck",
+            id: "txn-paycheck-1",
+            occurredOn: "2026-04-01",
+            payee: "Employer Inc.",
+            postings: [
+              { accountId: "acct-checking", amount: { commodityCode: "USD", quantity: 3200 } },
+              { accountId: "acct-income-salary", amount: { commodityCode: "USD", quantity: -3200 } },
+            ],
+            tags: ["income", "payroll"],
+          },
+          {
+            description: "Weekly groceries",
+            id: "txn-grocery-1",
+            occurredOn: "2026-04-02",
+            payee: "Neighborhood Market",
+            postings: [
+              {
+                accountId: "acct-expense-groceries",
+                amount: { commodityCode: "USD", quantity: 148.42 },
+                memo: "Family weekly run",
+              },
+              {
+                accountId: "acct-checking",
+                amount: { commodityCode: "USD", quantity: -148.42 },
+                cleared: true,
+              },
+            ],
+            tags: ["household"],
+          },
+        ],
+      },
+    });
+
+    expect(model.filteredBalances).toEqual([
+      {
+        accountId: "acct-checking",
+        accountName: "Checking",
+        accountType: "asset",
+        balance: 3051.58,
+        commodityCode: "USD",
+      },
+    ]);
+    expect(model.filteredTransactions.map((transaction) => transaction.id)).toEqual(["txn-grocery-1"]);
+    expect(model.selectedAccount).toMatchObject({
+      balanceCount: 1,
+      id: "acct-checking",
+      transactionCount: 2,
+    });
+    expect(model.selectedTransaction).toMatchObject({
+      id: "txn-grocery-1",
+      postings: [
+        expect.objectContaining({
+          accountId: "acct-expense-groceries",
+          accountName: "Groceries",
+          memo: "Family weekly run",
+        }),
+        expect.objectContaining({
+          accountId: "acct-checking",
+          amount: -148.42,
+          cleared: true,
+        }),
+      ],
+    });
   });
 });

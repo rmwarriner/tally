@@ -14,6 +14,7 @@ import {
   type WorkspaceResponse,
 } from "./api";
 import {
+  createLedgerWorkspaceModel,
   createOverviewCards,
   getWorkspaceViewDefinition,
   type WorkspaceView,
@@ -80,6 +81,9 @@ function ShellState(props: { message: string; title: string }) {
 
 export function App() {
   const [activeView, setActiveView] = useState<WorkspaceView>("overview");
+  const [ledgerSearchText, setLedgerSearchText] = useState("");
+  const [selectedLedgerAccountId, setSelectedLedgerAccountId] = useState<string | null>(null);
+  const [selectedLedgerTransactionId, setSelectedLedgerTransactionId] = useState<string | null>(null);
   const [dashboard, setDashboard] = useState<DashboardResponse["dashboard"] | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
@@ -215,6 +219,13 @@ export function App() {
   const nextScheduledTransactions = [...loadedWorkspace.scheduledTransactions]
     .sort((left, right) => left.nextDueOn.localeCompare(right.nextDueOn))
     .slice(0, 5);
+  const ledgerWorkspace = createLedgerWorkspaceModel({
+    accountBalances,
+    searchText: ledgerSearchText,
+    selectedAccountId: selectedLedgerAccountId,
+    selectedTransactionId: selectedLedgerTransactionId,
+    workspace: loadedWorkspace,
+  });
 
   async function runMutation(label: string, operation: () => Promise<void>) {
     try {
@@ -332,24 +343,71 @@ export function App() {
                 <span>Register</span>
                 <span className="muted">Double-entry ledger</span>
               </div>
+              <div className="ledger-toolbar">
+                <label className="ledger-filter">
+                  <span className="muted">Search register</span>
+                  <input
+                    value={ledgerSearchText}
+                    placeholder="description, payee, account, memo"
+                    onChange={(event) => setLedgerSearchText(event.target.value)}
+                  />
+                </label>
+                <div className="ledger-chip-row">
+                  <button
+                    className={`ledger-chip${selectedLedgerAccountId === null ? " active" : ""}`}
+                    type="button"
+                    onClick={() => setSelectedLedgerAccountId(null)}
+                  >
+                    All accounts
+                  </button>
+                  {liquidAccounts.slice(0, 4).map((account) => (
+                    <button
+                      key={account.id}
+                      className={`ledger-chip${selectedLedgerAccountId === account.id ? " active" : ""}`}
+                      type="button"
+                      onClick={() => setSelectedLedgerAccountId(account.id)}
+                    >
+                      {account.name}
+                    </button>
+                  ))}
+                </div>
+              </div>
               <table>
                 <thead>
                   <tr>
                     <th>Date</th>
                     <th>Description</th>
                     <th>Payee</th>
+                    <th>Accounts</th>
                     <th>Tags</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {loadedWorkspace.transactions.map((transaction) => (
-                    <tr key={transaction.id}>
-                      <td>{transaction.occurredOn}</td>
-                      <td>{transaction.description}</td>
-                      <td>{transaction.payee}</td>
-                      <td>{transaction.tags?.join(", ")}</td>
+                  {ledgerWorkspace.filteredTransactions.length > 0 ? (
+                    ledgerWorkspace.filteredTransactions.map((transaction) => (
+                      <tr
+                        key={transaction.id}
+                        className={
+                          selectedLedgerTransactionId === transaction.id ? "register-row selected" : "register-row"
+                        }
+                        onClick={() => setSelectedLedgerTransactionId(transaction.id)}
+                      >
+                        <td>{transaction.occurredOn}</td>
+                        <td>{transaction.description}</td>
+                        <td>{transaction.payee ?? "Unassigned"}</td>
+                        <td>{transaction.postings.map((posting) => posting.accountName).join(", ")}</td>
+                        <td>{transaction.tags.join(", ")}</td>
+                      </tr>
+                    ))
+                  ) : (
+                    <tr>
+                      <td colSpan={5}>
+                        <div className="table-empty-state">
+                          No transactions match the current account filter and search text.
+                        </div>
+                      </td>
                     </tr>
-                  ))}
+                  )}
                 </tbody>
               </table>
             </article>
@@ -359,11 +417,20 @@ export function App() {
                 <span>Balances</span>
                 <span className="muted">As of 2026-04-30</span>
               </div>
-              {accountBalances.map((balance) => (
-                <div key={`${balance.accountId}:${balance.commodityCode}`} className="metric-row">
+              {ledgerWorkspace.filteredBalances.map((balance) => (
+                <button
+                  key={`${balance.accountId}:${balance.commodityCode}`}
+                  className={`metric-button${selectedLedgerAccountId === balance.accountId ? " active" : ""}`}
+                  type="button"
+                  onClick={() =>
+                    setSelectedLedgerAccountId((current) =>
+                      current === balance.accountId ? null : balance.accountId,
+                    )
+                  }
+                >
                   <span>{balance.accountName}</span>
                   <strong>{formatCurrency(balance.balance)}</strong>
-                </div>
+                </button>
               ))}
             </article>
 
@@ -1237,22 +1304,34 @@ export function App() {
         return (
           <>
             <div className="tree-section">
-              <h3>Liquid accounts</h3>
-              {liquidAccounts.map((account) => (
-                <div key={account.id} className="tree-item">
+              <h3>Ledger accounts</h3>
+              {ledgerWorkspace.availableAccounts.map((account) => (
+                <button
+                  key={account.id}
+                  className={`tree-button${selectedLedgerAccountId === account.id ? " active" : ""}`}
+                  type="button"
+                  onClick={() =>
+                    setSelectedLedgerAccountId((current) => (current === account.id ? null : account.id))
+                  }
+                >
                   <span>{account.name}</span>
                   <span className="muted">{account.type}</span>
-                </div>
+                </button>
               ))}
             </div>
 
             <div className="tree-section">
-              <h3>Recent transactions</h3>
-              {recentTransactions.map((transaction) => (
-                <div key={transaction.id} className="tree-item">
+              <h3>Filtered register</h3>
+              {ledgerWorkspace.filteredTransactions.slice(0, 8).map((transaction) => (
+                <button
+                  key={transaction.id}
+                  className={`tree-button${selectedLedgerTransactionId === transaction.id ? " active" : ""}`}
+                  type="button"
+                  onClick={() => setSelectedLedgerTransactionId(transaction.id)}
+                >
                   <span>{transaction.description}</span>
                   <span className="muted">{transaction.occurredOn}</span>
-                </div>
+                </button>
               ))}
             </div>
           </>
@@ -1366,8 +1445,60 @@ export function App() {
             </div>
 
             <div className="inspector-section">
+              <h3>Account drill-down</h3>
+              {ledgerWorkspace.selectedAccount ? (
+                <div className="detail-stack">
+                  <div className="status-item">
+                    <span>Account</span>
+                    <strong>{ledgerWorkspace.selectedAccount.name}</strong>
+                  </div>
+                  <div className="status-item">
+                    <span>Type</span>
+                    <strong>{ledgerWorkspace.selectedAccount.type}</strong>
+                  </div>
+                  <div className="status-item">
+                    <span>Register matches</span>
+                    <strong>{ledgerWorkspace.selectedAccount.transactionCount}</strong>
+                  </div>
+                </div>
+              ) : (
+                <p>Select an account from the sidebar or balance list to narrow the register.</p>
+              )}
+            </div>
+
+            <div className="inspector-section">
+              <h3>Posting inspector</h3>
+              {ledgerWorkspace.selectedTransaction ? (
+                <>
+                  <p>
+                    {ledgerWorkspace.selectedTransaction.description}
+                    {ledgerWorkspace.selectedTransaction.payee
+                      ? ` · ${ledgerWorkspace.selectedTransaction.payee}`
+                      : ""}
+                  </p>
+                  <div className="detail-stack">
+                    {ledgerWorkspace.selectedTransaction.postings.map((posting) => (
+                      <div key={`${ledgerWorkspace.selectedTransaction?.id}:${posting.accountId}:${posting.amount}`} className="posting-card">
+                        <div className="status-item">
+                          <span>{posting.accountName}</span>
+                          <strong>{formatCurrency(posting.amount)}</strong>
+                        </div>
+                        <div className="posting-meta">
+                          <span>{posting.cleared ? "Cleared" : "Open"}</span>
+                          <span>{posting.memo ?? "No memo"}</span>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </>
+              ) : (
+                <p>Select a register row to inspect the underlying postings and cleared state.</p>
+              )}
+            </div>
+
+            <div className="inspector-section">
               <h3>Next desktop lift</h3>
-              <p>Register filtering, split inspection, and account drill-down are the natural next ledger slices.</p>
+              <p>Inline posting edits, richer reconciliation matching, and keyboard-first register navigation are the natural next ledger slices.</p>
             </div>
           </>
         );
