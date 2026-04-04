@@ -17,6 +17,7 @@
     "api"
   ],
   "skills": "./skills/",
+  "hooks": "./hooks.json",
   "interface": {
     "displayName": "Finance Boundary Review",
     "shortDescription": "Reviews changes for validation, auth, audit, and logging risks.",
