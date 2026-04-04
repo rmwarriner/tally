@@ -17,6 +17,7 @@
     "project-management"
   ],
   "skills": "./skills/",
+  "hooks": "./hooks.json",
   "interface": {
     "displayName": "GitHub Roadmap",
     "shortDescription": "Issue, milestone, and project-board helpers for this repo.",
