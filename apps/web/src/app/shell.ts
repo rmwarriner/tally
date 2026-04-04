@@ -1,4 +1,4 @@
-import type { FinanceWorkspaceDocument } from "@gnucash-ng/workspace";
+import type { FinanceWorkspaceDocument, ReconciliationSession } from "@gnucash-ng/workspace";
 
 export type WorkspaceView =
   | "overview"
@@ -65,6 +65,24 @@ export interface LedgerWorkspaceModel {
   selectedTransaction: LedgerTransactionDetail | null;
 }
 
+export interface ReconciliationCandidate {
+  accountAmount: number;
+  description: string;
+  id: string;
+  occurredOn: string;
+  payee: string | null;
+  selected: boolean;
+}
+
+export interface ReconciliationWorkspaceModel {
+  candidateTransactions: ReconciliationCandidate[];
+  clearedTotal: number;
+  difference: number | null;
+  latestSession: ReconciliationSession | undefined;
+  selectedAccount: FinanceWorkspaceDocument["accounts"][number] | null;
+  statementBalance: number | null;
+}
+
 export function getLedgerSelectionIndex(input: {
   selectedTransactionId: string | null;
   transactions: LedgerTransactionDetail[];
@@ -123,6 +141,68 @@ export function shouldHandleLedgerHotkey(target: EventTarget | null): boolean {
   }
 
   return !candidate.isContentEditable;
+}
+
+function getTransactionAmountForAccount(
+  transaction: FinanceWorkspaceDocument["transactions"][number],
+  accountId: string,
+): number {
+  return transaction.postings
+    .filter((posting) => posting.accountId === accountId)
+    .reduce((sum, posting) => sum + posting.amount.quantity, 0);
+}
+
+export function createReconciliationWorkspaceModel(input: {
+  selectedAccountId: string;
+  selectedTransactionIds: Record<string, boolean>;
+  statementBalanceText: string;
+  statementDate: string;
+  workspace: FinanceWorkspaceDocument;
+}): ReconciliationWorkspaceModel {
+  const reconciliationAccounts = input.workspace.accounts.filter(
+    (account) => account.type === "asset" || account.type === "liability",
+  );
+  const selectedAccount =
+    reconciliationAccounts.find((account) => account.id === input.selectedAccountId) ?? null;
+  const candidateTransactions = selectedAccount
+    ? input.workspace.transactions
+        .filter(
+          (transaction) =>
+            transaction.occurredOn <= input.statementDate.trim() &&
+            transaction.postings.some((posting) => posting.accountId === selectedAccount.id),
+        )
+        .sort((left, right) => right.occurredOn.localeCompare(left.occurredOn))
+        .map((transaction) => ({
+          accountAmount: getTransactionAmountForAccount(transaction, selectedAccount.id),
+          description: transaction.description,
+          id: transaction.id,
+          occurredOn: transaction.occurredOn,
+          payee: transaction.payee ?? null,
+          selected: Boolean(input.selectedTransactionIds[transaction.id]),
+        }))
+    : [];
+  const clearedTotal = candidateTransactions.reduce((sum, transaction) => {
+    if (!transaction.selected) {
+      return sum;
+    }
+
+    return sum + transaction.accountAmount;
+  }, 0);
+  const statementBalance = Number.parseFloat(input.statementBalanceText);
+  const latestSession = selectedAccount
+    ? [...input.workspace.reconciliationSessions]
+        .filter((session) => session.accountId === selectedAccount.id)
+        .sort((left, right) => right.statementDate.localeCompare(left.statementDate))[0]
+    : undefined;
+
+  return {
+    candidateTransactions,
+    clearedTotal,
+    difference: Number.isFinite(statementBalance) ? statementBalance - clearedTotal : null,
+    latestSession,
+    selectedAccount,
+    statementBalance: Number.isFinite(statementBalance) ? statementBalance : null,
+  };
 }
 
 export const workspaceViews: WorkspaceViewDefinition[] = [

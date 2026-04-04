@@ -438,6 +438,86 @@ textarea {
   max-width: 880px;
 }
 
+.reconciliation-note {
+  padding: 12px 14px;
+  border-radius: 14px;
+  background: #f3ebdb;
+  color: #5f675f;
+  line-height: 1.45;
+}
+
+.reconciliation-summary-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.summary-card {
+  display: grid;
+  gap: 6px;
+  padding: 14px;
+  border: 1px solid rgba(201, 193, 180, 0.7);
+  border-radius: 16px;
+  background: #fffaf1;
+}
+
+.summary-card span {
+  color: var(--text-muted);
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  font-family: var(--mono-font);
+}
+
+.summary-card.balanced {
+  background: #dff2e6;
+  border-color: rgba(22, 90, 57, 0.18);
+  color: #165a39;
+}
+
+.summary-card.warning {
+  background: #fff1cf;
+  border-color: rgba(181, 129, 40, 0.3);
+  color: #8b5c12;
+}
+
+.reconciliation-candidate-list {
+  display: grid;
+  gap: 10px;
+}
+
+.reconciliation-candidate {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 14px;
+  border: 1px solid rgba(201, 193, 180, 0.7);
+  border-radius: 16px;
+  background: #fffaf1;
+  color: inherit;
+  text-align: left;
+}
+
+.reconciliation-candidate.active {
+  background: #fff1cf;
+  border-color: rgba(181, 129, 40, 0.42);
+}
+
+.candidate-meta,
+.candidate-side span {
+  color: var(--text-muted);
+  font-size: 12px;
+  font-family: var(--mono-font);
+}
+
+.candidate-side {
+  display: grid;
+  justify-items: end;
+  gap: 4px;
+}
+
 .empty-panel p,
 .inspector-section p {
   line-height: 1.5;
@@ -550,6 +630,7 @@ th {
   }
 
   .form-inline,
+  .reconciliation-summary-grid,
   .overview-card-grid,
   .view-tabs {
     grid-template-columns: 1fr;

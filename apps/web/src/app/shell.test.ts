@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  createReconciliationWorkspaceModel,
   createLedgerWorkspaceModel,
   createOverviewCards,
   getNextLedgerTransactionId,
@@ -225,8 +226,82 @@ describe("web shell view model", () => {
 
   it("avoids handling ledger hotkeys while typing into form controls", () => {
     expect(shouldHandleLedgerHotkey(null)).toBe(true);
-    expect(shouldHandleLedgerHotkey({ tagName: "DIV" } as EventTarget)).toBe(true);
-    expect(shouldHandleLedgerHotkey({ tagName: "INPUT" } as EventTarget)).toBe(false);
-    expect(shouldHandleLedgerHotkey({ tagName: "TEXTAREA" } as EventTarget)).toBe(false);
+    expect(shouldHandleLedgerHotkey({ tagName: "DIV" } as unknown as EventTarget)).toBe(true);
+    expect(shouldHandleLedgerHotkey({ tagName: "INPUT" } as unknown as EventTarget)).toBe(false);
+    expect(shouldHandleLedgerHotkey({ tagName: "TEXTAREA" } as unknown as EventTarget)).toBe(false);
+  });
+
+  it("builds reconciliation matching state with cleared totals and latest session", () => {
+    const model = createReconciliationWorkspaceModel({
+      selectedAccountId: "acct-checking",
+      selectedTransactionIds: {
+        "txn-grocery-1": true,
+        "txn-paycheck-1": true,
+      },
+      statementBalanceText: "3051.58",
+      statementDate: "2026-04-02",
+      workspace: {
+        accounts: [
+          { code: "1000", id: "acct-checking", name: "Checking", type: "asset" },
+          { code: "6100", id: "acct-expense-groceries", name: "Groceries", type: "expense" },
+          { code: "4000", id: "acct-income-salary", name: "Salary", type: "income" },
+        ],
+        auditEvents: [],
+        baseCommodityCode: "USD",
+        baselineBudgetLines: [],
+        commodities: [],
+        envelopeAllocations: [],
+        envelopes: [],
+        householdMembers: ["Primary"],
+        id: "workspace-household-demo",
+        importBatches: [],
+        name: "Household",
+        reconciliationSessions: [
+          {
+            accountId: "acct-checking",
+            clearedTransactionIds: ["txn-grocery-1"],
+            difference: { commodityCode: "USD", quantity: 12.11 },
+            id: "recon:checking:2026-03-31",
+            statementBalance: { commodityCode: "USD", quantity: 3120.42 },
+            statementDate: "2026-03-31",
+          },
+        ],
+        schemaVersion: 1,
+        scheduledTransactions: [],
+        transactions: [
+          {
+            description: "April paycheck",
+            id: "txn-paycheck-1",
+            occurredOn: "2026-04-01",
+            payee: "Employer Inc.",
+            postings: [
+              { accountId: "acct-checking", amount: { commodityCode: "USD", quantity: 3200 } },
+              { accountId: "acct-income-salary", amount: { commodityCode: "USD", quantity: -3200 } },
+            ],
+            tags: ["income"],
+          },
+          {
+            description: "Weekly groceries",
+            id: "txn-grocery-1",
+            occurredOn: "2026-04-02",
+            payee: "Neighborhood Market",
+            postings: [
+              { accountId: "acct-expense-groceries", amount: { commodityCode: "USD", quantity: 148.42 } },
+              { accountId: "acct-checking", amount: { commodityCode: "USD", quantity: -148.42 }, cleared: true },
+            ],
+            tags: ["household"],
+          },
+        ],
+      },
+    });
+
+    expect(model.selectedAccount?.id).toBe("acct-checking");
+    expect(model.candidateTransactions.map((candidate) => candidate.id)).toEqual([
+      "txn-grocery-1",
+      "txn-paycheck-1",
+    ]);
+    expect(model.clearedTotal).toBeCloseTo(3051.58);
+    expect(model.difference).toBeCloseTo(0);
+    expect(model.latestSession?.statementDate).toBe("2026-03-31");
   });
 });

@@ -14,6 +14,7 @@ import {
   type WorkspaceResponse,
 } from "./api";
 import {
+  createReconciliationWorkspaceModel,
   createLedgerWorkspaceModel,
   createOverviewCards,
   getNextLedgerTransactionId,
@@ -32,6 +33,11 @@ function formatCurrency(amount: number): string {
     style: "currency",
     currency: "USD",
   });
+}
+
+function formatSignedCurrency(amount: number): string {
+  const formatted = formatCurrency(Math.abs(amount));
+  return amount < 0 ? `-${formatted}` : formatted;
 }
 
 function createTransactionId(): string {
@@ -103,9 +109,14 @@ export function App() {
   });
   const [reconciliationForm, setReconciliationForm] = useState({
     accountId: "acct-checking",
-    clearedTransactionIds: "txn-paycheck-1,txn-grocery-1",
     statementBalance: "3051.58",
     statementDate: "2026-04-02",
+  });
+  const [selectedReconciliationTransactionIds, setSelectedReconciliationTransactionIds] = useState<
+    Record<string, boolean>
+  >({
+    "txn-grocery-1": true,
+    "txn-paycheck-1": true,
   });
   const [csvForm, setCsvForm] = useState({
     csvText: "2026-04-04,Bus pass,45,acct-expense-transport,acct-checking",
@@ -227,6 +238,13 @@ export function App() {
     searchText: ledgerSearchText,
     selectedAccountId: selectedLedgerAccountId,
     selectedTransactionId: selectedLedgerTransactionId,
+    workspace: loadedWorkspace,
+  });
+  const reconciliationWorkspace = createReconciliationWorkspaceModel({
+    selectedAccountId: reconciliationForm.accountId,
+    selectedTransactionIds: selectedReconciliationTransactionIds,
+    statementBalanceText: reconciliationForm.statementBalance,
+    statementDate: reconciliationForm.statementDate,
     workspace: loadedWorkspace,
   });
 
@@ -605,7 +623,7 @@ export function App() {
             <article className="panel form-panel">
               <div className="panel-header">
                 <span>Reconcile</span>
-                <span className="muted">Statement session</span>
+                <span className="muted">Statement matching</span>
               </div>
               <form
                 className="form-stack"
@@ -616,10 +634,9 @@ export function App() {
                       actor: "Primary",
                       payload: {
                         accountId: reconciliationForm.accountId,
-                        clearedTransactionIds: reconciliationForm.clearedTransactionIds
-                          .split(",")
-                          .map((value) => value.trim())
-                          .filter(Boolean),
+                        clearedTransactionIds: reconciliationWorkspace.candidateTransactions
+                          .filter((candidate) => candidate.selected)
+                          .map((candidate) => candidate.id),
                         statementBalance: Number.parseFloat(reconciliationForm.statementBalance),
                         statementDate: reconciliationForm.statementDate,
                       },
@@ -632,10 +649,7 @@ export function App() {
                   <select
                     value={reconciliationForm.accountId}
                     onChange={(event) =>
-                      setReconciliationForm((current) => ({
-                        ...current,
-                        accountId: event.target.value,
-                      }))
+                      setReconciliationForm((current) => ({ ...current, accountId: event.target.value }))
                     }
                   >
                     {liquidAccounts.map((account) => (
@@ -669,19 +683,69 @@ export function App() {
                     }
                   />
                 </label>
-                <label>
-                  Cleared transaction ids
-                  <textarea
-                    rows={3}
-                    value={reconciliationForm.clearedTransactionIds}
-                    onChange={(event) =>
-                      setReconciliationForm((current) => ({
-                        ...current,
-                        clearedTransactionIds: event.target.value,
-                      }))
-                    }
-                  />
-                </label>
+                {reconciliationWorkspace.latestSession ? (
+                  <div className="reconciliation-note">
+                    Latest session: {reconciliationWorkspace.latestSession.statementDate} with difference{" "}
+                    {formatSignedCurrency(reconciliationWorkspace.latestSession.difference.quantity)}
+                  </div>
+                ) : null}
+                <div className="reconciliation-summary-grid">
+                  <div className="summary-card">
+                    <span>Cleared total</span>
+                    <strong>{formatSignedCurrency(reconciliationWorkspace.clearedTotal)}</strong>
+                  </div>
+                  <div
+                    className={`summary-card${
+                      reconciliationWorkspace.difference === 0 ? " balanced" : " warning"
+                    }`}
+                  >
+                    <span>Difference</span>
+                    <strong>
+                      {reconciliationWorkspace.difference === null
+                        ? "Enter balance"
+                        : formatSignedCurrency(reconciliationWorkspace.difference)}
+                    </strong>
+                  </div>
+                </div>
+                <div className="reconciliation-candidate-list">
+                  <div className="panel-header">
+                    <span>Cleared candidates</span>
+                    <span className="muted">
+                      {reconciliationWorkspace.selectedAccount?.name ?? "Select account"}
+                    </span>
+                  </div>
+                  {reconciliationWorkspace.candidateTransactions.length > 0 ? (
+                    reconciliationWorkspace.candidateTransactions.map((candidate) => (
+                      <button
+                        key={candidate.id}
+                        className={`reconciliation-candidate${candidate.selected ? " active" : ""}`}
+                        type="button"
+                        onClick={() =>
+                          setSelectedReconciliationTransactionIds((current) => ({
+                            ...current,
+                            [candidate.id]: !current[candidate.id],
+                          }))
+                        }
+                      >
+                        <div>
+                          <strong>{candidate.description}</strong>
+                          <div className="candidate-meta">
+                            {candidate.occurredOn}
+                            {candidate.payee ? ` · ${candidate.payee}` : ""}
+                          </div>
+                        </div>
+                        <div className="candidate-side">
+                          <strong>{formatSignedCurrency(candidate.accountAmount)}</strong>
+                          <span>{candidate.selected ? "Cleared" : "Open"}</span>
+                        </div>
+                      </button>
+                    ))
+                  ) : (
+                    <p className="form-hint">
+                      No transactions are available for the selected account and statement date.
+                    </p>
+                  )}
+                </div>
                 <button type="submit" disabled={busy !== null}>
                   {busy === "Reconciliation" ? "Reconciling..." : "Record reconciliation"}
                 </button>
