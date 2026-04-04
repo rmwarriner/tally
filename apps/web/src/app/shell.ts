@@ -93,6 +93,12 @@ export interface AccountSearchMatch {
   recommended: boolean;
 }
 
+export interface PostingBalanceSummary {
+  balance: number | null;
+  defaultAmount: string;
+  isBalanced: boolean;
+}
+
 function normalizeAccountSearchValue(value: string): string {
   return value.trim().toLowerCase();
 }
@@ -122,6 +128,32 @@ export function getPreferredAccountTypesForPostingAmount(amountText: string): st
   }
 
   return amount > 0 ? ["asset", "expense"] : ["liability", "equity", "income"];
+}
+
+export function getPostingBalanceSummary(amountTexts: string[]): PostingBalanceSummary {
+  let balance = 0;
+
+  for (const amountText of amountTexts) {
+    const amount = Number.parseFloat(amountText);
+
+    if (!Number.isFinite(amount)) {
+      return {
+        balance: null,
+        defaultAmount: "0",
+        isBalanced: false,
+      };
+    }
+
+    balance += amount;
+  }
+
+  const normalizedBalance = Math.abs(balance) <= 0.000001 ? 0 : balance;
+
+  return {
+    balance: normalizedBalance,
+    defaultAmount: normalizedBalance === 0 ? "0" : String(-normalizedBalance),
+    isBalanced: normalizedBalance === 0,
+  };
 }
 
 function scoreAccountSearchMatch(input: {

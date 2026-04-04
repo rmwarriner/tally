@@ -8,6 +8,7 @@ import {
   getNextPostingAmountFocusTarget,
   getNextPostingFocusTarget,
   getNextLedgerTransactionId,
+  getPostingBalanceSummary,
   getTransactionEditorHotkeyAction,
   getPreferredAccountTypesForPostingAmount,
   getLedgerSelectionIndex,
@@ -437,6 +438,24 @@ describe("web shell view model", () => {
     ]);
     expect(getPreferredAccountTypesForPostingAmount("0")).toEqual([]);
     expect(getPreferredAccountTypesForPostingAmount("not-a-number")).toEqual([]);
+  });
+
+  it("computes posting balance summaries for editor defaults", () => {
+    expect(getPostingBalanceSummary(["100", "-40"])).toEqual({
+      balance: 60,
+      defaultAmount: "-60",
+      isBalanced: false,
+    });
+    expect(getPostingBalanceSummary(["100", "-100"])).toEqual({
+      balance: 0,
+      defaultAmount: "0",
+      isBalanced: true,
+    });
+    expect(getPostingBalanceSummary(["100", "not-a-number"])).toEqual({
+      balance: null,
+      defaultAmount: "0",
+      isBalanced: false,
+    });
   });
 
   it("builds reconciliation matching state with cleared totals and latest session", () => {

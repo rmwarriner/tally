@@ -715,6 +715,38 @@ th {
   gap: 6px;
 }
 
+.editor-balance-callout {
+  display: grid;
+  gap: 8px;
+  margin-top: 8px;
+  padding: 12px 14px;
+  border-radius: 14px;
+  border: 1px solid rgba(201, 193, 180, 0.7);
+}
+
+.editor-balance-callout.balanced {
+  background: rgba(232, 245, 233, 0.85);
+  border-color: rgba(76, 141, 78, 0.35);
+}
+
+.editor-balance-callout.warning {
+  background: rgba(255, 241, 207, 0.9);
+  border-color: rgba(181, 129, 40, 0.4);
+}
+
+.editor-balance-callout-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.editor-balance-callout-header span {
+  color: var(--text-muted);
+  font-family: var(--mono-font);
+  font-size: 12px;
+}
+
 .error-text {
   color: #8f2d1f;
 }

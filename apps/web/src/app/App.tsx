@@ -22,6 +22,7 @@ import {
   createOverviewCards,
   getNextPostingFocusTarget,
   getNextLedgerTransactionId,
+  getPostingBalanceSummary,
   getPreferredAccountTypesForPostingAmount,
   getTransactionEditorHotkeyAction,
   getWorkspaceViewDefinition,
@@ -358,6 +359,13 @@ export function App() {
         statementBalance: null,
       };
   const transactionEditorErrors = transactionEditor ? validateTransactionEditorState(transactionEditor) : [];
+  const postingBalanceSummary = transactionEditor
+    ? getPostingBalanceSummary(transactionEditor.postings.map((posting) => posting.amount))
+    : {
+        balance: null,
+        defaultAmount: "0",
+        isBalanced: false,
+      };
 
   useEffect(() => {
     if (activeView !== "ledger") {
@@ -499,6 +507,7 @@ export function App() {
 
       const nextIndex = current.postings.length;
       const defaultAccount = workspaceAccounts[0];
+      const nextAmount = getPostingBalanceSummary(current.postings.map((posting) => posting.amount));
       setPendingPostingFocusTarget({
         field: "account",
         focusIndex: nextIndex,
@@ -513,7 +522,7 @@ export function App() {
           {
             accountId: defaultAccount?.id ?? "",
             accountQuery: defaultAccount ? formatAccountOptionLabel(defaultAccount) : "",
-            amount: "0",
+            amount: nextAmount.defaultAmount,
             cleared: false,
             memo: "",
           },
@@ -1098,14 +1107,37 @@ export function App() {
                 across posting fields, `Alt+Up/Down` reorders the current split
               </p>
               {transactionEditorErrors.length > 0 ? (
-                <div className="error-stack">
-                  {transactionEditorErrors.map((issue) => (
-                    <p key={issue} className="form-hint error-text">
-                      {issue}
-                    </p>
-                  ))}
+                <div className="editor-balance-callout warning">
+                  <div className="editor-balance-callout-header">
+                    <strong>Transaction out of balance</strong>
+                    <span>
+                      Remaining difference:{" "}
+                      {postingBalanceSummary.balance === null
+                        ? "invalid amount"
+                        : formatSignedCurrency(postingBalanceSummary.balance)}
+                    </span>
+                  </div>
+                  <div className="error-stack">
+                    {transactionEditorErrors.map((issue) => (
+                      <p key={issue} className="form-hint error-text">
+                        {issue}
+                      </p>
+                    ))}
+                  </div>
                 </div>
-              ) : null}
+              ) : (
+                <div className="editor-balance-callout balanced">
+                  <div className="editor-balance-callout-header">
+                    <strong>Transaction balanced</strong>
+                    <span>
+                      Difference:{" "}
+                      {postingBalanceSummary.balance === null
+                        ? "invalid amount"
+                        : formatSignedCurrency(postingBalanceSummary.balance)}
+                    </span>
+                  </div>
+                </div>
+              )}
               <div className="posting-meta">
                 <span>Transaction id</span>
                 <span>{transactionEditor.transactionId}</span>
