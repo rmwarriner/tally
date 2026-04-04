@@ -292,6 +292,11 @@ textarea {
   background: #fffaf1;
 }
 
+.ledger-filter input:focus {
+  outline: 2px solid rgba(181, 129, 40, 0.28);
+  outline-offset: 1px;
+}
+
 .ledger-chip-row {
   display: flex;
   flex-wrap: wrap;
@@ -458,6 +463,10 @@ th {
 
 .register-row {
   cursor: pointer;
+}
+
+.register-row:hover td {
+  background: rgba(255, 247, 232, 0.8);
 }
 
 .register-row.selected td {

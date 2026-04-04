@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { colors, typography } from "@gnucash-ng/ui";
 import {
   fetchDashboard,
@@ -16,7 +16,9 @@ import {
 import {
   createLedgerWorkspaceModel,
   createOverviewCards,
+  getNextLedgerTransactionId,
   getWorkspaceViewDefinition,
+  shouldHandleLedgerHotkey,
   type WorkspaceView,
   workspaceViews,
 } from "./shell";
@@ -90,6 +92,7 @@ export function App() {
   const [workspace, setWorkspace] = useState<WorkspaceResponse["workspace"] | null>(null);
   const [busy, setBusy] = useState<string | null>(null);
   const [statusMessage, setStatusMessage] = useState<string | null>(null);
+  const ledgerSearchInputRef = useRef<HTMLInputElement | null>(null);
 
   const [transactionForm, setTransactionForm] = useState({
     amount: "65.00",
@@ -227,6 +230,70 @@ export function App() {
     workspace: loadedWorkspace,
   });
 
+  useEffect(() => {
+    if (activeView !== "ledger") {
+      return;
+    }
+
+    function handleKeydown(event: KeyboardEvent) {
+      if (!shouldHandleLedgerHotkey(event.target)) {
+        return;
+      }
+
+      if (event.key === "/") {
+        event.preventDefault();
+        ledgerSearchInputRef.current?.focus();
+        return;
+      }
+
+      if (event.key === "Escape") {
+        event.preventDefault();
+        setSelectedLedgerTransactionId(null);
+        return;
+      }
+
+      if (event.key === "ArrowDown" || event.key === "j") {
+        event.preventDefault();
+        setSelectedLedgerTransactionId((current) =>
+          getNextLedgerTransactionId({
+            direction: "next",
+            selectedTransactionId: current,
+            transactions: ledgerWorkspace.filteredTransactions,
+          }),
+        );
+        return;
+      }
+
+      if (event.key === "ArrowUp" || event.key === "k") {
+        event.preventDefault();
+        setSelectedLedgerTransactionId((current) =>
+          getNextLedgerTransactionId({
+            direction: "previous",
+            selectedTransactionId: current,
+            transactions: ledgerWorkspace.filteredTransactions,
+          }),
+        );
+      }
+    }
+
+    window.addEventListener("keydown", handleKeydown);
+
+    return () => {
+      window.removeEventListener("keydown", handleKeydown);
+    };
+  }, [activeView, ledgerWorkspace.filteredTransactions]);
+
+  useEffect(() => {
+    if (
+      selectedLedgerTransactionId &&
+      !ledgerWorkspace.filteredTransactions.some(
+        (transaction) => transaction.id === selectedLedgerTransactionId,
+      )
+    ) {
+      setSelectedLedgerTransactionId(ledgerWorkspace.filteredTransactions[0]?.id ?? null);
+    }
+  }, [ledgerWorkspace.filteredTransactions, selectedLedgerTransactionId]);
+
   async function runMutation(label: string, operation: () => Promise<void>) {
     try {
       setBusy(label);
@@ -347,6 +414,7 @@ export function App() {
                 <label className="ledger-filter">
                   <span className="muted">Search register</span>
                   <input
+                    ref={ledgerSearchInputRef}
                     value={ledgerSearchText}
                     placeholder="description, payee, account, memo"
                     onChange={(event) => setLedgerSearchText(event.target.value)}
@@ -371,6 +439,9 @@ export function App() {
                     </button>
                   ))}
                 </div>
+                <p className="form-hint">
+                  Hotkeys: `/` search, `j` or down move later, `k` or up move earlier, `Esc` clear selection
+                </p>
               </div>
               <table>
                 <thead>

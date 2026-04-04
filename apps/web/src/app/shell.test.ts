@@ -2,7 +2,10 @@ import { describe, expect, it } from "vitest";
 import {
   createLedgerWorkspaceModel,
   createOverviewCards,
+  getNextLedgerTransactionId,
+  getLedgerSelectionIndex,
   getWorkspaceViewDefinition,
+  shouldHandleLedgerHotkey,
   workspaceViews,
 } from "./shell";
 
@@ -167,5 +170,63 @@ describe("web shell view model", () => {
         }),
       ],
     });
+  });
+
+  it("computes ledger selection movement for keyboard navigation", () => {
+    const transactions = [
+      {
+        description: "One",
+        id: "txn-1",
+        matchedAccountIds: ["acct-1"],
+        occurredOn: "2026-04-01",
+        payee: null,
+        postings: [],
+        tags: [],
+      },
+      {
+        description: "Two",
+        id: "txn-2",
+        matchedAccountIds: ["acct-1"],
+        occurredOn: "2026-04-02",
+        payee: null,
+        postings: [],
+        tags: [],
+      },
+    ];
+
+    expect(
+      getLedgerSelectionIndex({
+        selectedTransactionId: "txn-2",
+        transactions,
+      }),
+    ).toBe(1);
+    expect(
+      getNextLedgerTransactionId({
+        direction: "next",
+        selectedTransactionId: null,
+        transactions,
+      }),
+    ).toBe("txn-1");
+    expect(
+      getNextLedgerTransactionId({
+        direction: "previous",
+        selectedTransactionId: null,
+        transactions,
+      }),
+    ).toBe("txn-2");
+    expect(
+      getNextLedgerTransactionId({
+        direction: "next",
+        selectedTransactionId: "txn-2",
+        transactions,
+      }),
+    ).toBe("txn-2");
+  });
+
+  it("avoids handling ledger hotkeys while typing into form controls", () => {
+    expect(shouldHandleLedgerHotkey(null)).toBe(true);
+    expect(shouldHandleLedgerHotkey({ tagName: "DIV" } as EventTarget)).toBe(true);
+    expect(shouldHandleLedgerHotkey({ tagName: "INPUT" } as EventTarget)).toBe(false);
+    expect(shouldHandleLedgerHotkey({ tagName: "TEXTAREA" } as EventTarget)).toBe(false);
   });
 });

@@ -65,6 +65,66 @@ export interface LedgerWorkspaceModel {
   selectedTransaction: LedgerTransactionDetail | null;
 }
 
+export function getLedgerSelectionIndex(input: {
+  selectedTransactionId: string | null;
+  transactions: LedgerTransactionDetail[];
+}): number {
+  if (!input.selectedTransactionId) {
+    return -1;
+  }
+
+  return input.transactions.findIndex(
+    (transaction) => transaction.id === input.selectedTransactionId,
+  );
+}
+
+export function getNextLedgerTransactionId(input: {
+  direction: "next" | "previous";
+  selectedTransactionId: string | null;
+  transactions: LedgerTransactionDetail[];
+}): string | null {
+  if (input.transactions.length === 0) {
+    return null;
+  }
+
+  const currentIndex = getLedgerSelectionIndex({
+    selectedTransactionId: input.selectedTransactionId,
+    transactions: input.transactions,
+  });
+
+  if (currentIndex === -1) {
+    return input.direction === "next"
+      ? input.transactions[0]?.id ?? null
+      : input.transactions[input.transactions.length - 1]?.id ?? null;
+  }
+
+  const nextIndex =
+    input.direction === "next"
+      ? Math.min(currentIndex + 1, input.transactions.length - 1)
+      : Math.max(currentIndex - 1, 0);
+
+  return input.transactions[nextIndex]?.id ?? null;
+}
+
+export function shouldHandleLedgerHotkey(target: EventTarget | null): boolean {
+  if (!target || typeof target !== "object") {
+    return true;
+  }
+
+  const candidate = target as { isContentEditable?: boolean; tagName?: string };
+  const tagName = candidate.tagName?.toLowerCase();
+
+  if (!tagName) {
+    return true;
+  }
+
+  if (tagName === "input" || tagName === "textarea" || tagName === "select") {
+    return false;
+  }
+
+  return !candidate.isContentEditable;
+}
+
 export const workspaceViews: WorkspaceViewDefinition[] = [
   {
     description: "Cross-workspace operating picture with next actions and integrity status.",
