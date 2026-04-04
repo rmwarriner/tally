@@ -1,0 +1,99 @@
+import type { FinanceWorkspaceDocument } from "@gnucash-ng/workspace";
+
+export type AuthRole = "admin" | "member" | "local-admin";
+
+export interface AuthIdentity {
+  actor: string;
+  role: AuthRole;
+  token: string;
+}
+
+export type AuthContext =
+  | {
+      actor: string;
+      kind: "local";
+      role: "local-admin";
+    }
+  | {
+      actor: string;
+      kind: "token";
+      role: AuthRole;
+      token: string;
+    };
+
+export interface AuthResolution {
+  context?: AuthContext;
+  error?: string;
+  ok: boolean;
+}
+
+export interface AuthorizationResult {
+  error?: string;
+  ok: boolean;
+}
+
+export function resolveAuthContext(params: {
+  authIdentities: AuthIdentity[];
+  authRequired: boolean;
+  authorizationHeader?: string | null;
+  apiKeyHeader?: string | null;
+}): AuthResolution {
+  const token =
+    params.authorizationHeader?.startsWith("Bearer ")
+      ? params.authorizationHeader.slice("Bearer ".length)
+      : params.apiKeyHeader ?? undefined;
+
+  if (!params.authRequired && !token) {
+    return {
+      context: {
+        actor: "local-admin",
+        kind: "local",
+        role: "local-admin",
+      },
+      ok: true,
+    };
+  }
+
+  if (!token) {
+    return { error: "Authentication is required.", ok: false };
+  }
+
+  const identity = params.authIdentities.find((candidate) => candidate.token === token);
+
+  if (!identity) {
+    return { error: "Authentication is required.", ok: false };
+  }
+
+  return {
+    context: {
+      actor: identity.actor,
+      kind: "token",
+      role: identity.role,
+      token: identity.token,
+    },
+    ok: true,
+  };
+}
+
+export function authorizeWorkspaceAccess(
+  workspace: FinanceWorkspaceDocument,
+  auth: AuthContext,
+  access: "read" | "write",
+): AuthorizationResult {
+  if (auth.role === "local-admin" || auth.role === "admin") {
+    return { ok: true };
+  }
+
+  if (!workspace.householdMembers.includes(auth.actor)) {
+    return {
+      error: `Actor ${auth.actor} is not authorized for workspace ${workspace.id}.`,
+      ok: false,
+    };
+  }
+
+  if (access === "read" || access === "write") {
+    return { ok: true };
+  }
+
+  return { ok: false, error: "Access denied." };
+}

@@ -1,0 +1,18 @@
+{
+  "name": "@gnucash-ng/workspace",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "main": "src/index.ts",
+  "types": "src/index.ts",
+  "dependencies": {
+    "@gnucash-ng/domain": "workspace:*",
+    "@gnucash-ng/logging": "workspace:*"
+  },
+  "devDependencies": {
+    "@types/node": "^24.0.0"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit -p tsconfig.json"
+  }
+}

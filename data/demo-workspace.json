@@ -1,0 +1,256 @@
+{
+  "schemaVersion": 1,
+  "id": "workspace-household-demo",
+  "name": "Household Finance",
+  "baseCommodityCode": "USD",
+  "householdMembers": [
+    "Primary",
+    "Partner"
+  ],
+  "commodities": [
+    {
+      "code": "USD",
+      "name": "US Dollar",
+      "type": "fiat",
+      "precision": 2
+    }
+  ],
+  "accounts": [
+    {
+      "id": "acct-checking",
+      "code": "1000",
+      "name": "Checking",
+      "type": "asset",
+      "isEnvelopeFundingSource": true
+    },
+    {
+      "id": "acct-savings",
+      "code": "1010",
+      "name": "Savings",
+      "type": "asset"
+    },
+    {
+      "id": "acct-credit-card",
+      "code": "2000",
+      "name": "Credit Card",
+      "type": "liability"
+    },
+    {
+      "id": "acct-equity",
+      "code": "3000",
+      "name": "Opening Balances",
+      "type": "equity"
+    },
+    {
+      "id": "acct-income-salary",
+      "code": "4000",
+      "name": "Salary",
+      "type": "income"
+    },
+    {
+      "id": "acct-income-interest",
+      "code": "4010",
+      "name": "Interest Income",
+      "type": "income"
+    },
+    {
+      "id": "acct-expense-housing",
+      "code": "5000",
+      "name": "Housing",
+      "type": "expense"
+    },
+    {
+      "id": "acct-expense-groceries",
+      "code": "5010",
+      "name": "Groceries",
+      "type": "expense"
+    },
+    {
+      "id": "acct-expense-transport",
+      "code": "5020",
+      "name": "Transport",
+      "type": "expense"
+    },
+    {
+      "id": "acct-expense-utilities",
+      "code": "5030",
+      "name": "Utilities",
+      "type": "expense"
+    }
+  ],
+  "transactions": [
+    {
+      "id": "txn-paycheck-1",
+      "occurredOn": "2026-04-01",
+      "description": "April paycheck",
+      "payee": "Employer Inc.",
+      "postings": [
+        {
+          "accountId": "acct-checking",
+          "amount": {
+            "commodityCode": "USD",
+            "quantity": 3200
+          }
+        },
+        {
+          "accountId": "acct-income-salary",
+          "amount": {
+            "commodityCode": "USD",
+            "quantity": -3200
+          }
+        }
+      ],
+      "tags": [
+        "income",
+        "payroll"
+      ]
+    },
+    {
+      "id": "txn-grocery-1",
+      "occurredOn": "2026-04-02",
+      "description": "Weekly groceries",
+      "payee": "Neighborhood Market",
+      "postings": [
+        {
+          "accountId": "acct-expense-groceries",
+          "amount": {
+            "commodityCode": "USD",
+            "quantity": 148.42
+          }
+        },
+        {
+          "accountId": "acct-checking",
+          "amount": {
+            "commodityCode": "USD",
+            "quantity": -148.42
+          },
+          "cleared": true
+        }
+      ],
+      "tags": [
+        "household"
+      ]
+    }
+  ],
+  "scheduledTransactions": [
+    {
+      "id": "sched-rent",
+      "name": "Monthly Rent",
+      "frequency": "monthly",
+      "nextDueOn": "2026-05-01",
+      "templateTransaction": {
+        "description": "Monthly rent",
+        "payee": "Property Management Co.",
+        "postings": [
+          {
+            "accountId": "acct-expense-housing",
+            "amount": {
+              "commodityCode": "USD",
+              "quantity": 1400
+            }
+          },
+          {
+            "accountId": "acct-checking",
+            "amount": {
+              "commodityCode": "USD",
+              "quantity": -1400
+            }
+          }
+        ],
+        "tags": [
+          "housing",
+          "scheduled"
+        ]
+      },
+      "autoPost": false
+    }
+  ],
+  "baselineBudgetLines": [
+    {
+      "accountId": "acct-expense-housing",
+      "period": "2026-04",
+      "budgetPeriod": "monthly",
+      "plannedAmount": {
+        "commodityCode": "USD",
+        "quantity": 1400
+      }
+    },
+    {
+      "accountId": "acct-expense-groceries",
+      "period": "2026-04",
+      "budgetPeriod": "monthly",
+      "plannedAmount": {
+        "commodityCode": "USD",
+        "quantity": 650
+      }
+    },
+    {
+      "accountId": "acct-expense-utilities",
+      "period": "2026-04",
+      "budgetPeriod": "monthly",
+      "plannedAmount": {
+        "commodityCode": "USD",
+        "quantity": 300
+      }
+    }
+  ],
+  "envelopes": [
+    {
+      "id": "env-groceries",
+      "name": "Groceries",
+      "expenseAccountId": "acct-expense-groceries",
+      "fundingAccountId": "acct-checking",
+      "targetAmount": {
+        "commodityCode": "USD",
+        "quantity": 650
+      },
+      "availableAmount": {
+        "commodityCode": "USD",
+        "quantity": 501.58
+      },
+      "rolloverEnabled": true
+    },
+    {
+      "id": "env-utilities",
+      "name": "Utilities",
+      "expenseAccountId": "acct-expense-utilities",
+      "fundingAccountId": "acct-checking",
+      "targetAmount": {
+        "commodityCode": "USD",
+        "quantity": 300
+      },
+      "availableAmount": {
+        "commodityCode": "USD",
+        "quantity": 300
+      },
+      "rolloverEnabled": true
+    }
+  ],
+  "envelopeAllocations": [
+    {
+      "id": "alloc-groceries-april",
+      "envelopeId": "env-groceries",
+      "occurredOn": "2026-04-01",
+      "amount": {
+        "commodityCode": "USD",
+        "quantity": 650
+      },
+      "type": "fund",
+      "note": "Monthly grocery funding"
+    },
+    {
+      "id": "alloc-utilities-april",
+      "envelopeId": "env-utilities",
+      "occurredOn": "2026-04-01",
+      "amount": {
+        "commodityCode": "USD",
+        "quantity": 300
+      },
+      "type": "fund",
+      "note": "Monthly utilities funding"
+    }
+  ],
+  "importBatches": [],
+  "reconciliationSessions": [],
+  "auditEvents": []
+}

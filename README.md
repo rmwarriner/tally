@@ -1,0 +1,85 @@
+# GnuCash NG
+
+GnuCash NG is a greenfield personal finance system for households, families, and individuals. It combines strict double-entry accounting with two complementary budgeting modes:
+
+- Traditional budget tracking establishes the plan-of-record baseline.
+- Envelope budgeting is the operational cash-allocation layer used day to day.
+
+The product target is a VS Code-style workspace on desktop and web, with mobile support for review, capture, approvals, and envelope operations.
+
+## Product Principles
+
+- Double-entry accounting is the source of truth.
+- Envelope budgeting never bypasses the ledger.
+- Scheduled transactions, reporting, and standards-based import/export are core features.
+- GAAP-aligned guardrails are applied where they make sense for household accounting.
+- Mobile is a first-class client, not an afterthought.
+
+## Monorepo Layout
+
+- `docs/`: product and architecture decisions
+- `apps/api/`: application service layer for persistence and command orchestration
+- `apps/web/`: desktop/web workspace shell
+- `apps/mobile/`: mobile companion shell
+- `packages/domain/`: shared accounting and budgeting domain model
+- `packages/workspace/`: application state, persistence, reconciliation, and import commands
+- `packages/ui/`: shared UI tokens and view model helpers
+
+## Initial Direction
+
+This repository currently bootstraps:
+
+- a domain model for accounts, transactions, schedules, budgets, and envelopes
+- a workspace document model with write flows and file-backed persistence
+- a service layer with HTTP transport for workspace reads, writes, reconciliation, and CSV import
+- a web shell that now loads dashboard data and submits ledger, budget, envelope, schedule, reconciliation, and CSV write flows through the service boundary
+- a mobile shell that now connects to the same API for workspace reads, dashboard reads, transaction capture, reconciliation capture, schedule editing, approvals, exceptions, and envelope operations
+- an architectural baseline for a ledger-first finance platform
+- initial UI shells for a VS Code-inspired workspace and mobile experience
+
+## Recommended Next Steps
+
+1. Add metrics, tracing, and health checks.
+2. Add secret management and stronger deployment/security operations.
+3. Extend the import path from CSV to OFX, QFX, QIF, and GnuCash XML.
+4. Add reporting engine and close workflow.
+5. Add backup, migration, and restore strategy.
+
+Deferred UI cleanup: extract the mobile quick-transaction and quick-envelope cards into dedicated components after the GitHub handoff work.
+
+See [docs/service-layer.md](/Users/robert/Projects/gnucash-ng/docs/service-layer.md) and [docs/next-move-service-layer.md](/Users/robert/Projects/gnucash-ng/docs/next-move-service-layer.md).
+
+## Testing
+
+- `pnpm test`
+- `pnpm test:watch`
+- `pnpm coverage`
+- `pnpm typecheck`
+- `pnpm dev:api`
+- `pnpm dev:web`
+- `pnpm dev:mobile`
+
+TDD workflow and testing expectations are documented in [docs/testing-and-tdd.md](/Users/robert/Projects/gnucash-ng/docs/testing-and-tdd.md).
+CI and security merge gates are documented in [docs/ci-and-security-gates.md](/Users/robert/Projects/gnucash-ng/docs/ci-and-security-gates.md).
+
+## Logging
+
+Structured logging standards and expectations are documented in [docs/logging-standards.md](/Users/robert/Projects/gnucash-ng/docs/logging-standards.md).
+
+## Audit
+
+Formal audit-event behavior and event structure are documented in [docs/audit-events.md](/Users/robert/Projects/gnucash-ng/docs/audit-events.md).
+
+## Security
+
+Security standards are documented in [docs/security-standards.md](/Users/robert/Projects/gnucash-ng/docs/security-standards.md).
+The latest audit is documented in [docs/security-audit-2026-04-03.md](/Users/robert/Projects/gnucash-ng/docs/security-audit-2026-04-03.md).
+
+## Configuration And Errors
+
+Typed configuration and API error-handling standards are documented in [docs/config-and-error-handling.md](/Users/robert/Projects/gnucash-ng/docs/config-and-error-handling.md).
+
+## Tracking
+
+- Current project status: [docs/project-status.md](/Users/robert/Projects/gnucash-ng/docs/project-status.md)
+- Engineering standards roadmap: [docs/engineering-roadmap.md](/Users/robert/Projects/gnucash-ng/docs/engineering-roadmap.md)

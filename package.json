@@ -1,0 +1,26 @@
+{
+  "name": "gnucash-ng",
+  "private": true,
+  "version": "0.1.0",
+  "packageManager": "pnpm@10.0.0",
+  "devDependencies": {
+    "@vitest/coverage-v8": "^3.2.4",
+    "vitest": "^3.2.4"
+  },
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "scripts": {
+    "ci:verify": "pnpm typecheck && pnpm test && pnpm coverage && pnpm security:secrets",
+    "coverage": "vitest run --coverage",
+    "dev:api": "pnpm --filter @gnucash-ng/api dev",
+    "dev:mobile": "pnpm --filter @gnucash-ng/mobile dev",
+    "dev:web": "pnpm --filter @gnucash-ng/web dev",
+    "security:check": "pnpm security:secrets",
+    "security:secrets": "node ./scripts/check-secrets.mjs",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "typecheck": "pnpm -r typecheck"
+  }
+}
