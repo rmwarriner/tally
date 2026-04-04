@@ -89,3 +89,4 @@ Typed configuration and API error-handling standards are documented in [docs/con
 - GitHub roadmap project: `https://github.com/users/rmwarriner/projects/1`
 
 Ideas that are not ready for roadmap execution should stay in a separate GitHub issue inbox with the `idea` label until they are clear enough to prioritize. The promotion rule is documented in [docs/git-workflow.md](/Users/robert/Projects/gnucash-ng/docs/git-workflow.md).
+GitHub issue templates now cover ideas, roadmap-ready execution work, bugs, and refactors, and pull requests use the repo-level template in [.github/PULL_REQUEST_TEMPLATE.md](/Users/robert/Projects/gnucash-ng/.github/PULL_REQUEST_TEMPLATE.md).

@@ -1,0 +1,50 @@
+name: Refactor
+description: Track internal cleanup or structural improvement
+title: "Refactor: "
+labels:
+  - refactor
+body:
+  - type: textarea
+    id: target
+    attributes:
+      label: Target area
+      description: What part of the codebase needs cleanup?
+      placeholder: Identify the file, module, screen, or subsystem.
+    validations:
+      required: true
+
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem
+      description: What is hard to maintain or risky today?
+      placeholder: Describe the current pain or structural issue.
+    validations:
+      required: true
+
+  - type: textarea
+    id: outcome
+    attributes:
+      label: Desired outcome
+      description: What should improve after the refactor?
+      placeholder: Explain the intended maintainability or reliability gain.
+    validations:
+      required: true
+
+  - type: textarea
+    id: boundaries
+    attributes:
+      label: Boundaries
+      description: What should this refactor avoid changing?
+      placeholder: Note behavior that must stay stable or work that belongs elsewhere.
+    validations:
+      required: false
+
+  - type: textarea
+    id: verification
+    attributes:
+      label: Verification
+      description: How will you confirm behavior did not regress?
+      placeholder: Include tests, checks, and any critical workflows.
+    validations:
+      required: true

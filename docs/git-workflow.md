@@ -34,6 +34,7 @@ Pull requests should:
 - summarize user-facing and technical changes
 - include local verification such as `pnpm ci:verify` or the relevant narrower commands
 - include screenshots or recordings for web or mobile UI changes
+- follow the repository pull request template in `.github/PULL_REQUEST_TEMPLATE.md`
 
 ## Idea Intake Before Roadmap
 
@@ -45,6 +46,7 @@ Use a separate idea inbox for work that is still exploratory, underspecified, or
 - label it `idea`
 - do not assign a milestone yet
 - do not add it to the `GnuCash NG Roadmap` project yet
+- prefer the `Idea` GitHub issue template for consistent capture
 
 Idea issues should capture:
 
@@ -60,6 +62,8 @@ Promote an idea to the roadmap only when:
 - the rough implementation area is known
 - it can be prioritized against current roadmap work
 - someone is ready to work it in the near term
+
+Roadmap-ready execution work, bugs, and refactors should use the corresponding GitHub issue templates so intake stays consistent.
 
 ## Merge Style
 

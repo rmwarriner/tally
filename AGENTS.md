@@ -77,6 +77,7 @@ Active roadmap tracking also lives on GitHub:
 - roadmap project: `GnuCash NG Roadmap`
 - current roadmap issues cover operations, import/export, mobile cleanup, reporting, and resilience work
 - ideas that are not ready for execution should stay as GitHub issues labeled `idea` until they are ready to be promoted to the roadmap
+- GitHub issue templates exist for ideas, roadmap items, bugs, and refactors, and pull requests should use the repository PR template
 
 ## Security & Architecture Notes
 

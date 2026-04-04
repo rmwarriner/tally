@@ -1,0 +1,50 @@
+name: Bug report
+description: Report a defect or regression
+title: "Bug: "
+labels:
+  - bug
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem
+      description: What is broken?
+      placeholder: Describe the actual behavior.
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected behavior
+      description: What should happen instead?
+      placeholder: Describe the expected result.
+    validations:
+      required: true
+
+  - type: textarea
+    id: reproduction
+    attributes:
+      label: Reproduction
+      description: How can this be reproduced?
+      placeholder: List steps, inputs, and environment details.
+    validations:
+      required: true
+
+  - type: textarea
+    id: impact
+    attributes:
+      label: Impact
+      description: Who or what is affected?
+      placeholder: Note severity, scope, and any workaround.
+    validations:
+      required: false
+
+  - type: textarea
+    id: evidence
+    attributes:
+      label: Logs, screenshots, or evidence
+      description: Include any useful artifacts.
+      placeholder: Paste errors, attach screenshots, or link related runs.
+    validations:
+      required: false

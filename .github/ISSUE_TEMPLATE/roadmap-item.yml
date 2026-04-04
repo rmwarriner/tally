@@ -1,0 +1,65 @@
+name: Roadmap item
+description: Create a roadmap-ready execution issue
+title: ""
+labels:
+  - roadmap
+  - enhancement
+body:
+  - type: textarea
+    id: outcome
+    attributes:
+      label: Outcome
+      description: What should be true when this issue is done?
+      placeholder: Describe the delivered outcome in execution-ready terms.
+    validations:
+      required: true
+
+  - type: textarea
+    id: scope
+    attributes:
+      label: Scope
+      description: What is explicitly in scope for this issue?
+      placeholder: List the concrete work included in this slice.
+    validations:
+      required: true
+
+  - type: textarea
+    id: boundaries
+    attributes:
+      label: Boundaries
+      description: What is intentionally out of scope?
+      placeholder: Note deferred or excluded work to keep the slice focused.
+    validations:
+      required: false
+
+  - type: textarea
+    id: verification
+    attributes:
+      label: Verification
+      description: How should completion be verified?
+      placeholder: Include expected tests, commands, or observable outcomes.
+    validations:
+      required: true
+
+  - type: textarea
+    id: dependencies
+    attributes:
+      label: Dependencies or sequencing
+      description: Note blocking work or execution order if relevant.
+      placeholder: Capture any upstream or downstream dependencies.
+    validations:
+      required: false
+
+  - type: checkboxes
+    id: readiness
+    attributes:
+      label: Roadmap-ready checklist
+      options:
+        - label: The desired outcome is clear enough to execute
+          required: true
+        - label: The rough implementation area is known
+          required: true
+        - label: This work can be prioritized against the current roadmap
+          required: true
+        - label: Someone is ready to work this in the near term
+          required: true
