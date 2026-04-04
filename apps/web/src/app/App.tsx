@@ -282,75 +282,81 @@ export function App() {
     void loadWorkspaceData();
   }, []);
 
-  if (loading) {
-    return (
-      <ShellState
-        title="Loading workspace"
-        message="Fetching finance workspace and dashboard projections from the service layer."
-      />
-    );
-  }
-
-  if (error || !workspace || !dashboard) {
-    return (
-      <ShellState
-        title="Service unavailable"
-        message={error ?? "Workspace data could not be loaded from the API."}
-      />
-    );
-  }
-
   const loadedWorkspace = workspace;
   const loadedDashboard = dashboard;
-  const expenseAccounts = loadedWorkspace.accounts.filter((account) => account.type === "expense");
-  const liquidAccounts = loadedWorkspace.accounts.filter(
+  const workspaceAccounts = loadedWorkspace?.accounts ?? [];
+  const workspaceEnvelopes = loadedWorkspace?.envelopes ?? [];
+  const workspaceSchedules = loadedWorkspace?.scheduledTransactions ?? [];
+  const workspaceTransactions = loadedWorkspace?.transactions ?? [];
+  const expenseAccounts = workspaceAccounts.filter((account) => account.type === "expense");
+  const liquidAccounts = workspaceAccounts.filter(
     (account) => account.type === "asset" || account.type === "liability",
   );
-  const fundingAccounts = loadedWorkspace.accounts.filter((account) => account.type === "asset");
+  const fundingAccounts = workspaceAccounts.filter((account) => account.type === "asset");
   const activeViewDefinition = getWorkspaceViewDefinition(activeView);
   const {
-    budgetSnapshot: baselineSnapshot,
-    envelopeSnapshot,
-    accountBalances,
-    netWorth,
-    dueTransactions,
-    budgetErrors: budgetConfigurationErrors,
-    ledgerErrors: ledgerValidationErrors,
-  } = loadedDashboard;
+    budgetSnapshot: baselineSnapshot = [],
+    envelopeSnapshot = [],
+    accountBalances = [],
+    netWorth = {
+      commodityCode: "USD",
+      quantity: 0,
+    },
+    dueTransactions = [],
+    budgetErrors: budgetConfigurationErrors = [],
+    ledgerErrors: ledgerValidationErrors = [],
+  } = loadedDashboard ?? {};
 
   const overviewCards = createOverviewCards({
     accountBalanceCount: accountBalances.length,
     budgetIssueCount: budgetConfigurationErrors.length,
     dueTransactionCount: dueTransactions.length,
-    envelopeCount: loadedWorkspace.envelopes.length,
+    envelopeCount: workspaceEnvelopes.length,
     ledgerIssueCount: ledgerValidationErrors.length,
   });
 
-  const recentTransactions = [...loadedWorkspace.transactions]
+  const recentTransactions = [...workspaceTransactions]
     .sort((left, right) => right.occurredOn.localeCompare(left.occurredOn))
     .slice(0, 6);
   const topBudgetVarianceRows = [...baselineSnapshot]
     .sort((left, right) => Math.abs(right.variance.quantity) - Math.abs(left.variance.quantity))
     .slice(0, 4);
-  const nextScheduledTransactions = [...loadedWorkspace.scheduledTransactions]
+  const nextScheduledTransactions = [...workspaceSchedules]
     .sort((left, right) => left.nextDueOn.localeCompare(right.nextDueOn))
     .slice(0, 5);
   const selectedTransactionRecord =
-    loadedWorkspace.transactions.find((transaction) => transaction.id === selectedLedgerTransactionId) ?? null;
-  const ledgerWorkspace = createLedgerWorkspaceModel({
-    accountBalances,
-    searchText: ledgerSearchText,
-    selectedAccountId: selectedLedgerAccountId,
-    selectedTransactionId: selectedLedgerTransactionId,
-    workspace: loadedWorkspace,
-  });
-  const reconciliationWorkspace = createReconciliationWorkspaceModel({
-    selectedAccountId: reconciliationForm.accountId,
-    selectedTransactionIds: selectedReconciliationTransactionIds,
-    statementBalanceText: reconciliationForm.statementBalance,
-    statementDate: reconciliationForm.statementDate,
-    workspace: loadedWorkspace,
-  });
+    workspaceTransactions.find((transaction) => transaction.id === selectedLedgerTransactionId) ?? null;
+  const ledgerWorkspace = loadedWorkspace
+    ? createLedgerWorkspaceModel({
+        accountBalances,
+        searchText: ledgerSearchText,
+        selectedAccountId: selectedLedgerAccountId,
+        selectedTransactionId: selectedLedgerTransactionId,
+        workspace: loadedWorkspace,
+      })
+    : {
+        availableAccounts: [],
+        filteredBalances: [],
+        filteredTransactions: [],
+        selectedAccount: null,
+        selectedTransaction: null,
+      };
+  const reconciliationWorkspace = loadedWorkspace
+    ? createReconciliationWorkspaceModel({
+        selectedAccountId: reconciliationForm.accountId,
+        selectedTransactionIds: selectedReconciliationTransactionIds,
+        statementBalanceText: reconciliationForm.statementBalance,
+        statementDate: reconciliationForm.statementDate,
+        workspace: loadedWorkspace,
+      })
+    : {
+        candidateTransactions: [],
+        clearedTotal: 0,
+        difference: null,
+        latestSession: undefined,
+        selectedAccount: null,
+        statementBalance: null,
+      };
   const transactionEditorErrors = transactionEditor ? validateTransactionEditorState(transactionEditor) : [];
 
   useEffect(() => {
@@ -418,6 +424,10 @@ export function App() {
   }, [ledgerWorkspace.filteredTransactions, selectedLedgerTransactionId]);
 
   useEffect(() => {
+    if (!loadedWorkspace) {
+      return;
+    }
+
     if (!selectedTransactionRecord) {
       setTransactionEditor(null);
       setActivePostingAccountSearchIndex(null);
@@ -429,9 +439,9 @@ export function App() {
         return current;
       }
 
-      return createTransactionEditorState(selectedTransactionRecord, loadedWorkspace.accounts);
+      return createTransactionEditorState(selectedTransactionRecord, workspaceAccounts);
     });
-  }, [loadedWorkspace.accounts, selectedTransactionRecord]);
+  }, [selectedTransactionRecord, workspaceAccounts]);
 
   useEffect(() => {
     if (!pendingPostingFocusTarget) {
@@ -463,6 +473,24 @@ export function App() {
     }
   }
 
+  if (loading) {
+    return (
+      <ShellState
+        title="Loading workspace"
+        message="Fetching finance workspace and dashboard projections from the service layer."
+      />
+    );
+  }
+
+  if (error || !loadedWorkspace || !loadedDashboard) {
+    return (
+      <ShellState
+        title="Service unavailable"
+        message={error ?? "Workspace data could not be loaded from the API."}
+      />
+    );
+  }
+
   function addPostingToEditor() {
     setTransactionEditor((current) => {
       if (!current) {
@@ -470,7 +498,7 @@ export function App() {
       }
 
       const nextIndex = current.postings.length;
-      const defaultAccount = loadedWorkspace.accounts[0];
+      const defaultAccount = workspaceAccounts[0];
       setPendingPostingFocusTarget({
         field: "account",
         focusIndex: nextIndex,
@@ -533,14 +561,14 @@ export function App() {
       return;
     }
 
-    setTransactionEditor(createTransactionEditorState(selectedTransactionRecord, loadedWorkspace.accounts));
+    setTransactionEditor(createTransactionEditorState(selectedTransactionRecord, workspaceAccounts));
     setActivePostingAccountSearchIndex(null);
     setHighlightedPostingAccountMatchIndex(0);
   }
 
   function updatePostingAccountSearch(index: number, nextQuery: string) {
     const exactMatch = findAccountSearchExactMatch({
-      accounts: loadedWorkspace.accounts,
+      accounts: workspaceAccounts,
       query: nextQuery,
     });
 
@@ -565,7 +593,7 @@ export function App() {
   }
 
   function selectPostingAccount(index: number, accountId: string) {
-    const account = loadedWorkspace.accounts.find((candidate) => candidate.id === accountId);
+    const account = workspaceAccounts.find((candidate) => candidate.id === accountId);
 
     if (!account) {
       return;
@@ -607,7 +635,7 @@ export function App() {
           postings: transactionEditor.postings.map((posting) => ({
             accountId: posting.accountId.trim(),
             amount: {
-              commodityCode: loadedWorkspace.baseCommodityCode,
+              commodityCode: loadedWorkspace?.baseCommodityCode ?? "USD",
               quantity: Number.parseFloat(posting.amount),
             },
             cleared: posting.cleared || undefined,
@@ -753,7 +781,7 @@ export function App() {
               <div className="detail-stack">
                 {transactionEditor.postings.map((posting, index) => {
                   const accountMatches = getAccountSearchMatches({
-                    accounts: loadedWorkspace.accounts,
+                    accounts: workspaceAccounts,
                     preferredAccountTypes: getPreferredAccountTypesForPostingAmount(posting.amount),
                     query: posting.accountQuery,
                     selectedAccountId: posting.accountId,
@@ -1821,7 +1849,7 @@ export function App() {
                       }))
                     }
                   >
-                    {loadedWorkspace.envelopes.map((envelope) => (
+                    {workspaceEnvelopes.map((envelope) => (
                       <option key={envelope.id} value={envelope.id}>
                         {envelope.name}
                       </option>
@@ -2206,7 +2234,7 @@ export function App() {
 
             <div className="tree-section">
               <h3>Accounts</h3>
-              {loadedWorkspace.accounts.slice(0, 8).map((account) => (
+              {workspaceAccounts.slice(0, 8).map((account) => (
                 <div key={account.id} className="tree-item">
                   <span>{account.name}</span>
                   <span className="muted">{account.code}</span>
@@ -2267,7 +2295,7 @@ export function App() {
         return (
           <div className="tree-section">
             <h3>Envelopes</h3>
-            {loadedWorkspace.envelopes.map((envelope) => (
+            {workspaceEnvelopes.map((envelope) => (
               <div key={envelope.id} className="tree-item">
                 <span>{envelope.name}</span>
                 <span className="muted">{formatCurrency(envelope.availableAmount.quantity)}</span>
@@ -2291,7 +2319,7 @@ export function App() {
         return (
           <div className="tree-section">
             <h3>Schedules</h3>
-            {loadedWorkspace.scheduledTransactions.map((schedule) => (
+            {workspaceSchedules.map((schedule) => (
               <div key={schedule.id} className="tree-item">
                 <span>{schedule.name}</span>
                 <span className="muted">{schedule.nextDueOn}</span>
