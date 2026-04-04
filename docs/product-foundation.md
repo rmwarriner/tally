@@ -21,6 +21,7 @@
 - Dual-budget model where baseline budgets and envelopes coexist cleanly
 - Mobile support for capture, review, and envelope movement
 - Ledger-first architecture that keeps reports, budgets, and imports consistent
+- Register-first desktop direction that treats the ledger as the primary working surface
 
 ## Non-Negotiable Capabilities
 
@@ -53,8 +54,11 @@
 
 ## Interface Direction
 
-- Left rail for navigation, accounts, reports, and automation
-- Primary editor surface for registers, budget sheets, reports, and import review
-- Bottom panel for audit trail, validation, and reconciliation details
-- Inspector panel for account metadata, envelope state, and scheduled transaction rules
+- Borrow the spatial shell flow of VS Code or Obsidian without copying their visual language
+- Activity bar for major work modes
+- Left pane with mode-specific navigation and context
+- Middle document area for registers, budget sheets, reports, and import review
+- Right contextual pane that is optional and hidden by default
+- Bottom utility panel reserved for later audit, validation, and status-oriented tools
+- Ledger register remains the dominant desktop work surface
 - Mobile flows focused on capture, approvals, envelopes, quick views, and notifications

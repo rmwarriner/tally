@@ -5,7 +5,7 @@ GnuCash NG is a greenfield personal finance system for households, families, and
 - Traditional budget tracking establishes the plan-of-record baseline.
 - Envelope budgeting is the operational cash-allocation layer used day to day.
 
-The product target is a VS Code-style workspace on desktop and web, with mobile support for review, capture, approvals, and envelope operations.
+The product target is a VS Code-inspired workspace flow on desktop and web, with mobile support for review, capture, approvals, and envelope operations. The goal is to borrow the shell model, not copy the visual language.
 
 ## Product Principles
 
@@ -37,6 +37,7 @@ This repository currently bootstraps:
 - a GitHub-backed roadmap with issues, milestones, and a project board for near-term execution planning
 - an architectural baseline for a ledger-first finance platform
 - reviewable UI surfaces for a VS Code-inspired desktop workspace and mobile companion experience
+- a documented register-first desktop UI direction for the next phase of shell evolution
 
 ## Recommended Next Steps
 
@@ -89,6 +90,7 @@ Typed configuration and API error-handling standards are documented in [docs/con
 - Engineering standards roadmap: [docs/engineering-roadmap.md](/Users/robert/Projects/gnucash-ng/docs/engineering-roadmap.md)
 - Git workflow: [docs/git-workflow.md](/Users/robert/Projects/gnucash-ng/docs/git-workflow.md)
 - Native desktop wrapper assessment: [docs/native-desktop-assessment.md](/Users/robert/Projects/gnucash-ng/docs/native-desktop-assessment.md)
+- Desktop UI direction: [docs/desktop-ui-direction.md](/Users/robert/Projects/gnucash-ng/docs/desktop-ui-direction.md)
 - GitHub roadmap project: `https://github.com/users/rmwarriner/projects/1`
 
 Ideas that are not ready for roadmap execution should stay in a separate GitHub issue inbox with the `idea` label until they are clear enough to prioritize. The promotion rule is documented in [docs/git-workflow.md](/Users/robert/Projects/gnucash-ng/docs/git-workflow.md).

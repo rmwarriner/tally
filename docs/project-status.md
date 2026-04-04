@@ -19,6 +19,7 @@ This repository currently includes:
 - repo-local Codex plugin scaffolds for GitHub roadmap work, workspace health checks, and financial-boundary review
 - first-pass native desktop wrapper assessment for the desktop shell, with a Tauri-first recommendation and Electron fallback criteria
 - manual UI review checklist and regression-testing guidance for the desktop and mobile clients
+- documented register-first desktop UI direction for the next phase of shell work
 
 ## Completed
 
@@ -28,6 +29,7 @@ This repository currently includes:
 - architecture baseline documented
 - service-layer next move documented
 - GitHub repository initialized and roadmap execution tracking established
+- desktop UI direction documented around a register-first shell model
 
 ### Domain And Workspace
 
