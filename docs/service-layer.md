@@ -10,6 +10,7 @@ Implemented pieces:
 - read service for loading workspace documents
 - read service for dashboard projections
 - write service for transaction creation
+- write service for transaction updates
 - write service for reconciliation
 - write service for CSV import
 - write service for baseline budget lines, envelopes, envelope allocations, scheduled transaction execution, and schedule exceptions
@@ -23,6 +24,7 @@ Implemented pieces:
 - mobile write integration for transaction capture, reconciliation capture, schedules, due approvals, schedule exceptions, and envelope operations
 - strict request schema validation for core write routes
 - auth, authorization, actor handling, body limits, security headers, and rate limiting at the HTTP boundary
+- local development seeding of the demo workspace for first-run UI review
 
 ## Current Shape
 
@@ -49,7 +51,11 @@ Defaults:
 
 - API host: `127.0.0.1`
 - API port: `4000`
-- data directory: `./data`
+- data directory: `./data` relative to the API process working directory
+
+When started through the repository root with `pnpm dev:api`, the default data directory resolves to:
+
+- `apps/api/data`
 
 Supported environment variables:
 
@@ -59,6 +65,7 @@ Supported environment variables:
 - `GNUCASH_NG_LOG_LEVEL`
 
 The web app proxies `/api` requests to `http://127.0.0.1:4000` during Vite development.
+On local development startup, the API seeds `workspace-household-demo.json` automatically if it is missing from the data directory.
 
 ## Current Gaps
 

@@ -32,11 +32,11 @@ This repository currently bootstraps:
 - a domain model for accounts, transactions, schedules, budgets, and envelopes
 - a workspace document model with write flows and file-backed persistence
 - a service layer with HTTP transport for workspace reads, writes, reconciliation, and CSV import
-- a web shell that now loads dashboard data and submits ledger, budget, envelope, schedule, reconciliation, and CSV write flows through the service boundary
+- a desktop/web shell with workspace navigation, ledger drill-down, reconciliation matching, and inline transaction editing through the service boundary
 - a mobile shell that now connects to the same API for workspace reads, dashboard reads, transaction capture, reconciliation capture, schedule editing, approvals, exceptions, and envelope operations
 - a GitHub-backed roadmap with issues, milestones, and a project board for near-term execution planning
 - an architectural baseline for a ledger-first finance platform
-- initial UI shells for a VS Code-inspired workspace and mobile experience
+- reviewable UI surfaces for a VS Code-inspired desktop workspace and mobile companion experience
 
 ## Recommended Next Steps
 
@@ -62,7 +62,7 @@ See [docs/service-layer.md](/Users/robert/Projects/gnucash-ng/docs/service-layer
 
 TDD workflow and testing expectations are documented in [docs/testing-and-tdd.md](/Users/robert/Projects/gnucash-ng/docs/testing-and-tdd.md).
 UI review workflows are documented in [docs/ui-review-checklist.md](/Users/robert/Projects/gnucash-ng/docs/ui-review-checklist.md).
-`pnpm dev:api` now seeds the local demo workspace automatically if `data/workspace-household-demo.json` is missing, so the desktop and mobile shells have reviewable data on first run.
+`pnpm dev:api` now seeds the local demo workspace automatically if `apps/api/data/workspace-household-demo.json` is missing, so the desktop and mobile shells have reviewable data on first run.
 CI and security merge gates are documented in [docs/ci-and-security-gates.md](/Users/robert/Projects/gnucash-ng/docs/ci-and-security-gates.md).
 Git branch and pull request workflow is documented in [docs/git-workflow.md](/Users/robert/Projects/gnucash-ng/docs/git-workflow.md).
 

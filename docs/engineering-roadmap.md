@@ -4,6 +4,8 @@
 
 - Testing / TDD
   Documented in `docs/testing-and-tdd.md`
+- UI review and regression testing workflow
+  Documented in `docs/ui-review-checklist.md` and `docs/testing-and-tdd.md`
 - Structured logging
   Documented in `docs/logging-standards.md`
 - Formal audit events

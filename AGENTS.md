@@ -26,6 +26,8 @@ Tests live next to source as `*.test.ts` under `apps/**/src` and `packages/**/sr
 - `pnpm dev:web`: start the web client
 - `pnpm dev:mobile`: start the Expo mobile client
 
+`pnpm dev:api` seeds the demo workspace automatically for local review if the default workspace file is missing.
+
 ## Coding Style & Naming Conventions
 
 Use TypeScript throughout. Follow the existing style in the repo:

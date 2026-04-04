@@ -18,6 +18,7 @@ This repository currently includes:
 - documented weekly roadmap review cadence and direct-to-`main` exception for small admin/docs changes
 - repo-local Codex plugin scaffolds for GitHub roadmap work, workspace health checks, and financial-boundary review
 - first-pass native desktop wrapper assessment for the desktop shell, with a Tauri-first recommendation and Electron fallback criteria
+- manual UI review checklist and regression-testing guidance for the desktop and mobile clients
 
 ## Completed
 
@@ -44,17 +45,19 @@ This repository currently includes:
 
 - file-system workspace repository
 - service methods for workspace reads and dashboard projections
-- service methods for transaction creation, reconciliation, and CSV import
+- service methods for transaction creation, transaction updates, reconciliation, and CSV import
 - HTTP handler for workspace and dashboard reads plus core write routes
 - Node HTTP server adapter
 - runnable API bootstrap and local development server wiring
 - service-layer logging around command execution and persistence
+- automatic demo workspace seeding for local `pnpm dev:api` startup
 
 ### Client Integration
 
 - web workspace reads now load through service-backed API calls
-- web transaction posting, CSV import, and reconciliation now write through service-backed API calls
+- web transaction posting, transaction editing, CSV import, and reconciliation now write through service-backed API calls
 - web baseline budget editing, envelope setup/allocation, and schedule editing now write through service-backed API calls
+- web desktop shell now includes workspace navigation, ledger drill-down, keyboard register navigation, reconciliation matching, account autocomplete, and a fuller register detail pane
 - mobile workspace reads and dashboard reads now load through service-backed API calls
 - mobile envelope operations, transaction capture, schedule editing, due-schedule approvals, and schedule exceptions now write through the same authenticated service boundary
 - mobile reconciliation capture now records statement sessions through the same service boundary
@@ -63,6 +66,8 @@ This repository currently includes:
 ### Engineering Standards
 
 - Vitest test harness and TDD policy
+- manual UI review checklist for desktop and mobile
+- regression-testing guidance that distinguishes unit, integration, and UI workflow coverage
 - structured logging package and logging standards
 - typed configuration and boundary error handling standard
 - CI and security quality gates
