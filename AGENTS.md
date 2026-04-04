@@ -59,6 +59,17 @@ Pull requests should include:
 - test evidence such as `pnpm test` and `pnpm typecheck`
 - screenshots or screen recordings for web/mobile UI changes
 
+Branch workflow for this repository:
+
+- branch from `main` for each issue or focused work slice
+- prefer names such as `feat/5-metrics-and-tracing` or `refactor/6-mobile-action-cards`
+- keep branches short-lived and scoped to one coherent change
+- commit and push at reasonable milestones instead of batching too much local work
+- run `pnpm ci:verify` before merge when the change is broad enough to justify it
+- prefer squash merges and avoid direct pushes to `main`
+
+See [docs/git-workflow.md](/Users/robert/Projects/gnucash-ng/docs/git-workflow.md) for the full workflow.
+
 Active roadmap tracking also lives on GitHub:
 
 - repository: `rmwarriner/gnucash-ng`

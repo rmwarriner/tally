@@ -13,6 +13,7 @@ This repository currently includes:
 - TDD baseline with automated unit tests
 - structured logging foundation with workspace-layer instrumentation
 - GitHub issue, milestone, and project-board tracking for the current roadmap
+- documented branch, PR, and merge workflow for ongoing execution
 
 ## Completed
 

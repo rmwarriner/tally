@@ -62,6 +62,7 @@ See [docs/service-layer.md](/Users/robert/Projects/gnucash-ng/docs/service-layer
 
 TDD workflow and testing expectations are documented in [docs/testing-and-tdd.md](/Users/robert/Projects/gnucash-ng/docs/testing-and-tdd.md).
 CI and security merge gates are documented in [docs/ci-and-security-gates.md](/Users/robert/Projects/gnucash-ng/docs/ci-and-security-gates.md).
+Git branch and pull request workflow is documented in [docs/git-workflow.md](/Users/robert/Projects/gnucash-ng/docs/git-workflow.md).
 
 ## Logging
 
@@ -84,4 +85,5 @@ Typed configuration and API error-handling standards are documented in [docs/con
 
 - Current project status: [docs/project-status.md](/Users/robert/Projects/gnucash-ng/docs/project-status.md)
 - Engineering standards roadmap: [docs/engineering-roadmap.md](/Users/robert/Projects/gnucash-ng/docs/engineering-roadmap.md)
+- Git workflow: [docs/git-workflow.md](/Users/robert/Projects/gnucash-ng/docs/git-workflow.md)
 - GitHub roadmap project: `https://github.com/users/rmwarriner/projects/1`
