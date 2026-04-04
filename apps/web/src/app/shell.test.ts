@@ -163,8 +163,13 @@ describe("web shell view model", () => {
       id: "acct-checking",
       transactionCount: 2,
     });
+    expect(model.selectedAccountBalance).toMatchObject({
+      accountId: "acct-checking",
+      balance: 3051.58,
+    });
     expect(model.selectedTransaction).toMatchObject({
       id: "txn-grocery-1",
+      status: "cleared",
       postings: [
         expect.objectContaining({
           accountId: "acct-expense-groceries",
@@ -189,6 +194,7 @@ describe("web shell view model", () => {
         occurredOn: "2026-04-01",
         payee: null,
         postings: [],
+        status: "open" as const,
         tags: [],
       },
       {
@@ -198,6 +204,7 @@ describe("web shell view model", () => {
         occurredOn: "2026-04-02",
         payee: null,
         postings: [],
+        status: "open" as const,
         tags: [],
       },
     ];
@@ -361,6 +368,13 @@ describe("web shell view model", () => {
     expect(
       getAccountSearchMatches({
         accounts,
+        query: "checking 1000",
+      }).map((match) => match.account.id),
+    ).toEqual(["acct-checking"]);
+
+    expect(
+      getAccountSearchMatches({
+        accounts,
         query: "",
         selectedAccountId: "acct-savings",
       }).map((match) => match.account.id),
@@ -469,7 +483,11 @@ describe("web shell view model", () => {
             occurredOn: "2026-04-01",
             payee: "Employer Inc.",
             postings: [
-              { accountId: "acct-checking", amount: { commodityCode: "USD", quantity: 3200 } },
+              {
+                accountId: "acct-checking",
+                amount: { commodityCode: "USD", quantity: 3200 },
+                reconciledAt: "2026-04-01T09:00:00.000Z",
+              },
               { accountId: "acct-income-salary", amount: { commodityCode: "USD", quantity: -3200 } },
             ],
             tags: ["income"],
@@ -497,5 +515,74 @@ describe("web shell view model", () => {
     expect(model.clearedTotal).toBeCloseTo(3051.58);
     expect(model.difference).toBeCloseTo(0);
     expect(model.latestSession?.statementDate).toBe("2026-03-31");
+  });
+
+  it("matches ledger searches across multiple tokens and date range filters", () => {
+    const model = createLedgerWorkspaceModel({
+      accountBalances: [],
+      rangeEnd: "2026-04-15",
+      rangeStart: "2026-04-01",
+      searchText: "checking 1000 household cleared",
+      selectedAccountId: "acct-checking",
+      selectedTransactionId: "txn-grocery-1",
+      workspace: {
+        accounts: [
+          { code: "1000", id: "acct-checking", name: "Checking", type: "asset" },
+          { code: "6100", id: "acct-expense-groceries", name: "Groceries", type: "expense" },
+        ],
+        auditEvents: [],
+        baseCommodityCode: "USD",
+        baselineBudgetLines: [],
+        commodities: [],
+        envelopeAllocations: [],
+        envelopes: [],
+        householdMembers: ["Primary"],
+        id: "workspace-household-demo",
+        importBatches: [],
+        name: "Household",
+        reconciliationSessions: [],
+        schemaVersion: 1,
+        scheduledTransactions: [],
+        transactions: [
+          {
+            description: "Weekly groceries",
+            id: "txn-grocery-1",
+            occurredOn: "2026-04-02",
+            payee: "Neighborhood Market",
+            postings: [
+              {
+                accountId: "acct-expense-groceries",
+                amount: { commodityCode: "USD", quantity: 148.42 },
+              },
+              {
+                accountId: "acct-checking",
+                amount: { commodityCode: "USD", quantity: -148.42 },
+                cleared: true,
+              },
+            ],
+            tags: ["household"],
+          },
+          {
+            description: "Later groceries",
+            id: "txn-grocery-2",
+            occurredOn: "2026-04-20",
+            payee: "Neighborhood Market",
+            postings: [
+              {
+                accountId: "acct-expense-groceries",
+                amount: { commodityCode: "USD", quantity: 22.15 },
+              },
+              {
+                accountId: "acct-checking",
+                amount: { commodityCode: "USD", quantity: -22.15 },
+              },
+            ],
+            tags: ["household"],
+          },
+        ],
+      },
+    });
+
+    expect(model.filteredTransactions.map((transaction) => transaction.id)).toEqual(["txn-grocery-1"]);
   });
 });

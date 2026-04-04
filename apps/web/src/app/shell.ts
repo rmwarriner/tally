@@ -35,6 +35,7 @@ export interface LedgerBalanceSummary {
 
 export interface LedgerPostingDetail {
   accountId: string;
+  accountCode: string | null;
   accountName: string;
   amount: number;
   commodityCode: string;
@@ -48,6 +49,7 @@ export interface LedgerTransactionDetail {
   matchedAccountIds: string[];
   payee: string | null;
   postings: LedgerPostingDetail[];
+  status: "cleared" | "open" | "reconciled";
   tags: string[];
   occurredOn: string;
 }
@@ -56,6 +58,7 @@ export interface LedgerWorkspaceModel {
   availableAccounts: FinanceWorkspaceDocument["accounts"];
   filteredBalances: LedgerBalanceSummary[];
   filteredTransactions: LedgerTransactionDetail[];
+  selectedAccountBalance: LedgerBalanceSummary | null;
   selectedAccount:
     | (FinanceWorkspaceDocument["accounts"][number] & {
         balanceCount: number;
@@ -94,6 +97,15 @@ function normalizeAccountSearchValue(value: string): string {
   return value.trim().toLowerCase();
 }
 
+function normalizeSearchTokens(value: string): string[] {
+  return value
+    .trim()
+    .toLowerCase()
+    .split(/\s+/)
+    .map((token) => token.trim())
+    .filter(Boolean);
+}
+
 function getAccountSearchLabel(account: FinanceWorkspaceDocument["accounts"][number]): string {
   return account.code ? `${account.name} (${account.code})` : account.name;
 }
@@ -116,41 +128,54 @@ function scoreAccountSearchMatch(input: {
   account: FinanceWorkspaceDocument["accounts"][number];
   query: string;
 }): number {
-  if (!input.query) {
+  const tokens = normalizeSearchTokens(input.query);
+
+  if (tokens.length === 0) {
     return 0;
   }
+
+  const query = tokens.join(" ");
 
   const name = normalizeAccountSearchValue(input.account.name);
   const code = normalizeAccountSearchValue(input.account.code ?? "");
   const id = normalizeAccountSearchValue(input.account.id);
   const type = normalizeAccountSearchValue(input.account.type);
 
-  if (name === input.query || code === input.query || id === input.query) {
+  if (name === query || code === query || id === query) {
     return 400;
   }
 
-  if (name.startsWith(input.query)) {
+  if (name.startsWith(query)) {
     return 300;
   }
 
-  if (code.startsWith(input.query)) {
+  if (code.startsWith(query)) {
     return 260;
   }
 
-  if (id.startsWith(input.query)) {
+  if (id.startsWith(query)) {
     return 220;
   }
 
-  if (name.includes(input.query)) {
+  if (name.includes(query)) {
     return 180;
   }
 
-  if (code.includes(input.query)) {
+  if (code.includes(query)) {
     return 150;
   }
 
-  if (type.includes(input.query) || id.includes(input.query)) {
+  if (type.includes(query) || id.includes(query)) {
     return 100;
+  }
+
+  const searchValues = [name, code, id, type].filter(Boolean);
+  const tokenMatches = tokens.every((token) =>
+    searchValues.some((value) => value.includes(token)),
+  );
+
+  if (tokenMatches) {
+    return 140;
   }
 
   return -1;
@@ -200,7 +225,7 @@ export function getAccountSearchMatches(input: {
         query,
       }),
     }))
-    .filter(({ score }) => (query ? score >= 0 : true))
+    .filter(({ score }) => score >= 0)
     .sort((left, right) => {
       if (input.selectedAccountId) {
         const leftSelected = left.account.id === input.selectedAccountId;
@@ -229,6 +254,24 @@ export function getAccountSearchMatches(input: {
     meta: getAccountSearchMeta(account),
     recommended: preferred,
   }));
+}
+
+function getTransactionStatus(
+  transaction: FinanceWorkspaceDocument["transactions"][number],
+): "cleared" | "open" | "reconciled" {
+  const postingStates = transaction.postings.map((posting) =>
+    posting.reconciledAt ? "reconciled" : posting.cleared ? "cleared" : "open",
+  );
+
+  if (postingStates.length > 0 && postingStates.every((state) => state === "reconciled")) {
+    return "reconciled";
+  }
+
+  if (postingStates.some((state) => state === "cleared" || state === "reconciled")) {
+    return "cleared";
+  }
+
+  return "open";
 }
 
 export function getLedgerSelectionIndex(input: {
@@ -553,12 +596,14 @@ export function createOverviewCards(input: {
 
 export function createLedgerWorkspaceModel(input: {
   accountBalances: LedgerBalanceSummary[];
+  rangeEnd?: string;
+  rangeStart?: string;
   searchText: string;
   selectedAccountId: string | null;
   selectedTransactionId: string | null;
   workspace: FinanceWorkspaceDocument;
 }): LedgerWorkspaceModel {
-  const normalizedSearch = input.searchText.trim().toLowerCase();
+  const searchTokens = normalizeSearchTokens(input.searchText);
   const accountById = new Map(input.workspace.accounts.map((account) => [account.id, account]));
   const filteredTransactions = input.workspace.transactions
     .map((transaction) => {
@@ -568,6 +613,7 @@ export function createLedgerWorkspaceModel(input: {
 
         return {
           accountId: posting.accountId,
+          accountCode: account?.code ?? null,
           accountName: account?.name ?? posting.accountId,
           amount: posting.amount.quantity,
           cleared: Boolean(posting.cleared),
@@ -583,6 +629,7 @@ export function createLedgerWorkspaceModel(input: {
         occurredOn: transaction.occurredOn,
         payee: transaction.payee ?? null,
         postings,
+        status: getTransactionStatus(transaction),
         tags: transaction.tags ?? [],
       };
     })
@@ -591,24 +638,34 @@ export function createLedgerWorkspaceModel(input: {
         return false;
       }
 
-      if (!normalizedSearch) {
+      if (input.rangeStart && transaction.occurredOn < input.rangeStart) {
+        return false;
+      }
+
+      if (input.rangeEnd && transaction.occurredOn > input.rangeEnd) {
+        return false;
+      }
+
+      if (searchTokens.length === 0) {
         return true;
       }
 
-      const searchCorpus = [
-        transaction.id,
-        transaction.description,
-        transaction.payee ?? "",
-        transaction.occurredOn,
-        transaction.tags.join(" "),
-        ...transaction.postings.map(
-          (posting) => `${posting.accountId} ${posting.accountName} ${posting.memo ?? ""}`,
-        ),
-      ]
-        .join(" ")
-        .toLowerCase();
+      const searchCorpus = normalizeAccountSearchValue(
+        [
+          transaction.id,
+          transaction.description,
+          transaction.payee ?? "",
+          transaction.occurredOn,
+          transaction.status,
+          transaction.tags.join(" "),
+          ...transaction.postings.map(
+          (posting) =>
+            `${posting.accountId} ${posting.accountCode ?? ""} ${posting.accountName} ${posting.memo ?? ""}`,
+          ),
+        ].join(" "),
+      );
 
-      return searchCorpus.includes(normalizedSearch);
+      return searchTokens.every((token) => searchCorpus.includes(token));
     })
     .sort((left, right) => right.occurredOn.localeCompare(left.occurredOn));
 
@@ -641,6 +698,8 @@ export function createLedgerWorkspaceModel(input: {
     availableAccounts: input.workspace.accounts,
     filteredBalances,
     filteredTransactions,
+    selectedAccountBalance:
+      filteredBalances.find((balance) => balance.accountId === input.selectedAccountId) ?? null,
     selectedAccount,
     selectedTransaction,
   };
