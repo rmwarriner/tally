@@ -301,6 +301,65 @@ Lacct-expense-utilities
     await fixture.cleanup();
   });
 
+  it("creates, lists, and restores backups over HTTP", async () => {
+    const fixture = await createFixture();
+    const service = createWorkspaceService({
+      repository: createFileSystemWorkspaceRepository({ rootDirectory: fixture.directory }),
+    });
+    const handler = createHttpHandler({ service });
+
+    const createResponse = await handler(
+      new Request(`http://localhost/api/workspaces/${fixture.workspace.id}/backups`, {
+        method: "POST",
+      }),
+    );
+    const createBody = await createResponse.json();
+
+    expect(createResponse.status).toBe(201);
+    expect(createBody.backup.id).toContain("backup-");
+
+    const updateResponse = await handler(
+      new Request(`http://localhost/api/workspaces/${fixture.workspace.id}/imports/gnucash-xml`, {
+        body: JSON.stringify({
+          payload: {
+            importedAt: "2026-04-05T00:00:00Z",
+            sourceLabel: "workspace.gnucash.xml",
+            xml: buildGnuCashXmlExport({ workspace: fixture.workspace }).contents.replace(
+              'name="Household Finance"',
+              'name="Changed Before Restore"',
+            ),
+          },
+        }),
+        headers: { "content-type": "application/json" },
+        method: "POST",
+      }),
+    );
+    expect(updateResponse.status).toBe(200);
+
+    const listResponse = await handler(
+      new Request(`http://localhost/api/workspaces/${fixture.workspace.id}/backups`),
+    );
+    const listBody = await listResponse.json();
+
+    expect(listResponse.status).toBe(200);
+    expect(listBody.backups).toHaveLength(1);
+
+    const restoreResponse = await handler(
+      new Request(
+        `http://localhost/api/workspaces/${fixture.workspace.id}/backups/${createBody.backup.id}/restore`,
+        {
+          method: "POST",
+        },
+      ),
+    );
+    const restoreBody = await restoreResponse.json();
+
+    expect(restoreResponse.status).toBe(200);
+    expect(restoreBody.workspace.name).toBe("Household Finance");
+
+    await fixture.cleanup();
+  });
+
   it("exports qif transactions over HTTP", async () => {
     const fixture = await createFixture();
     const service = createWorkspaceService({

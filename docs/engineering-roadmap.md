@@ -34,9 +34,12 @@ Completed:
 
 1. Metrics, tracing, and health checks
 2. Configuration and deployment operations
-
-Current next sequence:
-
 3. Import/export expansion beyond QIF
 4. Reporting engine and durable close workflow
 5. Backup, migration, restore, and broader resilience hardening
+
+Current next sequence:
+
+1. Deployment and recovery runbooks for a selected hosting target
+2. External observability sinks and alert routing
+3. Product-driven client cleanup and desktop-wrapper discovery

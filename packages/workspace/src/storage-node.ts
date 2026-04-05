@@ -1,5 +1,6 @@
 import { readFile, writeFile } from "node:fs/promises";
 import { createNoopLogger, type Logger } from "@gnucash-ng/logging";
+import { migrateWorkspaceDocument } from "./migrate";
 import type { FinanceWorkspaceDocument } from "./types";
 
 export interface StorageOptions {
@@ -18,7 +19,7 @@ export async function loadWorkspaceFromFile(
 
   try {
     const contents = await readFile(path, "utf8");
-    const document = JSON.parse(contents) as FinanceWorkspaceDocument;
+    const document = migrateWorkspaceDocument(JSON.parse(contents) as unknown);
 
     logger.info("workspace storage load completed", {
       transactionCount: document.transactions.length,

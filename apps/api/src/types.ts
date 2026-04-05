@@ -21,6 +21,12 @@ export interface GetWorkspaceRequest {
   workspaceId: string;
 }
 
+export interface GetBackupsRequest {
+  auth: AuthContext;
+  logger?: Logger;
+  workspaceId: string;
+}
+
 export interface GetDashboardRequest {
   auth: AuthContext;
   from: string;
@@ -47,6 +53,19 @@ export interface PostClosePeriodRequest {
     from: string;
     to: string;
   };
+  workspaceId: string;
+}
+
+export interface PostBackupRequest {
+  auth: AuthContext;
+  logger?: Logger;
+  workspaceId: string;
+}
+
+export interface PostBackupRestoreRequest {
+  auth: AuthContext;
+  backupId: string;
+  logger?: Logger;
   workspaceId: string;
 }
 
@@ -224,6 +243,14 @@ export interface WorkspaceEnvelope {
 
 export interface DashboardEnvelope {
   dashboard: ReturnType<typeof import("@gnucash-ng/workspace").buildDashboardSnapshot>;
+}
+
+export interface BackupsEnvelope {
+  backups: import("./repository").WorkspaceBackup[];
+}
+
+export interface BackupEnvelope {
+  backup: import("./repository").WorkspaceBackup;
 }
 
 export interface CloseSummaryEnvelope {

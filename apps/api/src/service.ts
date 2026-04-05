@@ -23,8 +23,11 @@ import {
   type FinanceWorkspaceDocument,
 } from "@gnucash-ng/workspace";
 import type {
+  BackupEnvelope,
+  BackupsEnvelope,
   ErrorEnvelope,
   GetGnuCashXmlExportRequest,
+  GetBackupsRequest,
   ApplyScheduledTransactionExceptionRequest,
   CloseSummaryEnvelope,
   ExecuteScheduledTransactionRequest,
@@ -36,6 +39,8 @@ import type {
   GetWorkspaceRequest,
   GnuCashXmlExportEnvelope,
   PostBaselineBudgetLineRequest,
+  PostBackupRequest,
+  PostBackupRestoreRequest,
   PostClosePeriodRequest,
   PostCsvImportRequest,
   PostEnvelopeAllocationRequest,
@@ -62,6 +67,9 @@ export interface WorkspaceService {
   getCloseSummary(
     request: GetCloseSummaryRequest,
   ): Promise<ServiceResponse<CloseSummaryEnvelope | ErrorEnvelope>>;
+  getBackups(
+    request: GetBackupsRequest,
+  ): Promise<ServiceResponse<BackupsEnvelope | ErrorEnvelope>>;
   getGnuCashXmlExport(
     request: GetGnuCashXmlExportRequest,
   ): Promise<ServiceResponse<GnuCashXmlExportEnvelope | ErrorEnvelope>>;
@@ -92,6 +100,12 @@ export interface WorkspaceService {
   ): Promise<ServiceResponse<WorkspaceEnvelope | ErrorEnvelope>>;
   postBaselineBudgetLine(
     request: PostBaselineBudgetLineRequest,
+  ): Promise<ServiceResponse<WorkspaceEnvelope | ErrorEnvelope>>;
+  postBackup(
+    request: PostBackupRequest,
+  ): Promise<ServiceResponse<BackupEnvelope | ErrorEnvelope>>;
+  postBackupRestore(
+    request: PostBackupRestoreRequest,
   ): Promise<ServiceResponse<WorkspaceEnvelope | ErrorEnvelope>>;
   postClosePeriod(
     request: PostClosePeriodRequest,
@@ -217,6 +231,43 @@ export function createWorkspaceService(params: {
       }
     },
 
+    async getBackups(request) {
+      const requestLogger = getRequestLogger(request.logger).child({
+        operation: "getBackups",
+        workspaceId: request.workspaceId,
+      });
+      requestLogger.info("service command started");
+
+      try {
+        const workspace = await loadWorkspace(request.workspaceId, requestLogger);
+        const authorization = authorizeWorkspaceAccess(workspace, request.auth, "read");
+
+        if (!authorization.ok) {
+          requestLogger.warn("service command authorization failed", { errors: [authorization.error] });
+          return failure(
+            new ApiError({
+              code: "auth.forbidden",
+              message: authorization.error ?? "Forbidden.",
+              status: 403,
+            }),
+          );
+        }
+
+        const backups = await params.repository.listBackups(request.workspaceId, { logger: requestLogger });
+        requestLogger.info("service command completed", {
+          backupCount: backups.length,
+        });
+        return success(200, { backups });
+      } catch (error) {
+        const apiError = toApiError(error);
+        requestLogger.error("service command failed", {
+          error: apiError.message,
+          errorCode: apiError.code,
+        });
+        return failure(apiError);
+      }
+    },
+
     async getCloseSummary(request) {
       const requestLogger = getRequestLogger(request.logger).child({
         from: request.from,
@@ -313,6 +364,81 @@ export function createWorkspaceService(params: {
         await saveWorkspace(result.document, requestLogger);
         requestLogger.info("service command completed");
         return success(201, { workspace: result.document });
+      } catch (error) {
+        const apiError = toApiError(error);
+        requestLogger.error("service command failed", {
+          error: apiError.message,
+          errorCode: apiError.code,
+        });
+        return failure(apiError);
+      }
+    },
+
+    async postBackup(request) {
+      const requestLogger = getRequestLogger(request.logger).child({
+        operation: "postBackup",
+        workspaceId: request.workspaceId,
+      });
+      requestLogger.info("service command started");
+
+      try {
+        const workspace = await loadWorkspace(request.workspaceId, requestLogger);
+        const authorization = authorizeWorkspaceAccess(workspace, request.auth, "write");
+
+        if (!authorization.ok) {
+          requestLogger.warn("service command authorization failed", { errors: [authorization.error] });
+          return failure(
+            new ApiError({
+              code: "auth.forbidden",
+              message: authorization.error ?? "Forbidden.",
+              status: 403,
+            }),
+          );
+        }
+
+        const backup = await params.repository.createBackup(request.workspaceId, { logger: requestLogger });
+        requestLogger.info("service command completed", { backupId: backup.id });
+        return success(201, { backup });
+      } catch (error) {
+        const apiError = toApiError(error);
+        requestLogger.error("service command failed", {
+          error: apiError.message,
+          errorCode: apiError.code,
+        });
+        return failure(apiError);
+      }
+    },
+
+    async postBackupRestore(request) {
+      const requestLogger = getRequestLogger(request.logger).child({
+        backupId: request.backupId,
+        operation: "postBackupRestore",
+        workspaceId: request.workspaceId,
+      });
+      requestLogger.info("service command started");
+
+      try {
+        const workspace = await loadWorkspace(request.workspaceId, requestLogger);
+        const authorization = authorizeWorkspaceAccess(workspace, request.auth, "write");
+
+        if (!authorization.ok) {
+          requestLogger.warn("service command authorization failed", { errors: [authorization.error] });
+          return failure(
+            new ApiError({
+              code: "auth.forbidden",
+              message: authorization.error ?? "Forbidden.",
+              status: 403,
+            }),
+          );
+        }
+
+        const restored = await params.repository.restoreBackup(request.workspaceId, request.backupId, {
+          logger: requestLogger,
+        });
+        requestLogger.info("service command completed", {
+          backupId: request.backupId,
+        });
+        return success(200, { workspace: restored });
       } catch (error) {
         const apiError = toApiError(error);
         requestLogger.error("service command failed", {

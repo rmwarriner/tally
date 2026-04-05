@@ -85,9 +85,11 @@ The production-oriented startup path now uses the same runtime assembly as devel
 ## Current Deployment Assumptions
 
 - persistence is still local-file based under the configured data directory
+- workspace backups are stored under the API data root in a repository-managed `_backups/<workspaceId>` directory
 - metrics are exposed from the same API process at `/metrics`
 - liveness and readiness are exposed at `/health/live` and `/health/ready`
 - request correlation is carried through logs with `requestId`
+- backup creation and restore are currently exposed through the same authenticated API process
 
 ## Secret Handling Guidance
 
@@ -98,4 +100,4 @@ The production-oriented startup path now uses the same runtime assembly as devel
 ## Near-Term Follow-Up
 
 - document a concrete production deployment example once the hosting target is selected
-- add backup and restore operational guidance when the resilience roadmap item begins
+- add retention and recovery runbooks for the repository-managed backup directory

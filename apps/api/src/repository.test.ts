@@ -4,7 +4,6 @@ import { tmpdir } from "node:os";
 import { describe, expect, it } from "vitest";
 import { createDemoWorkspace } from "@gnucash-ng/workspace";
 import { saveWorkspaceToFile } from "@gnucash-ng/workspace/src/node";
-import { ApiError } from "./errors";
 import { createFileSystemWorkspaceRepository } from "./repository";
 
 describe("workspace repository security", () => {
@@ -41,6 +40,29 @@ describe("workspace repository security", () => {
       code: "workspace.not_found",
       status: 404,
     });
+
+    await rm(directory, { recursive: true, force: true });
+  });
+
+  it("creates, lists, and restores backups", async () => {
+    const directory = await mkdtemp(join(tmpdir(), "gnucash-ng-repo-"));
+    const workspace = createDemoWorkspace();
+    await saveWorkspaceToFile(join(directory, `${workspace.id}.json`), workspace);
+    const repository = createFileSystemWorkspaceRepository({ rootDirectory: directory });
+
+    const backup = await repository.createBackup(workspace.id);
+    const backups = await repository.listBackups(workspace.id);
+
+    expect(backup.id).toContain("backup-");
+    expect(backups).toHaveLength(1);
+    expect(backups[0]?.id).toBe(backup.id);
+
+    workspace.name = "Changed Name";
+    await repository.save(workspace);
+
+    const restored = await repository.restoreBackup(workspace.id, backup.id);
+
+    expect(restored.name).toBe("Household Finance");
 
     await rm(directory, { recursive: true, force: true });
   });

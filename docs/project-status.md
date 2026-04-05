@@ -49,6 +49,8 @@ This repository currently includes:
 - report generation for net worth, income statement, budget-vs-actual, and envelope summary
 - cash-flow reporting
 - durable close periods with period-lock enforcement for back-dated ledger writes
+- filesystem-native backup creation, listing, and restore flows
+- load-time workspace migration for legacy document snapshots
 
 ### Service Layer
 
@@ -104,14 +106,10 @@ This repository currently includes:
 - path-safe workspace identifier enforcement
 - HTTP transport no longer trusts client-supplied actor identity
 
-## Not Started
+## Remaining Follow-Up
 
-- backup, migration, and restore strategy
-
-## Recommended Next Sequence
-
-1. Add backup, migration, and restore strategy
-2. Extend deployment and resilience guidance around the new recovery flows
+1. Extend deployment and resilience guidance around the new recovery flows
+2. Add external observability sinks and alert routing once hosting is selected
 3. Expand reporting depth further only if new product workflows need it
 
 ## Deferred Follow-Up

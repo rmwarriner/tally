@@ -2,6 +2,7 @@ export * from "./audit";
 export * from "./commands";
 export * from "./factory";
 export * from "./gnucash-xml";
+export * from "./migrate";
 export * from "./ofx";
 export * from "./qif";
 export * from "./reports";

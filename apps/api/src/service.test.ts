@@ -266,6 +266,59 @@ describe("workspace service", () => {
     await fixture.cleanup();
   });
 
+  it("creates, lists, and restores backups through the service layer", async () => {
+    const fixture = await createFixture();
+    const service = createWorkspaceService({
+      logger: createTestLogger([]),
+      repository: createFileSystemWorkspaceRepository({ rootDirectory: fixture.directory }),
+    });
+
+    const backupResponse = await service.postBackup({
+      auth: { actor: "Primary", kind: "token", role: "member", token: "token-1" },
+      workspaceId: fixture.workspace.id,
+    });
+
+    expect(backupResponse.status).toBe(201);
+    expect("backup" in backupResponse.body).toBe(true);
+
+    const updateResponse = await service.postGnuCashXmlImport({
+      auth: { actor: "Primary", kind: "token", role: "member", token: "token-1" },
+      payload: {
+        importedAt: "2026-04-05T00:00:00Z",
+        sourceLabel: "workspace.gnucash.xml",
+        xml: buildGnuCashXmlExport({ workspace: fixture.workspace }).contents.replace(
+          'name="Household Finance"',
+          'name="Changed Before Restore"',
+        ),
+      },
+      workspaceId: fixture.workspace.id,
+    });
+    expect(updateResponse.status).toBe(200);
+
+    const listResponse = await service.getBackups({
+      auth: { actor: "local-admin", kind: "local", role: "local-admin" },
+      workspaceId: fixture.workspace.id,
+    });
+
+    expect(listResponse.status).toBe(200);
+    expect("backups" in listResponse.body).toBe(true);
+    if (!("backups" in listResponse.body) || !("backup" in backupResponse.body)) {
+      throw new Error("backup response shape mismatch");
+    }
+
+    const restoreResponse = await service.postBackupRestore({
+      auth: { actor: "Primary", kind: "token", role: "member", token: "token-1" },
+      backupId: backupResponse.body.backup.id,
+      workspaceId: fixture.workspace.id,
+    });
+
+    expect(restoreResponse.status).toBe(200);
+    expectWorkspaceBody(restoreResponse.body);
+    expect(restoreResponse.body.workspace.name).toBe("Household Finance");
+
+    await fixture.cleanup();
+  });
+
   it("propagates request ids through service and repository logging", async () => {
     const records: LogRecord[] = [];
     const fixture = await createFixture();
@@ -611,7 +664,16 @@ describe("workspace service", () => {
     const service = createWorkspaceService({
       logger: createTestLogger([]),
       repository: {
+        async createBackup() {
+          throw new Error("disk exploded");
+        },
+        async listBackups() {
+          throw new Error("disk exploded");
+        },
         async load() {
+          throw new Error("disk exploded");
+        },
+        async restoreBackup() {
           throw new Error("disk exploded");
         },
         async save() {

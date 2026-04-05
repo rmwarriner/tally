@@ -22,6 +22,7 @@ Implemented pieces:
 - read service for cash-flow reports
 - read service for period close summaries
 - write service for durable period close recording
+- repository-backed backup creation, listing, and restore flows
 - write service for baseline budget lines, envelopes, envelope allocations, scheduled transaction execution, and schedule exceptions
 - HTTP request handler for read and write routes
 - Node HTTP server adapter
@@ -42,6 +43,7 @@ Implemented pieces:
 - graceful HTTP server shutdown handling on `SIGINT` and `SIGTERM`
 - file-backed auth secret loading for production-oriented runtime configuration
 - safe startup logging for runtime configuration without secret material
+- load-time migration of legacy workspace documents into the current schema
 
 ## Current Shape
 
@@ -105,10 +107,9 @@ See `docs/api-runtime-operations.md` for the current runtime-mode and deployment
 - no durable metrics backend yet beyond in-process `/metrics`
 - no distributed tracing yet beyond request correlation ids in logs and responses
 - no external audit stream beyond workspace persistence
-- no backup, migration, or restore strategy yet
 
 ## Recommended Next Steps
 
-1. Add backup, migration, and restore strategy
-2. Add deployment and recovery runbooks on top of those flows
-3. Add external observability sinks once hosting is selected
+1. Add deployment and recovery runbooks on top of the backup and restore flows
+2. Add external observability sinks once hosting is selected
+3. Extend import/export fidelity only where real data samples demand it

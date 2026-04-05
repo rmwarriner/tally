@@ -95,6 +95,14 @@ function normalizeRouteLabel(method: string, path: string): string {
     return "/api/workspaces/:workspaceId/close-periods";
   }
 
+  if (/^\/api\/workspaces\/[^/]+\/backups$/.test(path)) {
+    return "/api/workspaces/:workspaceId/backups";
+  }
+
+  if (/^\/api\/workspaces\/[^/]+\/backups\/[^/]+\/restore$/.test(path)) {
+    return "/api/workspaces/:workspaceId/backups/:backupId/restore";
+  }
+
   if (/^\/api\/workspaces\/[^/]+\/transactions$/.test(path)) {
     return "/api/workspaces/:workspaceId/transactions";
   }
@@ -344,6 +352,7 @@ export function createHttpHandler(params: {
       const qifExportMatch = path.match(/^\/api\/workspaces\/([^/]+)\/exports\/qif$/);
       const statementExportMatch = path.match(/^\/api\/workspaces\/([^/]+)\/exports\/(ofx|qfx)$/);
       const gnucashXmlExportMatch = path.match(/^\/api\/workspaces\/([^/]+)\/exports\/gnucash-xml$/);
+      const backupsMatch = path.match(/^\/api\/workspaces\/([^/]+)\/backups$/);
 
       if (workspaceMatch) {
         const rateLimited = enforceRateLimit(requestKey, rateLimitPolicy.read, requestLogger);
@@ -732,6 +741,40 @@ export function createHttpHandler(params: {
         });
         return completeJsonResponse(response.status, response.body);
       }
+
+      if (backupsMatch) {
+        const rateLimited = enforceRateLimit(requestKey, rateLimitPolicy.read, requestLogger);
+
+        if (rateLimited) {
+          return completeJsonResponse(
+            rateLimited.status,
+            await rateLimited.json(),
+            Object.fromEntries(rateLimited.headers.entries()),
+          );
+        }
+
+        const workspaceId = decodeURIComponent(backupsMatch[1]);
+
+        if (!isSafeWorkspaceId(workspaceId)) {
+          return completeJsonResponse(
+            400,
+            toErrorEnvelope(
+              new ApiError({
+                code: "repository.invalid_identifier",
+                message: "Workspace identifier is invalid.",
+                status: 400,
+              }),
+            ),
+          );
+        }
+
+        const response = await params.service.getBackups({
+          auth: auth.context,
+          logger: requestLogger,
+          workspaceId,
+        });
+        return completeJsonResponse(response.status, response.body);
+      }
     }
 
     if (request.method === "POST") {
@@ -748,8 +791,11 @@ export function createHttpHandler(params: {
       const statementImportMatch = path.match(/^\/api\/workspaces\/([^/]+)\/imports\/(ofx|qfx)$/);
       const gnucashXmlImportMatch = path.match(/^\/api\/workspaces\/([^/]+)\/imports\/gnucash-xml$/);
       const closePeriodMatch = path.match(/^\/api\/workspaces\/([^/]+)\/close-periods$/);
+      const backupsCreateMatch = path.match(/^\/api\/workspaces\/([^/]+)\/backups$/);
+      const backupRestoreMatch = path.match(/^\/api\/workspaces\/([^/]+)\/backups\/([^/]+)\/restore$/);
+      const bodylessPostRoute = Boolean(backupsCreateMatch || backupRestoreMatch);
 
-      if (!request.headers.get("content-type")?.includes("application/json")) {
+      if (!bodylessPostRoute && !request.headers.get("content-type")?.includes("application/json")) {
         requestLogger.warn("http request validation failed", {
           errors: ["POST requests must use application/json."],
         });
@@ -765,7 +811,7 @@ export function createHttpHandler(params: {
         );
       }
 
-      const body = await parseJsonBody(request, maxBodyBytes);
+      const body = bodylessPostRoute ? undefined : await parseJsonBody(request, maxBodyBytes);
 
       if (body === Symbol.for("body-too-large")) {
         requestLogger.warn("http request rejected for size limit");
@@ -781,7 +827,7 @@ export function createHttpHandler(params: {
         );
       }
 
-      if (body === undefined) {
+      if (!bodylessPostRoute && body === undefined) {
         requestLogger.warn("http request validation failed", {
           errors: ["Request body must be valid JSON."],
         });
@@ -844,6 +890,76 @@ export function createHttpHandler(params: {
           auth: auth.context,
           logger: requestLogger,
           transaction: payload.value.transaction,
+          workspaceId,
+        });
+        return completeJsonResponse(response.status, response.body);
+      }
+
+      if (backupsCreateMatch) {
+        const rateLimited = enforceRateLimit(requestKey, rateLimitPolicy.mutation, requestLogger);
+
+        if (rateLimited) {
+          return completeJsonResponse(
+            rateLimited.status,
+            await rateLimited.json(),
+            Object.fromEntries(rateLimited.headers.entries()),
+          );
+        }
+
+        const workspaceId = decodeURIComponent(backupsCreateMatch[1]);
+
+        if (!isSafeWorkspaceId(workspaceId)) {
+          return completeJsonResponse(
+            400,
+            toErrorEnvelope(
+              new ApiError({
+                code: "repository.invalid_identifier",
+                message: "Workspace identifier is invalid.",
+                status: 400,
+              }),
+            ),
+          );
+        }
+
+        const response = await params.service.postBackup({
+          auth: auth.context,
+          logger: requestLogger,
+          workspaceId,
+        });
+        return completeJsonResponse(response.status, response.body);
+      }
+
+      if (backupRestoreMatch) {
+        const rateLimited = enforceRateLimit(requestKey, rateLimitPolicy.mutation, requestLogger);
+
+        if (rateLimited) {
+          return completeJsonResponse(
+            rateLimited.status,
+            await rateLimited.json(),
+            Object.fromEntries(rateLimited.headers.entries()),
+          );
+        }
+
+        const workspaceId = decodeURIComponent(backupRestoreMatch[1]);
+        const backupId = decodeURIComponent(backupRestoreMatch[2]);
+
+        if (!isSafeWorkspaceId(workspaceId)) {
+          return completeJsonResponse(
+            400,
+            toErrorEnvelope(
+              new ApiError({
+                code: "repository.invalid_identifier",
+                message: "Workspace identifier is invalid.",
+                status: 400,
+              }),
+            ),
+          );
+        }
+
+        const response = await params.service.postBackupRestore({
+          auth: auth.context,
+          backupId,
+          logger: requestLogger,
           workspaceId,
         });
         return completeJsonResponse(response.status, response.body);
