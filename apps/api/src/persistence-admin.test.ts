@@ -68,6 +68,24 @@ describe("persistence admin", () => {
 
     expect(
       parsePersistenceAdminCommand([
+        "copy-all",
+        "--source-backend",
+        "json",
+        "--source-data-dir",
+        "/tmp/source",
+        "--target-backend",
+        "sqlite",
+        "--target-sqlite-path",
+        "/tmp/target/workspaces.sqlite",
+        "--rollback-on-failure",
+      ]),
+    ).toMatchObject({
+      command: "copy-all",
+      rollbackOnFailure: true,
+    });
+
+    expect(
+      parsePersistenceAdminCommand([
         "import",
         "--workspace-id",
         "workspace-a",
@@ -212,6 +230,57 @@ describe("persistence admin", () => {
     });
     await target.close?.();
 
+    await source.close?.();
+  });
+
+  it("copies all workspaces between backends through the admin runner", async () => {
+    const sourceDirectory = await mkdtemp(join(tmpdir(), "gnucash-ng-copy-all-source-"));
+    const targetDirectory = await mkdtemp(join(tmpdir(), "gnucash-ng-copy-all-target-"));
+    cleanupPaths.push(sourceDirectory, targetDirectory);
+    const reportPath = join(targetDirectory, "copy-all-report.json");
+
+    const source = createFileSystemWorkspacePersistenceBackend({
+      rootDirectory: sourceDirectory,
+    });
+    const firstWorkspace = createDemoWorkspace();
+    const secondWorkspace = {
+      ...createDemoWorkspace(),
+      id: "workspace-household-second",
+      name: "Second Household",
+    };
+    await source.save(firstWorkspace);
+    await source.save(secondWorkspace);
+
+    await runPersistenceAdminCommand({
+      argv: [
+        "copy-all",
+        "--report-path",
+        reportPath,
+        "--source-backend",
+        "json",
+        "--source-data-dir",
+        sourceDirectory,
+        "--target-backend",
+        "sqlite",
+        "--target-sqlite-path",
+        join(targetDirectory, "workspaces.sqlite"),
+      ],
+    });
+
+    const report = JSON.parse(await readFile(reportPath, "utf8")) as {
+      command: string;
+      results: Array<{ workspaceId: string }>;
+      workspaceIds: string[];
+    };
+    expect(report.command).toBe("copy-all");
+    expect(report.workspaceIds).toEqual([firstWorkspace.id, secondWorkspace.id]);
+    expect(report.results).toHaveLength(2);
+
+    const target = createSqliteWorkspacePersistenceBackend({
+      databasePath: join(targetDirectory, "workspaces.sqlite"),
+    });
+    expect(await target.listWorkspaceIds()).toEqual([firstWorkspace.id, secondWorkspace.id]);
+    await target.close?.();
     await source.close?.();
   });
 });

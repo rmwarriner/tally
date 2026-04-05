@@ -22,6 +22,8 @@ Supported commands:
 
 - `copy`
   - load from one backend and write directly into another backend
+- `copy-all`
+  - enumerate every workspace in the source backend and copy each one into the target backend
 - `export`
   - load a workspace from a backend and write a JSON workspace snapshot to disk
 - `import`
@@ -96,6 +98,18 @@ pnpm --filter @gnucash-ng/api persistence:admin -- \
   --target-sqlite-path ./apps/api/data/workspaces.sqlite
 ```
 
+Copy every workspace from JSON storage into SQLite:
+
+```bash
+pnpm --filter @gnucash-ng/api persistence:admin -- \
+  copy-all \
+  --report-path ./tmp/persistence-copy-all-report.json \
+  --source-backend json \
+  --source-data-dir ./apps/api/data \
+  --target-backend sqlite \
+  --target-sqlite-path ./apps/api/data/workspaces.sqlite
+```
+
 ## Export Example
 
 Export a workspace from Postgres to a JSON snapshot file:
@@ -145,13 +159,14 @@ pnpm --filter @gnucash-ng/api persistence:admin -- \
 - copy/import can validate both the source document and the persisted target document
 - `--dry-run` executes load and validation paths but does not write target workspace data
 - rollback only runs when a target backup was created first
+- `copy-all` preserves source workspace ids and applies the same validation and backup flags to each copied workspace
 - this workflow is intended for operator-controlled migration and recovery tasks, not live multi-writer synchronization
 
 ## Operator Guidance
 
 Recommended sequence:
 
-1. Run `copy` or `import` first with `--dry-run --report-path ...`.
+1. Run `copy`, `copy-all`, or `import` first with `--dry-run --report-path ...`.
 2. Review the validation report before writing target data.
 3. When overwriting an existing target workspace, add `--backup-target --rollback-on-failure`.
 4. Keep the generated report with the migration record so the source and target validation state is preserved.
@@ -159,5 +174,5 @@ Recommended sequence:
 ## Near-Term Follow-Up
 
 - add broader verification against a real Postgres instance in CI or local integration scripts
-- decide whether to add a higher-level workspace migration command that can enumerate multiple workspaces in one run
+- add partial-failure policy guidance for `copy-all`, especially when some target workspaces succeed and later ones fail
 - decide whether rollback should become implicit whenever `--backup-target` is enabled

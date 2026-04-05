@@ -105,6 +105,40 @@ export function createSqliteWorkspacePersistenceBackend(params: {
       }
     },
 
+    async listWorkspaceIds(options: { logger?: Logger } = {}): Promise<string[]> {
+      const requestLogger = (options.logger ?? logger).child({
+        component: "sqliteWorkspacePersistenceBackend",
+        databasePath,
+        operation: "listWorkspaceIds",
+        persistenceBackend: "sqlite",
+      });
+
+      try {
+        const db = await ensureDatabase();
+        const rows = db
+          .prepare("SELECT id FROM workspaces ORDER BY id ASC")
+          .all() as unknown as Array<{ id: string }>;
+        const workspaceIds = rows.map((row) => row.id);
+
+        requestLogger.info("workspace id list completed", {
+          workspaceCount: workspaceIds.length,
+        });
+        return workspaceIds;
+      } catch (error) {
+        if (error instanceof ApiError) {
+          throw error;
+        }
+
+        throw new ApiError({
+          cause: error,
+          code: "repository.unavailable",
+          expose: false,
+          message: "Workspace storage is unavailable.",
+          status: 500,
+        });
+      }
+    },
+
     async load(workspaceId: string, options: { logger?: Logger } = {}): Promise<FinanceWorkspaceDocument> {
       validateWorkspaceIdentifier(workspaceId);
       const requestLogger = (options.logger ?? logger).child({

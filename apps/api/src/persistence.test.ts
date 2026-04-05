@@ -54,6 +54,16 @@ class FakePostgresPool implements PostgresQueryable {
       };
     }
 
+    if (normalized.startsWith("SELECT id FROM workspaces ORDER BY id ASC")) {
+      const rows = [...this.workspaces.keys()]
+        .sort((left, right) => left.localeCompare(right))
+        .map((id) => ({ id }));
+      return {
+        rowCount: rows.length,
+        rows: rows as unknown as TResult[],
+      };
+    }
+
     if (normalized.includes("INSERT INTO workspaces (id, document_json, updated_at)")) {
       this.workspaces.set(String(params[0]), String(params[1]));
       return { rowCount: 1, rows: [] };
@@ -146,6 +156,7 @@ describe("workspace persistence backends", () => {
 
     const loaded = await backend.load(workspace.id);
     expect(loaded.id).toBe(workspace.id);
+    expect(await backend.listWorkspaceIds()).toEqual([workspace.id]);
 
     const backup = await backend.createBackup(workspace.id);
     const backups = await backend.listBackups(workspace.id);
@@ -201,6 +212,7 @@ describe("workspace persistence backends", () => {
 
     const loaded = await backend.load(workspace.id);
     expect(loaded.id).toBe(workspace.id);
+    expect(await backend.listWorkspaceIds()).toEqual([workspace.id]);
 
     const backup = await backend.createBackup(workspace.id);
     const backups = await backend.listBackups(workspace.id);

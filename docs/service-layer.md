@@ -47,7 +47,7 @@ Implemented pieces:
 - an explicit persistence backend seam underneath the repository, with the current JSON/file implementation wired through it
 - a sqlite persistence backend with the same repository contract for load, save, backup, and restore flows
 - a postgres persistence backend with the same repository contract for load, save, backup, and restore flows
-- an admin persistence migration and export workflow for copy, export, and import operations across supported backends
+- an admin persistence migration and export workflow for copy, copy-all, export, and import operations across supported backends
 - dry-run validation reports plus backup-backed rollback handling for persistence copy and import operations
 - concrete deployment and recovery runbook for a single-node Linux `systemd` target
 
@@ -118,11 +118,11 @@ See `docs/persistence-migration-workflow.md` for backend migration and export co
 - no distributed tracing yet beyond request correlation ids in logs and responses
 - no external audit stream beyond workspace persistence
 - no family-scale auth model yet beyond the current single-runtime token/identity setup
-- no multi-workspace migration orchestration yet across the supported persistence backends
+- no partial-failure policy yet for multi-workspace persistence migration across the supported backends
 
 ## Recommended Next Steps
 
 1. Extend the audit model to cover full transaction lifecycle changes and privileged destructive actions
 2. Define family-scale auth and authorization expectations before broadening collaborative access
-3. Add multi-workspace migration orchestration and broader backend-operability guidance on top of the current admin workflow
+3. Add partial-failure policy and broader backend-operability guidance on top of the current admin workflow
 4. Add external observability sinks once hosting is selected beyond the single-node default

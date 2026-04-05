@@ -24,6 +24,7 @@ export interface WorkspacePersistenceBackend {
   close?(): Promise<void>;
   kind: WorkspacePersistenceBackendKind;
   createBackup(workspaceId: string, options?: { logger?: Logger }): Promise<WorkspaceBackup>;
+  listWorkspaceIds(options?: { logger?: Logger }): Promise<string[]>;
   listBackups(workspaceId: string, options?: { logger?: Logger }): Promise<WorkspaceBackup[]>;
   load(workspaceId: string, options?: { logger?: Logger }): Promise<FinanceWorkspaceDocument>;
   restoreBackup(
@@ -50,6 +51,12 @@ export interface PersistenceCopyResult {
   targetWorkspaceValidation?: WorkspaceValidationReport;
   targetWorkspaceWasPresent: boolean;
   workspaceId: string;
+}
+
+export interface PersistenceCopyManyResult {
+  dryRun: boolean;
+  results: PersistenceCopyResult[];
+  workspaceIds: string[];
 }
 
 export interface PersistenceExportResult {
@@ -243,6 +250,35 @@ export async function copyWorkspaceBetweenBackends(params: {
     targetWorkspaceValidation: imported.targetWorkspaceValidation,
     targetWorkspaceWasPresent: imported.targetWorkspaceWasPresent,
     workspaceId: document.id,
+  };
+}
+
+export async function copyAllWorkspacesBetweenBackends(params: {
+  source: WorkspacePersistenceBackend;
+  target: WorkspacePersistenceBackend;
+} & PersistenceWriteOptions): Promise<PersistenceCopyManyResult> {
+  const workspaceIds = await params.source.listWorkspaceIds({ logger: params.logger });
+  const results: PersistenceCopyResult[] = [];
+
+  for (const workspaceId of workspaceIds) {
+    results.push(
+      await copyWorkspaceBetweenBackends({
+        backupTarget: params.backupTarget,
+        dryRun: params.dryRun,
+        logger: params.logger,
+        rollbackOnFailure: params.rollbackOnFailure,
+        source: params.source,
+        sourceWorkspaceId: workspaceId,
+        target: params.target,
+        validate: params.validate,
+      }),
+    );
+  }
+
+  return {
+    dryRun: params.dryRun ?? false,
+    results,
+    workspaceIds,
   };
 }
 

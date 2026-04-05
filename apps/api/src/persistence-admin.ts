@@ -4,10 +4,12 @@ import { createLogger, type Logger } from "@gnucash-ng/logging";
 import { migrateWorkspaceDocument, type FinanceWorkspaceDocument } from "@gnucash-ng/workspace";
 import { ConfigValidationError } from "./errors";
 import {
+  copyAllWorkspacesBetweenBackends,
   copyWorkspaceBetweenBackends,
   createWorkspacePersistenceBackendFromOptions,
   exportWorkspaceDocument,
   importWorkspaceDocument,
+  type PersistenceCopyManyResult,
   type PersistenceCopyResult,
   type PersistenceExportResult,
   type PersistenceImportResult,
@@ -31,6 +33,16 @@ export type PersistenceAdminCommand =
       target: WorkspacePersistenceOptions;
       targetWorkspaceId?: string;
       workspaceId: string;
+    }
+  | {
+      backupTarget: boolean;
+      command: "copy-all";
+      dryRun: boolean;
+      reportPath?: string;
+      rollbackOnFailure: boolean;
+      skipValidation: boolean;
+      source: WorkspacePersistenceOptions;
+      target: WorkspacePersistenceOptions;
     }
   | {
       command: "export";
@@ -135,7 +147,7 @@ async function writeReportFile(reportPath: string | undefined, report: unknown):
 
 function buildAdminReport(params: {
   command: PersistenceAdminCommand["command"];
-  result: PersistenceCopyResult | PersistenceExportResult | PersistenceImportResult;
+  result: PersistenceCopyManyResult | PersistenceCopyResult | PersistenceExportResult | PersistenceImportResult;
 }): Record<string, unknown> {
   return {
     command: params.command,
@@ -148,9 +160,9 @@ export function parsePersistenceAdminCommand(argv: string[]): PersistenceAdminCo
   const [commandName] = argv;
   const flags = parseFlags(argv.slice(1));
 
-  if (commandName !== "copy" && commandName !== "export" && commandName !== "import") {
+  if (commandName !== "copy" && commandName !== "copy-all" && commandName !== "export" && commandName !== "import") {
     throw new ConfigValidationError([
-      "Persistence admin command must be one of: copy, export, import.",
+      "Persistence admin command must be one of: copy, copy-all, export, import.",
     ]);
   }
 
@@ -166,6 +178,19 @@ export function parsePersistenceAdminCommand(argv: string[]): PersistenceAdminCo
       target: readBackendOptions(flags, "target"),
       targetWorkspaceId: flags.values.get("target-workspace-id"),
       workspaceId: readRequired(flags, "workspace-id"),
+    };
+  }
+
+  if (commandName === "copy-all") {
+    return {
+      backupTarget: readBooleanFlag(flags, "backup-target"),
+      command: "copy-all",
+      dryRun: readBooleanFlag(flags, "dry-run"),
+      reportPath: flags.values.get("report-path") ? resolve(flags.values.get("report-path") as string) : undefined,
+      rollbackOnFailure: readBooleanFlag(flags, "rollback-on-failure"),
+      skipValidation: readBooleanFlag(flags, "skip-validation"),
+      source: readBackendOptions(flags, "source"),
+      target: readBackendOptions(flags, "target"),
     };
   }
 
@@ -207,7 +232,7 @@ export async function runPersistenceAdminCommand(params: {
       service: "gnucash-ng-persistence-admin",
     });
 
-  if (command.command === "copy") {
+  if (command.command === "copy" || command.command === "copy-all") {
     const source = createWorkspacePersistenceBackendFromOptions({
       logger,
       options: command.source,
@@ -218,29 +243,48 @@ export async function runPersistenceAdminCommand(params: {
     });
 
     try {
-      const result = await copyWorkspaceBetweenBackends({
-        backupTarget: command.backupTarget,
-        dryRun: command.dryRun,
-        logger,
-        rollbackOnFailure: command.rollbackOnFailure,
-        source,
-        sourceWorkspaceId: command.workspaceId,
-        target,
-        targetWorkspaceId: command.targetWorkspaceId,
-        validate: !command.skipValidation,
-      });
-      await writeReportFile(command.reportPath, buildAdminReport({ command: "copy", result }));
-      logger.info("persistence workspace copy completed", {
-        dryRun: result.dryRun,
-        sourceValidationOk: result.sourceValidation?.ok,
-        sourceBackend: command.source.persistenceBackend,
-        targetBackupId: result.targetBackupId,
-        targetBackend: command.target.persistenceBackend,
-        targetWorkspaceId: command.targetWorkspaceId ?? command.workspaceId,
-        targetValidationOk: result.targetWorkspaceValidation?.ok,
-        targetWorkspaceWasPresent: result.targetWorkspaceWasPresent,
-        workspaceId: command.workspaceId,
-      });
+      if (command.command === "copy-all") {
+        const result = await copyAllWorkspacesBetweenBackends({
+          backupTarget: command.backupTarget,
+          dryRun: command.dryRun,
+          logger,
+          rollbackOnFailure: command.rollbackOnFailure,
+          source,
+          target,
+          validate: !command.skipValidation,
+        });
+        await writeReportFile(command.reportPath, buildAdminReport({ command: command.command, result }));
+        logger.info("persistence workspace copy-all completed", {
+          dryRun: result.dryRun,
+          sourceBackend: command.source.persistenceBackend,
+          targetBackend: command.target.persistenceBackend,
+          workspaceCount: result.workspaceIds.length,
+        });
+      } else {
+        const result = await copyWorkspaceBetweenBackends({
+          backupTarget: command.backupTarget,
+          dryRun: command.dryRun,
+          logger,
+          rollbackOnFailure: command.rollbackOnFailure,
+          source,
+          sourceWorkspaceId: command.workspaceId,
+          target,
+          targetWorkspaceId: command.targetWorkspaceId,
+          validate: !command.skipValidation,
+        });
+        await writeReportFile(command.reportPath, buildAdminReport({ command: command.command, result }));
+        logger.info("persistence workspace copy completed", {
+          dryRun: result.dryRun,
+          sourceValidationOk: result.sourceValidation?.ok,
+          sourceBackend: command.source.persistenceBackend,
+          targetBackupId: result.targetBackupId,
+          targetBackend: command.target.persistenceBackend,
+          targetWorkspaceId: command.targetWorkspaceId ?? command.workspaceId,
+          targetValidationOk: result.targetWorkspaceValidation?.ok,
+          targetWorkspaceWasPresent: result.targetWorkspaceWasPresent,
+          workspaceId: command.workspaceId,
+        });
+      }
     } finally {
       await Promise.all([source.close?.(), target.close?.()]);
     }

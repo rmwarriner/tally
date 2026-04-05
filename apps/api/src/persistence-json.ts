@@ -73,6 +73,44 @@ export function createFileSystemWorkspacePersistenceBackend(params: {
   return {
     kind: "json",
 
+    async listWorkspaceIds(options: { logger?: Logger } = {}): Promise<string[]> {
+      const requestLogger = (options.logger ?? logger).child({
+        component: "fileSystemWorkspacePersistenceBackend",
+        operation: "listWorkspaceIds",
+        persistenceBackend: "json",
+        rootDirectory,
+      });
+
+      try {
+        const entries = await readdir(rootDirectory);
+        const workspaceIds = entries
+          .filter((entry) => entry.endsWith(".json"))
+          .filter((entry) => !entry.startsWith("_"))
+          .map((entry) => entry.replace(/\.json$/, ""))
+          .sort((left, right) => left.localeCompare(right));
+
+        requestLogger.info("workspace id list completed", {
+          workspaceCount: workspaceIds.length,
+        });
+        return workspaceIds;
+      } catch (error) {
+        if (typeof error === "object" && error !== null && "code" in error && error.code === "ENOENT") {
+          requestLogger.info("workspace id list completed", {
+            workspaceCount: 0,
+          });
+          return [];
+        }
+
+        throw new ApiError({
+          cause: error,
+          code: "repository.unavailable",
+          expose: false,
+          message: "Workspace storage is unavailable.",
+          status: 500,
+        });
+      }
+    },
+
     async load(workspaceId: string, options: { logger?: Logger } = {}): Promise<FinanceWorkspaceDocument> {
       const requestLogger = (options.logger ?? logger).child({
         component: "fileSystemWorkspacePersistenceBackend",

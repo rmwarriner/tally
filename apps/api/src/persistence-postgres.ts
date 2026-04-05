@@ -5,6 +5,7 @@ import { ApiError } from "./errors";
 import type { WorkspaceBackup, WorkspacePersistenceBackend } from "./persistence";
 
 interface WorkspaceRow {
+  id?: string;
   document_json: string;
 }
 
@@ -109,6 +110,41 @@ export function createPostgresWorkspacePersistenceBackend(params: {
     async close(): Promise<void> {
       if (pool.end) {
         await pool.end();
+      }
+    },
+
+    async listWorkspaceIds(options: { logger?: Logger } = {}): Promise<string[]> {
+      const requestLogger = (options.logger ?? logger).child({
+        component: "postgresWorkspacePersistenceBackend",
+        operation: "listWorkspaceIds",
+        persistenceBackend: "postgres",
+      });
+
+      try {
+        await ensureSchema();
+        const result = await pool.query<WorkspaceRow>(
+          "SELECT id FROM workspaces ORDER BY id ASC",
+        );
+        const workspaceIds = result.rows
+          .map((row) => row.id)
+          .filter((id): id is string => typeof id === "string");
+
+        requestLogger.info("workspace id list completed", {
+          workspaceCount: workspaceIds.length,
+        });
+        return workspaceIds;
+      } catch (error) {
+        if (error instanceof ApiError) {
+          throw error;
+        }
+
+        throw new ApiError({
+          cause: error,
+          code: "repository.unavailable",
+          expose: false,
+          message: "Workspace storage is unavailable.",
+          status: 500,
+        });
       }
     },
 

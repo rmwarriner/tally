@@ -27,6 +27,10 @@ describe("workspace repository abstraction", () => {
         calls.push(`listBackups:${workspaceId}`);
         return [];
       },
+      async listWorkspaceIds() {
+        calls.push("listWorkspaceIds");
+        return [workspace.id];
+      },
       async load(workspaceId) {
         calls.push(`load:${workspaceId}`);
         return workspace;
