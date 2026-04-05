@@ -30,6 +30,8 @@ Implemented pieces:
 - local development seeding of the demo workspace for first-run UI review
 - explicit runtime modes for development and production-oriented startup
 - graceful HTTP server shutdown handling on `SIGINT` and `SIGTERM`
+- file-backed auth secret loading for production-oriented runtime configuration
+- safe startup logging for runtime configuration without secret material
 
 ## Current Shape
 
@@ -73,7 +75,9 @@ Supported environment variables:
 - `GNUCASH_NG_API_SHUTDOWN_TIMEOUT_MS`
 - `GNUCASH_NG_LOG_LEVEL`
 - `GNUCASH_NG_API_AUTH_TOKEN`
+- `GNUCASH_NG_API_AUTH_TOKEN_FILE`
 - `GNUCASH_NG_API_AUTH_IDENTITIES`
+- `GNUCASH_NG_API_AUTH_IDENTITIES_FILE`
 - `GNUCASH_NG_API_BODY_LIMIT_BYTES`
 - `GNUCASH_NG_API_RATE_LIMIT_WINDOW_MS`
 - `GNUCASH_NG_API_RATE_LIMIT_READS`
@@ -97,8 +101,6 @@ See `docs/api-runtime-operations.md` for the current runtime-mode and deployment
 
 ## Recommended Next Steps
 
-1. Add metrics, tracing, and health checks
-2. Add configuration and secret management operations
-3. Extend import/export support beyond CSV
-4. Add reporting engine and close workflow
-5. Add backup, migration, and restore strategy
+1. Extend import/export support beyond CSV
+2. Add reporting engine and close workflow
+3. Add backup, migration, and restore strategy

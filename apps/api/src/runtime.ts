@@ -31,6 +31,26 @@ function createRuntimeLogger(config: ApiRuntimeConfig, env: NodeJS.ProcessEnv): 
   });
 }
 
+function logRuntimeConfiguration(logger: Logger, config: ApiRuntimeConfig): void {
+  logger.info("api runtime configured", {
+    authConfigured: config.authIdentities.length > 0,
+    authIdentityCount: config.authIdentities.length,
+    authSource: config.authSource,
+    authStrategy: config.authStrategy,
+    bodyLimitBytes: config.bodyLimitBytes,
+    dataDirectory: config.dataDirectory,
+    host: config.host,
+    port: config.port,
+    rateLimitImport: config.rateLimit.importLimit,
+    rateLimitMutation: config.rateLimit.mutationLimit,
+    rateLimitRead: config.rateLimit.readLimit,
+    rateLimitWindowMs: config.rateLimit.windowMs,
+    runtimeMode: config.runtimeMode,
+    seedDemoWorkspace: config.seedDemoWorkspace,
+    shutdownTimeoutMs: config.shutdownTimeoutMs,
+  });
+}
+
 export function createApiRuntime(params: {
   config: ApiRuntimeConfig;
   createServer?: (input: {
@@ -83,6 +103,8 @@ export function createApiRuntime(params: {
       if (started) {
         return;
       }
+
+      logRuntimeConfiguration(logger, params.config);
 
       if (params.config.seedDemoWorkspace) {
         await ensureSeed({

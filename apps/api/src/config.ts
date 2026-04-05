@@ -1,7 +1,10 @@
+import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { ConfigValidationError } from "./errors";
 
 export type ApiRuntimeMode = "development" | "production" | "test";
+export type ApiAuthSource = "env" | "file" | "none";
+export type ApiAuthStrategy = "identities" | "none" | "token";
 
 export interface ApiRuntimeConfig {
   authIdentities: Array<{
@@ -9,6 +12,8 @@ export interface ApiRuntimeConfig {
     role: "admin" | "member";
     token: string;
   }>;
+  authSource: ApiAuthSource;
+  authStrategy: ApiAuthStrategy;
   bodyLimitBytes: number;
   dataDirectory: string;
   host: string;
@@ -70,54 +75,125 @@ function parseRuntimeMode(value: string | undefined, fallback: ApiRuntimeMode): 
   ]);
 }
 
-function parseAuthIdentities(env: NodeJS.ProcessEnv): ApiRuntimeConfig["authIdentities"] {
+function readSecretFile(path: string, fieldName: string): string {
+  try {
+    const contents = readFileSync(path, "utf8").trim();
+
+    if (contents.length === 0) {
+      throw new ConfigValidationError([`${fieldName} must not be empty.`]);
+    }
+
+    return contents;
+  } catch (error) {
+    if (error instanceof ConfigValidationError) {
+      throw error;
+    }
+
+    throw new ConfigValidationError([`${fieldName} could not be read from ${path}.`]);
+  }
+}
+
+function parseAuthIdentitiesJson(raw: string): ApiRuntimeConfig["authIdentities"] {
+  let parsed: unknown;
+
+  try {
+    parsed = JSON.parse(raw);
+  } catch (error) {
+    throw new ConfigValidationError(["GNUCASH_NG_API_AUTH_IDENTITIES must be valid JSON."]);
+  }
+
+  if (!Array.isArray(parsed)) {
+    throw new ConfigValidationError(["GNUCASH_NG_API_AUTH_IDENTITIES must be an array."]);
+  }
+
+  const identities = parsed.map((item, index) => {
+    if (typeof item !== "object" || item === null) {
+      throw new ConfigValidationError([`Auth identity ${index} must be an object.`]);
+    }
+
+    const candidate = item as Record<string, unknown>;
+
+    if (typeof candidate.actor !== "string" || candidate.actor.length === 0) {
+      throw new ConfigValidationError([`Auth identity ${index} actor is required.`]);
+    }
+
+    if (candidate.role !== "admin" && candidate.role !== "member") {
+      throw new ConfigValidationError([`Auth identity ${index} role must be admin or member.`]);
+    }
+
+    if (typeof candidate.token !== "string" || candidate.token.length === 0) {
+      throw new ConfigValidationError([`Auth identity ${index} token is required.`]);
+    }
+
+    return {
+      actor: candidate.actor,
+      role: candidate.role as "admin" | "member",
+      token: candidate.token,
+    };
+  });
+
+  return identities;
+}
+
+function parseAuthConfig(env: NodeJS.ProcessEnv): Pick<ApiRuntimeConfig, "authIdentities" | "authSource" | "authStrategy"> {
+  const configuredSources = [
+    env.GNUCASH_NG_API_AUTH_TOKEN ? "GNUCASH_NG_API_AUTH_TOKEN" : null,
+    env.GNUCASH_NG_API_AUTH_IDENTITIES ? "GNUCASH_NG_API_AUTH_IDENTITIES" : null,
+    env.GNUCASH_NG_API_AUTH_TOKEN_FILE ? "GNUCASH_NG_API_AUTH_TOKEN_FILE" : null,
+    env.GNUCASH_NG_API_AUTH_IDENTITIES_FILE ? "GNUCASH_NG_API_AUTH_IDENTITIES_FILE" : null,
+  ].filter((value): value is string => value !== null);
+
+  if (configuredSources.length > 1) {
+    throw new ConfigValidationError([
+      "Configure authentication with either GNUCASH_NG_API_AUTH_TOKEN, GNUCASH_NG_API_AUTH_IDENTITIES, GNUCASH_NG_API_AUTH_TOKEN_FILE, or GNUCASH_NG_API_AUTH_IDENTITIES_FILE, but not more than one.",
+    ]);
+  }
+
   if (env.GNUCASH_NG_API_AUTH_IDENTITIES) {
-    let parsed: unknown;
+    return {
+      authIdentities: parseAuthIdentitiesJson(env.GNUCASH_NG_API_AUTH_IDENTITIES),
+      authSource: "env",
+      authStrategy: "identities",
+    };
+  }
 
-    try {
-      parsed = JSON.parse(env.GNUCASH_NG_API_AUTH_IDENTITIES);
-    } catch (error) {
-      throw new ConfigValidationError(["GNUCASH_NG_API_AUTH_IDENTITIES must be valid JSON."]);
-    }
-
-    if (!Array.isArray(parsed)) {
-      throw new ConfigValidationError(["GNUCASH_NG_API_AUTH_IDENTITIES must be an array."]);
-    }
-
-    const identities = parsed.map((item, index) => {
-      if (typeof item !== "object" || item === null) {
-        throw new ConfigValidationError([`Auth identity ${index} must be an object.`]);
-      }
-
-      const candidate = item as Record<string, unknown>;
-
-      if (typeof candidate.actor !== "string" || candidate.actor.length === 0) {
-        throw new ConfigValidationError([`Auth identity ${index} actor is required.`]);
-      }
-
-      if (candidate.role !== "admin" && candidate.role !== "member") {
-        throw new ConfigValidationError([`Auth identity ${index} role must be admin or member.`]);
-      }
-
-      if (typeof candidate.token !== "string" || candidate.token.length === 0) {
-        throw new ConfigValidationError([`Auth identity ${index} token is required.`]);
-      }
-
-      return {
-        actor: candidate.actor,
-        role: candidate.role as "admin" | "member",
-        token: candidate.token,
-      };
-    });
-
-    return identities;
+  if (env.GNUCASH_NG_API_AUTH_IDENTITIES_FILE) {
+    return {
+      authIdentities: parseAuthIdentitiesJson(
+        readSecretFile(env.GNUCASH_NG_API_AUTH_IDENTITIES_FILE, "GNUCASH_NG_API_AUTH_IDENTITIES_FILE"),
+      ),
+      authSource: "file",
+      authStrategy: "identities",
+    };
   }
 
   if (env.GNUCASH_NG_API_AUTH_TOKEN) {
-    return [{ actor: "api-user", role: "admin" as const, token: env.GNUCASH_NG_API_AUTH_TOKEN }];
+    return {
+      authIdentities: [{ actor: "api-user", role: "admin" as const, token: env.GNUCASH_NG_API_AUTH_TOKEN }],
+      authSource: "env",
+      authStrategy: "token",
+    };
   }
 
-  return [];
+  if (env.GNUCASH_NG_API_AUTH_TOKEN_FILE) {
+    return {
+      authIdentities: [
+        {
+          actor: "api-user",
+          role: "admin" as const,
+          token: readSecretFile(env.GNUCASH_NG_API_AUTH_TOKEN_FILE, "GNUCASH_NG_API_AUTH_TOKEN_FILE"),
+        },
+      ],
+      authSource: "file",
+      authStrategy: "token",
+    };
+  }
+
+  return {
+    authIdentities: [],
+    authSource: "none",
+    authStrategy: "none",
+  };
 }
 
 export function createApiRuntimeConfig(
@@ -163,22 +239,22 @@ export function createApiRuntimeConfig(
     10000,
     "GNUCASH_NG_API_SHUTDOWN_TIMEOUT_MS",
   );
-  const authIdentities = parseAuthIdentities(env);
+  const authConfig = parseAuthConfig(env);
   const seedDemoWorkspace = parseBoolean(
     env.GNUCASH_NG_API_SEED_DEMO_WORKSPACE,
     runtimeMode === "development",
     "GNUCASH_NG_API_SEED_DEMO_WORKSPACE",
   );
 
-  if (!isLoopbackHost(host) && authIdentities.length === 0) {
+  if (!isLoopbackHost(host) && authConfig.authIdentities.length === 0) {
     throw new ConfigValidationError([
-      "Non-loopback API binding requires GNUCASH_NG_API_AUTH_TOKEN or GNUCASH_NG_API_AUTH_IDENTITIES.",
+      "Non-loopback API binding requires GNUCASH_NG_API_AUTH_TOKEN, GNUCASH_NG_API_AUTH_IDENTITIES, GNUCASH_NG_API_AUTH_TOKEN_FILE, or GNUCASH_NG_API_AUTH_IDENTITIES_FILE.",
     ]);
   }
 
-  if (runtimeMode === "production" && authIdentities.length === 0) {
+  if (runtimeMode === "production" && authConfig.authIdentities.length === 0) {
     throw new ConfigValidationError([
-      "Production runtime requires GNUCASH_NG_API_AUTH_TOKEN or GNUCASH_NG_API_AUTH_IDENTITIES.",
+      "Production runtime requires GNUCASH_NG_API_AUTH_TOKEN, GNUCASH_NG_API_AUTH_IDENTITIES, GNUCASH_NG_API_AUTH_TOKEN_FILE, or GNUCASH_NG_API_AUTH_IDENTITIES_FILE.",
     ]);
   }
 
@@ -189,7 +265,9 @@ export function createApiRuntimeConfig(
   }
 
   return {
-    authIdentities,
+    authIdentities: authConfig.authIdentities,
+    authSource: authConfig.authSource,
+    authStrategy: authConfig.authStrategy,
     bodyLimitBytes,
     dataDirectory: resolve(cwd, env.GNUCASH_NG_DATA_DIR ?? "data"),
     host,

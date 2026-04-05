@@ -45,8 +45,12 @@ The production-oriented startup path now uses the same runtime assembly as devel
   - defaults to `data` relative to the API process working directory
 - `GNUCASH_NG_API_AUTH_TOKEN`
   - simple single-admin auth token
+- `GNUCASH_NG_API_AUTH_TOKEN_FILE`
+  - path to a file containing the simple single-admin auth token
 - `GNUCASH_NG_API_AUTH_IDENTITIES`
   - JSON array of explicit actor and token bindings
+- `GNUCASH_NG_API_AUTH_IDENTITIES_FILE`
+  - path to a file containing the JSON array of explicit actor and token bindings
 - `GNUCASH_NG_API_BODY_LIMIT_BYTES`
   - max JSON request body size
 - `GNUCASH_NG_API_RATE_LIMIT_WINDOW_MS`
@@ -72,8 +76,11 @@ The production-oriented startup path now uses the same runtime assembly as devel
 - production runtime requires explicit auth configuration
 - non-loopback binding requires explicit auth configuration
 - production runtime cannot auto-seed the demo workspace
+- choose exactly one auth source: inline token, inline identities JSON, token file, or identities file
+- auth secret files must exist, be readable by the API process, and contain non-empty values
 - startup must fail fast for invalid numeric, boolean, auth, or runtime-mode configuration
 - runtime shutdown should close the HTTP server gracefully on `SIGINT` and `SIGTERM`
+- startup logs should confirm the selected runtime mode, data directory, rate limits, and auth source without logging secret material
 
 ## Current Deployment Assumptions
 
@@ -82,8 +89,13 @@ The production-oriented startup path now uses the same runtime assembly as devel
 - liveness and readiness are exposed at `/health/live` and `/health/ready`
 - request correlation is carried through logs with `requestId`
 
+## Secret Handling Guidance
+
+- prefer `*_FILE` auth variables in production-oriented environments so token material stays out of shell history and process managers
+- keep auth secret files outside the workspace data directory and restrict file permissions to the API runtime user
+- use inline auth variables only for local development, short-lived tests, or other low-risk environments
+
 ## Near-Term Follow-Up
 
 - document a concrete production deployment example once the hosting target is selected
-- add secret-management guidance once a production secret distribution approach is chosen
 - add backup and restore operational guidance when the resilience roadmap item begins

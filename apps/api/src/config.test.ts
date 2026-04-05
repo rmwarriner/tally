@@ -1,3 +1,6 @@
+import { mkdtempSync, writeFileSync } from "node:fs";
+import { join } from "node:path";
+import { tmpdir } from "node:os";
 import { describe, expect, it } from "vitest";
 import { createApiRuntimeConfig } from "./config";
 import { ConfigValidationError } from "./errors";
@@ -10,6 +13,8 @@ describe("api runtime config", () => {
 
     expect(config).toEqual({
       authIdentities: [],
+      authSource: "none",
+      authStrategy: "none",
       bodyLimitBytes: 1048576,
       dataDirectory: "/tmp/gnucash-ng/data",
       host: "127.0.0.1",
@@ -46,6 +51,8 @@ describe("api runtime config", () => {
 
     expect(config).toEqual({
       authIdentities: [{ actor: "api-user", role: "admin", token: "top-secret" }],
+      authSource: "env",
+      authStrategy: "token",
       bodyLimitBytes: 1048576,
       dataDirectory: "/tmp/gnucash-ng/var/workspaces",
       host: "0.0.0.0",
@@ -70,12 +77,14 @@ describe("api runtime config", () => {
         },
         "/tmp/gnucash-ng",
       ),
-    ).toThrow("Non-loopback API binding requires GNUCASH_NG_API_AUTH_TOKEN or GNUCASH_NG_API_AUTH_IDENTITIES.");
+    ).toThrow(
+      "Non-loopback API binding requires GNUCASH_NG_API_AUTH_TOKEN, GNUCASH_NG_API_AUTH_IDENTITIES, GNUCASH_NG_API_AUTH_TOKEN_FILE, or GNUCASH_NG_API_AUTH_IDENTITIES_FILE.",
+    );
   });
 
   it("rejects production runtime without auth configuration", () => {
     expect(() => createApiRuntimeConfig({}, "/tmp/gnucash-ng")).toThrow(
-      "Production runtime requires GNUCASH_NG_API_AUTH_TOKEN or GNUCASH_NG_API_AUTH_IDENTITIES.",
+      "Production runtime requires GNUCASH_NG_API_AUTH_TOKEN, GNUCASH_NG_API_AUTH_IDENTITIES, GNUCASH_NG_API_AUTH_TOKEN_FILE, or GNUCASH_NG_API_AUTH_IDENTITIES_FILE.",
     );
   });
 
@@ -128,5 +137,76 @@ describe("api runtime config", () => {
           GNUCASH_NG_API_AUTH_IDENTITIES: '{"bad":true}',
         }),
     ).toThrow("GNUCASH_NG_API_AUTH_IDENTITIES must be an array.");
+  });
+
+  it("loads auth token configuration from a file", () => {
+    const tempDirectory = mkdtempSync(join(tmpdir(), "gnucash-ng-config-"));
+    const tokenFile = join(tempDirectory, "api-token.txt");
+    writeFileSync(tokenFile, "file-secret\n", "utf8");
+
+    const config = createApiRuntimeConfig(
+      {
+        GNUCASH_NG_API_AUTH_TOKEN_FILE: tokenFile,
+        GNUCASH_NG_API_RUNTIME_MODE: "production",
+      },
+      "/tmp/gnucash-ng",
+    );
+
+    expect(config.authIdentities).toEqual([
+      { actor: "api-user", role: "admin", token: "file-secret" },
+    ]);
+    expect(config.authStrategy).toBe("token");
+    expect(config.authSource).toBe("file");
+  });
+
+  it("loads auth identities configuration from a file", () => {
+    const tempDirectory = mkdtempSync(join(tmpdir(), "gnucash-ng-config-"));
+    const identitiesFile = join(tempDirectory, "auth-identities.json");
+    writeFileSync(
+      identitiesFile,
+      JSON.stringify([{ actor: "robert", role: "admin", token: "from-file" }]),
+      "utf8",
+    );
+
+    const config = createApiRuntimeConfig(
+      {
+        GNUCASH_NG_API_AUTH_IDENTITIES_FILE: identitiesFile,
+        GNUCASH_NG_API_RUNTIME_MODE: "production",
+      },
+      "/tmp/gnucash-ng",
+    );
+
+    expect(config.authIdentities).toEqual([
+      { actor: "robert", role: "admin", token: "from-file" },
+    ]);
+    expect(config.authStrategy).toBe("identities");
+    expect(config.authSource).toBe("file");
+  });
+
+  it("rejects mixing inline and file-based auth configuration", () => {
+    expect(
+      () =>
+        createApiRuntimeConfig({
+          GNUCASH_NG_API_AUTH_TOKEN: "inline",
+          GNUCASH_NG_API_AUTH_TOKEN_FILE: "/tmp/token.txt",
+          GNUCASH_NG_API_RUNTIME_MODE: "production",
+        }),
+    ).toThrow(
+      "Configure authentication with either GNUCASH_NG_API_AUTH_TOKEN, GNUCASH_NG_API_AUTH_IDENTITIES, GNUCASH_NG_API_AUTH_TOKEN_FILE, or GNUCASH_NG_API_AUTH_IDENTITIES_FILE, but not more than one.",
+    );
+  });
+
+  it("rejects empty auth secret files", () => {
+    const tempDirectory = mkdtempSync(join(tmpdir(), "gnucash-ng-config-"));
+    const tokenFile = join(tempDirectory, "api-token.txt");
+    writeFileSync(tokenFile, "\n", "utf8");
+
+    expect(
+      () =>
+        createApiRuntimeConfig({
+          GNUCASH_NG_API_AUTH_TOKEN_FILE: tokenFile,
+          GNUCASH_NG_API_RUNTIME_MODE: "production",
+        }),
+    ).toThrow("GNUCASH_NG_API_AUTH_TOKEN_FILE must not be empty.");
   });
 });

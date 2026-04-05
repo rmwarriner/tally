@@ -1,11 +1,13 @@
 import { describe, expect, it, vi } from "vitest";
-import { createLogger } from "@gnucash-ng/logging";
+import { createLogger, type LogRecord } from "@gnucash-ng/logging";
 import { createApiRuntime } from "./runtime";
 import type { ApiRuntimeConfig } from "./config";
 
 function createConfig(overrides: Partial<ApiRuntimeConfig> = {}): ApiRuntimeConfig {
   return {
     authIdentities: [],
+    authSource: "none",
+    authStrategy: "none",
     bodyLimitBytes: 1048576,
     dataDirectory: "/tmp/gnucash-ng-runtime",
     host: "127.0.0.1",
@@ -24,11 +26,11 @@ function createConfig(overrides: Partial<ApiRuntimeConfig> = {}): ApiRuntimeConf
 }
 
 describe("api runtime", () => {
-  function createSilentLogger() {
+  function createSilentLogger(sink?: (record: LogRecord) => void) {
     return createLogger({
       minLevel: "debug",
       service: "api-runtime-tests",
-      sink() {},
+      sink: sink ?? (() => {}),
     });
   }
 
@@ -113,5 +115,54 @@ describe("api runtime", () => {
     await runtime.shutdown("SIGTERM");
 
     expect(close).toHaveBeenCalledTimes(1);
+  });
+
+  it("logs a safe startup configuration summary without token material", async () => {
+    const records: LogRecord[] = [];
+
+    const runtime = createApiRuntime({
+      config: createConfig({
+        authIdentities: [
+          { actor: "robert", role: "admin", token: "secret-a" },
+          { actor: "alex", role: "member", token: "secret-b" },
+        ],
+        authSource: "file",
+        authStrategy: "identities",
+        runtimeMode: "production",
+        seedDemoWorkspace: false,
+      }),
+      createServer() {
+        return {
+          close(callback) {
+            callback();
+          },
+          listen(_port, _host, callback) {
+            callback();
+          },
+        };
+      },
+      ensureSeed: vi.fn(async () => {}),
+      logger: createSilentLogger((record) => {
+        records.push(record);
+      }),
+    });
+
+    await runtime.start();
+
+    expect(records).toContainEqual(
+      expect.objectContaining({
+        level: "info",
+        message: "api runtime configured",
+        fields: expect.objectContaining({
+          authConfigured: true,
+          authIdentityCount: 2,
+          authSource: "file",
+          authStrategy: "identities",
+          runtimeMode: "production",
+        }),
+      }),
+    );
+    expect(JSON.stringify(records)).not.toContain("secret-a");
+    expect(JSON.stringify(records)).not.toContain("secret-b");
   });
 });

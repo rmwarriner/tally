@@ -10,10 +10,12 @@ This repository now treats runtime configuration and operational failures as typ
 - numeric operational limits must be validated as positive integers
 - boolean runtime toggles must be validated explicitly
 - runtime mode must be explicit and validated against supported values
+- auth secrets may be provided inline or by file path, but only one source may be configured at a time
 - malformed auth identity configuration must fail fast during bootstrap
 - non-loopback binding must be rejected unless explicit auth configuration exists
 - production runtime must require explicit auth configuration
 - production runtime must reject demo workspace seeding
+- startup logging must confirm selected operational settings without emitting secret values
 
 See `docs/api-runtime-operations.md` for the current API runtime variables and startup modes.
 

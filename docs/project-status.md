@@ -74,6 +74,7 @@ This repository currently includes:
 - structured logging package and logging standards
 - typed configuration and boundary error handling standard
 - documented API runtime operations for environment, startup mode, and shutdown behavior
+- file-backed auth secret loading and safe runtime configuration logging
 - CI and security quality gates
 - security baseline documentation and audited hardening for API/runtime boundaries
 
@@ -96,17 +97,15 @@ This repository currently includes:
 
 ## Not Started
 
-- configuration and secret management standards beyond the current API runtime baseline
 - import/export adapters for OFX, QFX, QIF, and GnuCash XML
 - reporting engine and close workflow
 - backup, migration, and restore strategy
 
 ## Recommended Next Sequence
 
-1. Extend configuration and secret management beyond the current API runtime baseline
-2. Add import/export adapters for OFX, QFX, QIF, and GnuCash XML
-3. Add reporting engine and close workflow
-4. Add backup, migration, and restore strategy
+1. Add import/export adapters for OFX, QFX, QIF, and GnuCash XML
+2. Add reporting engine and close workflow
+3. Add backup, migration, and restore strategy
 
 ## Deferred Follow-Up
 
