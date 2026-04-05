@@ -31,6 +31,13 @@ describe("workspace service", () => {
     expect("error" in body).toBe(true);
   }
 
+  function expectAnyErrorBody(body: unknown): asserts body is ErrorEnvelope {
+    expect(typeof body).toBe("object");
+    expect(body).not.toBeNull();
+    expect("errors" in (body as Record<string, unknown>)).toBe(true);
+    expect("error" in (body as Record<string, unknown>)).toBe(true);
+  }
+
   async function createFixture() {
     const directory = await mkdtemp(join(tmpdir(), "gnucash-ng-api-"));
     const workspace = createDemoWorkspace();
@@ -121,6 +128,78 @@ describe("workspace service", () => {
     await fixture.cleanup();
   });
 
+  it("rejects read access for actors outside the workspace household", async () => {
+    const fixture = await createFixture();
+    const service = createWorkspaceService({
+      logger: createTestLogger([]),
+      repository: createFileSystemWorkspaceRepository({ rootDirectory: fixture.directory }),
+    });
+
+    const response = await service.getReport({
+      auth: { actor: "Outside User", kind: "token", role: "member", token: "token-2" },
+      from: "2026-04-01",
+      kind: "cash-flow",
+      to: "2026-04-30",
+      workspaceId: fixture.workspace.id,
+    });
+
+    expect(response.status).toBe(403);
+    expectAnyErrorBody(response.body);
+    expect(response.body.error.code).toBe("auth.forbidden");
+
+    await fixture.cleanup();
+  });
+
+  it("rejects protected read endpoints for non-member actors", async () => {
+    const fixture = await createFixture();
+    const service = createWorkspaceService({
+      logger: createTestLogger([]),
+      repository: createFileSystemWorkspaceRepository({ rootDirectory: fixture.directory }),
+    });
+    const auth = { actor: "Outside User", kind: "token" as const, role: "member" as const, token: "token-2" };
+
+    const responses = await Promise.all([
+      service.getWorkspace({ auth, workspaceId: fixture.workspace.id }),
+      service.getDashboard({
+        auth,
+        from: "2026-04-01",
+        to: "2026-04-30",
+        workspaceId: fixture.workspace.id,
+      }),
+      service.getBackups({ auth, workspaceId: fixture.workspace.id }),
+      service.getCloseSummary({
+        auth,
+        from: "2026-04-01",
+        to: "2026-04-30",
+        workspaceId: fixture.workspace.id,
+      }),
+      service.getQifExport({
+        accountId: "acct-checking",
+        auth,
+        from: "2026-04-01",
+        to: "2026-04-30",
+        workspaceId: fixture.workspace.id,
+      }),
+      service.getStatementExport({
+        accountId: "acct-checking",
+        auth,
+        format: "qfx",
+        from: "2026-04-01",
+        to: "2026-04-30",
+        workspaceId: fixture.workspace.id,
+      }),
+      service.getGnuCashXmlExport({ auth, workspaceId: fixture.workspace.id }),
+    ]);
+
+    for (const response of responses) {
+      expect(response.status).toBe(403);
+      expectAnyErrorBody(response.body);
+      expect(response.body.error.code).toBe("auth.forbidden");
+    }
+
+    await fixture.cleanup();
+  });
+
   it("persists a posted transaction and records an audit event", async () => {
     const records: LogRecord[] = [];
     const fixture = await createFixture();
@@ -206,6 +285,189 @@ describe("workspace service", () => {
     await fixture.cleanup();
   });
 
+  it("returns validation failures for malformed statement imports", async () => {
+    const fixture = await createFixture();
+    const service = createWorkspaceService({
+      logger: createTestLogger([]),
+      repository: createFileSystemWorkspaceRepository({ rootDirectory: fixture.directory }),
+    });
+
+    const response = await service.postStatementImport({
+      auth: { actor: "Primary", kind: "token", role: "member", token: "token-1" },
+      payload: {
+        batchId: "service-ofx-bad-1",
+        cashAccountId: "acct-checking",
+        defaultCounterpartAccountId: "acct-expense-groceries",
+        format: "qfx",
+        importedAt: "2026-04-05T00:00:00Z",
+        sourceLabel: "checking.qfx",
+        statement: "<OFX><BANKTRANLIST><STMTTRN><DTPOSTED>bad</DTPOSTED><TRNAMT>x</TRNAMT></STMTTRN></BANKTRANLIST></OFX>",
+      },
+      workspaceId: fixture.workspace.id,
+    });
+
+    expect(response.status).toBe(422);
+    expectErrorBody(response.body);
+    expect(response.body.error.code).toBe("validation.failed");
+
+    await fixture.cleanup();
+  });
+
+  it("rejects protected write endpoints for non-member actors", async () => {
+    const fixture = await createFixture();
+    const service = createWorkspaceService({
+      logger: createTestLogger([]),
+      repository: createFileSystemWorkspaceRepository({ rootDirectory: fixture.directory }),
+    });
+    const auth = { actor: "Outside User", kind: "token" as const, role: "member" as const, token: "token-2" };
+
+    const responses = await Promise.all([
+      service.postCsvImport({
+        auth,
+        payload: {
+          batchId: "csv-1",
+          importedAt: "2026-04-05T00:00:00Z",
+          rows: [
+            {
+              amount: 25,
+              cashAccountId: "acct-checking",
+              counterpartAccountId: "acct-expense-groceries",
+              description: "Groceries",
+              occurredOn: "2026-04-03",
+            },
+          ],
+          sourceLabel: "checking.csv",
+        },
+        workspaceId: fixture.workspace.id,
+      }),
+      service.postQifImport({
+        auth,
+        payload: {
+          batchId: "qif-1",
+          cashAccountId: "acct-checking",
+          defaultCounterpartAccountId: "acct-expense-groceries",
+          importedAt: "2026-04-05T00:00:00Z",
+          qif: "!Type:Bank\nD04/03/2026\nT-45.12\nPCity Utilities\n^\n",
+          sourceLabel: "checking.qif",
+        },
+        workspaceId: fixture.workspace.id,
+      }),
+      service.postTransaction({
+        auth,
+        transaction: {
+          description: "Utilities",
+          id: "txn-forbidden-1",
+          occurredOn: "2026-04-03",
+          postings: [
+            { accountId: "acct-expense-utilities", amount: createMoney("USD", 45.12) },
+            { accountId: "acct-checking", amount: createMoney("USD", -45.12) },
+          ],
+        },
+        workspaceId: fixture.workspace.id,
+      }),
+      service.updateTransaction({
+        auth,
+        transaction: {
+          description: "Updated groceries",
+          id: "txn-grocery-1",
+          occurredOn: "2026-04-02",
+          postings: [
+            { accountId: "acct-expense-groceries", amount: createMoney("USD", 150) },
+            { accountId: "acct-checking", amount: createMoney("USD", -150) },
+          ],
+        },
+        transactionId: "txn-grocery-1",
+        workspaceId: fixture.workspace.id,
+      }),
+      service.postBaselineBudgetLine({
+        auth,
+        line: {
+          accountId: "acct-expense-groceries",
+          budgetPeriod: "monthly",
+          period: "2026-05",
+          plannedAmount: createMoney("USD", 700),
+        },
+        workspaceId: fixture.workspace.id,
+      }),
+      service.postEnvelope({
+        auth,
+        envelope: {
+          availableAmount: createMoney("USD", 150),
+          expenseAccountId: "acct-expense-housing",
+          fundingAccountId: "acct-checking",
+          id: "env-housing",
+          name: "Housing Buffer",
+          rolloverEnabled: true,
+          targetAmount: createMoney("USD", 150),
+        },
+        workspaceId: fixture.workspace.id,
+      }),
+      service.postEnvelopeAllocation({
+        allocation: {
+          amount: createMoney("USD", 50),
+          envelopeId: "env-groceries",
+          id: "alloc-forbidden-1",
+          occurredOn: "2026-04-15",
+          type: "fund",
+        },
+        auth,
+        workspaceId: fixture.workspace.id,
+      }),
+      service.postReconciliation({
+        auth,
+        payload: {
+          accountId: "acct-checking",
+          clearedTransactionIds: ["txn-paycheck-1"],
+          statementBalance: 3051.58,
+          statementDate: "2026-04-02",
+        },
+        workspaceId: fixture.workspace.id,
+      }),
+      service.postScheduledTransaction({
+        auth,
+        schedule: {
+          autoPost: false,
+          frequency: "monthly",
+          id: "sched-utilities",
+          name: "Monthly Utilities",
+          nextDueOn: "2026-05-15",
+          templateTransaction: {
+            description: "Monthly utilities",
+            postings: [
+              { accountId: "acct-expense-utilities", amount: createMoney("USD", 120) },
+              { accountId: "acct-checking", amount: createMoney("USD", -120) },
+            ],
+          },
+        },
+        workspaceId: fixture.workspace.id,
+      }),
+      service.executeScheduledTransaction({
+        auth,
+        payload: { occurredOn: "2026-05-01" },
+        scheduleId: "sched-rent",
+        workspaceId: fixture.workspace.id,
+      }),
+      service.applyScheduledTransactionException({
+        auth,
+        payload: {
+          action: "defer",
+          nextDueOn: "2026-05-05",
+        },
+        scheduleId: "sched-rent",
+        workspaceId: fixture.workspace.id,
+      }),
+      service.postBackup({ auth, workspaceId: fixture.workspace.id }),
+    ]);
+
+    for (const response of responses) {
+      expect(response.status).toBe(403);
+      expectAnyErrorBody(response.body);
+      expect(response.body.error.code).toBe("auth.forbidden");
+    }
+
+    await fixture.cleanup();
+  });
+
   it("exports and reimports gnucash xml through the service layer", async () => {
     const fixture = await createFixture();
     const service = createWorkspaceService({
@@ -242,6 +504,30 @@ describe("workspace service", () => {
     await fixture.cleanup();
   });
 
+  it("returns validation failures for mismatched gnucash xml workspace ids", async () => {
+    const fixture = await createFixture();
+    const service = createWorkspaceService({
+      logger: createTestLogger([]),
+      repository: createFileSystemWorkspaceRepository({ rootDirectory: fixture.directory }),
+    });
+
+    const imported = await service.postGnuCashXmlImport({
+      auth: { actor: "Primary", kind: "token", role: "member", token: "token-1" },
+      payload: {
+        importedAt: "2026-04-05T00:00:00Z",
+        sourceLabel: "workspace.gnucash.xml",
+        xml: buildGnuCashXmlExport({ workspace: { ...fixture.workspace, id: "other-workspace" } }).contents,
+      },
+      workspaceId: fixture.workspace.id,
+    });
+
+    expect(imported.status).toBe(422);
+    expectErrorBody(imported.body);
+    expect(imported.body.error.code).toBe("validation.failed");
+
+    await fixture.cleanup();
+  });
+
   it("persists close periods through the service layer", async () => {
     const fixture = await createFixture();
     const service = createWorkspaceService({
@@ -262,6 +548,41 @@ describe("workspace service", () => {
     expect(response.status).toBe(201);
     expectWorkspaceBody(response.body);
     expect(response.body.workspace.closePeriods).toHaveLength(1);
+
+    await fixture.cleanup();
+  });
+
+  it("returns validation failures for overlapping close periods", async () => {
+    const fixture = await createFixture();
+    const service = createWorkspaceService({
+      logger: createTestLogger([]),
+      repository: createFileSystemWorkspaceRepository({ rootDirectory: fixture.directory }),
+    });
+
+    const first = await service.postClosePeriod({
+      auth: { actor: "Primary", kind: "token", role: "member", token: "token-1" },
+      payload: {
+        closedAt: "2026-04-01T00:00:00Z",
+        from: "2026-03-01",
+        to: "2026-03-31",
+      },
+      workspaceId: fixture.workspace.id,
+    });
+    expect(first.status).toBe(201);
+
+    const second = await service.postClosePeriod({
+      auth: { actor: "Primary", kind: "token", role: "member", token: "token-1" },
+      payload: {
+        closedAt: "2026-04-02T00:00:00Z",
+        from: "2026-03-15",
+        to: "2026-04-15",
+      },
+      workspaceId: fixture.workspace.id,
+    });
+
+    expect(second.status).toBe(422);
+    expectErrorBody(second.body);
+    expect(second.body.error.code).toBe("validation.failed");
 
     await fixture.cleanup();
   });
@@ -315,6 +636,57 @@ describe("workspace service", () => {
     expect(restoreResponse.status).toBe(200);
     expectWorkspaceBody(restoreResponse.body);
     expect(restoreResponse.body.workspace.name).toBe("Household Finance");
+
+    await fixture.cleanup();
+  });
+
+  it("returns not found for missing backups during restore", async () => {
+    const fixture = await createFixture();
+    const service = createWorkspaceService({
+      logger: createTestLogger([]),
+      repository: createFileSystemWorkspaceRepository({ rootDirectory: fixture.directory }),
+    });
+
+    const restoreResponse = await service.postBackupRestore({
+      auth: { actor: "Primary", kind: "token", role: "member", token: "token-1" },
+      backupId: "backup-missing",
+      workspaceId: fixture.workspace.id,
+    });
+
+    expect(restoreResponse.status).toBe(404);
+    expectErrorBody(restoreResponse.body);
+    expect(restoreResponse.body.error.code).toBe("workspace.not_found");
+
+    await fixture.cleanup();
+  });
+
+  it("returns export payloads for qif and ofx endpoints", async () => {
+    const fixture = await createFixture();
+    const service = createWorkspaceService({
+      logger: createTestLogger([]),
+      repository: createFileSystemWorkspaceRepository({ rootDirectory: fixture.directory }),
+    });
+
+    const qif = await service.getQifExport({
+      accountId: "acct-checking",
+      auth: { actor: "local-admin", kind: "local", role: "local-admin" },
+      from: "2026-04-01",
+      to: "2026-04-30",
+      workspaceId: fixture.workspace.id,
+    });
+    const ofx = await service.getStatementExport({
+      accountId: "acct-checking",
+      auth: { actor: "local-admin", kind: "local", role: "local-admin" },
+      format: "ofx",
+      from: "2026-04-01",
+      to: "2026-04-30",
+      workspaceId: fixture.workspace.id,
+    });
+
+    expect(qif.status).toBe(200);
+    expect("export" in qif.body).toBe(true);
+    expect(ofx.status).toBe(200);
+    expect("export" in ofx.body).toBe(true);
 
     await fixture.cleanup();
   });

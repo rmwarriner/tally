@@ -382,6 +382,90 @@ Lacct-expense-utilities
     await fixture.cleanup();
   });
 
+  it("exports ofx, qfx, and gnucash xml over HTTP", async () => {
+    const fixture = await createFixture();
+    const service = createWorkspaceService({
+      repository: createFileSystemWorkspaceRepository({ rootDirectory: fixture.directory }),
+    });
+    const handler = createHttpHandler({ service });
+
+    const ofxResponse = await handler(
+      new Request(
+        `http://localhost/api/workspaces/${fixture.workspace.id}/exports/ofx?accountId=acct-checking&from=2026-04-01&to=2026-04-30`,
+      ),
+    );
+    const qfxResponse = await handler(
+      new Request(
+        `http://localhost/api/workspaces/${fixture.workspace.id}/exports/qfx?accountId=acct-checking&from=2026-04-01&to=2026-04-30`,
+      ),
+    );
+    const xmlResponse = await handler(
+      new Request(`http://localhost/api/workspaces/${fixture.workspace.id}/exports/gnucash-xml`),
+    );
+
+    const ofxBody = await ofxResponse.json();
+    const qfxBody = await qfxResponse.json();
+    const xmlBody = await xmlResponse.json();
+
+    expect(ofxResponse.status).toBe(200);
+    expect(ofxBody.export.format).toBe("ofx");
+    expect(qfxResponse.status).toBe(200);
+    expect(qfxBody.export.format).toBe("qfx");
+    expect(xmlResponse.status).toBe(200);
+    expect(xmlBody.export.fileName).toBe(`${fixture.workspace.id}.gnucash.xml`);
+
+    await fixture.cleanup();
+  });
+
+  it("imports qfx and gnucash xml validation failures over HTTP", async () => {
+    const fixture = await createFixture();
+    const service = createWorkspaceService({
+      repository: createFileSystemWorkspaceRepository({ rootDirectory: fixture.directory }),
+    });
+    const handler = createHttpHandler({ service });
+
+    const qfxResponse = await handler(
+      new Request(`http://localhost/api/workspaces/${fixture.workspace.id}/imports/qfx`, {
+        body: JSON.stringify({
+          payload: {
+            batchId: "http-qfx-bad-1",
+            cashAccountId: "acct-checking",
+            defaultCounterpartAccountId: "acct-expense-groceries",
+            format: "qfx",
+            importedAt: "2026-04-05T00:00:00Z",
+            sourceLabel: "checking.qfx",
+            statement: "<OFX></OFX>",
+          },
+        }),
+        headers: { "content-type": "application/json" },
+        method: "POST",
+      }),
+    );
+    const xmlResponse = await handler(
+      new Request(`http://localhost/api/workspaces/${fixture.workspace.id}/imports/gnucash-xml`, {
+        body: JSON.stringify({
+          payload: {
+            importedAt: "2026-04-05T00:00:00Z",
+            sourceLabel: "workspace.gnucash.xml",
+            xml: buildGnuCashXmlExport({ workspace: { ...fixture.workspace, id: "other-workspace" } }).contents,
+          },
+        }),
+        headers: { "content-type": "application/json" },
+        method: "POST",
+      }),
+    );
+
+    const qfxBody = await qfxResponse.json();
+    const xmlBody = await xmlResponse.json();
+
+    expect(qfxResponse.status).toBe(422);
+    expect(qfxBody.error.code).toBe("validation.failed");
+    expect(xmlResponse.status).toBe(422);
+    expect(xmlBody.error.code).toBe("validation.failed");
+
+    await fixture.cleanup();
+  });
+
   it("accepts transaction posts over HTTP", async () => {
     const fixture = await createFixture();
     const service = createWorkspaceService({
@@ -823,6 +907,33 @@ Lacct-expense-utilities
     expect(body.error.code).toBe("validation.failed");
     expect(body.errors).toContain("transaction.occurredOn must use YYYY-MM-DD format.");
     expect(body.errors).toContain("transaction.postings must contain at least two postings.");
+
+    await fixture.cleanup();
+  });
+
+  it("returns 400 for malformed export requests and 404 for missing restores", async () => {
+    const fixture = await createFixture();
+    const service = createWorkspaceService({
+      repository: createFileSystemWorkspaceRepository({ rootDirectory: fixture.directory }),
+    });
+    const handler = createHttpHandler({ service });
+
+    const exportResponse = await handler(
+      new Request(`http://localhost/api/workspaces/${fixture.workspace.id}/exports/ofx?from=2026-04-01&to=2026-04-30`),
+    );
+    const restoreResponse = await handler(
+      new Request(`http://localhost/api/workspaces/${fixture.workspace.id}/backups/backup-missing/restore`, {
+        method: "POST",
+      }),
+    );
+
+    const exportBody = await exportResponse.json();
+    const restoreBody = await restoreResponse.json();
+
+    expect(exportResponse.status).toBe(400);
+    expect(exportBody.error.code).toBe("validation.failed");
+    expect(restoreResponse.status).toBe(404);
+    expect(restoreBody.error.code).toBe("workspace.not_found");
 
     await fixture.cleanup();
   });

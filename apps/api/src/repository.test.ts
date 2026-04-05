@@ -1,4 +1,4 @@
-import { mkdtemp, rm } from "node:fs/promises";
+import { mkdir, mkdtemp, rm } from "node:fs/promises";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
 import { describe, expect, it } from "vitest";
@@ -63,6 +63,50 @@ describe("workspace repository security", () => {
     const restored = await repository.restoreBackup(workspace.id, backup.id);
 
     expect(restored.name).toBe("Household Finance");
+
+    await rm(directory, { recursive: true, force: true });
+  });
+
+  it("rejects invalid and missing backup identifiers", async () => {
+    const directory = await mkdtemp(join(tmpdir(), "gnucash-ng-repo-"));
+    const workspace = createDemoWorkspace();
+    await saveWorkspaceToFile(join(directory, `${workspace.id}.json`), workspace);
+    const repository = createFileSystemWorkspaceRepository({ rootDirectory: directory });
+
+    await expect(repository.restoreBackup(workspace.id, "../bad-backup")).rejects.toMatchObject({
+      code: "repository.invalid_identifier",
+      status: 400,
+    });
+
+    await expect(repository.restoreBackup(workspace.id, "backup-missing")).rejects.toMatchObject({
+      code: "workspace.not_found",
+      status: 404,
+    });
+
+    await rm(directory, { recursive: true, force: true });
+  });
+
+  it("rejects restoring a backup whose workspace id does not match", async () => {
+    const directory = await mkdtemp(join(tmpdir(), "gnucash-ng-repo-"));
+    const workspace = createDemoWorkspace();
+    await saveWorkspaceToFile(join(directory, `${workspace.id}.json`), workspace);
+    const repository = createFileSystemWorkspaceRepository({ rootDirectory: directory });
+
+    const otherWorkspace = {
+      ...workspace,
+      id: "other-workspace",
+      name: "Other Workspace",
+    };
+    await mkdir(join(directory, "_backups", workspace.id), { recursive: true });
+    await saveWorkspaceToFile(
+      join(directory, "_backups", workspace.id, "backup-manual.json"),
+      otherWorkspace,
+    );
+
+    await expect(repository.restoreBackup(workspace.id, "backup-manual")).rejects.toMatchObject({
+      code: "repository.invalid_identifier",
+      status: 400,
+    });
 
     await rm(directory, { recursive: true, force: true });
   });

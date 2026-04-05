@@ -1,6 +1,6 @@
-import { describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { createLogger, type LogRecord } from "@gnucash-ng/logging";
-import { createApiRuntime } from "./runtime";
+import { createApiRuntime, runApiRuntimeFromCli } from "./runtime";
 import type { ApiRuntimeConfig } from "./config";
 
 function createConfig(overrides: Partial<ApiRuntimeConfig> = {}): ApiRuntimeConfig {
@@ -26,6 +26,11 @@ function createConfig(overrides: Partial<ApiRuntimeConfig> = {}): ApiRuntimeConf
 }
 
 describe("api runtime", () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+    vi.useRealTimers();
+  });
+
   function createSilentLogger(sink?: (record: LogRecord) => void) {
     return createLogger({
       minLevel: "debug",
@@ -117,6 +122,94 @@ describe("api runtime", () => {
     expect(close).toHaveBeenCalledTimes(1);
   });
 
+  it("returns immediately when shutdown is requested before startup", async () => {
+    const close = vi.fn((callback: (error?: Error | null) => void) => callback());
+
+    const runtime = createApiRuntime({
+      config: createConfig(),
+      createServer() {
+        return {
+          close,
+          listen(_port, _host, callback) {
+            callback();
+          },
+        };
+      },
+      ensureSeed: vi.fn(async () => {}),
+      logger: createSilentLogger(),
+    });
+
+    await runtime.shutdown("SIGTERM");
+
+    expect(close).not.toHaveBeenCalled();
+  });
+
+  it("is idempotent across repeated start and shutdown calls", async () => {
+    const ensureSeed = vi.fn(async () => {});
+    const close = vi.fn((callback: (error?: Error | null) => void) => callback());
+    const listen = vi.fn((_port, _host, callback: () => void) => callback());
+
+    const runtime = createApiRuntime({
+      config: createConfig(),
+      createServer() {
+        return { close, listen };
+      },
+      ensureSeed,
+      logger: createSilentLogger(),
+    });
+
+    await runtime.start();
+    await runtime.start();
+    await runtime.shutdown("SIGTERM");
+    await runtime.shutdown("SIGTERM");
+
+    expect(ensureSeed).toHaveBeenCalledTimes(1);
+    expect(listen).toHaveBeenCalledTimes(1);
+    expect(close).toHaveBeenCalledTimes(1);
+  });
+
+  it("propagates server close failures and shutdown timeouts", async () => {
+    const failingRuntime = createApiRuntime({
+      config: createConfig(),
+      createServer() {
+        return {
+          close(callback) {
+            callback(new Error("close failed"));
+          },
+          listen(_port, _host, callback) {
+            callback();
+          },
+        };
+      },
+      ensureSeed: vi.fn(async () => {}),
+      logger: createSilentLogger(),
+    });
+
+    await failingRuntime.start();
+    await expect(failingRuntime.shutdown("SIGTERM")).rejects.toThrow("close failed");
+
+    vi.useFakeTimers();
+    const hangingRuntime = createApiRuntime({
+      config: createConfig({ shutdownTimeoutMs: 5 }),
+      createServer() {
+        return {
+          close() {},
+          listen(_port, _host, callback) {
+            callback();
+          },
+        };
+      },
+      ensureSeed: vi.fn(async () => {}),
+      logger: createSilentLogger(),
+    });
+
+    await hangingRuntime.start();
+    const shutdownPromise = hangingRuntime.shutdown("SIGTERM");
+    const shutdownExpectation = expect(shutdownPromise).rejects.toThrow("API server shutdown timed out.");
+    await vi.advanceTimersByTimeAsync(10);
+    await shutdownExpectation;
+  });
+
   it("logs a safe startup configuration summary without token material", async () => {
     const records: LogRecord[] = [];
 
@@ -164,5 +257,24 @@ describe("api runtime", () => {
     );
     expect(JSON.stringify(records)).not.toContain("secret-a");
     expect(JSON.stringify(records)).not.toContain("secret-b");
+  });
+
+  it("reports configuration errors from the cli entrypoint", async () => {
+    const exitSpy = vi.spyOn(process, "exit").mockImplementation(((code?: string | number | null) => {
+      throw new Error(`exit:${code}`);
+    }) as typeof process.exit);
+    const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+
+    await expect(
+      runApiRuntimeFromCli({
+        defaultRuntimeMode: "production",
+        env: {},
+      }),
+    ).rejects.toThrow("exit:1");
+
+    expect(errorSpy).toHaveBeenCalledWith(
+      "Invalid API configuration: Production runtime requires GNUCASH_NG_API_AUTH_TOKEN, GNUCASH_NG_API_AUTH_IDENTITIES, GNUCASH_NG_API_AUTH_TOKEN_FILE, or GNUCASH_NG_API_AUTH_IDENTITIES_FILE.",
+    );
+    expect(exitSpy).toHaveBeenCalledWith(1);
   });
 });

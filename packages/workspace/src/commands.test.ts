@@ -14,7 +14,10 @@ import {
   importTransactionsFromStatement,
   importWorkspaceFromGnuCashXml,
   importTransactionsFromQif,
+  recordEnvelopeAllocation,
   reconcileAccount,
+  upsertBaselineBudgetLine,
+  upsertEnvelope,
   updateTransaction,
 } from "./index";
 import { buildGnuCashXmlExport } from "./gnucash-xml";
@@ -283,6 +286,67 @@ LSalary
     expect(result.document.auditEvents.at(-1)?.eventType).toBe("import.ofx.recorded");
   });
 
+  it("imports qfx transactions and records the qfx audit event", () => {
+    const workspace = createDemoWorkspace();
+    const result = importTransactionsFromStatement(
+      workspace,
+      {
+        batchId: "qfx-import-1",
+        cashAccountId: "acct-checking",
+        defaultCounterpartAccountId: "acct-expense-groceries",
+        format: "qfx",
+        importedAt: "2026-04-05T00:00:00Z",
+        sourceLabel: "checking.qfx",
+        statement: `OFXHEADER:100
+<OFX>
+<BANKMSGSRSV1>
+<STMTTRNRS>
+<STMTRS>
+<BANKTRANLIST>
+<STMTTRN>
+<TRNTYPE>DEBIT
+<DTPOSTED>20260404
+<TRNAMT>-12.50
+<FITID>fit-qfx-1
+<NAME>Coffee Shop
+</STMTTRN>
+</BANKTRANLIST>
+</STMTRS>
+</STMTTRNRS>
+</BANKMSGSRSV1>
+</OFX>`,
+      },
+      {
+        audit: { actor: "Primary" },
+      },
+    );
+
+    expect(result.ok).toBe(true);
+    expect(result.document.auditEvents.at(-1)?.eventType).toBe("import.qfx.recorded");
+  });
+
+  it("rejects malformed statement imports before creating transactions", () => {
+    const workspace = createDemoWorkspace();
+    const result = importTransactionsFromStatement(
+      workspace,
+      {
+        batchId: "bad-statement-1",
+        cashAccountId: "acct-checking",
+        defaultCounterpartAccountId: "acct-expense-groceries",
+        format: "ofx",
+        importedAt: "2026-04-05T00:00:00Z",
+        sourceLabel: "bad.ofx",
+        statement: "<OFX></OFX>",
+      },
+      {
+        audit: { actor: "Primary" },
+      },
+    );
+
+    expect(result.ok).toBe(false);
+    expect(result.errors).toEqual(["statement: no STMTTRN entries were found."]);
+  });
+
   it("replaces a workspace from gnucash xml", () => {
     const workspace = createDemoWorkspace();
     const xml = buildGnuCashXmlExport({ workspace }).contents.replace(
@@ -304,6 +368,32 @@ LSalary
     expect(result.ok).toBe(true);
     expect(result.document.name).toBe("Imported Household Finance");
     expect(result.document.auditEvents.at(-1)?.eventType).toBe("import.gnucash-xml.recorded");
+  });
+
+  it("rejects gnucash xml imports for a different workspace id", () => {
+    const workspace = createDemoWorkspace();
+    const xml = buildGnuCashXmlExport({
+      workspace: {
+        ...workspace,
+        id: "other-workspace",
+      },
+    }).contents;
+    const result = importWorkspaceFromGnuCashXml(
+      workspace,
+      {
+        importedAt: "2026-04-05T00:00:00Z",
+        sourceLabel: "workspace.gnucash.xml",
+        xml,
+      },
+      {
+        audit: { actor: "Primary" },
+      },
+    );
+
+    expect(result.ok).toBe(false);
+    expect(result.errors).toEqual([
+      `Workspace XML id other-workspace does not match target workspace ${workspace.id}.`,
+    ]);
   });
 
   it("records closed periods and blocks locked transactions", () => {
@@ -345,6 +435,58 @@ LSalary
     expect(lockedTransaction.errors[0]).toContain("locked by closed period 2026-03-01 through 2026-03-31");
   });
 
+  it("rejects invalid or overlapping close periods", () => {
+    const workspace = createDemoWorkspace();
+
+    const invalid = closeWorkspacePeriod(
+      workspace,
+      {
+        closedAt: "not-a-timestamp",
+        closedBy: "Primary",
+        from: "2026-03-31",
+        to: "2026-03-01",
+      },
+      {
+        audit: { actor: "Primary" },
+      },
+    );
+
+    expect(invalid.ok).toBe(false);
+    expect(invalid.errors).toContain("Close period closedAt must be a valid ISO timestamp.");
+    expect(invalid.errors).toContain("Close period from must be less than or equal to to.");
+
+    const closed = closeWorkspacePeriod(
+      workspace,
+      {
+        closedAt: "2026-04-01T00:00:00Z",
+        closedBy: "Primary",
+        from: "2026-03-01",
+        to: "2026-03-31",
+      },
+      {
+        audit: { actor: "Primary" },
+      },
+    );
+
+    expect(closed.ok).toBe(true);
+
+    const overlapping = closeWorkspacePeriod(
+      closed.document,
+      {
+        closedAt: "2026-04-02T00:00:00Z",
+        closedBy: "Primary",
+        from: "2026-03-15",
+        to: "2026-04-15",
+      },
+      {
+        audit: { actor: "Primary" },
+      },
+    );
+
+    expect(overlapping.ok).toBe(false);
+    expect(overlapping.errors[0]).toContain("overlaps existing closed period");
+  });
+
   it("executes due scheduled transactions and advances the schedule", () => {
     const workspace = createDemoWorkspace();
     const result = executeScheduledTransaction(
@@ -369,6 +511,83 @@ LSalary
       "schedule.executed",
       "transaction.created",
     ]);
+  });
+
+  it("rejects scheduled transaction execution when missing, malformed, locked, or not due", () => {
+    const workspace = createDemoWorkspace();
+
+    expect(
+      executeScheduledTransaction(
+        workspace,
+        {
+          occurredOn: "2026-05-01",
+          scheduleId: "sched-missing",
+        },
+        {
+          audit: { actor: "Primary" },
+        },
+      ),
+    ).toMatchObject({
+      ok: false,
+      errors: ["Scheduled transaction sched-missing does not exist."],
+    });
+
+    expect(
+      executeScheduledTransaction(
+        workspace,
+        {
+          occurredOn: "05/01/2026",
+          scheduleId: "sched-rent",
+        },
+        {
+          audit: { actor: "Primary" },
+        },
+      ),
+    ).toMatchObject({
+      ok: false,
+      errors: ["Scheduled transaction occurredOn must use ISO date format YYYY-MM-DD."],
+    });
+
+    expect(
+      executeScheduledTransaction(
+        workspace,
+        {
+          occurredOn: "2026-04-01",
+          scheduleId: "sched-rent",
+        },
+        {
+          audit: { actor: "Primary" },
+        },
+      ),
+    ).toMatchObject({
+      ok: false,
+      errors: ["Scheduled transaction sched-rent is not due on 2026-04-01."],
+    });
+
+    const closedDocument = {
+      ...workspace,
+      closePeriods: [
+        {
+          closedAt: "2026-06-01T00:00:00Z",
+          closedBy: "Primary",
+          from: "2026-05-01",
+          id: "close:2026-05-01:2026-05-31",
+          to: "2026-05-31",
+        },
+      ],
+    };
+    expect(
+      executeScheduledTransaction(
+        closedDocument,
+        {
+          occurredOn: "2026-05-01",
+          scheduleId: "sched-rent",
+        },
+        {
+          audit: { actor: "Primary" },
+        },
+      ).errors[0],
+    ).toContain("locked by closed period");
   });
 
   it("applies schedule exceptions for skips and deferrals", () => {
@@ -412,6 +631,156 @@ LSalary
     expect(
       deferred.document.auditEvents.some((event) => event.eventType === "schedule.exception.applied"),
     ).toBe(true);
+  });
+
+  it("rejects invalid schedule exceptions and budget or envelope writes", () => {
+    const workspace = createDemoWorkspace();
+
+    expect(
+      applyScheduledTransactionException(
+        workspace,
+        {
+          action: "skip-next",
+          effectiveOn: "05/01/2026",
+          scheduleId: "sched-rent",
+        },
+        {
+          audit: { actor: "Primary" },
+        },
+      ),
+    ).toMatchObject({
+      ok: false,
+      errors: ["Scheduled transaction effectiveOn must use ISO date format YYYY-MM-DD."],
+    });
+
+    expect(
+      applyScheduledTransactionException(
+        workspace,
+        {
+          action: "defer",
+          nextDueOn: "2026-05-01",
+          scheduleId: "sched-rent",
+        },
+        {
+          audit: { actor: "Primary" },
+        },
+      ),
+    ).toMatchObject({
+      ok: false,
+      errors: ["Scheduled transaction nextDueOn must be later than the current due date."],
+    });
+
+    expect(
+      upsertBaselineBudgetLine(
+        workspace,
+        {
+          accountId: "acct-checking",
+          budgetPeriod: "monthly",
+          period: "2026-05",
+          plannedAmount: createMoney("USD", 700),
+        },
+        {
+          audit: { actor: "Primary" },
+        },
+      ),
+    ).toMatchObject({
+      ok: false,
+      errors: ["Baseline budgets should point to income or expense accounts only."],
+    });
+
+    const invalidEnvelope = upsertEnvelope(
+      workspace,
+      {
+        availableAmount: createMoney("USD", -10),
+        expenseAccountId: "acct-checking",
+        fundingAccountId: "acct-expense-groceries",
+        id: "env-invalid",
+        name: "Invalid Envelope",
+        rolloverEnabled: false,
+      },
+      {
+        audit: { actor: "Primary" },
+      },
+    );
+
+    expect(invalidEnvelope.ok).toBe(false);
+    expect(invalidEnvelope.errors).toContain("Envelope expense account must reference an expense account.");
+  });
+
+  it("rejects invalid envelope allocations and reconciliation requests", () => {
+    const workspace = createDemoWorkspace();
+
+    expect(
+      recordEnvelopeAllocation(
+        workspace,
+        {
+          amount: createMoney("USD", 50),
+          envelopeId: "env-missing",
+          id: "alloc-missing",
+          occurredOn: "2026-04-15",
+          type: "fund",
+        },
+        {
+          audit: { actor: "Primary" },
+        },
+      ),
+    ).toMatchObject({
+      ok: false,
+      errors: ["Unknown envelope env-missing."],
+    });
+
+    expect(
+      recordEnvelopeAllocation(
+        workspace,
+        {
+          amount: createMoney("EUR", 50),
+          envelopeId: "env-groceries",
+          id: "alloc-bad-commodity",
+          occurredOn: "2026-04-15",
+          type: "fund",
+        },
+        {
+          audit: { actor: "Primary" },
+        },
+      ),
+    ).toMatchObject({
+      ok: false,
+      errors: ["Envelope allocation commodity must match the envelope commodity."],
+    });
+
+    expect(
+      reconcileAccount(
+        workspace,
+        {
+          accountId: "acct-missing",
+          clearedTransactionIds: [],
+          statementBalance: 0,
+          statementDate: "2026-04-30",
+        },
+        {
+          audit: { actor: "Primary" },
+        },
+      ),
+    ).toMatchObject({
+      ok: false,
+      errors: ["Unknown account acct-missing."],
+    });
+
+    const warningResult = reconcileAccount(
+      workspace,
+      {
+        accountId: "acct-checking",
+        clearedTransactionIds: ["txn-paycheck-1"],
+        statementBalance: 0,
+        statementDate: "2026-04-30",
+      },
+      {
+        audit: { actor: "Primary" },
+      },
+    );
+
+    expect(warningResult.ok).toBe(true);
+    expect(warningResult.errors).toEqual(["Reconciliation difference is not zero."]);
   });
 
   it("saves and loads workspace documents through the file adapter", async () => {
