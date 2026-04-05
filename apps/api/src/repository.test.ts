@@ -4,7 +4,58 @@ import { tmpdir } from "node:os";
 import { describe, expect, it } from "vitest";
 import { createDemoWorkspace } from "@gnucash-ng/workspace";
 import { saveWorkspaceToFile } from "@gnucash-ng/workspace/src/node";
-import { createFileSystemWorkspaceRepository } from "./repository";
+import type { WorkspacePersistenceBackend } from "./persistence";
+import { createFileSystemWorkspaceRepository, createWorkspaceRepository } from "./repository";
+
+describe("workspace repository abstraction", () => {
+  it("delegates repository operations through the configured persistence backend", async () => {
+    const workspace = createDemoWorkspace();
+    const calls: string[] = [];
+    const backend: WorkspacePersistenceBackend = {
+      kind: "json",
+      async createBackup(workspaceId) {
+        calls.push(`createBackup:${workspaceId}`);
+        return {
+          createdAt: "2026-04-05T00:00:00.000Z",
+          fileName: "backup-1.json",
+          id: "backup-1",
+          sizeBytes: 100,
+          workspaceId,
+        };
+      },
+      async listBackups(workspaceId) {
+        calls.push(`listBackups:${workspaceId}`);
+        return [];
+      },
+      async load(workspaceId) {
+        calls.push(`load:${workspaceId}`);
+        return workspace;
+      },
+      async restoreBackup(workspaceId, backupId) {
+        calls.push(`restoreBackup:${workspaceId}:${backupId}`);
+        return workspace;
+      },
+      async save(document) {
+        calls.push(`save:${document.id}`);
+      },
+    };
+
+    const repository = createWorkspaceRepository({ backend });
+
+    expect(await repository.load(workspace.id)).toBe(workspace);
+    await repository.save(workspace);
+    expect(await repository.listBackups(workspace.id)).toEqual([]);
+    await repository.createBackup(workspace.id);
+    expect(await repository.restoreBackup(workspace.id, "backup-1")).toBe(workspace);
+    expect(calls).toEqual([
+      `load:${workspace.id}`,
+      `save:${workspace.id}`,
+      `listBackups:${workspace.id}`,
+      `createBackup:${workspace.id}`,
+      `restoreBackup:${workspace.id}:backup-1`,
+    ]);
+  });
+});
 
 describe("workspace repository security", () => {
   it("rejects unsafe workspace identifiers", async () => {

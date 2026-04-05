@@ -95,7 +95,7 @@ The next phase should be driven by a smaller set of explicit themes rather than 
 
 These are the next candidates for promotion into active delivery work.
 
-1. Persistence abstraction and backend strategy for JSON, SQLite, and Postgres
+1. Implement SQLite and Postgres backends on top of the new persistence abstraction
 2. Trust and integrity hardening for transaction audit depth, soft delete, and destructive controls
 3. Budgeting model definition for remaining-to-budget, rollover, and envelope funding rules
 4. Family-scale identity and authorization model, including external access providers such as Cloudflare Access and OpenID/OIDC

@@ -18,6 +18,7 @@ describe("api runtime config", () => {
       bodyLimitBytes: 1048576,
       dataDirectory: "/tmp/gnucash-ng/data",
       host: "127.0.0.1",
+      persistenceBackend: "json",
       port: 4000,
       runtimeMode: "development",
       rateLimit: {
@@ -56,6 +57,7 @@ describe("api runtime config", () => {
       bodyLimitBytes: 1048576,
       dataDirectory: "/tmp/gnucash-ng/var/workspaces",
       host: "0.0.0.0",
+      persistenceBackend: "json",
       port: 4100,
       runtimeMode: "production",
       rateLimit: {
@@ -128,6 +130,17 @@ describe("api runtime config", () => {
           "/tmp/gnucash-ng",
         ),
     ).toThrow("GNUCASH_NG_API_SEED_DEMO_WORKSPACE must be true or false.");
+
+    expect(
+      () =>
+        createApiRuntimeConfig(
+          {
+            GNUCASH_NG_API_RUNTIME_MODE: "development",
+            GNUCASH_NG_API_PERSISTENCE_BACKEND: "sqlite",
+          },
+          "/tmp/gnucash-ng",
+        ),
+    ).toThrow("GNUCASH_NG_API_PERSISTENCE_BACKEND must be json.");
   });
 
   it("rejects malformed auth identity configuration", () => {

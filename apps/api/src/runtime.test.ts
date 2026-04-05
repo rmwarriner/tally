@@ -11,6 +11,7 @@ function createConfig(overrides: Partial<ApiRuntimeConfig> = {}): ApiRuntimeConf
     bodyLimitBytes: 1048576,
     dataDirectory: "/tmp/gnucash-ng-runtime",
     host: "127.0.0.1",
+    persistenceBackend: "json",
     port: 4000,
     rateLimit: {
       importLimit: 10,
@@ -251,6 +252,7 @@ describe("api runtime", () => {
           authIdentityCount: 2,
           authSource: "file",
           authStrategy: "identities",
+          persistenceBackend: "json",
           runtimeMode: "production",
         }),
       }),

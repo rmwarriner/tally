@@ -5,6 +5,7 @@ import { ConfigValidationError } from "./errors";
 export type ApiRuntimeMode = "development" | "production" | "test";
 export type ApiAuthSource = "env" | "file" | "none";
 export type ApiAuthStrategy = "identities" | "none" | "token";
+export type ApiPersistenceBackend = "json";
 
 export interface ApiRuntimeConfig {
   authIdentities: Array<{
@@ -17,6 +18,7 @@ export interface ApiRuntimeConfig {
   bodyLimitBytes: number;
   dataDirectory: string;
   host: string;
+  persistenceBackend: ApiPersistenceBackend;
   port: number;
   runtimeMode: ApiRuntimeMode;
   rateLimit: {
@@ -27,6 +29,18 @@ export interface ApiRuntimeConfig {
   };
   seedDemoWorkspace: boolean;
   shutdownTimeoutMs: number;
+}
+
+function parsePersistenceBackend(value: string | undefined): ApiPersistenceBackend {
+  const candidate = value ?? "json";
+
+  if (candidate === "json") {
+    return candidate;
+  }
+
+  throw new ConfigValidationError([
+    "GNUCASH_NG_API_PERSISTENCE_BACKEND must be json.",
+  ]);
 }
 
 function isLoopbackHost(host: string): boolean {
@@ -209,6 +223,7 @@ export function createApiRuntimeConfig(
   );
   const port = parsePositiveInteger(env.GNUCASH_NG_API_PORT, 4000, "GNUCASH_NG_API_PORT");
   const host = env.GNUCASH_NG_API_HOST ?? "127.0.0.1";
+  const persistenceBackend = parsePersistenceBackend(env.GNUCASH_NG_API_PERSISTENCE_BACKEND);
   const bodyLimitBytes = parsePositiveInteger(
     env.GNUCASH_NG_API_BODY_LIMIT_BYTES,
     1048576,
@@ -271,6 +286,7 @@ export function createApiRuntimeConfig(
     bodyLimitBytes,
     dataDirectory: resolve(cwd, env.GNUCASH_NG_DATA_DIR ?? "data"),
     host,
+    persistenceBackend,
     port,
     runtimeMode,
     rateLimit: {

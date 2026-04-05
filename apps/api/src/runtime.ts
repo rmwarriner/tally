@@ -3,8 +3,9 @@ import { createLogger, type Logger } from "@gnucash-ng/logging";
 import { createApiRuntimeConfig, type ApiRuntimeConfig, type ApiRuntimeMode } from "./config";
 import { ConfigValidationError } from "./errors";
 import { createHttpHandler, createNodeHttpServer } from "./http";
+import { createFileSystemWorkspacePersistenceBackend } from "./persistence";
 import { createInMemoryRateLimiter } from "./rate-limit";
-import { createFileSystemWorkspaceRepository } from "./repository";
+import { createWorkspaceRepository } from "./repository";
 import { createWorkspaceService } from "./service";
 import { ensureDemoWorkspaceFile } from "./dev-seed";
 
@@ -26,6 +27,7 @@ function createRuntimeLogger(config: ApiRuntimeConfig, env: NodeJS.ProcessEnv): 
   }).child({
     dataDirectory: config.dataDirectory,
     host: config.host,
+    persistenceBackend: config.persistenceBackend,
     port: config.port,
     runtimeMode: config.runtimeMode,
   });
@@ -40,6 +42,7 @@ function logRuntimeConfiguration(logger: Logger, config: ApiRuntimeConfig): void
     bodyLimitBytes: config.bodyLimitBytes,
     dataDirectory: config.dataDirectory,
     host: config.host,
+    persistenceBackend: config.persistenceBackend,
     port: config.port,
     rateLimitImport: config.rateLimit.importLimit,
     rateLimitMutation: config.rateLimit.mutationLimit,
@@ -62,9 +65,13 @@ export function createApiRuntime(params: {
   logger?: Logger;
 }): ApiRuntime {
   const logger = params.logger ?? createRuntimeLogger(params.config, params.env ?? process.env);
-  const repository = createFileSystemWorkspaceRepository({
+  const persistenceBackend = createFileSystemWorkspacePersistenceBackend({
     logger,
     rootDirectory: params.config.dataDirectory,
+  });
+  const repository = createWorkspaceRepository({
+    backend: persistenceBackend,
+    logger,
   });
   const service = createWorkspaceService({ logger, repository });
   const handler = createHttpHandler({

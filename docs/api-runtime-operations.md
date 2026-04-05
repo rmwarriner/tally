@@ -40,6 +40,10 @@ The production-oriented startup path now uses the same runtime assembly as devel
 - `GNUCASH_NG_API_PORT`
   - bind port
   - defaults to `4000`
+- `GNUCASH_NG_API_PERSISTENCE_BACKEND`
+  - persistence backend selector
+  - currently only `json` is supported
+  - exists so SQLite and Postgres can be added behind the same runtime seam later
 - `GNUCASH_NG_DATA_DIR`
   - workspace data directory
   - defaults to `data` relative to the API process working directory
@@ -79,12 +83,14 @@ The production-oriented startup path now uses the same runtime assembly as devel
 - choose exactly one auth source: inline token, inline identities JSON, token file, or identities file
 - auth secret files must exist, be readable by the API process, and contain non-empty values
 - startup must fail fast for invalid numeric, boolean, auth, or runtime-mode configuration
+- startup must fail fast for unsupported persistence backend selections
 - runtime shutdown should close the HTTP server gracefully on `SIGINT` and `SIGTERM`
-- startup logs should confirm the selected runtime mode, data directory, rate limits, and auth source without logging secret material
+- startup logs should confirm the selected runtime mode, persistence backend, data directory, rate limits, and auth source without logging secret material
 
 ## Current Deployment Assumptions
 
-- persistence is still local-file based under the configured data directory
+- persistence currently uses the `json` backend under the configured data directory
+- the runtime now assembles persistence through a backend seam rather than hard-coding file storage directly into the repository contract
 - workspace backups are stored under the API data root in a repository-managed `_backups/<workspaceId>` directory
 - metrics are exposed from the same API process at `/metrics`
 - liveness and readiness are exposed at `/health/live` and `/health/ready`
@@ -109,5 +115,6 @@ See `docs/api-deployment-and-recovery-runbook.md` for the concrete deployment, s
 
 ## Near-Term Follow-Up
 
+- add SQLite and Postgres implementations behind the persistence backend seam
 - add external metrics, tracing sinks, and alert routing once the hosting target is selected beyond the single-node default
 - add encryption-at-rest and key-handling guidance once secret-management and external backup targets are finalized

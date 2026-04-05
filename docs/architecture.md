@@ -120,7 +120,7 @@ Completed:
 
 Next:
 
-1. Persistence abstraction for JSON, SQLite, and Postgres without weakening audit or migration guarantees
+1. SQLite and Postgres implementations on top of the new persistence abstraction without weakening audit or migration guarantees
 2. Trust and integrity hardening for transaction lifecycle audit depth, soft delete, and destructive controls
 3. Budgeting and planning model definition for remaining-to-budget, rollover, and envelope funding rules
 4. Family-scale identity and authorization model
