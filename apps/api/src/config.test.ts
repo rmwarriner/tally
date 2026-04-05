@@ -29,6 +29,7 @@ describe("api runtime config", () => {
       },
       seedDemoWorkspace: true,
       shutdownTimeoutMs: 10000,
+      sqlitePath: "/tmp/gnucash-ng/data/workspaces.sqlite",
     });
   });
 
@@ -38,6 +39,7 @@ describe("api runtime config", () => {
         GNUCASH_NG_API_AUTH_TOKEN: "top-secret",
         GNUCASH_NG_API_HOST: "0.0.0.0",
         GNUCASH_NG_API_PORT: "4100",
+        GNUCASH_NG_API_PERSISTENCE_BACKEND: "sqlite",
         GNUCASH_NG_API_RUNTIME_MODE: "production",
         GNUCASH_NG_API_SEED_DEMO_WORKSPACE: "false",
         GNUCASH_NG_API_SHUTDOWN_TIMEOUT_MS: "15000",
@@ -57,7 +59,7 @@ describe("api runtime config", () => {
       bodyLimitBytes: 1048576,
       dataDirectory: "/tmp/gnucash-ng/var/workspaces",
       host: "0.0.0.0",
-      persistenceBackend: "json",
+      persistenceBackend: "sqlite",
       port: 4100,
       runtimeMode: "production",
       rateLimit: {
@@ -68,6 +70,7 @@ describe("api runtime config", () => {
       },
       seedDemoWorkspace: false,
       shutdownTimeoutMs: 15000,
+      sqlitePath: "/tmp/gnucash-ng/var/workspaces/workspaces.sqlite",
     });
   });
 
@@ -136,11 +139,24 @@ describe("api runtime config", () => {
         createApiRuntimeConfig(
           {
             GNUCASH_NG_API_RUNTIME_MODE: "development",
-            GNUCASH_NG_API_PERSISTENCE_BACKEND: "sqlite",
+            GNUCASH_NG_API_PERSISTENCE_BACKEND: "postgres",
           },
           "/tmp/gnucash-ng",
         ),
-    ).toThrow("GNUCASH_NG_API_PERSISTENCE_BACKEND must be json.");
+    ).toThrow("GNUCASH_NG_API_PERSISTENCE_BACKEND must be json or sqlite.");
+  });
+
+  it("accepts an explicit sqlite path override", () => {
+    const config = createApiRuntimeConfig(
+      {
+        GNUCASH_NG_API_RUNTIME_MODE: "development",
+        GNUCASH_NG_API_PERSISTENCE_BACKEND: "sqlite",
+        GNUCASH_NG_API_SQLITE_PATH: "../runtime/api.sqlite",
+      },
+      "/tmp/gnucash-ng",
+    );
+
+    expect(config.sqlitePath).toBe("/tmp/gnucash-ng/runtime/api.sqlite");
   });
 
   it("rejects malformed auth identity configuration", () => {

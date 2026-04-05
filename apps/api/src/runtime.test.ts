@@ -22,6 +22,7 @@ function createConfig(overrides: Partial<ApiRuntimeConfig> = {}): ApiRuntimeConf
     runtimeMode: "development",
     seedDemoWorkspace: true,
     shutdownTimeoutMs: 10000,
+    sqlitePath: "/tmp/gnucash-ng-runtime/workspaces.sqlite",
     ...overrides,
   };
 }
@@ -121,6 +122,43 @@ describe("api runtime", () => {
     await runtime.shutdown("SIGTERM");
 
     expect(close).toHaveBeenCalledTimes(1);
+  });
+
+  it("logs sqlite backend configuration when selected", async () => {
+    const records: LogRecord[] = [];
+
+    const runtime = createApiRuntime({
+      config: createConfig({
+        persistenceBackend: "sqlite",
+        sqlitePath: "/tmp/gnucash-ng-runtime/custom.sqlite",
+      }),
+      createServer() {
+        return {
+          close(callback) {
+            callback();
+          },
+          listen(_port, _host, callback) {
+            callback();
+          },
+        };
+      },
+      ensureSeed: vi.fn(async () => {}),
+      logger: createSilentLogger((record) => {
+        records.push(record);
+      }),
+    });
+
+    await runtime.start();
+
+    expect(records).toContainEqual(
+      expect.objectContaining({
+        message: "api runtime configured",
+        fields: expect.objectContaining({
+          persistenceBackend: "sqlite",
+          sqlitePath: "/tmp/gnucash-ng-runtime/custom.sqlite",
+        }),
+      }),
+    );
   });
 
   it("returns immediately when shutdown is requested before startup", async () => {

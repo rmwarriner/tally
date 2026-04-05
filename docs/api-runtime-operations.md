@@ -42,8 +42,12 @@ The production-oriented startup path now uses the same runtime assembly as devel
   - defaults to `4000`
 - `GNUCASH_NG_API_PERSISTENCE_BACKEND`
   - persistence backend selector
-  - currently only `json` is supported
-  - exists so SQLite and Postgres can be added behind the same runtime seam later
+  - `json` or `sqlite`
+  - defaults to `json`
+- `GNUCASH_NG_API_SQLITE_PATH`
+  - sqlite database file path
+  - only used when `GNUCASH_NG_API_PERSISTENCE_BACKEND=sqlite`
+  - defaults to `workspaces.sqlite` under the configured data directory
 - `GNUCASH_NG_DATA_DIR`
   - workspace data directory
   - defaults to `data` relative to the API process working directory
@@ -89,9 +93,11 @@ The production-oriented startup path now uses the same runtime assembly as devel
 
 ## Current Deployment Assumptions
 
-- persistence currently uses the `json` backend under the configured data directory
+- persistence currently supports `json` and `sqlite`
+- `json` stores one workspace file per document under the configured data directory
+- `sqlite` stores workspaces and repository-managed backups in a single database file
 - the runtime now assembles persistence through a backend seam rather than hard-coding file storage directly into the repository contract
-- workspace backups are stored under the API data root in a repository-managed `_backups/<workspaceId>` directory
+- workspace backups are stored either under the API data root for `json` or in the sqlite backup table for `sqlite`
 - metrics are exposed from the same API process at `/metrics`
 - liveness and readiness are exposed at `/health/live` and `/health/ready`
 - request correlation is carried through logs with `requestId`
@@ -115,6 +121,6 @@ See `docs/api-deployment-and-recovery-runbook.md` for the concrete deployment, s
 
 ## Near-Term Follow-Up
 
-- add SQLite and Postgres implementations behind the persistence backend seam
+- add a Postgres implementation behind the persistence backend seam
 - add external metrics, tracing sinks, and alert routing once the hosting target is selected beyond the single-node default
 - add encryption-at-rest and key-handling guidance once secret-management and external backup targets are finalized

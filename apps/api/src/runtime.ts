@@ -3,7 +3,7 @@ import { createLogger, type Logger } from "@gnucash-ng/logging";
 import { createApiRuntimeConfig, type ApiRuntimeConfig, type ApiRuntimeMode } from "./config";
 import { ConfigValidationError } from "./errors";
 import { createHttpHandler, createNodeHttpServer } from "./http";
-import { createFileSystemWorkspacePersistenceBackend } from "./persistence";
+import { createWorkspacePersistenceBackend } from "./persistence";
 import { createInMemoryRateLimiter } from "./rate-limit";
 import { createWorkspaceRepository } from "./repository";
 import { createWorkspaceService } from "./service";
@@ -30,6 +30,7 @@ function createRuntimeLogger(config: ApiRuntimeConfig, env: NodeJS.ProcessEnv): 
     persistenceBackend: config.persistenceBackend,
     port: config.port,
     runtimeMode: config.runtimeMode,
+    sqlitePath: config.persistenceBackend === "sqlite" ? config.sqlitePath : undefined,
   });
 }
 
@@ -51,6 +52,7 @@ function logRuntimeConfiguration(logger: Logger, config: ApiRuntimeConfig): void
     runtimeMode: config.runtimeMode,
     seedDemoWorkspace: config.seedDemoWorkspace,
     shutdownTimeoutMs: config.shutdownTimeoutMs,
+    sqlitePath: config.persistenceBackend === "sqlite" ? config.sqlitePath : undefined,
   });
 }
 
@@ -65,9 +67,9 @@ export function createApiRuntime(params: {
   logger?: Logger;
 }): ApiRuntime {
   const logger = params.logger ?? createRuntimeLogger(params.config, params.env ?? process.env);
-  const persistenceBackend = createFileSystemWorkspacePersistenceBackend({
+  const persistenceBackend = createWorkspacePersistenceBackend({
+    config: params.config,
     logger,
-    rootDirectory: params.config.dataDirectory,
   });
   const repository = createWorkspaceRepository({
     backend: persistenceBackend,
@@ -149,18 +151,25 @@ export function createApiRuntime(params: {
         }, params.config.shutdownTimeoutMs);
 
         server.close((error) => {
-          clearTimeout(timeout);
+          const finalizeShutdown = async () => {
+            clearTimeout(timeout);
 
-          if (error) {
-            reject(error);
-            return;
-          }
+            if (error) {
+              reject(error);
+              return;
+            }
 
-          started = false;
-          logger.info("api server shutdown completed", {
-            signal: signal ?? "manual",
-          });
-          resolve();
+            started = false;
+            if (persistenceBackend.close) {
+              await persistenceBackend.close();
+            }
+            logger.info("api server shutdown completed", {
+              signal: signal ?? "manual",
+            });
+            resolve();
+          };
+
+          void finalizeShutdown().catch(reject);
         });
       });
 

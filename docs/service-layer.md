@@ -45,6 +45,7 @@ Implemented pieces:
 - safe startup logging for runtime configuration without secret material
 - load-time migration of legacy workspace documents into the current schema
 - an explicit persistence backend seam underneath the repository, with the current JSON/file implementation wired through it
+- a sqlite persistence backend with the same repository contract for load, save, backup, and restore flows
 - concrete deployment and recovery runbook for a single-node Linux `systemd` target
 
 ## Current Shape
@@ -84,6 +85,7 @@ Supported environment variables:
 - `GNUCASH_NG_API_RUNTIME_MODE`
 - `GNUCASH_NG_API_HOST`
 - `GNUCASH_NG_API_PERSISTENCE_BACKEND`
+- `GNUCASH_NG_API_SQLITE_PATH`
 - `GNUCASH_NG_API_PORT`
 - `GNUCASH_NG_DATA_DIR`
 - `GNUCASH_NG_API_SEED_DEMO_WORKSPACE`
@@ -110,12 +112,12 @@ See `docs/api-runtime-operations.md` and `docs/api-deployment-and-recovery-runbo
 - no durable metrics backend yet beyond in-process `/metrics`
 - no distributed tracing yet beyond request correlation ids in logs and responses
 - no external audit stream beyond workspace persistence
-- no SQLite or Postgres backend implementation yet behind the new persistence seam
+- no Postgres backend implementation yet behind the new persistence seam
 - no family-scale auth model yet beyond the current single-runtime token/identity setup
 
 ## Recommended Next Steps
 
-1. Implement SQLite and Postgres backends behind the repository and migration abstraction now in place
+1. Implement a Postgres backend behind the repository and migration abstraction now in place
 2. Extend the audit model to cover full transaction lifecycle changes and privileged destructive actions
 3. Define family-scale auth and authorization expectations before broadening collaborative access
 4. Add external observability sinks once hosting is selected beyond the single-node default

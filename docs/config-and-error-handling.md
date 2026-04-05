@@ -11,6 +11,7 @@ This repository now treats runtime configuration and operational failures as typ
 - boolean runtime toggles must be validated explicitly
 - runtime mode must be explicit and validated against supported values
 - persistence backend selection must be explicit and validated against supported backend identifiers
+- backend-specific path settings must be resolved and validated during startup
 - auth secrets may be provided inline or by file path, but only one source may be configured at a time
 - malformed auth identity configuration must fail fast during bootstrap
 - non-loopback binding must be rejected unless explicit auth configuration exists
