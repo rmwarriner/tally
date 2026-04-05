@@ -44,6 +44,7 @@ Implemented pieces:
 - file-backed auth secret loading for production-oriented runtime configuration
 - safe startup logging for runtime configuration without secret material
 - load-time migration of legacy workspace documents into the current schema
+- concrete deployment and recovery runbook for a single-node Linux `systemd` target
 
 ## Current Shape
 
@@ -100,7 +101,7 @@ The web app proxies `/api` requests to `http://127.0.0.1:4000` during Vite devel
 On local development startup, the API seeds `workspace-household-demo.json` automatically if it is missing from the data directory.
 Production-oriented startup does not seed demo data and requires explicit auth configuration.
 
-See `docs/api-runtime-operations.md` for the current runtime-mode and deployment-facing guidance.
+See `docs/api-runtime-operations.md` and `docs/api-deployment-and-recovery-runbook.md` for the current runtime-mode and deployment-facing guidance.
 
 ## Current Gaps
 
@@ -110,6 +111,6 @@ See `docs/api-runtime-operations.md` for the current runtime-mode and deployment
 
 ## Recommended Next Steps
 
-1. Add deployment and recovery runbooks on top of the backup and restore flows
-2. Add external observability sinks once hosting is selected
+1. Add external observability sinks once hosting is selected beyond the single-node default
+2. Add encryption-at-rest and key-handling guidance for workspace files and backups
 3. Extend import/export fidelity only where real data samples demand it

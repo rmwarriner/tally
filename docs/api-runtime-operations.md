@@ -97,7 +97,17 @@ The production-oriented startup path now uses the same runtime assembly as devel
 - keep auth secret files outside the workspace data directory and restrict file permissions to the API runtime user
 - use inline auth variables only for local development, short-lived tests, or other low-risk environments
 
+## Concrete Runbook
+
+The repository now treats the default production deployment target as:
+
+- one Linux host
+- one `systemd` API service
+- local persistent filesystem storage for workspace data and repository-managed backups
+
+See `docs/api-deployment-and-recovery-runbook.md` for the concrete deployment, smoke-check, backup, and restore procedure.
+
 ## Near-Term Follow-Up
 
-- document a concrete production deployment example once the hosting target is selected
-- add retention and recovery runbooks for the repository-managed backup directory
+- add external metrics, tracing sinks, and alert routing once the hosting target is selected beyond the single-node default
+- add encryption-at-rest and key-handling guidance once secret-management and external backup targets are finalized

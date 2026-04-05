@@ -23,7 +23,6 @@
 
 ## Standards Still Needed
 
-- concrete deployment runbooks for a chosen hosting target
 - external metrics, tracing, and alert routing beyond in-process foundations
 - encryption-at-rest and key-handling guidance once backup and restore are implemented
 - broader import/export format coverage and resilience playbooks
@@ -40,6 +39,6 @@ Completed:
 
 Current next sequence:
 
-1. Deployment and recovery runbooks for a selected hosting target
-2. External observability sinks and alert routing
+1. External observability sinks and alert routing
+2. Encryption-at-rest and key-handling guidance for persisted data and backups
 3. Product-driven client cleanup and desktop-wrapper discovery

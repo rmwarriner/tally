@@ -85,6 +85,7 @@ This repository currently includes:
 - structured logging package and logging standards
 - typed configuration and boundary error handling standard
 - documented API runtime operations for environment, startup mode, and shutdown behavior
+- concrete single-host deployment and recovery runbook for the API runtime
 - file-backed auth secret loading and safe runtime configuration logging
 - CI and security quality gates
 - security baseline documentation and audited hardening for API/runtime boundaries
@@ -108,8 +109,8 @@ This repository currently includes:
 
 ## Remaining Follow-Up
 
-1. Extend deployment and resilience guidance around the new recovery flows
-2. Add external observability sinks and alert routing once hosting is selected
+1. Add external observability sinks and alert routing on top of the in-process `/metrics` and request-correlation foundation
+2. Add encryption-at-rest and key-handling guidance for workspace files and copied backups
 3. Expand reporting depth further only if new product workflows need it
 
 ## Deferred Follow-Up
