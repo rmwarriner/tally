@@ -7,10 +7,12 @@ import { createInMemoryApiMetrics, type ApiMetrics } from "./metrics";
 import { createInMemoryRateLimiter, type RateLimiter, type RateLimitPolicy } from "./rate-limit";
 import type { WorkspaceService } from "./service";
 import {
+  validateCloseSummaryQuery,
   validateApplyScheduledTransactionExceptionRequestBody,
   validateExecuteScheduledTransactionRequestBody,
   validateBaselineBudgetLineRequestBody,
   validateCsvImportRequestBody,
+  validateReportQuery,
   validateQifExportQuery,
   validateQifImportRequestBody,
   validateEnvelopeAllocationRequestBody,
@@ -75,6 +77,14 @@ function normalizeRouteLabel(method: string, path: string): string {
 
   if (/^\/api\/workspaces\/[^/]+\/dashboard$/.test(path)) {
     return "/api/workspaces/:workspaceId/dashboard";
+  }
+
+  if (/^\/api\/workspaces\/[^/]+\/reports\/[^/]+$/.test(path)) {
+    return "/api/workspaces/:workspaceId/reports/:kind";
+  }
+
+  if (/^\/api\/workspaces\/[^/]+\/close-summary$/.test(path)) {
+    return "/api/workspaces/:workspaceId/close-summary";
   }
 
   if (/^\/api\/workspaces\/[^/]+\/transactions$/.test(path)) {
@@ -296,6 +306,8 @@ export function createHttpHandler(params: {
     if (request.method === "GET") {
       const workspaceMatch = path.match(/^\/api\/workspaces\/([^/]+)$/);
       const dashboardMatch = path.match(/^\/api\/workspaces\/([^/]+)\/dashboard$/);
+      const reportMatch = path.match(/^\/api\/workspaces\/([^/]+)\/reports\/([^/]+)$/);
+      const closeSummaryMatch = path.match(/^\/api\/workspaces\/([^/]+)\/close-summary$/);
       const qifExportMatch = path.match(/^\/api\/workspaces\/([^/]+)\/exports\/qif$/);
 
       if (workspaceMatch) {
@@ -381,6 +393,120 @@ export function createHttpHandler(params: {
           from,
           logger: requestLogger,
           to,
+          workspaceId,
+        });
+        return completeJsonResponse(response.status, response.body);
+      }
+
+      if (reportMatch) {
+        const rateLimited = enforceRateLimit(requestKey, rateLimitPolicy.read, requestLogger);
+
+        if (rateLimited) {
+          return completeJsonResponse(
+            rateLimited.status,
+            await rateLimited.json(),
+            Object.fromEntries(rateLimited.headers.entries()),
+          );
+        }
+
+        const workspaceId = decodeURIComponent(reportMatch[1]);
+
+        if (!isSafeWorkspaceId(workspaceId)) {
+          return completeJsonResponse(
+            400,
+            toErrorEnvelope(
+              new ApiError({
+                code: "repository.invalid_identifier",
+                message: "Workspace identifier is invalid.",
+                status: 400,
+              }),
+            ),
+          );
+        }
+
+        const query = validateReportQuery({
+          from: url.searchParams.get("from"),
+          kind: decodeURIComponent(reportMatch[2]),
+          to: url.searchParams.get("to"),
+        });
+
+        if (query.errors.length > 0 || !query.value) {
+          requestLogger.warn("http request validation failed", { errors: query.errors });
+          return completeJsonResponse(
+            400,
+            toErrorEnvelope(
+              new ApiError({
+                code: "validation.failed",
+                details: { issues: query.errors },
+                message: query.errors[0] ?? "Request validation failed.",
+                status: 400,
+              }),
+            ),
+          );
+        }
+
+        const response = await params.service.getReport({
+          auth: auth.context,
+          from: query.value.from,
+          kind: query.value.kind,
+          logger: requestLogger,
+          to: query.value.to,
+          workspaceId,
+        });
+        return completeJsonResponse(response.status, response.body);
+      }
+
+      if (closeSummaryMatch) {
+        const rateLimited = enforceRateLimit(requestKey, rateLimitPolicy.read, requestLogger);
+
+        if (rateLimited) {
+          return completeJsonResponse(
+            rateLimited.status,
+            await rateLimited.json(),
+            Object.fromEntries(rateLimited.headers.entries()),
+          );
+        }
+
+        const workspaceId = decodeURIComponent(closeSummaryMatch[1]);
+
+        if (!isSafeWorkspaceId(workspaceId)) {
+          return completeJsonResponse(
+            400,
+            toErrorEnvelope(
+              new ApiError({
+                code: "repository.invalid_identifier",
+                message: "Workspace identifier is invalid.",
+                status: 400,
+              }),
+            ),
+          );
+        }
+
+        const query = validateCloseSummaryQuery({
+          from: url.searchParams.get("from"),
+          to: url.searchParams.get("to"),
+        });
+
+        if (query.errors.length > 0 || !query.value) {
+          requestLogger.warn("http request validation failed", { errors: query.errors });
+          return completeJsonResponse(
+            400,
+            toErrorEnvelope(
+              new ApiError({
+                code: "validation.failed",
+                details: { issues: query.errors },
+                message: query.errors[0] ?? "Request validation failed.",
+                status: 400,
+              }),
+            ),
+          );
+        }
+
+        const response = await params.service.getCloseSummary({
+          auth: auth.context,
+          from: query.value.from,
+          logger: requestLogger,
+          to: query.value.to,
           workspaceId,
         });
         return completeJsonResponse(response.status, response.body);

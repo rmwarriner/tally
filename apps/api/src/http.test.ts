@@ -136,6 +136,40 @@ describe("api http transport", () => {
     await fixture.cleanup();
   });
 
+  it("serves reports and close summaries over HTTP", async () => {
+    const fixture = await createFixture();
+    const service = createWorkspaceService({
+      repository: createFileSystemWorkspaceRepository({ rootDirectory: fixture.directory }),
+    });
+    const handler = createHttpHandler({ service });
+
+    const reportResponse = await handler(
+      new Request(
+        `http://localhost/api/workspaces/${fixture.workspace.id}/reports/income-statement?from=2026-04-01&to=2026-04-30`,
+      ),
+    );
+    const reportBody = await reportResponse.json();
+
+    expect(reportResponse.status).toBe(200);
+    expect(reportBody.report.kind).toBe("income-statement");
+    expect(reportBody.report.netIncome.quantity).toBeCloseTo(3051.58);
+
+    const closeResponse = await handler(
+      new Request(
+        `http://localhost/api/workspaces/${fixture.workspace.id}/close-summary?from=2026-04-01&to=2026-04-30`,
+      ),
+    );
+    const closeBody = await closeResponse.json();
+
+    expect(closeResponse.status).toBe(200);
+    expect(closeBody.closeSummary.readyToClose).toBe(false);
+    expect(closeBody.closeSummary.checks.some((check: { id: string }) => check.id === "reconciliation")).toBe(
+      true,
+    );
+
+    await fixture.cleanup();
+  });
+
   it("imports qif transactions over HTTP", async () => {
     const fixture = await createFixture();
     const service = createWorkspaceService({

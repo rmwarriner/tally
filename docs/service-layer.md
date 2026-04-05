@@ -15,6 +15,8 @@ Implemented pieces:
 - write service for CSV import
 - write service for QIF import
 - read service for QIF export
+- read service for net worth, income statement, budget-vs-actual, and envelope summary reports
+- read service for period close summaries
 - write service for baseline budget lines, envelopes, envelope allocations, scheduled transaction execution, and schedule exceptions
 - HTTP request handler for read and write routes
 - Node HTTP server adapter
@@ -99,11 +101,11 @@ See `docs/api-runtime-operations.md` for the current runtime-mode and deployment
 - no distributed tracing yet beyond request correlation ids in logs and responses
 - no external audit stream beyond workspace persistence
 - OFX, QFX, and GnuCash XML adapters still do not exist
-- no reporting or close workflow yet
+- close review is now read-only; no close persistence or period-locking exists yet
 - no backup, migration, or restore strategy yet
 
 ## Recommended Next Steps
 
 1. Extend import/export support beyond QIF to OFX, QFX, and GnuCash XML
-2. Add reporting engine and close workflow
+2. Add close persistence, period locking, and fuller reporting breadth
 3. Add backup, migration, and restore strategy

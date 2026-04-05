@@ -6,6 +6,7 @@ This repository currently includes:
 
 - product and architecture foundation documents
 - shared domain logic for ledger, budgets, schedules, and reporting inputs
+- workspace-level reporting read models and close summaries
 - workspace document model with commands, selectors, reconciliation, and CSV import
 - application service layer for read/write orchestration and persistence
 - HTTP transport for service-layer routes
@@ -43,6 +44,7 @@ This repository currently includes:
 - CSV import with duplicate detection
 - QIF import and export foundation
 - JSON workspace persistence
+- report generation for net worth, income statement, budget-vs-actual, and envelope summary
 
 ### Service Layer
 
@@ -50,6 +52,7 @@ This repository currently includes:
 - service methods for workspace reads and dashboard projections
 - service methods for transaction creation, transaction updates, reconciliation, and CSV import
 - service methods for QIF import and QIF export
+- service methods for reports and close-summary reads
 - HTTP handler for workspace and dashboard reads plus core write routes
 - Node HTTP server adapter
 - runnable API bootstrap and local development server wiring
@@ -100,13 +103,13 @@ This repository currently includes:
 ## Not Started
 
 - import/export adapters for OFX, QFX, and GnuCash XML
-- reporting engine and close workflow
+- close persistence and broader reporting breadth
 - backup, migration, and restore strategy
 
 ## Recommended Next Sequence
 
 1. Extend import/export beyond QIF with OFX, QFX, and GnuCash XML
-2. Add reporting engine and close workflow
+2. Add close persistence, period locking, and broader reporting coverage
 3. Add backup, migration, and restore strategy
 
 ## Deferred Follow-Up

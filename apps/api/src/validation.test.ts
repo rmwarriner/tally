@@ -6,9 +6,11 @@ import {
   validateEnvelopeAllocationRequestBody,
   validateEnvelopeRequestBody,
   validateExecuteScheduledTransactionRequestBody,
+  validateCloseSummaryQuery,
   validateQifExportQuery,
   validateQifImportRequestBody,
   validateReconciliationRequestBody,
+  validateReportQuery,
   validateScheduledTransactionRequestBody,
   validateTransactionRequestBody,
 } from "./validation";
@@ -201,6 +203,35 @@ describe("api request validation", () => {
       }).errors,
     ).toEqual([
       "accountId is required.",
+      "from must use YYYY-MM-DD format.",
+      "to must use YYYY-MM-DD format.",
+    ]);
+  });
+
+  it("validates report and close-summary query parameters", () => {
+    expect(
+      validateReportQuery({
+        from: "2026-04-01",
+        kind: "income-statement",
+        to: "2026-04-30",
+      }).errors,
+    ).toEqual([]);
+
+    expect(
+      validateCloseSummaryQuery({
+        from: "2026-04-01",
+        to: "2026-04-30",
+      }).errors,
+    ).toEqual([]);
+
+    expect(
+      validateReportQuery({
+        from: "2026/04/01",
+        kind: "cash-flow",
+        to: null,
+      }).errors,
+    ).toEqual([
+      "Report kind must be one of budget-vs-actual, envelope-summary, income-statement, or net-worth.",
       "from must use YYYY-MM-DD format.",
       "to must use YYYY-MM-DD format.",
     ]);

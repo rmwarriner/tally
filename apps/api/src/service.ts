@@ -1,9 +1,11 @@
 import { createNoopLogger, type Logger } from "@gnucash-ng/logging";
 import {
   addTransaction,
+  buildCloseSummary,
   applyScheduledTransactionException,
   buildDashboardSnapshot,
   buildQifExport,
+  buildWorkspaceReport,
   executeScheduledTransaction,
   importTransactionsFromCsvRows,
   importTransactionsFromQif,
@@ -18,9 +20,12 @@ import {
 import type {
   ErrorEnvelope,
   ApplyScheduledTransactionExceptionRequest,
+  CloseSummaryEnvelope,
   ExecuteScheduledTransactionRequest,
+  GetCloseSummaryRequest,
   GetDashboardRequest,
   GetQifExportRequest,
+  GetReportRequest,
   GetWorkspaceRequest,
   PostBaselineBudgetLineRequest,
   PostCsvImportRequest,
@@ -34,6 +39,7 @@ import type {
   UpdateTransactionRequest,
   DashboardEnvelope,
   QifExportEnvelope,
+  ReportEnvelope,
   WorkspaceEnvelope,
 } from "./types";
 import { authorizeWorkspaceAccess } from "./auth";
@@ -41,8 +47,12 @@ import { ApiError, toApiError, toErrorEnvelope } from "./errors";
 import type { WorkspaceRepository } from "./repository";
 
 export interface WorkspaceService {
+  getCloseSummary(
+    request: GetCloseSummaryRequest,
+  ): Promise<ServiceResponse<CloseSummaryEnvelope | ErrorEnvelope>>;
   getDashboard(request: GetDashboardRequest): Promise<ServiceResponse<DashboardEnvelope | ErrorEnvelope>>;
   getQifExport(request: GetQifExportRequest): Promise<ServiceResponse<QifExportEnvelope | ErrorEnvelope>>;
+  getReport(request: GetReportRequest): Promise<ServiceResponse<ReportEnvelope | ErrorEnvelope>>;
   getWorkspace(request: GetWorkspaceRequest): Promise<ServiceResponse<WorkspaceEnvelope | ErrorEnvelope>>;
   postCsvImport(
     request: PostCsvImportRequest,
@@ -170,6 +180,92 @@ export function createWorkspaceService(params: {
 
         requestLogger.info("service command completed");
         return success(200, { dashboard });
+      } catch (error) {
+        const apiError = toApiError(error);
+        requestLogger.error("service command failed", {
+          error: apiError.message,
+          errorCode: apiError.code,
+        });
+        return failure(apiError);
+      }
+    },
+
+    async getCloseSummary(request) {
+      const requestLogger = getRequestLogger(request.logger).child({
+        from: request.from,
+        operation: "getCloseSummary",
+        to: request.to,
+        workspaceId: request.workspaceId,
+      });
+      requestLogger.info("service command started");
+
+      try {
+        const workspace = await loadWorkspace(request.workspaceId, requestLogger);
+        const authorization = authorizeWorkspaceAccess(workspace, request.auth, "read");
+
+        if (!authorization.ok) {
+          requestLogger.warn("service command authorization failed", { errors: [authorization.error] });
+          return failure(
+            new ApiError({
+              code: "auth.forbidden",
+              message: authorization.error ?? "Forbidden.",
+              status: 403,
+            }),
+          );
+        }
+
+        const closeSummary = buildCloseSummary(workspace, {
+          from: request.from,
+          to: request.to,
+        });
+
+        requestLogger.info("service command completed", {
+          readyToClose: closeSummary.readyToClose,
+        });
+        return success(200, { closeSummary });
+      } catch (error) {
+        const apiError = toApiError(error);
+        requestLogger.error("service command failed", {
+          error: apiError.message,
+          errorCode: apiError.code,
+        });
+        return failure(apiError);
+      }
+    },
+
+    async getReport(request) {
+      const requestLogger = getRequestLogger(request.logger).child({
+        from: request.from,
+        operation: "getReport",
+        reportKind: request.kind,
+        to: request.to,
+        workspaceId: request.workspaceId,
+      });
+      requestLogger.info("service command started");
+
+      try {
+        const workspace = await loadWorkspace(request.workspaceId, requestLogger);
+        const authorization = authorizeWorkspaceAccess(workspace, request.auth, "read");
+
+        if (!authorization.ok) {
+          requestLogger.warn("service command authorization failed", { errors: [authorization.error] });
+          return failure(
+            new ApiError({
+              code: "auth.forbidden",
+              message: authorization.error ?? "Forbidden.",
+              status: 403,
+            }),
+          );
+        }
+
+        const report = buildWorkspaceReport(workspace, {
+          from: request.from,
+          kind: request.kind,
+          to: request.to,
+        });
+
+        requestLogger.info("service command completed");
+        return success(200, { report });
       } catch (error) {
         const apiError = toApiError(error);
         requestLogger.error("service command failed", {

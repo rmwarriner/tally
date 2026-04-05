@@ -29,10 +29,27 @@ export interface GetDashboardRequest {
   workspaceId: string;
 }
 
+export interface GetCloseSummaryRequest {
+  auth: AuthContext;
+  from: string;
+  logger?: Logger;
+  to: string;
+  workspaceId: string;
+}
+
 export interface GetQifExportRequest {
   accountId: string;
   auth: AuthContext;
   from: string;
+  logger?: Logger;
+  to: string;
+  workspaceId: string;
+}
+
+export interface GetReportRequest {
+  auth: AuthContext;
+  from: string;
+  kind: import("@gnucash-ng/workspace").WorkspaceReportKind;
   logger?: Logger;
   to: string;
   workspaceId: string;
@@ -153,6 +170,10 @@ export interface DashboardEnvelope {
   dashboard: ReturnType<typeof import("@gnucash-ng/workspace").buildDashboardSnapshot>;
 }
 
+export interface CloseSummaryEnvelope {
+  closeSummary: import("@gnucash-ng/workspace").CloseSummary;
+}
+
 export interface QifExportEnvelope {
   export: {
     contents: string;
@@ -160,6 +181,10 @@ export interface QifExportEnvelope {
     format: "qif";
     transactionCount: number;
   };
+}
+
+export interface ReportEnvelope {
+  report: import("@gnucash-ng/workspace").WorkspaceReport;
 }
 
 export type { ErrorEnvelope };

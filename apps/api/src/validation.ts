@@ -1,7 +1,9 @@
 import type {
   ApplyScheduledTransactionExceptionRequest,
   ExecuteScheduledTransactionRequest,
+  GetCloseSummaryRequest,
   GetQifExportRequest,
+  GetReportRequest,
   PostBaselineBudgetLineRequest,
   PostCsvImportRequest,
   PostEnvelopeAllocationRequest,
@@ -13,6 +15,12 @@ import type {
 } from "./types";
 
 const isoDatePattern = /^\d{4}-\d{2}-\d{2}$/;
+const implementedReportKinds = new Set([
+  "budget-vs-actual",
+  "envelope-summary",
+  "income-statement",
+  "net-worth",
+]);
 
 function isObject(value: unknown): value is Record<string, unknown> {
   return Boolean(value) && typeof value === "object" && !Array.isArray(value);
@@ -356,6 +364,68 @@ export function validateQifExportQuery(query: {
           accountId: query.accountId,
           from: query.from,
           to: query.to,
+        },
+      };
+}
+
+export function validateReportQuery(input: {
+  from: string | null;
+  kind: string | null;
+  to: string | null;
+}): {
+  errors: string[];
+  value?: Pick<GetReportRequest, "from" | "kind" | "to">;
+} {
+  const errors: string[] = [];
+
+  if (!input.kind || !implementedReportKinds.has(input.kind)) {
+    errors.push("Report kind must be one of budget-vs-actual, envelope-summary, income-statement, or net-worth.");
+  }
+
+  if (!isIsoDate(input.from)) {
+    errors.push("from must use YYYY-MM-DD format.");
+  }
+
+  if (!isIsoDate(input.to)) {
+    errors.push("to must use YYYY-MM-DD format.");
+  }
+
+  return errors.length > 0 || !input.kind || !input.from || !input.to
+    ? { errors }
+    : {
+        errors: [],
+        value: {
+          from: input.from,
+          kind: input.kind as GetReportRequest["kind"],
+          to: input.to,
+        },
+      };
+}
+
+export function validateCloseSummaryQuery(input: {
+  from: string | null;
+  to: string | null;
+}): {
+  errors: string[];
+  value?: Pick<GetCloseSummaryRequest, "from" | "to">;
+} {
+  const errors: string[] = [];
+
+  if (!isIsoDate(input.from)) {
+    errors.push("from must use YYYY-MM-DD format.");
+  }
+
+  if (!isIsoDate(input.to)) {
+    errors.push("to must use YYYY-MM-DD format.");
+  }
+
+  return errors.length > 0 || !input.from || !input.to
+    ? { errors }
+    : {
+        errors: [],
+        value: {
+          from: input.from,
+          to: input.to,
         },
       };
 }
