@@ -101,6 +101,20 @@ These are the next candidates for promotion into active delivery work.
 4. Transaction review and import-automation foundation
 5. External observability sinks and production security guidance beyond the single-node default
 
+## Next Suggested Move
+
+The next recommended Phase 2 execution slice is:
+
+1. Family-scale identity and authorization design
+
+Scope the first pass around:
+
+- household member roles and actor attribution rules
+- separation of ordinary write access from privileged destructive actions
+- review and approval semantics for high-trust operations such as transaction destroy
+- external identity integration boundaries for Cloudflare Access and OpenID/OIDC
+- the minimal service, auth, and document changes needed to support that model without broad UI churn yet
+
 ## Idea Backlog Policy
 
 Ideas stay as GitHub issues labeled `idea` until they meet all of the following:

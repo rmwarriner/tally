@@ -129,3 +129,14 @@ See `docs/persistence-migration-workflow.md` for backend migration and export co
 2. Extend trust hardening from transaction delete/destroy into broader review and approval semantics
 3. Add encryption-at-rest guidance and decide where key material should live across `json`, `sqlite`, and `postgres`
 4. Add external observability sinks once hosting is selected beyond the single-node default
+
+## Next Execution Slice
+
+The next recommended service-layer move is a family-scale auth and authorization pass.
+
+That slice should define:
+
+- household roles beyond the current token-to-identity mapping
+- privileged-path controls for destructive actions and other high-trust mutations
+- approval or review requirements where simple role checks are not enough
+- how external identity providers such as Cloudflare Access and OpenID/OIDC map into service actors

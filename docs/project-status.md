@@ -122,6 +122,18 @@ The main remaining work is now product and architecture shaping across a growing
 4. Review, automation, and ingestion workflows on top of the current import foundation
 5. Encryption-at-rest, key-handling, and broader trust-boundary guidance across supported persistence backends
 
+## Next Suggested Restart Point
+
+When work resumes, the next recommended Phase 2 slice is family-scale identity and authorization design.
+
+The goal of that pass is to turn the current single-runtime auth setup into an explicit household model with:
+
+- role definitions
+- actor attribution rules
+- privileged destructive-action controls
+- review or approval semantics for high-trust operations
+- a clear boundary for future Cloudflare Access and OpenID/OIDC integration
+
 ## Deferred Follow-Up
 
 - extract the mobile quick-transaction and quick-envelope cards into dedicated components so `apps/mobile/src/App.tsx` becomes mostly screen composition and API orchestration
