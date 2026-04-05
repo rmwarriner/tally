@@ -271,8 +271,9 @@ export async function copyAllWorkspacesBetweenBackends(params: {
   onError?: PersistenceCopyManyOnError;
   source: WorkspacePersistenceBackend;
   target: WorkspacePersistenceBackend;
+  workspaceIds?: string[];
 } & PersistenceWriteOptions): Promise<PersistenceCopyManyResult> {
-  const workspaceIds = await params.source.listWorkspaceIds({ logger: params.logger });
+  const workspaceIds = params.workspaceIds ?? (await params.source.listWorkspaceIds({ logger: params.logger }));
   const failures: PersistenceCopyFailure[] = [];
   const onError = params.onError ?? "halt";
   const results: PersistenceCopyResult[] = [];

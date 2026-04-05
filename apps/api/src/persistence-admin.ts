@@ -47,6 +47,18 @@ export type PersistenceAdminCommand =
       target: WorkspacePersistenceOptions;
     }
   | {
+      backupTarget: boolean;
+      command: "retry-failures";
+      dryRun: boolean;
+      onError: PersistenceCopyManyOnError;
+      reportPath?: string;
+      retryReportPath: string;
+      rollbackOnFailure: boolean;
+      skipValidation: boolean;
+      source: WorkspacePersistenceOptions;
+      target: WorkspacePersistenceOptions;
+    }
+  | {
       command: "export";
       dryRun: boolean;
       outputPath: string;
@@ -172,13 +184,52 @@ function buildAdminReport(params: {
   };
 }
 
+function extractFailedWorkspaceIds(report: unknown): string[] {
+  if (!report || typeof report !== "object" || Array.isArray(report)) {
+    throw new ConfigValidationError(["Retry report must be a JSON object."]);
+  }
+
+  const candidate = report as {
+    command?: unknown;
+    failures?: unknown;
+  };
+
+  if (candidate.command !== "copy-all") {
+    throw new ConfigValidationError(["Retry report must come from a copy-all command."]);
+  }
+
+  if (!Array.isArray(candidate.failures)) {
+    throw new ConfigValidationError(["Retry report must contain a failures array."]);
+  }
+
+  const workspaceIds = candidate.failures
+    .map((failure) =>
+      typeof failure === "object" && failure !== null && "workspaceId" in failure
+        ? failure.workspaceId
+        : undefined,
+    )
+    .filter((workspaceId): workspaceId is string => typeof workspaceId === "string" && workspaceId.length > 0);
+
+  if (workspaceIds.length === 0) {
+    throw new ConfigValidationError(["Retry report does not contain any failed workspace ids."]);
+  }
+
+  return [...new Set(workspaceIds)].sort((left, right) => left.localeCompare(right));
+}
+
 export function parsePersistenceAdminCommand(argv: string[]): PersistenceAdminCommand {
   const [commandName] = argv;
   const flags = parseFlags(argv.slice(1));
 
-  if (commandName !== "copy" && commandName !== "copy-all" && commandName !== "export" && commandName !== "import") {
+  if (
+    commandName !== "copy" &&
+    commandName !== "copy-all" &&
+    commandName !== "retry-failures" &&
+    commandName !== "export" &&
+    commandName !== "import"
+  ) {
     throw new ConfigValidationError([
-      "Persistence admin command must be one of: copy, copy-all, export, import.",
+      "Persistence admin command must be one of: copy, copy-all, retry-failures, export, import.",
     ]);
   }
 
@@ -204,6 +255,21 @@ export function parsePersistenceAdminCommand(argv: string[]): PersistenceAdminCo
       dryRun: readBooleanFlag(flags, "dry-run"),
       onError: readCopyManyOnError(flags),
       reportPath: flags.values.get("report-path") ? resolve(flags.values.get("report-path") as string) : undefined,
+      rollbackOnFailure: readBooleanFlag(flags, "rollback-on-failure"),
+      skipValidation: readBooleanFlag(flags, "skip-validation"),
+      source: readBackendOptions(flags, "source"),
+      target: readBackendOptions(flags, "target"),
+    };
+  }
+
+  if (commandName === "retry-failures") {
+    return {
+      backupTarget: readBooleanFlag(flags, "backup-target"),
+      command: "retry-failures",
+      dryRun: readBooleanFlag(flags, "dry-run"),
+      onError: readCopyManyOnError(flags),
+      reportPath: flags.values.get("report-path") ? resolve(flags.values.get("report-path") as string) : undefined,
+      retryReportPath: resolve(readRequired(flags, "retry-report")),
       rollbackOnFailure: readBooleanFlag(flags, "rollback-on-failure"),
       skipValidation: readBooleanFlag(flags, "skip-validation"),
       source: readBackendOptions(flags, "source"),
@@ -249,7 +315,11 @@ export async function runPersistenceAdminCommand(params: {
       service: "gnucash-ng-persistence-admin",
     });
 
-  if (command.command === "copy" || command.command === "copy-all") {
+  if (
+    command.command === "copy" ||
+    command.command === "copy-all" ||
+    command.command === "retry-failures"
+  ) {
     const source = createWorkspacePersistenceBackendFromOptions({
       logger,
       options: command.source,
@@ -260,7 +330,13 @@ export async function runPersistenceAdminCommand(params: {
     });
 
     try {
-      if (command.command === "copy-all") {
+      if (command.command === "copy-all" || command.command === "retry-failures") {
+        const workspaceIds =
+          command.command === "retry-failures"
+            ? extractFailedWorkspaceIds(
+                JSON.parse(await readFile(command.retryReportPath, "utf8")) as unknown,
+              )
+            : undefined;
         const result = await copyAllWorkspacesBetweenBackends({
           backupTarget: command.backupTarget,
           dryRun: command.dryRun,
@@ -270,9 +346,14 @@ export async function runPersistenceAdminCommand(params: {
           source,
           target,
           validate: !command.skipValidation,
+          workspaceIds,
         });
         await writeReportFile(command.reportPath, buildAdminReport({ command: command.command, result }));
-        logger.info("persistence workspace copy-all completed", {
+        logger.info(
+          command.command === "retry-failures"
+            ? "persistence workspace retry-failures completed"
+            : "persistence workspace copy-all completed",
+          {
           dryRun: result.dryRun,
           failureCount: result.failureCount,
           halted: result.halted,
@@ -281,11 +362,12 @@ export async function runPersistenceAdminCommand(params: {
           successCount: result.successCount,
           targetBackend: command.target.persistenceBackend,
           workspaceCount: result.workspaceIds.length,
-        });
+          },
+        );
 
         if (result.failureCount > 0) {
           throw new Error(
-            `Persistence copy-all completed with ${result.failureCount} failure(s) out of ${result.workspaceIds.length} workspace(s).`,
+            `Persistence ${command.command} completed with ${result.failureCount} failure(s) out of ${result.workspaceIds.length} workspace(s).`,
           );
         }
       } else {

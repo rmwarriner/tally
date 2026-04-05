@@ -89,6 +89,26 @@ describe("persistence admin", () => {
 
     expect(
       parsePersistenceAdminCommand([
+        "retry-failures",
+        "--retry-report",
+        "/tmp/report.json",
+        "--source-backend",
+        "json",
+        "--source-data-dir",
+        "/tmp/source",
+        "--target-backend",
+        "sqlite",
+        "--target-sqlite-path",
+        "/tmp/target/workspaces.sqlite",
+      ]),
+    ).toMatchObject({
+      command: "retry-failures",
+      onError: "halt",
+      retryReportPath: "/tmp/report.json",
+    });
+
+    expect(
+      parsePersistenceAdminCommand([
         "import",
         "--workspace-id",
         "workspace-a",
@@ -459,5 +479,99 @@ describe("persistence admin", () => {
     expect((await target.load(thirdWorkspace.id)).name).toBe("Third Household");
 
     await Promise.all([source.close?.(), target.close?.()]);
+  });
+
+  it("retries only failed workspaces from a prior copy-all report", async () => {
+    const sourceDirectory = await mkdtemp(join(tmpdir(), "gnucash-ng-retry-source-"));
+    const targetDirectory = await mkdtemp(join(tmpdir(), "gnucash-ng-retry-target-"));
+    cleanupPaths.push(sourceDirectory, targetDirectory);
+    const failureReportPath = join(targetDirectory, "copy-all-failure-report.json");
+    const retryReportPath = join(targetDirectory, "retry-report.json");
+
+    const source = createFileSystemWorkspacePersistenceBackend({
+      rootDirectory: sourceDirectory,
+    });
+    const sourceFix = createFileSystemWorkspacePersistenceBackend({
+      rootDirectory: sourceDirectory,
+    });
+    const target = createSqliteWorkspacePersistenceBackend({
+      databasePath: join(targetDirectory, "workspaces.sqlite"),
+    });
+    const firstWorkspace = createDemoWorkspace();
+    const invalidSecondWorkspace = {
+      ...createDemoWorkspace(),
+      id: "workspace-household-second",
+      transactions: [
+        {
+          ...createDemoWorkspace().transactions[0]!,
+          postings: [
+            {
+              ...createDemoWorkspace().transactions[0]!.postings[0]!,
+              accountId: "missing-account",
+            },
+            createDemoWorkspace().transactions[0]!.postings[1]!,
+          ],
+        },
+      ],
+    };
+    const secondWorkspace = {
+      ...createDemoWorkspace(),
+      id: "workspace-household-second",
+      name: "Second Household",
+    };
+    await source.save(firstWorkspace);
+    await source.save(invalidSecondWorkspace as never);
+
+    await expect(
+      runPersistenceAdminCommand({
+        argv: [
+          "copy-all",
+          "--report-path",
+          failureReportPath,
+          "--source-backend",
+          "json",
+          "--source-data-dir",
+          sourceDirectory,
+          "--target-backend",
+          "sqlite",
+          "--target-sqlite-path",
+          join(targetDirectory, "workspaces.sqlite"),
+        ],
+      }),
+    ).rejects.toThrow("copy-all completed with 1 failure");
+
+    await sourceFix.save(secondWorkspace);
+
+    await runPersistenceAdminCommand({
+      argv: [
+        "retry-failures",
+        "--retry-report",
+        failureReportPath,
+        "--report-path",
+        retryReportPath,
+        "--source-backend",
+        "json",
+        "--source-data-dir",
+        sourceDirectory,
+        "--target-backend",
+        "sqlite",
+        "--target-sqlite-path",
+        join(targetDirectory, "workspaces.sqlite"),
+      ],
+    });
+
+    const retryReport = JSON.parse(await readFile(retryReportPath, "utf8")) as {
+      command: string;
+      failureCount: number;
+      successCount: number;
+      workspaceIds: string[];
+    };
+    expect(retryReport.command).toBe("retry-failures");
+    expect(retryReport.failureCount).toBe(0);
+    expect(retryReport.successCount).toBe(1);
+    expect(retryReport.workspaceIds).toEqual([secondWorkspace.id]);
+    expect((await target.load(secondWorkspace.id)).name).toBe(secondWorkspace.name);
+
+    await Promise.all([source.close?.(), sourceFix.close?.(), target.close?.()]);
   });
 });

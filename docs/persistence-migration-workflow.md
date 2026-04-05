@@ -24,6 +24,8 @@ Supported commands:
   - load from one backend and write directly into another backend
 - `copy-all`
   - enumerate every workspace in the source backend and copy each one into the target backend
+- `retry-failures`
+  - rerun only the failed workspace ids recorded in a prior `copy-all` report
 - `export`
   - load a workspace from a backend and write a JSON workspace snapshot to disk
 - `import`
@@ -127,6 +129,19 @@ pnpm --filter @gnucash-ng/api persistence:admin -- \
   --target-sqlite-path ./apps/api/data/workspaces.sqlite
 ```
 
+Retry only the failed workspaces from a prior `copy-all` report:
+
+```bash
+pnpm --filter @gnucash-ng/api persistence:admin -- \
+  retry-failures \
+  --retry-report ./tmp/persistence-copy-all-report.json \
+  --report-path ./tmp/persistence-retry-report.json \
+  --source-backend json \
+  --source-data-dir ./apps/api/data \
+  --target-backend sqlite \
+  --target-sqlite-path ./apps/api/data/workspaces.sqlite
+```
+
 ## Export Example
 
 Export a workspace from Postgres to a JSON snapshot file:
@@ -179,6 +194,7 @@ pnpm --filter @gnucash-ng/api persistence:admin -- \
 - `copy-all` preserves source workspace ids and applies the same validation and backup flags to each copied workspace
 - `copy-all` defaults to `--on-error halt`
 - `copy-all --on-error continue` still exits non-zero if any workspace fails, but it continues processing later workspaces and records every failure in the JSON report
+- `retry-failures` requires a prior `copy-all` JSON report and retries only the failed `workspaceId` values recorded there
 - this workflow is intended for operator-controlled migration and recovery tasks, not live multi-writer synchronization
 
 ## Operator Guidance
@@ -190,10 +206,11 @@ Recommended sequence:
 3. When overwriting an existing target workspace, add `--backup-target --rollback-on-failure`.
 4. Use the default halt behavior when you want the first failure to stop the migration immediately.
 5. Use `--on-error continue` only when partial success is acceptable and you intend to reconcile failures from the generated report.
-6. Keep the generated report with the migration record so the source and target validation state is preserved.
+6. If `copy-all` failed, run `retry-failures --retry-report ...` after fixing the underlying cause instead of rebuilding the failed workspace list by hand.
+7. Keep the generated reports with the migration record so the source and target validation state is preserved.
 
 ## Near-Term Follow-Up
 
 - add broader verification against a real Postgres instance in CI or local integration scripts
 - decide whether rollback should become implicit whenever `--backup-target` is enabled
-- decide whether operators need a second-stage helper to retry only failed workspaces from a prior `copy-all` report
+- decide whether failed-run reports should capture enough source/target config to support a simpler one-argument retry command later

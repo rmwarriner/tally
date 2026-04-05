@@ -99,7 +99,7 @@ These are the next candidates for promotion into active delivery work.
 2. Budgeting model definition for remaining-to-budget, rollover, and envelope funding rules
 3. Family-scale identity and authorization model, including external access providers such as Cloudflare Access and OpenID/OIDC
 4. Transaction review and import-automation foundation
-5. Backend-operability follow-through beyond the current migration admin workflow, including failed-run reconciliation and broader verification
+5. Backend-operability follow-through beyond the current migration admin workflow, including retry ergonomics and broader verification
 
 ## Idea Backlog Policy
 
