@@ -7,7 +7,7 @@
     "@gnucash-ng/domain": "workspace:*",
     "@gnucash-ng/workspace": "workspace:*",
     "@gnucash-ng/ui": "workspace:*",
-    "expo": "^53.0.0",
+    "expo": "^55.0.11",
     "react": "^19.0.0",
     "react-native": "^0.79.0"
   },
