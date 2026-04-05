@@ -9,6 +9,7 @@ import {
   createWorkspacePersistenceBackendFromOptions,
   exportWorkspaceDocument,
   importWorkspaceDocument,
+  type PersistenceCopyManyOnError,
   type PersistenceCopyManyResult,
   type PersistenceCopyResult,
   type PersistenceExportResult,
@@ -38,6 +39,7 @@ export type PersistenceAdminCommand =
       backupTarget: boolean;
       command: "copy-all";
       dryRun: boolean;
+      onError: PersistenceCopyManyOnError;
       reportPath?: string;
       rollbackOnFailure: boolean;
       skipValidation: boolean;
@@ -136,6 +138,20 @@ function readBooleanFlag(flags: ParsedFlags, key: string): boolean {
   return flags.booleans.has(key);
 }
 
+function readCopyManyOnError(flags: ParsedFlags): PersistenceCopyManyOnError {
+  const value = flags.values.get("on-error");
+
+  if (!value || value === "halt") {
+    return "halt";
+  }
+
+  if (value === "continue") {
+    return "continue";
+  }
+
+  throw new ConfigValidationError(["--on-error must be halt or continue."]);
+}
+
 async function writeReportFile(reportPath: string | undefined, report: unknown): Promise<void> {
   if (!reportPath) {
     return;
@@ -186,6 +202,7 @@ export function parsePersistenceAdminCommand(argv: string[]): PersistenceAdminCo
       backupTarget: readBooleanFlag(flags, "backup-target"),
       command: "copy-all",
       dryRun: readBooleanFlag(flags, "dry-run"),
+      onError: readCopyManyOnError(flags),
       reportPath: flags.values.get("report-path") ? resolve(flags.values.get("report-path") as string) : undefined,
       rollbackOnFailure: readBooleanFlag(flags, "rollback-on-failure"),
       skipValidation: readBooleanFlag(flags, "skip-validation"),
@@ -248,6 +265,7 @@ export async function runPersistenceAdminCommand(params: {
           backupTarget: command.backupTarget,
           dryRun: command.dryRun,
           logger,
+          onError: command.onError,
           rollbackOnFailure: command.rollbackOnFailure,
           source,
           target,
@@ -256,10 +274,20 @@ export async function runPersistenceAdminCommand(params: {
         await writeReportFile(command.reportPath, buildAdminReport({ command: command.command, result }));
         logger.info("persistence workspace copy-all completed", {
           dryRun: result.dryRun,
+          failureCount: result.failureCount,
+          halted: result.halted,
+          onError: result.onError,
           sourceBackend: command.source.persistenceBackend,
+          successCount: result.successCount,
           targetBackend: command.target.persistenceBackend,
           workspaceCount: result.workspaceIds.length,
         });
+
+        if (result.failureCount > 0) {
+          throw new Error(
+            `Persistence copy-all completed with ${result.failureCount} failure(s) out of ${result.workspaceIds.length} workspace(s).`,
+          );
+        }
       } else {
         const result = await copyWorkspaceBetweenBackends({
           backupTarget: command.backupTarget,

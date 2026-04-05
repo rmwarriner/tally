@@ -78,9 +78,12 @@ describe("persistence admin", () => {
         "--target-sqlite-path",
         "/tmp/target/workspaces.sqlite",
         "--rollback-on-failure",
+        "--on-error",
+        "continue",
       ]),
     ).toMatchObject({
       command: "copy-all",
+      onError: "continue",
       rollbackOnFailure: true,
     });
 
@@ -282,5 +285,179 @@ describe("persistence admin", () => {
     expect(await target.listWorkspaceIds()).toEqual([firstWorkspace.id, secondWorkspace.id]);
     await target.close?.();
     await source.close?.();
+  });
+
+  it("halts copy-all on the first failure by default and preserves the report", async () => {
+    const sourceDirectory = await mkdtemp(join(tmpdir(), "gnucash-ng-copy-all-fail-source-"));
+    const targetDirectory = await mkdtemp(join(tmpdir(), "gnucash-ng-copy-all-fail-target-"));
+    cleanupPaths.push(sourceDirectory, targetDirectory);
+    const reportPath = join(targetDirectory, "copy-all-fail-report.json");
+
+    const source = createFileSystemWorkspacePersistenceBackend({
+      rootDirectory: sourceDirectory,
+    });
+    const target = createSqliteWorkspacePersistenceBackend({
+      databasePath: join(targetDirectory, "workspaces.sqlite"),
+    });
+    const firstWorkspace = createDemoWorkspace();
+    const invalidSecondWorkspace = {
+      ...createDemoWorkspace(),
+      id: "workspace-household-second",
+      name: "Invalid Second",
+      transactions: [
+        {
+          ...createDemoWorkspace().transactions[0]!,
+          postings: [
+            {
+              ...createDemoWorkspace().transactions[0]!.postings[0]!,
+              accountId: "missing-account",
+            },
+            createDemoWorkspace().transactions[0]!.postings[1]!,
+          ],
+        },
+      ],
+    };
+    const existingSecondWorkspace = {
+      ...createDemoWorkspace(),
+      id: "workspace-household-second",
+      name: "Existing Second",
+    };
+    const thirdWorkspace = {
+      ...createDemoWorkspace(),
+      id: "workspace-household-third",
+      name: "Third Household",
+    };
+
+    await source.save(firstWorkspace);
+    await source.save(invalidSecondWorkspace as never);
+    await source.save(thirdWorkspace);
+    await target.save(existingSecondWorkspace);
+
+    await expect(
+      runPersistenceAdminCommand({
+        argv: [
+          "copy-all",
+          "--report-path",
+          reportPath,
+          "--backup-target",
+          "--rollback-on-failure",
+          "--source-backend",
+          "json",
+          "--source-data-dir",
+          sourceDirectory,
+          "--target-backend",
+          "sqlite",
+          "--target-sqlite-path",
+          join(targetDirectory, "workspaces.sqlite"),
+        ],
+      }),
+    ).rejects.toThrow("completed with 1 failure");
+
+    const report = JSON.parse(await readFile(reportPath, "utf8")) as {
+      failureCount: number;
+      failures: Array<{ workspaceId: string }>;
+      halted: boolean;
+      onError: string;
+      successCount: number;
+    };
+    expect(report.onError).toBe("halt");
+    expect(report.halted).toBe(true);
+    expect(report.successCount).toBe(1);
+    expect(report.failureCount).toBe(1);
+    expect(report.failures[0]?.workspaceId).toBe("workspace-household-second");
+    expect(await target.listWorkspaceIds()).toEqual([firstWorkspace.id, existingSecondWorkspace.id]);
+    expect((await target.load(existingSecondWorkspace.id)).name).toBe("Existing Second");
+    await expect(target.load(thirdWorkspace.id)).rejects.toMatchObject({
+      code: "workspace.not_found",
+    });
+
+    await Promise.all([source.close?.(), target.close?.()]);
+  });
+
+  it("can continue copy-all after failures when explicitly requested", async () => {
+    const sourceDirectory = await mkdtemp(join(tmpdir(), "gnucash-ng-copy-all-continue-source-"));
+    const targetDirectory = await mkdtemp(join(tmpdir(), "gnucash-ng-copy-all-continue-target-"));
+    cleanupPaths.push(sourceDirectory, targetDirectory);
+    const reportPath = join(targetDirectory, "copy-all-continue-report.json");
+
+    const source = createFileSystemWorkspacePersistenceBackend({
+      rootDirectory: sourceDirectory,
+    });
+    const target = createSqliteWorkspacePersistenceBackend({
+      databasePath: join(targetDirectory, "workspaces.sqlite"),
+    });
+    const firstWorkspace = createDemoWorkspace();
+    const invalidSecondWorkspace = {
+      ...createDemoWorkspace(),
+      id: "workspace-household-second",
+      transactions: [
+        {
+          ...createDemoWorkspace().transactions[0]!,
+          postings: [
+            {
+              ...createDemoWorkspace().transactions[0]!.postings[0]!,
+              accountId: "missing-account",
+            },
+            createDemoWorkspace().transactions[0]!.postings[1]!,
+          ],
+        },
+      ],
+    };
+    const existingSecondWorkspace = {
+      ...createDemoWorkspace(),
+      id: "workspace-household-second",
+      name: "Existing Second",
+    };
+    const thirdWorkspace = {
+      ...createDemoWorkspace(),
+      id: "workspace-household-third",
+      name: "Third Household",
+    };
+
+    await source.save(firstWorkspace);
+    await source.save(invalidSecondWorkspace as never);
+    await source.save(thirdWorkspace);
+    await target.save(existingSecondWorkspace);
+
+    await expect(
+      runPersistenceAdminCommand({
+        argv: [
+          "copy-all",
+          "--report-path",
+          reportPath,
+          "--backup-target",
+          "--rollback-on-failure",
+          "--on-error",
+          "continue",
+          "--source-backend",
+          "json",
+          "--source-data-dir",
+          sourceDirectory,
+          "--target-backend",
+          "sqlite",
+          "--target-sqlite-path",
+          join(targetDirectory, "workspaces.sqlite"),
+        ],
+      }),
+    ).rejects.toThrow("completed with 1 failure");
+
+    const report = JSON.parse(await readFile(reportPath, "utf8")) as {
+      failureCount: number;
+      halted: boolean;
+      onError: string;
+      successCount: number;
+    };
+    expect(report.onError).toBe("continue");
+    expect(report.halted).toBe(false);
+    expect(report.successCount).toBe(2);
+    expect(report.failureCount).toBe(1);
+    expect(await target.listWorkspaceIds()).toEqual([
+      firstWorkspace.id,
+      existingSecondWorkspace.id,
+      thirdWorkspace.id,
+    ]);
+    expect((await target.load(thirdWorkspace.id)).name).toBe("Third Household");
+
+    await Promise.all([source.close?.(), target.close?.()]);
   });
 });

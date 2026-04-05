@@ -53,9 +53,23 @@ export interface PersistenceCopyResult {
   workspaceId: string;
 }
 
+export type PersistenceCopyManyOnError = "continue" | "halt";
+
+export interface PersistenceCopyFailure {
+  code?: string;
+  message: string;
+  status?: number;
+  workspaceId: string;
+}
+
 export interface PersistenceCopyManyResult {
   dryRun: boolean;
+  failureCount: number;
+  failures: PersistenceCopyFailure[];
+  halted: boolean;
+  onError: PersistenceCopyManyOnError;
   results: PersistenceCopyResult[];
+  successCount: number;
   workspaceIds: string[];
 }
 
@@ -254,30 +268,59 @@ export async function copyWorkspaceBetweenBackends(params: {
 }
 
 export async function copyAllWorkspacesBetweenBackends(params: {
+  onError?: PersistenceCopyManyOnError;
   source: WorkspacePersistenceBackend;
   target: WorkspacePersistenceBackend;
 } & PersistenceWriteOptions): Promise<PersistenceCopyManyResult> {
   const workspaceIds = await params.source.listWorkspaceIds({ logger: params.logger });
+  const failures: PersistenceCopyFailure[] = [];
+  const onError = params.onError ?? "halt";
   const results: PersistenceCopyResult[] = [];
+  let halted = false;
 
   for (const workspaceId of workspaceIds) {
-    results.push(
-      await copyWorkspaceBetweenBackends({
-        backupTarget: params.backupTarget,
-        dryRun: params.dryRun,
-        logger: params.logger,
-        rollbackOnFailure: params.rollbackOnFailure,
-        source: params.source,
-        sourceWorkspaceId: workspaceId,
-        target: params.target,
-        validate: params.validate,
-      }),
-    );
+    try {
+      results.push(
+        await copyWorkspaceBetweenBackends({
+          backupTarget: params.backupTarget,
+          dryRun: params.dryRun,
+          logger: params.logger,
+          rollbackOnFailure: params.rollbackOnFailure,
+          source: params.source,
+          sourceWorkspaceId: workspaceId,
+          target: params.target,
+          validate: params.validate,
+        }),
+      );
+    } catch (error) {
+      failures.push({
+        code:
+          typeof error === "object" && error !== null && "code" in error && typeof error.code === "string"
+            ? error.code
+            : undefined,
+        message: error instanceof Error ? error.message : String(error),
+        status:
+          typeof error === "object" && error !== null && "status" in error && typeof error.status === "number"
+            ? error.status
+            : undefined,
+        workspaceId,
+      });
+
+      if (onError === "halt") {
+        halted = true;
+        break;
+      }
+    }
   }
 
   return {
     dryRun: params.dryRun ?? false,
+    failureCount: failures.length,
+    failures,
+    halted,
+    onError,
     results,
+    successCount: results.length,
     workspaceIds,
   };
 }

@@ -118,7 +118,7 @@ The main remaining work is now product and architecture shaping across a growing
 2. Budgeting-model definition for remaining-to-budget, rollover, cleanup, and envelope funding semantics
 3. Family-scale multi-user identity and authorization design
 4. Review, automation, and ingestion workflows on top of the current import foundation
-5. Backend-operability follow-through, including partial-failure handling and broader persistence integration verification
+5. Backend-operability follow-through, including broader persistence integration verification and retry/reconciliation tooling for failed migration reports
 
 ## Deferred Follow-Up
 

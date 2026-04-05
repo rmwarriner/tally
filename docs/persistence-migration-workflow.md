@@ -37,6 +37,8 @@ Common safety flags:
   - write a JSON report describing validation results and target-write conditions
 - `--skip-validation`
   - bypass persistence validation reports for source/target documents
+- `--on-error halt|continue`
+  - for `copy-all`, choose whether the run stops at the first failed workspace or continues through the rest
 
 Write-safety flags for `copy` and `import`:
 
@@ -110,6 +112,21 @@ pnpm --filter @gnucash-ng/api persistence:admin -- \
   --target-sqlite-path ./apps/api/data/workspaces.sqlite
 ```
 
+Continue `copy-all` after individual workspace failures while still emitting a non-zero result and JSON report:
+
+```bash
+pnpm --filter @gnucash-ng/api persistence:admin -- \
+  copy-all \
+  --report-path ./tmp/persistence-copy-all-report.json \
+  --backup-target \
+  --rollback-on-failure \
+  --on-error continue \
+  --source-backend json \
+  --source-data-dir ./apps/api/data \
+  --target-backend sqlite \
+  --target-sqlite-path ./apps/api/data/workspaces.sqlite
+```
+
 ## Export Example
 
 Export a workspace from Postgres to a JSON snapshot file:
@@ -160,6 +177,8 @@ pnpm --filter @gnucash-ng/api persistence:admin -- \
 - `--dry-run` executes load and validation paths but does not write target workspace data
 - rollback only runs when a target backup was created first
 - `copy-all` preserves source workspace ids and applies the same validation and backup flags to each copied workspace
+- `copy-all` defaults to `--on-error halt`
+- `copy-all --on-error continue` still exits non-zero if any workspace fails, but it continues processing later workspaces and records every failure in the JSON report
 - this workflow is intended for operator-controlled migration and recovery tasks, not live multi-writer synchronization
 
 ## Operator Guidance
@@ -169,10 +188,12 @@ Recommended sequence:
 1. Run `copy`, `copy-all`, or `import` first with `--dry-run --report-path ...`.
 2. Review the validation report before writing target data.
 3. When overwriting an existing target workspace, add `--backup-target --rollback-on-failure`.
-4. Keep the generated report with the migration record so the source and target validation state is preserved.
+4. Use the default halt behavior when you want the first failure to stop the migration immediately.
+5. Use `--on-error continue` only when partial success is acceptable and you intend to reconcile failures from the generated report.
+6. Keep the generated report with the migration record so the source and target validation state is preserved.
 
 ## Near-Term Follow-Up
 
 - add broader verification against a real Postgres instance in CI or local integration scripts
-- add partial-failure policy guidance for `copy-all`, especially when some target workspaces succeed and later ones fail
 - decide whether rollback should become implicit whenever `--backup-target` is enabled
+- decide whether operators need a second-stage helper to retry only failed workspaces from a prior `copy-all` report

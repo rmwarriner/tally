@@ -118,11 +118,11 @@ See `docs/persistence-migration-workflow.md` for backend migration and export co
 - no distributed tracing yet beyond request correlation ids in logs and responses
 - no external audit stream beyond workspace persistence
 - no family-scale auth model yet beyond the current single-runtime token/identity setup
-- no partial-failure policy yet for multi-workspace persistence migration across the supported backends
+- no retry or reconciliation helper yet for failed workspaces after a multi-workspace persistence migration run
 
 ## Recommended Next Steps
 
 1. Extend the audit model to cover full transaction lifecycle changes and privileged destructive actions
 2. Define family-scale auth and authorization expectations before broadening collaborative access
-3. Add partial-failure policy and broader backend-operability guidance on top of the current admin workflow
+3. Add retry/reconciliation tooling and broader backend-operability guidance on top of the current admin workflow
 4. Add external observability sinks once hosting is selected beyond the single-node default

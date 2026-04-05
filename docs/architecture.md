@@ -125,4 +125,4 @@ Next:
 2. Budgeting and planning model definition for remaining-to-budget, rollover, and envelope funding rules
 3. Family-scale identity and authorization model
 4. Automation and review workflows, including sync, inbox, rules, and optional AI assistance
-5. Backend-operability follow-through across `json`, `sqlite`, and `postgres`, including multi-workspace migration and failure policy
+5. Backend-operability follow-through across `json`, `sqlite`, and `postgres`, including multi-workspace migration and failed-run reconciliation
