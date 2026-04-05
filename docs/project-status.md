@@ -51,6 +51,7 @@ This repository currently includes:
 - HTTP handler for workspace and dashboard reads plus core write routes
 - Node HTTP server adapter
 - runnable API bootstrap and local development server wiring
+- explicit development and production-oriented API runtime entry paths
 - service-layer logging around command execution and persistence
 - automatic demo workspace seeding for local `pnpm dev:api` startup
 
@@ -72,6 +73,7 @@ This repository currently includes:
 - regression-testing guidance that distinguishes unit, integration, and UI workflow coverage
 - structured logging package and logging standards
 - typed configuration and boundary error handling standard
+- documented API runtime operations for environment, startup mode, and shutdown behavior
 - CI and security quality gates
 - security baseline documentation and audited hardening for API/runtime boundaries
 
@@ -79,6 +81,7 @@ This repository currently includes:
 
 - formal workspace audit-event system for successful financial mutations
 - durable audit-event persistence in workspace documents
+- health checks, request correlation, and in-process request metrics for the API layer
 
 ### Security Foundation
 
@@ -93,19 +96,17 @@ This repository currently includes:
 
 ## Not Started
 
-- configuration and secret management standards
-- metrics, tracing, and health checks
+- configuration and secret management standards beyond the current API runtime baseline
 - import/export adapters for OFX, QFX, QIF, and GnuCash XML
 - reporting engine and close workflow
 - backup, migration, and restore strategy
 
 ## Recommended Next Sequence
 
-1. Add metrics, tracing, and health checks
-2. Add configuration and secret management operations
-3. Add import/export adapters for OFX, QFX, QIF, and GnuCash XML
-4. Add reporting engine and close workflow
-5. Add backup, migration, and restore strategy
+1. Extend configuration and secret management beyond the current API runtime baseline
+2. Add import/export adapters for OFX, QFX, QIF, and GnuCash XML
+3. Add reporting engine and close workflow
+4. Add backup, migration, and restore strategy
 
 ## Deferred Follow-Up
 

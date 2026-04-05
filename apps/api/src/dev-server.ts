@@ -1,10 +1,5 @@
-import { createApiRuntimeConfig } from "./config";
-import { ensureDemoWorkspaceFile } from "./dev-seed";
+import { runApiRuntimeFromCli } from "./runtime";
 
-const config = createApiRuntimeConfig(process.env);
-
-await ensureDemoWorkspaceFile({
-  dataDirectory: config.dataDirectory,
+await runApiRuntimeFromCli({
+  defaultRuntimeMode: "development",
 });
-
-await import("./server");

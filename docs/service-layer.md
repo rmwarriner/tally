@@ -17,6 +17,9 @@ Implemented pieces:
 - HTTP request handler for read and write routes
 - Node HTTP server adapter
 - structured service-layer logging
+- request correlation via `x-request-id` in the HTTP layer
+- liveness and readiness endpoints for API health checks
+- in-memory Prometheus-style request metrics exposed at `/metrics`
 - persistence of workspace mutations back to disk
 - web read integration for workspace and dashboard loading
 - web write integration for transaction posting, reconciliation, CSV import, budgets, envelopes, and schedules
@@ -25,6 +28,8 @@ Implemented pieces:
 - strict request schema validation for core write routes
 - auth, authorization, actor handling, body limits, security headers, and rate limiting at the HTTP boundary
 - local development seeding of the demo workspace for first-run UI review
+- explicit runtime modes for development and production-oriented startup
+- graceful HTTP server shutdown handling on `SIGINT` and `SIGTERM`
 
 ## Current Shape
 
@@ -46,6 +51,7 @@ Run:
 
 - `pnpm dev:api`
 - `pnpm dev:web`
+- `pnpm --filter @gnucash-ng/api start`
 
 Defaults:
 
@@ -59,18 +65,31 @@ When started through the repository root with `pnpm dev:api`, the default data d
 
 Supported environment variables:
 
+- `GNUCASH_NG_API_RUNTIME_MODE`
 - `GNUCASH_NG_API_HOST`
 - `GNUCASH_NG_API_PORT`
 - `GNUCASH_NG_DATA_DIR`
+- `GNUCASH_NG_API_SEED_DEMO_WORKSPACE`
+- `GNUCASH_NG_API_SHUTDOWN_TIMEOUT_MS`
 - `GNUCASH_NG_LOG_LEVEL`
+- `GNUCASH_NG_API_AUTH_TOKEN`
+- `GNUCASH_NG_API_AUTH_IDENTITIES`
+- `GNUCASH_NG_API_BODY_LIMIT_BYTES`
+- `GNUCASH_NG_API_RATE_LIMIT_WINDOW_MS`
+- `GNUCASH_NG_API_RATE_LIMIT_READS`
+- `GNUCASH_NG_API_RATE_LIMIT_MUTATIONS`
+- `GNUCASH_NG_API_RATE_LIMIT_IMPORTS`
 
 The web app proxies `/api` requests to `http://127.0.0.1:4000` during Vite development.
 On local development startup, the API seeds `workspace-household-demo.json` automatically if it is missing from the data directory.
+Production-oriented startup does not seed demo data and requires explicit auth configuration.
+
+See `docs/api-runtime-operations.md` for the current runtime-mode and deployment-facing guidance.
 
 ## Current Gaps
 
-- no production runtime/bootstrap script yet
-- no metrics or tracing
+- no durable metrics backend yet beyond in-process `/metrics`
+- no distributed tracing yet beyond request correlation ids in logs and responses
 - no external audit stream beyond workspace persistence
 - no OFX, QFX, QIF, or GnuCash XML adapters yet
 - no reporting or close workflow yet

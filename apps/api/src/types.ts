@@ -6,6 +6,7 @@ import type {
   Transaction,
 } from "@gnucash-ng/domain";
 import type { CsvImportRow, FinanceWorkspaceDocument } from "@gnucash-ng/workspace";
+import type { Logger } from "@gnucash-ng/logging";
 import type { AuthContext } from "./auth";
 import type { ErrorEnvelope } from "./errors";
 
@@ -16,24 +17,28 @@ export interface ServiceResponse<TBody> {
 
 export interface GetWorkspaceRequest {
   auth: AuthContext;
+  logger?: Logger;
   workspaceId: string;
 }
 
 export interface GetDashboardRequest {
   auth: AuthContext;
   from: string;
+  logger?: Logger;
   to: string;
   workspaceId: string;
 }
 
 export interface PostTransactionRequest {
   auth: AuthContext;
+  logger?: Logger;
   transaction: Transaction;
   workspaceId: string;
 }
 
 export interface UpdateTransactionRequest {
   auth: AuthContext;
+  logger?: Logger;
   transaction: Transaction;
   transactionId: string;
   workspaceId: string;
@@ -41,6 +46,7 @@ export interface UpdateTransactionRequest {
 
 export interface PostReconciliationRequest {
   auth: AuthContext;
+  logger?: Logger;
   payload: {
     accountId: string;
     clearedTransactionIds: string[];
@@ -54,29 +60,34 @@ export interface PostReconciliationRequest {
 export interface PostBaselineBudgetLineRequest {
   auth: AuthContext;
   line: BaselineBudgetLine;
+  logger?: Logger;
   workspaceId: string;
 }
 
 export interface PostEnvelopeRequest {
   auth: AuthContext;
   envelope: Envelope;
+  logger?: Logger;
   workspaceId: string;
 }
 
 export interface PostEnvelopeAllocationRequest {
   auth: AuthContext;
   allocation: EnvelopeAllocation;
+  logger?: Logger;
   workspaceId: string;
 }
 
 export interface PostScheduledTransactionRequest {
   auth: AuthContext;
+  logger?: Logger;
   schedule: ScheduledTransaction;
   workspaceId: string;
 }
 
 export interface ExecuteScheduledTransactionRequest {
   auth: AuthContext;
+  logger?: Logger;
   payload: {
     occurredOn: string;
     transactionId?: string;
@@ -87,6 +98,7 @@ export interface ExecuteScheduledTransactionRequest {
 
 export interface ApplyScheduledTransactionExceptionRequest {
   auth: AuthContext;
+  logger?: Logger;
   payload: {
     action: "defer" | "skip-next";
     effectiveOn?: string;
@@ -99,6 +111,7 @@ export interface ApplyScheduledTransactionExceptionRequest {
 
 export interface PostCsvImportRequest {
   auth: AuthContext;
+  logger?: Logger;
   payload: {
     batchId: string;
     importedAt: string;

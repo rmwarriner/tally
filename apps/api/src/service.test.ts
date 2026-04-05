@@ -136,6 +136,45 @@ describe("workspace service", () => {
     await fixture.cleanup();
   });
 
+  it("propagates request ids through service and repository logging", async () => {
+    const records: LogRecord[] = [];
+    const fixture = await createFixture();
+    const logger = createTestLogger(records);
+    const service = createWorkspaceService({
+      logger,
+      repository: createFileSystemWorkspaceRepository({
+        logger,
+        rootDirectory: fixture.directory,
+      }),
+    });
+
+    const response = await service.getWorkspace({
+      auth: { actor: "local-admin", kind: "local", role: "local-admin" },
+      logger: logger.child({ requestId: "req-service-123" }),
+      workspaceId: fixture.workspace.id,
+    });
+
+    expect(response.status).toBe(200);
+    expect(
+      records.some(
+        (record) =>
+          record.message === "service command started" &&
+          record.fields.requestId === "req-service-123" &&
+          record.fields.operation === "getWorkspace",
+      ),
+    ).toBe(true);
+    expect(
+      records.some(
+        (record) =>
+          record.message === "workspace storage load started" &&
+          record.fields.requestId === "req-service-123" &&
+          record.fields.workspaceId === fixture.workspace.id,
+      ),
+    ).toBe(true);
+
+    await fixture.cleanup();
+  });
+
   it("returns validation errors without persisting invalid transactions", async () => {
     const fixture = await createFixture();
     const service = createWorkspaceService({

@@ -8,8 +8,14 @@ This repository now treats runtime configuration and operational failures as typ
 
 - runtime environment values must be parsed into typed config before server startup
 - numeric operational limits must be validated as positive integers
+- boolean runtime toggles must be validated explicitly
+- runtime mode must be explicit and validated against supported values
 - malformed auth identity configuration must fail fast during bootstrap
 - non-loopback binding must be rejected unless explicit auth configuration exists
+- production runtime must require explicit auth configuration
+- production runtime must reject demo workspace seeding
+
+See `docs/api-runtime-operations.md` for the current API runtime variables and startup modes.
 
 ## Error Handling Standard
 

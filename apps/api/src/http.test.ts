@@ -40,6 +40,78 @@ describe("api http transport", () => {
 
     expect(response.status).toBe(200);
     expect(body.workspace.id).toBe(fixture.workspace.id);
+    expect(response.headers.get("x-request-id")).toBeTruthy();
+
+    await fixture.cleanup();
+  });
+
+  it("serves unauthenticated health checks over HTTP", async () => {
+    const fixture = await createFixture();
+    const service = createWorkspaceService({
+      repository: createFileSystemWorkspaceRepository({ rootDirectory: fixture.directory }),
+    });
+    const handler = createHttpHandler({
+      authIdentities: [{ actor: "Primary", role: "member", token: "top-secret" }],
+      service,
+    });
+
+    const live = await handler(new Request("http://localhost/health/live"));
+    const ready = await handler(new Request("http://localhost/health/ready"));
+
+    expect(live.status).toBe(200);
+    expect(await live.json()).toEqual({
+      service: "api",
+      status: "ok",
+    });
+
+    expect(ready.status).toBe(200);
+    expect(await ready.json()).toEqual({
+      service: "api",
+      status: "ready",
+    });
+
+    await fixture.cleanup();
+  });
+
+  it("serves request metrics over HTTP", async () => {
+    const fixture = await createFixture();
+    const service = createWorkspaceService({
+      repository: createFileSystemWorkspaceRepository({ rootDirectory: fixture.directory }),
+    });
+    const handler = createHttpHandler({
+      authIdentities: [{ actor: "Primary", role: "member", token: "top-secret" }],
+      service,
+    });
+
+    await handler(
+      new Request(`http://localhost/api/workspaces/${fixture.workspace.id}`, {
+        headers: {
+          authorization: "Bearer top-secret",
+        },
+      }),
+    );
+
+    await handler(new Request("http://localhost/api/unknown"));
+
+    const metricsResponse = await handler(new Request("http://localhost/metrics"));
+    const body = await metricsResponse.text();
+
+    expect(metricsResponse.status).toBe(200);
+    expect(metricsResponse.headers.get("content-type")).toContain("text/plain");
+    expect(metricsResponse.headers.get("x-request-id")).toBeTruthy();
+    expect(body).toContain("# HELP gnucash_ng_http_requests_total");
+    expect(body).toContain(
+      'gnucash_ng_http_requests_total{method="GET",route="/api/workspaces/:workspaceId",status="200"} 1',
+    );
+    expect(body).toContain(
+      'gnucash_ng_http_requests_total{method="GET",route="/api/unknown",status="401"} 1',
+    );
+    expect(body).toContain(
+      'gnucash_ng_http_request_failures_total{method="GET",route="/api/unknown",status="401"} 1',
+    );
+    expect(body).toContain(
+      'gnucash_ng_http_request_duration_ms_count{method="GET",route="/api/workspaces/:workspaceId"} 1',
+    );
 
     await fixture.cleanup();
   });
@@ -673,6 +745,27 @@ describe("api http transport", () => {
     expect(response.headers.get("x-content-type-options")).toBe("nosniff");
     expect(response.headers.get("x-frame-options")).toBe("DENY");
     expect(response.headers.get("content-security-policy")).toContain("default-src 'none'");
+    expect(response.headers.get("x-request-id")).toBeTruthy();
+
+    await fixture.cleanup();
+  });
+
+  it("echoes caller-supplied request ids on responses", async () => {
+    const fixture = await createFixture();
+    const service = createWorkspaceService({
+      repository: createFileSystemWorkspaceRepository({ rootDirectory: fixture.directory }),
+    });
+    const handler = createHttpHandler({ service });
+
+    const response = await handler(
+      new Request(`http://localhost/api/workspaces/${fixture.workspace.id}`, {
+        headers: {
+          "x-request-id": "req-test-123",
+        },
+      }),
+    );
+
+    expect(response.headers.get("x-request-id")).toBe("req-test-123");
 
     await fixture.cleanup();
   });

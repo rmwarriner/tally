@@ -70,6 +70,11 @@ Responsibilities:
 - `apps/api` or `packages/server`
   Service boundary for persistence, commands, imports, audit, and sync preparation
 
+### Stack Review Notes
+
+- Rust is a possible future backend/runtime option, but it is not the current recommendation for the API layer.
+- See `docs/rust-api-reassessment.md` for the conditions that would justify revisiting that decision.
+
 ## Data Strategy
 
 - The ledger remains the system of record.

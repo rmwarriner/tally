@@ -1,7 +1,9 @@
+import { randomUUID } from "node:crypto";
 import { createServer, type IncomingMessage, type ServerResponse } from "node:http";
 import { createNoopLogger, type Logger } from "@gnucash-ng/logging";
 import { resolveAuthContext, type AuthIdentity } from "./auth";
 import { ApiError, toErrorEnvelope } from "./errors";
+import { createInMemoryApiMetrics, type ApiMetrics } from "./metrics";
 import { createInMemoryRateLimiter, type RateLimiter, type RateLimitPolicy } from "./rate-limit";
 import type { WorkspaceService } from "./service";
 import {
@@ -33,6 +35,89 @@ function jsonResponse(status: number, body: unknown, extraHeaders: Record<string
   });
 }
 
+function textResponse(
+  status: number,
+  body: string,
+  extraHeaders: Record<string, string> = {},
+): Response {
+  return new Response(body, {
+    headers: {
+      "cache-control": "no-store",
+      "content-security-policy": "default-src 'none'; frame-ancestors 'none'; base-uri 'none'",
+      "content-type": "text/plain; version=0.0.4; charset=utf-8",
+      "referrer-policy": "no-referrer",
+      "x-content-type-options": "nosniff",
+      "x-frame-options": "DENY",
+      ...extraHeaders,
+    },
+    status,
+  });
+}
+
+function normalizeRouteLabel(method: string, path: string): string {
+  if (method === "GET" && path === "/health/live") {
+    return "/health/live";
+  }
+
+  if (method === "GET" && path === "/health/ready") {
+    return "/health/ready";
+  }
+
+  if (method === "GET" && path === "/metrics") {
+    return "/metrics";
+  }
+
+  if (/^\/api\/workspaces\/[^/]+$/.test(path)) {
+    return "/api/workspaces/:workspaceId";
+  }
+
+  if (/^\/api\/workspaces\/[^/]+\/dashboard$/.test(path)) {
+    return "/api/workspaces/:workspaceId/dashboard";
+  }
+
+  if (/^\/api\/workspaces\/[^/]+\/transactions$/.test(path)) {
+    return "/api/workspaces/:workspaceId/transactions";
+  }
+
+  if (/^\/api\/workspaces\/[^/]+\/transactions\/[^/]+$/.test(path)) {
+    return "/api/workspaces/:workspaceId/transactions/:transactionId";
+  }
+
+  if (/^\/api\/workspaces\/[^/]+\/budget-lines$/.test(path)) {
+    return "/api/workspaces/:workspaceId/budget-lines";
+  }
+
+  if (/^\/api\/workspaces\/[^/]+\/envelopes$/.test(path)) {
+    return "/api/workspaces/:workspaceId/envelopes";
+  }
+
+  if (/^\/api\/workspaces\/[^/]+\/envelope-allocations$/.test(path)) {
+    return "/api/workspaces/:workspaceId/envelope-allocations";
+  }
+
+  if (/^\/api\/workspaces\/[^/]+\/reconciliations$/.test(path)) {
+    return "/api/workspaces/:workspaceId/reconciliations";
+  }
+
+  if (/^\/api\/workspaces\/[^/]+\/schedules$/.test(path)) {
+    return "/api/workspaces/:workspaceId/schedules";
+  }
+
+  if (/^\/api\/workspaces\/[^/]+\/schedules\/[^/]+\/execute$/.test(path)) {
+    return "/api/workspaces/:workspaceId/schedules/:scheduleId/execute";
+  }
+
+  if (/^\/api\/workspaces\/[^/]+\/schedules\/[^/]+\/exceptions$/.test(path)) {
+    return "/api/workspaces/:workspaceId/schedules/:scheduleId/exceptions";
+  }
+
+  if (/^\/api\/workspaces\/[^/]+\/imports\/csv$/.test(path)) {
+    return "/api/workspaces/:workspaceId/imports/csv";
+  }
+
+  return path;
+}
+
 async function parseJsonBody(request: Request, maxBodyBytes: number): Promise<unknown> {
   try {
     const text = await request.text();
@@ -51,6 +136,7 @@ export function createHttpHandler(params: {
   authIdentities?: AuthIdentity[];
   logger?: Logger;
   maxBodyBytes?: number;
+  metrics?: ApiMetrics;
   rateLimiter?: RateLimiter;
   rateLimitPolicy?: {
     import: RateLimitPolicy;
@@ -63,6 +149,7 @@ export function createHttpHandler(params: {
   const authIdentities = params.authIdentities ?? [];
   const maxBodyBytes = params.maxBodyBytes ?? 1048576;
   const authRequired = authIdentities.length > 0;
+  const metrics = params.metrics ?? createInMemoryApiMetrics();
   const rateLimiter = params.rateLimiter ?? createInMemoryRateLimiter();
   const rateLimitPolicy = params.rateLimitPolicy ?? {
     import: { keyPrefix: "import", limit: 10, windowMs: 60000 },
@@ -110,11 +197,68 @@ export function createHttpHandler(params: {
   return async function handle(request: Request): Promise<Response> {
     const url = new URL(request.url);
     const path = url.pathname.replace(/\/+$/, "");
+    const route = normalizeRouteLabel(request.method, path);
+    const startedAt = Date.now();
+    const requestId = request.headers.get("x-request-id")?.trim() || randomUUID();
     const requestLogger = logger.child({
       method: request.method,
       path,
+      requestId,
+      route,
     });
     requestLogger.info("http request started");
+
+    function complete(status: number): void {
+      const durationMs = Date.now() - startedAt;
+
+      metrics.recordRequest({
+        durationMs,
+        method: request.method,
+        route,
+        status,
+      });
+
+      requestLogger.info("http request completed", {
+        durationMs,
+        status,
+      });
+    }
+
+    function completeJsonResponse(status: number, body: unknown, extraHeaders: Record<string, string> = {}): Response {
+      complete(status);
+
+      return jsonResponse(status, body, {
+        "x-request-id": requestId,
+        ...extraHeaders,
+      });
+    }
+
+    function completeTextResponse(status: number, body: string, extraHeaders: Record<string, string> = {}): Response {
+      complete(status);
+
+      return textResponse(status, body, {
+        "x-request-id": requestId,
+        ...extraHeaders,
+      });
+    }
+
+    if (request.method === "GET" && path === "/health/live") {
+      return completeJsonResponse(200, {
+        service: "api",
+        status: "ok",
+      });
+    }
+
+    if (request.method === "GET" && path === "/health/ready") {
+      return completeJsonResponse(200, {
+        service: "api",
+        status: "ready",
+      });
+    }
+
+    if (request.method === "GET" && path === "/metrics") {
+      return completeTextResponse(200, metrics.renderPrometheus());
+    }
 
     const auth = resolveAuthContext({
       apiKeyHeader: request.headers.get("x-gnucash-ng-api-key"),
@@ -125,7 +269,7 @@ export function createHttpHandler(params: {
 
     if (!auth.ok || !auth.context) {
       requestLogger.warn("http request authentication failed");
-      return jsonResponse(
+      return completeJsonResponse(
         401,
         toErrorEnvelope(
           new ApiError({
@@ -147,13 +291,17 @@ export function createHttpHandler(params: {
         const rateLimited = enforceRateLimit(requestKey, rateLimitPolicy.read, requestLogger);
 
         if (rateLimited) {
-          return rateLimited;
+          return completeJsonResponse(
+            rateLimited.status,
+            await rateLimited.json(),
+            Object.fromEntries(rateLimited.headers.entries()),
+          );
         }
 
         const workspaceId = decodeURIComponent(workspaceMatch[1]);
 
         if (!isSafeWorkspaceId(workspaceId)) {
-          return jsonResponse(
+          return completeJsonResponse(
             400,
             toErrorEnvelope(
               new ApiError({
@@ -167,17 +315,21 @@ export function createHttpHandler(params: {
 
         const response = await params.service.getWorkspace({
           auth: auth.context,
+          logger: requestLogger,
           workspaceId,
         });
-        requestLogger.info("http request completed", { status: response.status });
-        return jsonResponse(response.status, response.body);
+        return completeJsonResponse(response.status, response.body);
       }
 
       if (dashboardMatch) {
         const rateLimited = enforceRateLimit(requestKey, rateLimitPolicy.read, requestLogger);
 
         if (rateLimited) {
-          return rateLimited;
+          return completeJsonResponse(
+            rateLimited.status,
+            await rateLimited.json(),
+            Object.fromEntries(rateLimited.headers.entries()),
+          );
         }
 
         const workspaceId = decodeURIComponent(dashboardMatch[1]);
@@ -185,7 +337,7 @@ export function createHttpHandler(params: {
         const to = url.searchParams.get("to");
 
         if (!isSafeWorkspaceId(workspaceId)) {
-          return jsonResponse(
+          return completeJsonResponse(
             400,
             toErrorEnvelope(
               new ApiError({
@@ -201,7 +353,7 @@ export function createHttpHandler(params: {
           requestLogger.warn("http request validation failed", {
             errors: ["Dashboard requests require valid ISO from and to query parameters."],
           });
-          return jsonResponse(
+          return completeJsonResponse(
             400,
             toErrorEnvelope(
               new ApiError({
@@ -216,11 +368,11 @@ export function createHttpHandler(params: {
         const response = await params.service.getDashboard({
           auth: auth.context,
           from,
+          logger: requestLogger,
           to,
           workspaceId,
         });
-        requestLogger.info("http request completed", { status: response.status });
-        return jsonResponse(response.status, response.body);
+        return completeJsonResponse(response.status, response.body);
       }
     }
 
@@ -239,7 +391,7 @@ export function createHttpHandler(params: {
         requestLogger.warn("http request validation failed", {
           errors: ["POST requests must use application/json."],
         });
-        return jsonResponse(
+        return completeJsonResponse(
           415,
           toErrorEnvelope(
             new ApiError({
@@ -255,7 +407,7 @@ export function createHttpHandler(params: {
 
       if (body === Symbol.for("body-too-large")) {
         requestLogger.warn("http request rejected for size limit");
-        return jsonResponse(
+        return completeJsonResponse(
           413,
           toErrorEnvelope(
             new ApiError({
@@ -271,7 +423,7 @@ export function createHttpHandler(params: {
         requestLogger.warn("http request validation failed", {
           errors: ["Request body must be valid JSON."],
         });
-        return jsonResponse(
+        return completeJsonResponse(
           400,
           toErrorEnvelope(
             new ApiError({
@@ -287,13 +439,17 @@ export function createHttpHandler(params: {
         const rateLimited = enforceRateLimit(requestKey, rateLimitPolicy.mutation, requestLogger);
 
         if (rateLimited) {
-          return rateLimited;
+          return completeJsonResponse(
+            rateLimited.status,
+            await rateLimited.json(),
+            Object.fromEntries(rateLimited.headers.entries()),
+          );
         }
 
         const workspaceId = decodeURIComponent(transactionMatch[1]);
 
         if (!isSafeWorkspaceId(workspaceId)) {
-          return jsonResponse(
+          return completeJsonResponse(
             400,
             toErrorEnvelope(
               new ApiError({
@@ -309,7 +465,7 @@ export function createHttpHandler(params: {
 
         if (payload.errors.length > 0 || !payload.value) {
           requestLogger.warn("http request validation failed", { errors: payload.errors });
-          return jsonResponse(
+          return completeJsonResponse(
             400,
             toErrorEnvelope(
               new ApiError({
@@ -324,24 +480,28 @@ export function createHttpHandler(params: {
 
         const response = await params.service.postTransaction({
           auth: auth.context,
+          logger: requestLogger,
           transaction: payload.value.transaction,
           workspaceId,
         });
-        requestLogger.info("http request completed", { status: response.status });
-        return jsonResponse(response.status, response.body);
+        return completeJsonResponse(response.status, response.body);
       }
 
       if (budgetLineMatch) {
         const rateLimited = enforceRateLimit(requestKey, rateLimitPolicy.mutation, requestLogger);
 
         if (rateLimited) {
-          return rateLimited;
+          return completeJsonResponse(
+            rateLimited.status,
+            await rateLimited.json(),
+            Object.fromEntries(rateLimited.headers.entries()),
+          );
         }
 
         const workspaceId = decodeURIComponent(budgetLineMatch[1]);
 
         if (!isSafeWorkspaceId(workspaceId)) {
-          return jsonResponse(
+          return completeJsonResponse(
             400,
             toErrorEnvelope(
               new ApiError({
@@ -357,7 +517,7 @@ export function createHttpHandler(params: {
 
         if (payload.errors.length > 0 || !payload.value) {
           requestLogger.warn("http request validation failed", { errors: payload.errors });
-          return jsonResponse(
+          return completeJsonResponse(
             400,
             toErrorEnvelope(
               new ApiError({
@@ -373,23 +533,27 @@ export function createHttpHandler(params: {
         const response = await params.service.postBaselineBudgetLine({
           auth: auth.context,
           line: payload.value.line,
+          logger: requestLogger,
           workspaceId,
         });
-        requestLogger.info("http request completed", { status: response.status });
-        return jsonResponse(response.status, response.body);
+        return completeJsonResponse(response.status, response.body);
       }
 
       if (envelopeMatch) {
         const rateLimited = enforceRateLimit(requestKey, rateLimitPolicy.mutation, requestLogger);
 
         if (rateLimited) {
-          return rateLimited;
+          return completeJsonResponse(
+            rateLimited.status,
+            await rateLimited.json(),
+            Object.fromEntries(rateLimited.headers.entries()),
+          );
         }
 
         const workspaceId = decodeURIComponent(envelopeMatch[1]);
 
         if (!isSafeWorkspaceId(workspaceId)) {
-          return jsonResponse(
+          return completeJsonResponse(
             400,
             toErrorEnvelope(
               new ApiError({
@@ -405,7 +569,7 @@ export function createHttpHandler(params: {
 
         if (payload.errors.length > 0 || !payload.value) {
           requestLogger.warn("http request validation failed", { errors: payload.errors });
-          return jsonResponse(
+          return completeJsonResponse(
             400,
             toErrorEnvelope(
               new ApiError({
@@ -421,23 +585,27 @@ export function createHttpHandler(params: {
         const response = await params.service.postEnvelope({
           auth: auth.context,
           envelope: payload.value.envelope,
+          logger: requestLogger,
           workspaceId,
         });
-        requestLogger.info("http request completed", { status: response.status });
-        return jsonResponse(response.status, response.body);
+        return completeJsonResponse(response.status, response.body);
       }
 
       if (envelopeAllocationMatch) {
         const rateLimited = enforceRateLimit(requestKey, rateLimitPolicy.mutation, requestLogger);
 
         if (rateLimited) {
-          return rateLimited;
+          return completeJsonResponse(
+            rateLimited.status,
+            await rateLimited.json(),
+            Object.fromEntries(rateLimited.headers.entries()),
+          );
         }
 
         const workspaceId = decodeURIComponent(envelopeAllocationMatch[1]);
 
         if (!isSafeWorkspaceId(workspaceId)) {
-          return jsonResponse(
+          return completeJsonResponse(
             400,
             toErrorEnvelope(
               new ApiError({
@@ -453,7 +621,7 @@ export function createHttpHandler(params: {
 
         if (payload.errors.length > 0 || !payload.value) {
           requestLogger.warn("http request validation failed", { errors: payload.errors });
-          return jsonResponse(
+          return completeJsonResponse(
             400,
             toErrorEnvelope(
               new ApiError({
@@ -469,23 +637,27 @@ export function createHttpHandler(params: {
         const response = await params.service.postEnvelopeAllocation({
           allocation: payload.value.allocation,
           auth: auth.context,
+          logger: requestLogger,
           workspaceId,
         });
-        requestLogger.info("http request completed", { status: response.status });
-        return jsonResponse(response.status, response.body);
+        return completeJsonResponse(response.status, response.body);
       }
 
       if (reconciliationMatch) {
         const rateLimited = enforceRateLimit(requestKey, rateLimitPolicy.mutation, requestLogger);
 
         if (rateLimited) {
-          return rateLimited;
+          return completeJsonResponse(
+            rateLimited.status,
+            await rateLimited.json(),
+            Object.fromEntries(rateLimited.headers.entries()),
+          );
         }
 
         const workspaceId = decodeURIComponent(reconciliationMatch[1]);
 
         if (!isSafeWorkspaceId(workspaceId)) {
-          return jsonResponse(
+          return completeJsonResponse(
             400,
             toErrorEnvelope(
               new ApiError({
@@ -501,7 +673,7 @@ export function createHttpHandler(params: {
 
         if (payload.errors.length > 0 || !payload.value) {
           requestLogger.warn("http request validation failed", { errors: payload.errors });
-          return jsonResponse(
+          return completeJsonResponse(
             400,
             toErrorEnvelope(
               new ApiError({
@@ -516,24 +688,28 @@ export function createHttpHandler(params: {
 
         const response = await params.service.postReconciliation({
           auth: auth.context,
+          logger: requestLogger,
           payload: payload.value.payload,
           workspaceId,
         });
-        requestLogger.info("http request completed", { status: response.status });
-        return jsonResponse(response.status, response.body);
+        return completeJsonResponse(response.status, response.body);
       }
 
       if (scheduleMatch) {
         const rateLimited = enforceRateLimit(requestKey, rateLimitPolicy.mutation, requestLogger);
 
         if (rateLimited) {
-          return rateLimited;
+          return completeJsonResponse(
+            rateLimited.status,
+            await rateLimited.json(),
+            Object.fromEntries(rateLimited.headers.entries()),
+          );
         }
 
         const workspaceId = decodeURIComponent(scheduleMatch[1]);
 
         if (!isSafeWorkspaceId(workspaceId)) {
-          return jsonResponse(
+          return completeJsonResponse(
             400,
             toErrorEnvelope(
               new ApiError({
@@ -549,7 +725,7 @@ export function createHttpHandler(params: {
 
         if (payload.errors.length > 0 || !payload.value) {
           requestLogger.warn("http request validation failed", { errors: payload.errors });
-          return jsonResponse(
+          return completeJsonResponse(
             400,
             toErrorEnvelope(
               new ApiError({
@@ -564,25 +740,29 @@ export function createHttpHandler(params: {
 
         const response = await params.service.postScheduledTransaction({
           auth: auth.context,
+          logger: requestLogger,
           schedule: payload.value.schedule,
           workspaceId,
         });
-        requestLogger.info("http request completed", { status: response.status });
-        return jsonResponse(response.status, response.body);
+        return completeJsonResponse(response.status, response.body);
       }
 
       if (executeScheduleMatch) {
         const rateLimited = enforceRateLimit(requestKey, rateLimitPolicy.mutation, requestLogger);
 
         if (rateLimited) {
-          return rateLimited;
+          return completeJsonResponse(
+            rateLimited.status,
+            await rateLimited.json(),
+            Object.fromEntries(rateLimited.headers.entries()),
+          );
         }
 
         const workspaceId = decodeURIComponent(executeScheduleMatch[1]);
         const scheduleId = decodeURIComponent(executeScheduleMatch[2]);
 
         if (!isSafeWorkspaceId(workspaceId) || !/^[a-zA-Z0-9:_-]+$/.test(scheduleId)) {
-          return jsonResponse(
+          return completeJsonResponse(
             400,
             toErrorEnvelope(
               new ApiError({
@@ -598,7 +778,7 @@ export function createHttpHandler(params: {
 
         if (!payload.value || payload.errors) {
           requestLogger.warn("http request validation failed", { errors: payload.errors });
-          return jsonResponse(
+          return completeJsonResponse(
             400,
             toErrorEnvelope(
               new ApiError({
@@ -613,26 +793,30 @@ export function createHttpHandler(params: {
 
         const response = await params.service.executeScheduledTransaction({
           auth: auth.context,
+          logger: requestLogger,
           payload: payload.value.payload,
           scheduleId,
           workspaceId,
         });
-        requestLogger.info("http request completed", { status: response.status });
-        return jsonResponse(response.status, response.body);
+        return completeJsonResponse(response.status, response.body);
       }
 
       if (exceptionScheduleMatch) {
         const rateLimited = enforceRateLimit(requestKey, rateLimitPolicy.mutation, requestLogger);
 
         if (rateLimited) {
-          return rateLimited;
+          return completeJsonResponse(
+            rateLimited.status,
+            await rateLimited.json(),
+            Object.fromEntries(rateLimited.headers.entries()),
+          );
         }
 
         const workspaceId = decodeURIComponent(exceptionScheduleMatch[1]);
         const scheduleId = decodeURIComponent(exceptionScheduleMatch[2]);
 
         if (!isSafeWorkspaceId(workspaceId) || !/^[a-zA-Z0-9:_-]+$/.test(scheduleId)) {
-          return jsonResponse(
+          return completeJsonResponse(
             400,
             toErrorEnvelope(
               new ApiError({
@@ -648,7 +832,7 @@ export function createHttpHandler(params: {
 
         if (!payload.value || payload.errors) {
           requestLogger.warn("http request validation failed", { errors: payload.errors });
-          return jsonResponse(
+          return completeJsonResponse(
             400,
             toErrorEnvelope(
               new ApiError({
@@ -663,25 +847,29 @@ export function createHttpHandler(params: {
 
         const response = await params.service.applyScheduledTransactionException({
           auth: auth.context,
+          logger: requestLogger,
           payload: payload.value.payload,
           scheduleId,
           workspaceId,
         });
-        requestLogger.info("http request completed", { status: response.status });
-        return jsonResponse(response.status, response.body);
+        return completeJsonResponse(response.status, response.body);
       }
 
       if (csvImportMatch) {
         const rateLimited = enforceRateLimit(requestKey, rateLimitPolicy.import, requestLogger);
 
         if (rateLimited) {
-          return rateLimited;
+          return completeJsonResponse(
+            rateLimited.status,
+            await rateLimited.json(),
+            Object.fromEntries(rateLimited.headers.entries()),
+          );
         }
 
         const workspaceId = decodeURIComponent(csvImportMatch[1]);
 
         if (!isSafeWorkspaceId(workspaceId)) {
-          return jsonResponse(
+          return completeJsonResponse(
             400,
             toErrorEnvelope(
               new ApiError({
@@ -697,7 +885,7 @@ export function createHttpHandler(params: {
 
         if (payload.errors.length > 0 || !payload.value) {
           requestLogger.warn("http request validation failed", { errors: payload.errors });
-          return jsonResponse(
+          return completeJsonResponse(
             400,
             toErrorEnvelope(
               new ApiError({
@@ -712,11 +900,11 @@ export function createHttpHandler(params: {
 
         const response = await params.service.postCsvImport({
           auth: auth.context,
+          logger: requestLogger,
           payload: payload.value.payload,
           workspaceId,
         });
-        requestLogger.info("http request completed", { status: response.status });
-        return jsonResponse(response.status, response.body);
+        return completeJsonResponse(response.status, response.body);
       }
     }
 
@@ -727,7 +915,7 @@ export function createHttpHandler(params: {
         requestLogger.warn("http request validation failed", {
           errors: ["PUT requests must use application/json."],
         });
-        return jsonResponse(
+        return completeJsonResponse(
           415,
           toErrorEnvelope(
             new ApiError({
@@ -743,7 +931,7 @@ export function createHttpHandler(params: {
 
       if (body === Symbol.for("body-too-large")) {
         requestLogger.warn("http request rejected for size limit");
-        return jsonResponse(
+        return completeJsonResponse(
           413,
           toErrorEnvelope(
             new ApiError({
@@ -759,7 +947,7 @@ export function createHttpHandler(params: {
         requestLogger.warn("http request validation failed", {
           errors: ["Request body must be valid JSON."],
         });
-        return jsonResponse(
+        return completeJsonResponse(
           400,
           toErrorEnvelope(
             new ApiError({
@@ -775,14 +963,18 @@ export function createHttpHandler(params: {
         const rateLimited = enforceRateLimit(requestKey, rateLimitPolicy.mutation, requestLogger);
 
         if (rateLimited) {
-          return rateLimited;
+          return completeJsonResponse(
+            rateLimited.status,
+            await rateLimited.json(),
+            Object.fromEntries(rateLimited.headers.entries()),
+          );
         }
 
         const workspaceId = decodeURIComponent(transactionMatch[1]);
         const transactionId = decodeURIComponent(transactionMatch[2]);
 
         if (!isSafeWorkspaceId(workspaceId) || !/^[a-zA-Z0-9:_-]+$/.test(transactionId)) {
-          return jsonResponse(
+          return completeJsonResponse(
             400,
             toErrorEnvelope(
               new ApiError({
@@ -798,7 +990,7 @@ export function createHttpHandler(params: {
 
         if (payload.errors.length > 0 || !payload.value) {
           requestLogger.warn("http request validation failed", { errors: payload.errors });
-          return jsonResponse(
+          return completeJsonResponse(
             400,
             toErrorEnvelope(
               new ApiError({
@@ -813,17 +1005,17 @@ export function createHttpHandler(params: {
 
         const response = await params.service.updateTransaction({
           auth: auth.context,
+          logger: requestLogger,
           transaction: payload.value.transaction,
           transactionId,
           workspaceId,
         });
-        requestLogger.info("http request completed", { status: response.status });
-        return jsonResponse(response.status, response.body);
+        return completeJsonResponse(response.status, response.body);
       }
     }
 
     requestLogger.warn("http request route not found");
-    return jsonResponse(
+    return completeJsonResponse(
       404,
       toErrorEnvelope(
         new ApiError({

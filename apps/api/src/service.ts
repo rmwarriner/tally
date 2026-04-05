@@ -84,24 +84,28 @@ export function createWorkspaceService(params: {
 }): WorkspaceService {
   const logger = (params.logger ?? createNoopLogger()).child({ component: "workspaceService" });
 
-  async function loadWorkspace(workspaceId: string): Promise<FinanceWorkspaceDocument> {
-    return params.repository.load(workspaceId);
+  function getRequestLogger(requestLogger?: Logger): Logger {
+    return requestLogger ?? logger;
   }
 
-  async function saveWorkspace(document: FinanceWorkspaceDocument): Promise<void> {
-    await params.repository.save(document);
+  async function loadWorkspace(workspaceId: string, requestLogger?: Logger): Promise<FinanceWorkspaceDocument> {
+    return params.repository.load(workspaceId, { logger: getRequestLogger(requestLogger) });
+  }
+
+  async function saveWorkspace(document: FinanceWorkspaceDocument, requestLogger?: Logger): Promise<void> {
+    await params.repository.save(document, { logger: getRequestLogger(requestLogger) });
   }
 
   return {
     async getWorkspace(request) {
-      const requestLogger = logger.child({
+      const requestLogger = getRequestLogger(request.logger).child({
         operation: "getWorkspace",
         workspaceId: request.workspaceId,
       });
       requestLogger.info("service command started");
 
       try {
-        const workspace = await loadWorkspace(request.workspaceId);
+        const workspace = await loadWorkspace(request.workspaceId, requestLogger);
         const authorization = authorizeWorkspaceAccess(workspace, request.auth, "read");
 
         if (!authorization.ok) {
@@ -128,7 +132,7 @@ export function createWorkspaceService(params: {
     },
 
     async getDashboard(request) {
-      const requestLogger = logger.child({
+      const requestLogger = getRequestLogger(request.logger).child({
         from: request.from,
         operation: "getDashboard",
         to: request.to,
@@ -137,7 +141,7 @@ export function createWorkspaceService(params: {
       requestLogger.info("service command started");
 
       try {
-        const workspace = await loadWorkspace(request.workspaceId);
+        const workspace = await loadWorkspace(request.workspaceId, requestLogger);
         const authorization = authorizeWorkspaceAccess(workspace, request.auth, "read");
 
         if (!authorization.ok) {
@@ -168,7 +172,7 @@ export function createWorkspaceService(params: {
     },
 
     async postTransaction(request) {
-      const requestLogger = logger.child({
+      const requestLogger = getRequestLogger(request.logger).child({
         operation: "postTransaction",
         transactionId: request.transaction.id,
         workspaceId: request.workspaceId,
@@ -176,7 +180,7 @@ export function createWorkspaceService(params: {
       requestLogger.info("service command started");
 
       try {
-        const workspace = await loadWorkspace(request.workspaceId);
+        const workspace = await loadWorkspace(request.workspaceId, requestLogger);
         const authorization = authorizeWorkspaceAccess(workspace, request.auth, "write");
 
         if (!authorization.ok) {
@@ -208,7 +212,7 @@ export function createWorkspaceService(params: {
           );
         }
 
-        await saveWorkspace(result.document);
+        await saveWorkspace(result.document, requestLogger);
         requestLogger.info("service command completed");
         return success(201, { workspace: result.document });
       } catch (error) {
@@ -222,7 +226,7 @@ export function createWorkspaceService(params: {
     },
 
     async updateTransaction(request) {
-      const requestLogger = logger.child({
+      const requestLogger = getRequestLogger(request.logger).child({
         operation: "updateTransaction",
         transactionId: request.transactionId,
         workspaceId: request.workspaceId,
@@ -230,7 +234,7 @@ export function createWorkspaceService(params: {
       requestLogger.info("service command started");
 
       try {
-        const workspace = await loadWorkspace(request.workspaceId);
+        const workspace = await loadWorkspace(request.workspaceId, requestLogger);
         const authorization = authorizeWorkspaceAccess(workspace, request.auth, "write");
 
         if (!authorization.ok) {
@@ -263,7 +267,7 @@ export function createWorkspaceService(params: {
           );
         }
 
-        await saveWorkspace(result.document);
+        await saveWorkspace(result.document, requestLogger);
         requestLogger.info("service command completed");
         return success(200, { workspace: result.document });
       } catch (error) {
@@ -277,7 +281,7 @@ export function createWorkspaceService(params: {
     },
 
     async executeScheduledTransaction(request) {
-      const requestLogger = logger.child({
+      const requestLogger = getRequestLogger(request.logger).child({
         occurredOn: request.payload.occurredOn,
         operation: "executeScheduledTransaction",
         scheduleId: request.scheduleId,
@@ -286,7 +290,7 @@ export function createWorkspaceService(params: {
       requestLogger.info("service command started");
 
       try {
-        const workspace = await loadWorkspace(request.workspaceId);
+        const workspace = await loadWorkspace(request.workspaceId, requestLogger);
         const authorization = authorizeWorkspaceAccess(workspace, request.auth, "write");
 
         if (!authorization.ok) {
@@ -327,7 +331,7 @@ export function createWorkspaceService(params: {
           );
         }
 
-        await saveWorkspace(result.document);
+        await saveWorkspace(result.document, requestLogger);
         requestLogger.info("service command completed");
         return success(201, { workspace: result.document });
       } catch (error) {
@@ -341,7 +345,7 @@ export function createWorkspaceService(params: {
     },
 
     async applyScheduledTransactionException(request) {
-      const requestLogger = logger.child({
+      const requestLogger = getRequestLogger(request.logger).child({
         action: request.payload.action,
         operation: "applyScheduledTransactionException",
         scheduleId: request.scheduleId,
@@ -350,7 +354,7 @@ export function createWorkspaceService(params: {
       requestLogger.info("service command started");
 
       try {
-        const workspace = await loadWorkspace(request.workspaceId);
+        const workspace = await loadWorkspace(request.workspaceId, requestLogger);
         const authorization = authorizeWorkspaceAccess(workspace, request.auth, "write");
 
         if (!authorization.ok) {
@@ -393,7 +397,7 @@ export function createWorkspaceService(params: {
           );
         }
 
-        await saveWorkspace(result.document);
+        await saveWorkspace(result.document, requestLogger);
         requestLogger.info("service command completed");
         return success(200, { workspace: result.document });
       } catch (error) {
@@ -407,7 +411,7 @@ export function createWorkspaceService(params: {
     },
 
     async postReconciliation(request) {
-      const requestLogger = logger.child({
+      const requestLogger = getRequestLogger(request.logger).child({
         accountId: request.payload.accountId,
         operation: "postReconciliation",
         workspaceId: request.workspaceId,
@@ -415,7 +419,7 @@ export function createWorkspaceService(params: {
       requestLogger.info("service command started");
 
       try {
-        const workspace = await loadWorkspace(request.workspaceId);
+        const workspace = await loadWorkspace(request.workspaceId, requestLogger);
         const authorization = authorizeWorkspaceAccess(workspace, request.auth, "write");
 
         if (!authorization.ok) {
@@ -447,7 +451,7 @@ export function createWorkspaceService(params: {
           );
         }
 
-        await saveWorkspace(result.document);
+        await saveWorkspace(result.document, requestLogger);
         requestLogger.info("service command completed", { warnings: result.errors });
         return success(200, { workspace: result.document });
       } catch (error) {
@@ -461,7 +465,7 @@ export function createWorkspaceService(params: {
     },
 
     async postCsvImport(request) {
-      const requestLogger = logger.child({
+      const requestLogger = getRequestLogger(request.logger).child({
         batchId: request.payload.batchId,
         operation: "postCsvImport",
         workspaceId: request.workspaceId,
@@ -469,7 +473,7 @@ export function createWorkspaceService(params: {
       requestLogger.info("service command started");
 
       try {
-        const workspace = await loadWorkspace(request.workspaceId);
+        const workspace = await loadWorkspace(request.workspaceId, requestLogger);
         const authorization = authorizeWorkspaceAccess(workspace, request.auth, "write");
 
         if (!authorization.ok) {
@@ -510,7 +514,7 @@ export function createWorkspaceService(params: {
           );
         }
 
-        await saveWorkspace(result.document);
+        await saveWorkspace(result.document, requestLogger);
         requestLogger.info("service command completed");
         return success(200, { workspace: result.document });
       } catch (error) {
@@ -524,7 +528,7 @@ export function createWorkspaceService(params: {
     },
 
     async postBaselineBudgetLine(request) {
-      const requestLogger = logger.child({
+      const requestLogger = getRequestLogger(request.logger).child({
         accountId: request.line.accountId,
         operation: "postBaselineBudgetLine",
         period: request.line.period,
@@ -533,7 +537,7 @@ export function createWorkspaceService(params: {
       requestLogger.info("service command started");
 
       try {
-        const workspace = await loadWorkspace(request.workspaceId);
+        const workspace = await loadWorkspace(request.workspaceId, requestLogger);
         const authorization = authorizeWorkspaceAccess(workspace, request.auth, "write");
 
         if (!authorization.ok) {
@@ -564,7 +568,7 @@ export function createWorkspaceService(params: {
           );
         }
 
-        await saveWorkspace(result.document);
+        await saveWorkspace(result.document, requestLogger);
         requestLogger.info("service command completed");
         return success(200, { workspace: result.document });
       } catch (error) {
@@ -578,7 +582,7 @@ export function createWorkspaceService(params: {
     },
 
     async postEnvelope(request) {
-      const requestLogger = logger.child({
+      const requestLogger = getRequestLogger(request.logger).child({
         envelopeId: request.envelope.id,
         operation: "postEnvelope",
         workspaceId: request.workspaceId,
@@ -586,7 +590,7 @@ export function createWorkspaceService(params: {
       requestLogger.info("service command started");
 
       try {
-        const workspace = await loadWorkspace(request.workspaceId);
+        const workspace = await loadWorkspace(request.workspaceId, requestLogger);
         const authorization = authorizeWorkspaceAccess(workspace, request.auth, "write");
 
         if (!authorization.ok) {
@@ -617,7 +621,7 @@ export function createWorkspaceService(params: {
           );
         }
 
-        await saveWorkspace(result.document);
+        await saveWorkspace(result.document, requestLogger);
         requestLogger.info("service command completed");
         return success(200, { workspace: result.document });
       } catch (error) {
@@ -631,7 +635,7 @@ export function createWorkspaceService(params: {
     },
 
     async postEnvelopeAllocation(request) {
-      const requestLogger = logger.child({
+      const requestLogger = getRequestLogger(request.logger).child({
         allocationId: request.allocation.id,
         envelopeId: request.allocation.envelopeId,
         operation: "postEnvelopeAllocation",
@@ -640,7 +644,7 @@ export function createWorkspaceService(params: {
       requestLogger.info("service command started");
 
       try {
-        const workspace = await loadWorkspace(request.workspaceId);
+        const workspace = await loadWorkspace(request.workspaceId, requestLogger);
         const authorization = authorizeWorkspaceAccess(workspace, request.auth, "write");
 
         if (!authorization.ok) {
@@ -671,7 +675,7 @@ export function createWorkspaceService(params: {
           );
         }
 
-        await saveWorkspace(result.document);
+        await saveWorkspace(result.document, requestLogger);
         requestLogger.info("service command completed");
         return success(200, { workspace: result.document });
       } catch (error) {
@@ -685,7 +689,7 @@ export function createWorkspaceService(params: {
     },
 
     async postScheduledTransaction(request) {
-      const requestLogger = logger.child({
+      const requestLogger = getRequestLogger(request.logger).child({
         operation: "postScheduledTransaction",
         scheduleId: request.schedule.id,
         workspaceId: request.workspaceId,
@@ -693,7 +697,7 @@ export function createWorkspaceService(params: {
       requestLogger.info("service command started");
 
       try {
-        const workspace = await loadWorkspace(request.workspaceId);
+        const workspace = await loadWorkspace(request.workspaceId, requestLogger);
         const authorization = authorizeWorkspaceAccess(workspace, request.auth, "write");
 
         if (!authorization.ok) {
@@ -724,7 +728,7 @@ export function createWorkspaceService(params: {
           );
         }
 
-        await saveWorkspace(result.document);
+        await saveWorkspace(result.document, requestLogger);
         requestLogger.info("service command completed");
         return success(200, { workspace: result.document });
       } catch (error) {

@@ -6,8 +6,8 @@ import { loadWorkspaceFromFile, saveWorkspaceToFile } from "@gnucash-ng/workspac
 import { ApiError } from "./errors";
 
 export interface WorkspaceRepository {
-  load(workspaceId: string): Promise<FinanceWorkspaceDocument>;
-  save(document: FinanceWorkspaceDocument): Promise<void>;
+  load(workspaceId: string, options?: { logger?: Logger }): Promise<FinanceWorkspaceDocument>;
+  save(document: FinanceWorkspaceDocument, options?: { logger?: Logger }): Promise<void>;
 }
 
 export function createFileSystemWorkspaceRepository(params: {
@@ -43,9 +43,16 @@ export function createFileSystemWorkspaceRepository(params: {
   }
 
   return {
-    async load(workspaceId: string): Promise<FinanceWorkspaceDocument> {
+    async load(workspaceId: string, options: { logger?: Logger } = {}): Promise<FinanceWorkspaceDocument> {
+      const requestLogger = (options.logger ?? logger).child({
+        component: "fileSystemWorkspaceRepository",
+        operation: "loadWorkspace",
+        rootDirectory,
+        workspaceId,
+      });
+
       try {
-        return await loadWorkspaceFromFile(workspacePath(workspaceId), { logger });
+        return await loadWorkspaceFromFile(workspacePath(workspaceId), { logger: requestLogger });
       } catch (error) {
         if (error instanceof ApiError) {
           throw error;
@@ -74,10 +81,17 @@ export function createFileSystemWorkspaceRepository(params: {
         });
       }
     },
-    async save(document: FinanceWorkspaceDocument): Promise<void> {
+    async save(document: FinanceWorkspaceDocument, options: { logger?: Logger } = {}): Promise<void> {
+      const requestLogger = (options.logger ?? logger).child({
+        component: "fileSystemWorkspaceRepository",
+        operation: "saveWorkspace",
+        rootDirectory,
+        workspaceId: document.id,
+      });
+
       try {
         await mkdir(rootDirectory, { recursive: true });
-        await saveWorkspaceToFile(workspacePath(document.id), document, { logger });
+        await saveWorkspaceToFile(workspacePath(document.id), document, { logger: requestLogger });
       } catch (error) {
         if (error instanceof ApiError) {
           throw error;
