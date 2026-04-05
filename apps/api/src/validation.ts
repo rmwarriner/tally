@@ -6,6 +6,7 @@ import type {
   GetQifExportRequest,
   GetReportRequest,
   PostBaselineBudgetLineRequest,
+  PostClosePeriodRequest,
   PostCsvImportRequest,
   PostEnvelopeAllocationRequest,
   PostEnvelopeRequest,
@@ -20,6 +21,7 @@ import type {
 const isoDatePattern = /^\d{4}-\d{2}-\d{2}$/;
 const implementedReportKinds = new Set([
   "budget-vs-actual",
+  "cash-flow",
   "envelope-summary",
   "income-statement",
   "net-worth",
@@ -512,6 +514,48 @@ export function validateGnuCashXmlImportRequestBody(body: unknown): {
       };
 }
 
+export function validateClosePeriodRequestBody(body: unknown): {
+  errors: string[];
+  value?: Pick<PostClosePeriodRequest, "payload">;
+} {
+  const errors: string[] = [];
+
+  if (!isObject(body) || !isObject(body.payload)) {
+    return {
+      errors: ["payload is required."],
+    };
+  }
+
+  const payload = body.payload;
+
+  if (!isIsoDate(payload.from)) {
+    errors.push("payload.from must use YYYY-MM-DD format.");
+  }
+
+  if (!isIsoDate(payload.to)) {
+    errors.push("payload.to must use YYYY-MM-DD format.");
+  }
+
+  if (!isIsoTimestamp(payload.closedAt)) {
+    errors.push("payload.closedAt must be a valid ISO timestamp.");
+  }
+
+  if (payload.id !== undefined && !isNonEmptyString(payload.id)) {
+    errors.push("payload.id must be a non-empty string when provided.");
+  }
+
+  if (payload.notes !== undefined && typeof payload.notes !== "string") {
+    errors.push("payload.notes must be a string when provided.");
+  }
+
+  return errors.length > 0
+    ? { errors }
+    : {
+        errors: [],
+        value: body as Pick<PostClosePeriodRequest, "payload">,
+      };
+}
+
 export function validateReportQuery(input: {
   from: string | null;
   kind: string | null;
@@ -523,7 +567,7 @@ export function validateReportQuery(input: {
   const errors: string[] = [];
 
   if (!input.kind || !implementedReportKinds.has(input.kind)) {
-    errors.push("Report kind must be one of budget-vs-actual, envelope-summary, income-statement, or net-worth.");
+    errors.push("Report kind must be one of budget-vs-actual, cash-flow, envelope-summary, income-statement, or net-worth.");
   }
 
   if (!isIsoDate(input.from)) {

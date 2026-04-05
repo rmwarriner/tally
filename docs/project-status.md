@@ -47,6 +47,8 @@ This repository currently includes:
 - GnuCash XML workspace snapshot import and export foundation
 - JSON workspace persistence
 - report generation for net worth, income statement, budget-vs-actual, and envelope summary
+- cash-flow reporting
+- durable close periods with period-lock enforcement for back-dated ledger writes
 
 ### Service Layer
 
@@ -104,14 +106,13 @@ This repository currently includes:
 
 ## Not Started
 
-- close persistence and broader reporting breadth
 - backup, migration, and restore strategy
 
 ## Recommended Next Sequence
 
-1. Add close persistence, period locking, and broader reporting coverage
-2. Add backup, migration, and restore strategy
-3. Extend deployment and resilience guidance around the new recovery flows
+1. Add backup, migration, and restore strategy
+2. Extend deployment and resilience guidance around the new recovery flows
+3. Expand reporting depth further only if new product workflows need it
 
 ## Deferred Follow-Up
 

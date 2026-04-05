@@ -97,6 +97,30 @@ describe("workspace service", () => {
     await fixture.cleanup();
   });
 
+  it("returns a cash-flow report for the requested date range", async () => {
+    const fixture = await createFixture();
+    const service = createWorkspaceService({
+      logger: createTestLogger([]),
+      repository: createFileSystemWorkspaceRepository({ rootDirectory: fixture.directory }),
+    });
+
+    const response = await service.getReport({
+      auth: { actor: "local-admin", kind: "local", role: "local-admin" },
+      from: "2026-04-01",
+      kind: "cash-flow",
+      to: "2026-04-30",
+      workspaceId: fixture.workspace.id,
+    });
+
+    expect(response.status).toBe(200);
+    expect("report" in response.body).toBe(true);
+    if ("report" in response.body) {
+      expect(response.body.report.kind).toBe("cash-flow");
+    }
+
+    await fixture.cleanup();
+  });
+
   it("persists a posted transaction and records an audit event", async () => {
     const records: LogRecord[] = [];
     const fixture = await createFixture();
@@ -214,6 +238,30 @@ describe("workspace service", () => {
     expect(imported.status).toBe(200);
     expectWorkspaceBody(imported.body);
     expect(imported.body.workspace.name).toBe("Imported Through Service");
+
+    await fixture.cleanup();
+  });
+
+  it("persists close periods through the service layer", async () => {
+    const fixture = await createFixture();
+    const service = createWorkspaceService({
+      logger: createTestLogger([]),
+      repository: createFileSystemWorkspaceRepository({ rootDirectory: fixture.directory }),
+    });
+
+    const response = await service.postClosePeriod({
+      auth: { actor: "Primary", kind: "token", role: "member", token: "token-1" },
+      payload: {
+        closedAt: "2026-04-01T00:00:00Z",
+        from: "2026-03-01",
+        to: "2026-03-31",
+      },
+      workspaceId: fixture.workspace.id,
+    });
+
+    expect(response.status).toBe(201);
+    expectWorkspaceBody(response.body);
+    expect(response.body.workspace.closePeriods).toHaveLength(1);
 
     await fixture.cleanup();
   });

@@ -8,6 +8,7 @@ import { createInMemoryRateLimiter, type RateLimiter, type RateLimitPolicy } fro
 import type { WorkspaceService } from "./service";
 import {
   validateCloseSummaryQuery,
+  validateClosePeriodRequestBody,
   validateApplyScheduledTransactionExceptionRequestBody,
   validateExecuteScheduledTransactionRequestBody,
   validateBaselineBudgetLineRequestBody,
@@ -88,6 +89,10 @@ function normalizeRouteLabel(method: string, path: string): string {
 
   if (/^\/api\/workspaces\/[^/]+\/close-summary$/.test(path)) {
     return "/api/workspaces/:workspaceId/close-summary";
+  }
+
+  if (/^\/api\/workspaces\/[^/]+\/close-periods$/.test(path)) {
+    return "/api/workspaces/:workspaceId/close-periods";
   }
 
   if (/^\/api\/workspaces\/[^/]+\/transactions$/.test(path)) {
@@ -335,6 +340,7 @@ export function createHttpHandler(params: {
       const dashboardMatch = path.match(/^\/api\/workspaces\/([^/]+)\/dashboard$/);
       const reportMatch = path.match(/^\/api\/workspaces\/([^/]+)\/reports\/([^/]+)$/);
       const closeSummaryMatch = path.match(/^\/api\/workspaces\/([^/]+)\/close-summary$/);
+      const closePeriodsMatch = path.match(/^\/api\/workspaces\/([^/]+)\/close-periods$/);
       const qifExportMatch = path.match(/^\/api\/workspaces\/([^/]+)\/exports\/qif$/);
       const statementExportMatch = path.match(/^\/api\/workspaces\/([^/]+)\/exports\/(ofx|qfx)$/);
       const gnucashXmlExportMatch = path.match(/^\/api\/workspaces\/([^/]+)\/exports\/gnucash-xml$/);
@@ -541,6 +547,40 @@ export function createHttpHandler(params: {
         return completeJsonResponse(response.status, response.body);
       }
 
+      if (closePeriodsMatch) {
+        const rateLimited = enforceRateLimit(requestKey, rateLimitPolicy.read, requestLogger);
+
+        if (rateLimited) {
+          return completeJsonResponse(
+            rateLimited.status,
+            await rateLimited.json(),
+            Object.fromEntries(rateLimited.headers.entries()),
+          );
+        }
+
+        const workspaceId = decodeURIComponent(closePeriodsMatch[1]);
+
+        if (!isSafeWorkspaceId(workspaceId)) {
+          return completeJsonResponse(
+            400,
+            toErrorEnvelope(
+              new ApiError({
+                code: "repository.invalid_identifier",
+                message: "Workspace identifier is invalid.",
+                status: 400,
+              }),
+            ),
+          );
+        }
+
+        const response = await params.service.getWorkspace({
+          auth: auth.context,
+          logger: requestLogger,
+          workspaceId,
+        });
+        return completeJsonResponse(response.status, response.body);
+      }
+
       if (qifExportMatch) {
         const rateLimited = enforceRateLimit(requestKey, rateLimitPolicy.read, requestLogger);
 
@@ -707,6 +747,7 @@ export function createHttpHandler(params: {
       const qifImportMatch = path.match(/^\/api\/workspaces\/([^/]+)\/imports\/qif$/);
       const statementImportMatch = path.match(/^\/api\/workspaces\/([^/]+)\/imports\/(ofx|qfx)$/);
       const gnucashXmlImportMatch = path.match(/^\/api\/workspaces\/([^/]+)\/imports\/gnucash-xml$/);
+      const closePeriodMatch = path.match(/^\/api\/workspaces\/([^/]+)\/close-periods$/);
 
       if (!request.headers.get("content-type")?.includes("application/json")) {
         requestLogger.warn("http request validation failed", {
@@ -803,6 +844,58 @@ export function createHttpHandler(params: {
           auth: auth.context,
           logger: requestLogger,
           transaction: payload.value.transaction,
+          workspaceId,
+        });
+        return completeJsonResponse(response.status, response.body);
+      }
+
+      if (closePeriodMatch) {
+        const rateLimited = enforceRateLimit(requestKey, rateLimitPolicy.mutation, requestLogger);
+
+        if (rateLimited) {
+          return completeJsonResponse(
+            rateLimited.status,
+            await rateLimited.json(),
+            Object.fromEntries(rateLimited.headers.entries()),
+          );
+        }
+
+        const workspaceId = decodeURIComponent(closePeriodMatch[1]);
+
+        if (!isSafeWorkspaceId(workspaceId)) {
+          return completeJsonResponse(
+            400,
+            toErrorEnvelope(
+              new ApiError({
+                code: "repository.invalid_identifier",
+                message: "Workspace identifier is invalid.",
+                status: 400,
+              }),
+            ),
+          );
+        }
+
+        const payload = validateClosePeriodRequestBody(body);
+
+        if (payload.errors.length > 0 || !payload.value) {
+          requestLogger.warn("http request validation failed", { errors: payload.errors });
+          return completeJsonResponse(
+            400,
+            toErrorEnvelope(
+              new ApiError({
+                code: "validation.failed",
+                details: { issues: payload.errors },
+                message: payload.errors[0] ?? "Request validation failed.",
+                status: 400,
+              }),
+            ),
+          );
+        }
+
+        const response = await params.service.postClosePeriod({
+          auth: auth.context,
+          logger: requestLogger,
+          payload: payload.value.payload,
           workspaceId,
         });
         return completeJsonResponse(response.status, response.body);

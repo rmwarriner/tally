@@ -167,6 +167,16 @@ describe("api http transport", () => {
       true,
     );
 
+    const cashFlowResponse = await handler(
+      new Request(
+        `http://localhost/api/workspaces/${fixture.workspace.id}/reports/cash-flow?from=2026-04-01&to=2026-04-30`,
+      ),
+    );
+    const cashFlowBody = await cashFlowResponse.json();
+
+    expect(cashFlowResponse.status).toBe(200);
+    expect(cashFlowBody.report.kind).toBe("cash-flow");
+
     await fixture.cleanup();
   });
 
@@ -258,6 +268,35 @@ Lacct-expense-utilities
     expect(response.status).toBe(201);
     expect(body.workspace.transactions.some((item: { id: string }) => item.id === "http-ofx-1:1")).toBe(true);
     expect(body.workspace.auditEvents.at(-1).eventType).toBe("import.ofx.recorded");
+
+    await fixture.cleanup();
+  });
+
+  it("records close periods over HTTP", async () => {
+    const fixture = await createFixture();
+    const service = createWorkspaceService({
+      repository: createFileSystemWorkspaceRepository({ rootDirectory: fixture.directory }),
+    });
+    const handler = createHttpHandler({ service });
+
+    const response = await handler(
+      new Request(`http://localhost/api/workspaces/${fixture.workspace.id}/close-periods`, {
+        body: JSON.stringify({
+          payload: {
+            closedAt: "2026-04-01T00:00:00Z",
+            from: "2026-03-01",
+            to: "2026-03-31",
+          },
+        }),
+        headers: { "content-type": "application/json" },
+        method: "POST",
+      }),
+    );
+    const body = await response.json();
+
+    expect(response.status).toBe(201);
+    expect(body.workspace.closePeriods).toHaveLength(1);
+    expect(body.workspace.auditEvents.at(-1).eventType).toBe("close.recorded");
 
     await fixture.cleanup();
   });

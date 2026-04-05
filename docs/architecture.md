@@ -49,6 +49,7 @@ Responsibilities:
 - budget vs actual
 - envelope funding and burn-down
 - tax-category and period reporting
+- period close review and durable close-state tracking
 
 ## Cross-Cutting Concerns
 

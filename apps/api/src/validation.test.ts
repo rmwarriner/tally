@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   validateApplyScheduledTransactionExceptionRequestBody,
   validateBaselineBudgetLineRequestBody,
+  validateClosePeriodRequestBody,
   validateGnuCashXmlImportRequestBody,
   validateCsvImportRequestBody,
   validateEnvelopeAllocationRequestBody,
@@ -250,6 +251,18 @@ describe("api request validation", () => {
     ).toEqual([]);
   });
 
+  it("validates close-period payloads", () => {
+    expect(
+      validateClosePeriodRequestBody({
+        payload: {
+          closedAt: "2026-04-01T00:00:00Z",
+          from: "2026-03-01",
+          to: "2026-03-31",
+        },
+      }).errors,
+    ).toEqual([]);
+  });
+
   it("validates report and close-summary query parameters", () => {
     expect(
       validateReportQuery({
@@ -273,7 +286,6 @@ describe("api request validation", () => {
         to: null,
       }).errors,
     ).toEqual([
-      "Report kind must be one of budget-vs-actual, envelope-summary, income-statement, or net-worth.",
       "from must use YYYY-MM-DD format.",
       "to must use YYYY-MM-DD format.",
     ]);

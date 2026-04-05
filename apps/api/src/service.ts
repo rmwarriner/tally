@@ -8,6 +8,7 @@ import {
   buildDashboardSnapshot,
   buildQifExport,
   buildWorkspaceReport,
+  closeWorkspacePeriod,
   executeScheduledTransaction,
   importTransactionsFromCsvRows,
   importTransactionsFromStatement,
@@ -35,6 +36,7 @@ import type {
   GetWorkspaceRequest,
   GnuCashXmlExportEnvelope,
   PostBaselineBudgetLineRequest,
+  PostClosePeriodRequest,
   PostCsvImportRequest,
   PostEnvelopeAllocationRequest,
   PostEnvelopeRequest,
@@ -90,6 +92,9 @@ export interface WorkspaceService {
   ): Promise<ServiceResponse<WorkspaceEnvelope | ErrorEnvelope>>;
   postBaselineBudgetLine(
     request: PostBaselineBudgetLineRequest,
+  ): Promise<ServiceResponse<WorkspaceEnvelope | ErrorEnvelope>>;
+  postClosePeriod(
+    request: PostClosePeriodRequest,
   ): Promise<ServiceResponse<WorkspaceEnvelope | ErrorEnvelope>>;
   postEnvelope(
     request: PostEnvelopeRequest,
@@ -245,6 +250,69 @@ export function createWorkspaceService(params: {
           readyToClose: closeSummary.readyToClose,
         });
         return success(200, { closeSummary });
+      } catch (error) {
+        const apiError = toApiError(error);
+        requestLogger.error("service command failed", {
+          error: apiError.message,
+          errorCode: apiError.code,
+        });
+        return failure(apiError);
+      }
+    },
+
+    async postClosePeriod(request) {
+      const requestLogger = getRequestLogger(request.logger).child({
+        from: request.payload.from,
+        operation: "postClosePeriod",
+        to: request.payload.to,
+        workspaceId: request.workspaceId,
+      });
+      requestLogger.info("service command started");
+
+      try {
+        const workspace = await loadWorkspace(request.workspaceId, requestLogger);
+        const authorization = authorizeWorkspaceAccess(workspace, request.auth, "write");
+
+        if (!authorization.ok) {
+          requestLogger.warn("service command authorization failed", { errors: [authorization.error] });
+          return failure(
+            new ApiError({
+              code: "auth.forbidden",
+              message: authorization.error ?? "Forbidden.",
+              status: 403,
+            }),
+          );
+        }
+
+        const result = closeWorkspacePeriod(
+          workspace,
+          {
+            ...request.payload,
+            closedBy: request.auth.actor,
+          },
+          {
+            audit: {
+              actor: request.auth.actor,
+            },
+            logger: requestLogger,
+          },
+        );
+
+        if (!result.ok) {
+          requestLogger.warn("service command validation failed", { errors: result.errors });
+          return failure(
+            new ApiError({
+              code: "validation.failed",
+              details: { issues: result.errors },
+              message: result.errors[0] ?? "Request validation failed.",
+              status: 422,
+            }),
+          );
+        }
+
+        await saveWorkspace(result.document, requestLogger);
+        requestLogger.info("service command completed");
+        return success(201, { workspace: result.document });
       } catch (error) {
         const apiError = toApiError(error);
         requestLogger.error("service command failed", {

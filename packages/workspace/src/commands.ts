@@ -19,6 +19,7 @@ import { appendAuditEvent, type AuditContext } from "./audit";
 import { parseGnuCashXml } from "./gnucash-xml";
 import { parseOfxStatement } from "./ofx";
 import { parseQif } from "./qif";
+import { buildCloseSummary } from "./reports";
 import type {
   CsvImportRow,
   FinanceWorkspaceDocument,
@@ -79,6 +80,25 @@ function duplicateImportFingerprints(document: FinanceWorkspaceDocument): Set<st
       .map((transaction) => transaction.source?.fingerprint)
       .filter((fingerprint): fingerprint is string => Boolean(fingerprint)),
   );
+}
+
+function findLockingClosePeriod(
+  document: FinanceWorkspaceDocument,
+  date: string,
+): NonNullable<FinanceWorkspaceDocument["closePeriods"]>[number] | undefined {
+  return (document.closePeriods ?? []).find(
+    (period) => date >= period.from && date <= period.to,
+  );
+}
+
+function lockErrorForDate(document: FinanceWorkspaceDocument, date: string): string | undefined {
+  const lockingPeriod = findLockingClosePeriod(document, date);
+
+  if (!lockingPeriod) {
+    return undefined;
+  }
+
+  return `Date ${date} is locked by closed period ${lockingPeriod.from} through ${lockingPeriod.to}.`;
 }
 
 function buildImportedTransaction(params: {
@@ -213,6 +233,13 @@ export function addTransaction(
     workspaceId: document.id,
   });
   logger.info("workspace command started");
+  const lockError = lockErrorForDate(document, transaction.occurredOn);
+
+  if (lockError) {
+    logger.warn("workspace command validation failed", { errors: [lockError] });
+    return { ok: false, errors: [lockError], document };
+  }
+
   const validation = validateTransactionForLedger(transaction, document.accounts);
 
   if (!validation.ok) {
@@ -282,6 +309,20 @@ export function updateTransaction(
     const errors = [`Transaction ${transactionId} does not exist.`];
     logger.warn("workspace command validation failed", { errors });
     return { ok: false, errors, document };
+  }
+
+  const existingLockError = lockErrorForDate(document, existingTransaction.occurredOn);
+
+  if (existingLockError) {
+    logger.warn("workspace command validation failed", { errors: [existingLockError] });
+    return { ok: false, errors: [existingLockError], document };
+  }
+
+  const nextLockError = lockErrorForDate(document, transaction.occurredOn);
+
+  if (nextLockError) {
+    logger.warn("workspace command validation failed", { errors: [nextLockError] });
+    return { ok: false, errors: [nextLockError], document };
   }
 
   const validation = validateTransactionForLedger(transaction, document.accounts);
@@ -400,6 +441,13 @@ export function executeScheduledTransaction(
     const errors = ["Scheduled transaction occurredOn must use ISO date format YYYY-MM-DD."];
     logger.warn("workspace command validation failed", { errors });
     return { ok: false, errors, document };
+  }
+
+  const lockError = lockErrorForDate(document, input.occurredOn);
+
+  if (lockError) {
+    logger.warn("workspace command validation failed", { errors: [lockError] });
+    return { ok: false, errors: [lockError], document };
   }
 
   if (!isScheduleDue(schedule, input.occurredOn)) {
@@ -662,6 +710,17 @@ export function recordEnvelopeAllocation(
     workspaceId: document.id,
   });
   logger.info("workspace command started");
+  const lockError = lockErrorForDate(document, allocation.occurredOn);
+
+  if (lockError) {
+    logger.warn("workspace command validation failed", { errors: [lockError] });
+    return {
+      ok: false,
+      errors: [lockError],
+      document,
+    };
+  }
+
   const envelope = document.envelopes.find((candidate) => candidate.id === allocation.envelopeId);
 
   if (!envelope) {
@@ -735,6 +794,13 @@ export function reconcileAccount(
   logger.info("workspace command started", {
     clearedTransactionIds: params.clearedTransactionIds,
   });
+  const lockError = lockErrorForDate(document, params.statementDate);
+
+  if (lockError) {
+    logger.warn("workspace command validation failed", { errors: [lockError] });
+    return { ok: false, errors: [lockError], document };
+  }
+
   const account = document.accounts.find((candidate) => candidate.id === params.accountId);
 
   if (!account) {
@@ -844,6 +910,13 @@ export function importTransactionsFromCsvRows(
   let skippedDuplicates = 0;
 
   for (const [index, row] of rows.entries()) {
+    const lockError = lockErrorForDate(document, row.occurredOn);
+
+    if (lockError) {
+      errors.push(`row ${index + 1}: ${lockError}`);
+      continue;
+    }
+
     const transaction = buildImportedTransaction({
       amount: -Math.abs(row.amount),
       batchId: metadata.batchId,
@@ -935,6 +1008,14 @@ export function importTransactionsFromQif(
   let skippedDuplicates = 0;
 
   for (const [index, entry] of parsed.entries.entries()) {
+    const lockError = lockErrorForDate(document, entry.date);
+
+    if (lockError) {
+      const errors = [`entry ${index + 1}: ${lockError}`];
+      logger.warn("workspace command validation failed", { errors });
+      return { ok: false, errors, document };
+    }
+
     const category = entry.category?.trim();
     const counterpartAccountId =
       (category ? params.categoryMappings?.[category] : undefined) ?? params.defaultCounterpartAccountId;
@@ -1026,6 +1107,14 @@ export function importTransactionsFromStatement(
   let skippedDuplicates = 0;
 
   for (const [index, entry] of parsed.entries.entries()) {
+    const lockError = lockErrorForDate(document, entry.date);
+
+    if (lockError) {
+      const errors = [`entry ${index + 1}: ${lockError}`];
+      logger.warn("workspace command validation failed", { errors });
+      return { ok: false, errors, document };
+    }
+
     const mappingKey = entry.name?.trim() ?? entry.memo?.trim() ?? "";
     const counterpartAccountId =
       (mappingKey ? params.nameMappings?.[mappingKey] : undefined) ?? params.defaultCounterpartAccountId;
@@ -1142,5 +1231,114 @@ export function importWorkspaceFromGnuCashXml(
       },
       options.audit,
     ),
+  };
+}
+
+export function closeWorkspacePeriod(
+  document: FinanceWorkspaceDocument,
+  params: {
+    closedAt: string;
+    closedBy: string;
+    from: string;
+    id?: string;
+    notes?: string;
+    to: string;
+  },
+  options: CommandOptions = {},
+): CommandResult {
+  const logger = (options.logger ?? createNoopLogger()).child({
+    command: "closeWorkspacePeriod",
+    from: params.from,
+    to: params.to,
+    workspaceId: document.id,
+  });
+  logger.info("workspace command started");
+  const errors: string[] = [];
+
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(params.from)) {
+    errors.push("Close period from must use ISO date format YYYY-MM-DD.");
+  }
+
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(params.to)) {
+    errors.push("Close period to must use ISO date format YYYY-MM-DD.");
+  }
+
+  if (Number.isNaN(Date.parse(params.closedAt))) {
+    errors.push("Close period closedAt must be a valid ISO timestamp.");
+  }
+
+  if (params.from > params.to) {
+    errors.push("Close period from must be less than or equal to to.");
+  }
+
+  if (errors.length > 0) {
+    logger.warn("workspace command validation failed", { errors });
+    return { ok: false, errors, document };
+  }
+
+  const overlapping = (document.closePeriods ?? []).find(
+    (period) => params.from <= period.to && params.to >= period.from,
+  );
+
+  if (overlapping) {
+    const overlapErrors = [
+      `Close period ${params.from} through ${params.to} overlaps existing closed period ${overlapping.from} through ${overlapping.to}.`,
+    ];
+    logger.warn("workspace command validation failed", { errors: overlapErrors });
+    return { ok: false, errors: overlapErrors, document };
+  }
+
+  const closeSummary = buildCloseSummary(document, {
+    from: params.from,
+    to: params.to,
+  });
+
+  if (!closeSummary.readyToClose) {
+    const blockingChecks = closeSummary.checks
+      .filter((check) => check.status !== "ok")
+      .map((check) => `${check.label} (${check.itemCount})`);
+    const summaryErrors = [
+      `Period ${params.from} through ${params.to} is not ready to close: ${blockingChecks.join(", ")}.`,
+    ];
+    logger.warn("workspace command validation failed", { errors: summaryErrors });
+    return { ok: false, errors: summaryErrors, document };
+  }
+
+  const closePeriod = {
+    closedAt: params.closedAt,
+    closedBy: params.closedBy,
+    from: params.from,
+    id: params.id ?? `close:${params.from}:${params.to}`,
+    notes: params.notes,
+    to: params.to,
+  };
+  const nextDocument = appendAuditEvent(
+    {
+      ...document,
+      closePeriods: [...(document.closePeriods ?? []), closePeriod].sort((left, right) =>
+        `${left.from}:${left.to}`.localeCompare(`${right.from}:${right.to}`),
+      ),
+    },
+    {
+      entityIds: [closePeriod.id],
+      eventType: "close.recorded",
+      summary: {
+        closedAt: closePeriod.closedAt,
+        closedBy: closePeriod.closedBy,
+        from: closePeriod.from,
+        to: closePeriod.to,
+      },
+    },
+    options.audit,
+  );
+
+  logger.info("workspace command completed", {
+    closePeriodCount: nextDocument.closePeriods?.length ?? 0,
+  });
+
+  return {
+    ok: true,
+    errors: [],
+    document: nextDocument,
   };
 }

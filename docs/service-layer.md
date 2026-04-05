@@ -19,7 +19,9 @@ Implemented pieces:
 - read service for QIF export
 - read service for OFX, QFX, and GnuCash XML exports
 - read service for net worth, income statement, budget-vs-actual, and envelope summary reports
+- read service for cash-flow reports
 - read service for period close summaries
+- write service for durable period close recording
 - write service for baseline budget lines, envelopes, envelope allocations, scheduled transaction execution, and schedule exceptions
 - HTTP request handler for read and write routes
 - Node HTTP server adapter
@@ -103,11 +105,10 @@ See `docs/api-runtime-operations.md` for the current runtime-mode and deployment
 - no durable metrics backend yet beyond in-process `/metrics`
 - no distributed tracing yet beyond request correlation ids in logs and responses
 - no external audit stream beyond workspace persistence
-- close review is now read-only; no close persistence or period-locking exists yet
 - no backup, migration, or restore strategy yet
 
 ## Recommended Next Steps
 
-1. Add close persistence, period locking, and fuller reporting breadth
-2. Add backup, migration, and restore strategy
-3. Add deployment and recovery runbooks on top of those flows
+1. Add backup, migration, and restore strategy
+2. Add deployment and recovery runbooks on top of those flows
+3. Add external observability sinks once hosting is selected

@@ -37,6 +37,19 @@ export interface GetCloseSummaryRequest {
   workspaceId: string;
 }
 
+export interface PostClosePeriodRequest {
+  auth: AuthContext;
+  logger?: Logger;
+  payload: {
+    closedAt: string;
+    id?: string;
+    notes?: string;
+    from: string;
+    to: string;
+  };
+  workspaceId: string;
+}
+
 export interface GetQifExportRequest {
   accountId: string;
   auth: AuthContext;

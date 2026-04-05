@@ -11,10 +11,11 @@ import {
   type MoneyAmount,
 } from "@gnucash-ng/domain";
 import { buildDashboardSnapshot } from "./selectors";
-import type { FinanceWorkspaceDocument } from "./types";
+import type { FinanceWorkspaceDocument, WorkspaceClosePeriod } from "./types";
 
 export type WorkspaceReportKind =
   | "budget-vs-actual"
+  | "cash-flow"
   | "envelope-summary"
   | "income-statement"
   | "net-worth";
@@ -56,6 +57,26 @@ export interface BudgetVsActualReport {
   };
 }
 
+export interface CashFlowReportLine {
+  accountId: string;
+  accountName: string;
+  inflow: MoneyAmount;
+  net: MoneyAmount;
+  outflow: MoneyAmount;
+}
+
+export interface CashFlowReport {
+  from: string;
+  kind: "cash-flow";
+  lines: CashFlowReportLine[];
+  to: string;
+  totals: {
+    inflow: MoneyAmount;
+    net: MoneyAmount;
+    outflow: MoneyAmount;
+  };
+}
+
 export interface EnvelopeSummaryReport {
   from: string;
   kind: "envelope-summary";
@@ -71,6 +92,7 @@ export interface EnvelopeSummaryReport {
 
 export type WorkspaceReport =
   | BudgetVsActualReport
+  | CashFlowReport
   | EnvelopeSummaryReport
   | IncomeStatementReport
   | NetWorthReport;
@@ -86,6 +108,7 @@ export interface CloseSummary {
   checks: CloseSummaryCheck[];
   from: string;
   importedTransactionCount: number;
+  latestClosePeriod?: WorkspaceClosePeriod;
   netIncome: MoneyAmount;
   netWorth: MoneyAmount;
   readyToClose: boolean;
@@ -146,6 +169,14 @@ export function buildWorkspaceReport(
     to: string;
   },
 ): BudgetVsActualReport;
+export function buildWorkspaceReport(
+  document: FinanceWorkspaceDocument,
+  range: {
+    from: string;
+    kind: "cash-flow";
+    to: string;
+  },
+): CashFlowReport;
 export function buildWorkspaceReport(
   document: FinanceWorkspaceDocument,
   range: {
@@ -235,6 +266,55 @@ export function buildWorkspaceReport(
         lines,
         netIncome: createMoney(commodityCode, incomeTotal.quantity - expenseTotal.quantity),
         to: range.to,
+      };
+    }
+    case "cash-flow": {
+      const lines = document.accounts
+        .filter((account) => account.type === "asset")
+        .map((account) => {
+          let inflow = 0;
+          let outflow = 0;
+
+          for (const transaction of document.transactions) {
+            if (transaction.occurredOn < range.from || transaction.occurredOn > range.to) {
+              continue;
+            }
+
+            for (const posting of transaction.postings) {
+              if (
+                posting.accountId === account.id &&
+                posting.amount.commodityCode === commodityCode
+              ) {
+                if (posting.amount.quantity >= 0) {
+                  inflow += posting.amount.quantity;
+                } else {
+                  outflow += Math.abs(posting.amount.quantity);
+                }
+              }
+            }
+          }
+
+          return {
+            accountId: account.id,
+            accountName: account.name,
+            inflow: createMoney(commodityCode, inflow),
+            net: createMoney(commodityCode, inflow - outflow),
+            outflow: createMoney(commodityCode, outflow),
+          } satisfies CashFlowReportLine;
+        })
+        .filter((line) => line.inflow.quantity !== 0 || line.outflow.quantity !== 0)
+        .sort((left, right) => left.accountName.localeCompare(right.accountName));
+
+      return {
+        from: range.from,
+        kind: "cash-flow",
+        lines,
+        to: range.to,
+        totals: {
+          inflow: sumMoneyAmounts(lines.map((line) => line.inflow), commodityCode),
+          net: sumMoneyAmounts(lines.map((line) => line.net), commodityCode),
+          outflow: sumMoneyAmounts(lines.map((line) => line.outflow), commodityCode),
+        },
       };
     }
     case "budget-vs-actual": {
@@ -348,6 +428,9 @@ export function buildCloseSummary(
       status: reconciliationGaps.length === 0 ? "ok" : "attention",
     },
   ];
+  const latestClosePeriod = [...(document.closePeriods ?? [])].sort((left, right) =>
+    right.to.localeCompare(left.to) || right.closedAt.localeCompare(left.closedAt),
+  )[0];
 
   return {
     checks,
@@ -358,6 +441,7 @@ export function buildCloseSummary(
         transaction.occurredOn <= range.to &&
         transaction.source !== undefined,
     ).length,
+    latestClosePeriod,
     netIncome: incomeStatement.netIncome,
     netWorth: netWorth.total,
     readyToClose: checks.every((check) => check.status === "ok"),

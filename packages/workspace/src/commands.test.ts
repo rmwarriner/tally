@@ -7,6 +7,7 @@ import { createLogger, type LogRecord } from "@gnucash-ng/logging";
 import {
   addTransaction,
   applyScheduledTransactionException,
+  closeWorkspacePeriod,
   createDemoWorkspace,
   executeScheduledTransaction,
   importTransactionsFromCsvRows,
@@ -303,6 +304,45 @@ LSalary
     expect(result.ok).toBe(true);
     expect(result.document.name).toBe("Imported Household Finance");
     expect(result.document.auditEvents.at(-1)?.eventType).toBe("import.gnucash-xml.recorded");
+  });
+
+  it("records closed periods and blocks locked transactions", () => {
+    const workspace = createDemoWorkspace();
+    const closed = closeWorkspacePeriod(
+      workspace,
+      {
+        closedAt: "2026-04-01T00:00:00Z",
+        closedBy: "Primary",
+        from: "2026-03-01",
+        to: "2026-03-31",
+      },
+      {
+        audit: { actor: "Primary" },
+      },
+    );
+
+    expect(closed.ok).toBe(true);
+    expect(closed.document.closePeriods).toHaveLength(1);
+    expect(closed.document.auditEvents.at(-1)?.eventType).toBe("close.recorded");
+
+    const lockedTransaction = addTransaction(
+      closed.document,
+      {
+        id: "txn-locked-1",
+        occurredOn: "2026-03-15",
+        description: "Backdated transaction",
+        postings: [
+          { accountId: "acct-expense-groceries", amount: createMoney("USD", 20) },
+          { accountId: "acct-checking", amount: createMoney("USD", -20), cleared: true },
+        ],
+      },
+      {
+        audit: { actor: "Primary" },
+      },
+    );
+
+    expect(lockedTransaction.ok).toBe(false);
+    expect(lockedTransaction.errors[0]).toContain("locked by closed period 2026-03-01 through 2026-03-31");
   });
 
   it("executes due scheduled transactions and advances the schedule", () => {
