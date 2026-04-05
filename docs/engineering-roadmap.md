@@ -1,5 +1,15 @@
 # Engineering Roadmap
 
+## Roadmap Structure
+
+The repository has moved out of the initial service-foundation phase.
+
+The roadmap now separates work into:
+
+- completed foundation phases
+- active execution themes for the next phase
+- idea backlog themes that need design and promotion before execution
+
 ## Standards Added
 
 - Testing / TDD
@@ -25,9 +35,11 @@
 
 - external metrics, tracing, and alert routing beyond in-process foundations
 - encryption-at-rest and key-handling guidance once backup and restore are implemented
-- broader import/export format coverage and resilience playbooks
+- multi-user identity and authorization guidance for family-scale collaboration
 
-## Implementation Order
+## Phase 1 Completed
+
+The original backend and service-boundary roadmap is complete.
 
 Completed:
 
@@ -37,8 +49,63 @@ Completed:
 4. Reporting engine and durable close workflow
 5. Backup, migration, restore, and broader resilience hardening
 
-Current next sequence:
+## Phase 2 Themes
 
-1. External observability sinks and alert routing
-2. Encryption-at-rest and key-handling guidance for persisted data and backups
-3. Product-driven client cleanup and desktop-wrapper discovery
+The next phase should be driven by a smaller set of explicit themes rather than a flat list of features.
+
+### 1. Core Trust And Integrity
+
+- deeper transaction lifecycle audit coverage
+- soft-delete by default with privileged destructive flows
+- stronger end-to-end data integrity guarantees
+- encryption-at-rest and backup key-handling guidance
+- family-scale identity, authorization, and actor attribution
+
+### 2. Budgeting And Planning Model
+
+- explicit remaining-to-budget money pool
+- envelope funding adjustments and transfer semantics
+- rollover, cleanup, and overspending workflows
+- traditional line-item budget alongside envelopes
+- spending-plan and forward-looking balance views
+
+### 3. Layered Architecture And Persistence Evolution
+
+- keep the ledger/accounting core minimal and authoritative
+- model envelope and bank-sync behaviors as decorators or higher-order layers
+- define persistence abstractions for JSON, SQLite, and Postgres
+- preserve migration, backup, and audit behavior across future backends
+
+### 4. Automation, Ingestion, And Assistive Workflows
+
+- transaction review and inbox flows
+- rules engine for categorization and normalization
+- SimpleFIN and other sync-oriented ingestion paths
+- receipt and document scanning
+- optional AI-assisted suggestions and explainability surfaces
+
+### 5. Collaboration And Product Surface Expansion
+
+- family-scale multi-user access and approvals
+- exception center and review workflows
+- period snapshots and what-if planning
+- product-driven client cleanup and desktop-wrapper discovery
+
+## Active Execution Queue
+
+These are the next candidates for promotion into active delivery work.
+
+1. Persistence abstraction and backend strategy for JSON, SQLite, and Postgres
+2. Trust and integrity hardening for transaction audit depth, soft delete, and destructive controls
+3. Budgeting model definition for remaining-to-budget, rollover, and envelope funding rules
+4. Family-scale identity and authorization model, including external access providers such as Cloudflare Access and OpenID/OIDC
+5. Transaction review and import-automation foundation
+
+## Idea Backlog Policy
+
+Ideas stay as GitHub issues labeled `idea` until they meet all of the following:
+
+- the user problem is clear
+- the domain and data model boundaries are understood
+- the impact on audit, integrity, and migration behavior is understood
+- there is a bounded first implementation slice

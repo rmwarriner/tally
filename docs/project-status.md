@@ -109,12 +109,30 @@ This repository currently includes:
 
 ## Remaining Follow-Up
 
-1. Add external observability sinks and alert routing on top of the in-process `/metrics` and request-correlation foundation
-2. Add encryption-at-rest and key-handling guidance for workspace files and copied backups
-3. Expand reporting depth further only if new product workflows need it
+The repository is no longer mainly missing core backend foundations.
+
+The main remaining work is now product and architecture shaping across a growing idea backlog. The highest-value next areas are:
+
+1. Persistence abstraction and backend evolution beyond JSON-only storage
+2. Trust and integrity hardening for audit depth, soft delete, destructive controls, and encryption guidance
+3. Budgeting-model definition for remaining-to-budget, rollover, cleanup, and envelope funding semantics
+4. Family-scale multi-user identity and authorization design
+5. Review, automation, and ingestion workflows on top of the current import foundation
 
 ## Deferred Follow-Up
 
 - extract the mobile quick-transaction and quick-envelope cards into dedicated components so `apps/mobile/src/App.tsx` becomes mostly screen composition and API orchestration
 - keep GitHub roadmap issues, milestones, and the `GnuCash NG Roadmap` project board aligned as execution moves forward
 - keep native desktop wrapper work in idea/discovery state until a bounded wrapper spike is ready to prove local launch, file access, and local API coordination
+
+## Backlog Direction
+
+Recent idea intake has clustered into these broader tracks:
+
+- core trust, audit, integrity, and security
+- budgeting, envelopes, planning, and forecasting
+- layered architecture and account decorators
+- automation, sync, and AI-assisted workflows
+- family-scale collaboration and review flows
+
+The next roadmap phase should promote a small number of these tracks into bounded implementation slices instead of treating the entire idea backlog as active execution.

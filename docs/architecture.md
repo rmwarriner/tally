@@ -88,12 +88,23 @@ The repository now runs as:
 
 See `docs/service-layer.md`, `docs/api-runtime-operations.md`, and `docs/api-deployment-and-recovery-runbook.md` for the current operational shape.
 
+## Architectural Direction
+
+The current architecture direction is:
+
+- keep the ledger/accounting layer minimal, deterministic, and authoritative
+- implement budgeting, envelopes, sync behaviors, AI assistance, and similar concerns as higher-order layers above the ledger
+- keep `apps/api` as the operational boundary for persistence, auth, validation, audit, and import/export
+- evolve persistence behind explicit abstractions rather than binding the product to JSON-only storage
+- preserve auditability and integrity rules even as backends, clients, and assistive features expand
+
 ## Data Strategy
 
 - The ledger remains the system of record.
 - Budgets store intent and allocation state, never replacing journal entries.
 - Envelope actions create explicit allocation events that can be reconciled back to funding accounts.
 - Imports store source fingerprints to avoid duplicate postings.
+- Higher-order layers should annotate or derive from ledger entities instead of redefining accounting truth.
 
 ## Delivery Phases
 
@@ -109,6 +120,8 @@ Completed:
 
 Next:
 
-1. External observability sinks and alert routing
-2. Encryption-at-rest and key-handling guidance for persisted data and backups
-3. Product-driven desktop wrapper discovery and client cleanup
+1. Persistence abstraction for JSON, SQLite, and Postgres without weakening audit or migration guarantees
+2. Trust and integrity hardening for transaction lifecycle audit depth, soft delete, and destructive controls
+3. Budgeting and planning model definition for remaining-to-budget, rollover, and envelope funding rules
+4. Family-scale identity and authorization model
+5. Automation and review workflows, including sync, inbox, rules, and optional AI assistance

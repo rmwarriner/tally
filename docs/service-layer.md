@@ -108,9 +108,12 @@ See `docs/api-runtime-operations.md` and `docs/api-deployment-and-recovery-runbo
 - no durable metrics backend yet beyond in-process `/metrics`
 - no distributed tracing yet beyond request correlation ids in logs and responses
 - no external audit stream beyond workspace persistence
+- no persistence abstraction yet beyond the file-backed repository contract
+- no family-scale auth model yet beyond the current single-runtime token/identity setup
 
 ## Recommended Next Steps
 
-1. Add external observability sinks once hosting is selected beyond the single-node default
-2. Add encryption-at-rest and key-handling guidance for workspace files and backups
-3. Extend import/export fidelity only where real data samples demand it
+1. Define the repository and migration abstraction needed to support JSON, SQLite, and Postgres backends
+2. Extend the audit model to cover full transaction lifecycle changes and privileged destructive actions
+3. Define family-scale auth and authorization expectations before broadening collaborative access
+4. Add external observability sinks once hosting is selected beyond the single-node default
