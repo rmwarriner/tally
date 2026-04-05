@@ -11,6 +11,7 @@ import {
   type MoneyAmount,
 } from "@gnucash-ng/domain";
 import { buildDashboardSnapshot } from "./selectors";
+import { listActiveTransactions } from "./transaction-lifecycle";
 import type { FinanceWorkspaceDocument, WorkspaceClosePeriod } from "./types";
 
 export type WorkspaceReportKind =
@@ -137,7 +138,7 @@ function sumMoneyAmounts(lines: MoneyAmount[], commodityCode: string): MoneyAmou
 }
 
 function hasActivityInRange(document: FinanceWorkspaceDocument, accountId: string, from: string, to: string): boolean {
-  return document.transactions.some(
+  return listActiveTransactions(document.transactions).some(
     (transaction) =>
       transaction.occurredOn >= from &&
       transaction.occurredOn <= to &&
@@ -202,10 +203,11 @@ export function buildWorkspaceReport(
   },
 ): WorkspaceReport {
   const commodityCode = document.baseCommodityCode;
+  const transactions = listActiveTransactions(document.transactions);
 
   switch (range.kind) {
     case "net-worth": {
-      const balances = computeAccountBalances(document.accounts, document.transactions, range.to).filter(
+      const balances = computeAccountBalances(document.accounts, transactions, range.to).filter(
         (balance) => balance.accountType === "asset" || balance.accountType === "liability",
       );
 
@@ -214,7 +216,7 @@ export function buildWorkspaceReport(
         from: range.from,
         kind: "net-worth",
         to: range.to,
-        total: calculateNetWorth(document.accounts, document.transactions, commodityCode, range.to),
+        total: calculateNetWorth(document.accounts, transactions, commodityCode, range.to),
       };
     }
     case "income-statement": {
@@ -222,7 +224,7 @@ export function buildWorkspaceReport(
         .filter(isIncomeOrExpenseAccount)
         .map((account) => {
           const accountType: "expense" | "income" = account.type;
-          const rawAmount = document.transactions.reduce((total, transaction) => {
+          const rawAmount = transactions.reduce((total, transaction) => {
             if (transaction.occurredOn < range.from || transaction.occurredOn > range.to) {
               return total;
             }
@@ -275,7 +277,7 @@ export function buildWorkspaceReport(
           let inflow = 0;
           let outflow = 0;
 
-          for (const transaction of document.transactions) {
+          for (const transaction of transactions) {
             if (transaction.occurredOn < range.from || transaction.occurredOn > range.to) {
               continue;
             }
@@ -321,7 +323,7 @@ export function buildWorkspaceReport(
       const lines = buildBaselineBudgetSnapshot(
         document.baselineBudgetLines,
         document.accounts,
-        document.transactions,
+        transactions,
         range,
       );
 
@@ -343,7 +345,7 @@ export function buildWorkspaceReport(
         document.envelopeAllocations,
         document.baselineBudgetLines,
         document.accounts,
-        document.transactions,
+        transactions,
         range,
       );
 
@@ -370,6 +372,7 @@ export function buildCloseSummary(
     to: string;
   },
 ): CloseSummary {
+  const transactions = listActiveTransactions(document.transactions);
   const dashboard = buildDashboardSnapshot(document, range);
   const incomeStatement = buildWorkspaceReport(document, {
     from: range.from,
@@ -435,7 +438,7 @@ export function buildCloseSummary(
   return {
     checks,
     from: range.from,
-    importedTransactionCount: document.transactions.filter(
+    importedTransactionCount: transactions.filter(
       (transaction) =>
         transaction.occurredOn >= range.from &&
         transaction.occurredOn <= range.to &&
@@ -447,7 +450,7 @@ export function buildCloseSummary(
     readyToClose: checks.every((check) => check.status === "ok"),
     reconciliationGaps,
     to: range.to,
-    transactionCount: document.transactions.filter(
+    transactionCount: transactions.filter(
       (transaction) => transaction.occurredOn >= range.from && transaction.occurredOn <= range.to,
     ).length,
   };

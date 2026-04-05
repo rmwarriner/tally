@@ -1,4 +1,5 @@
 import type { FinanceWorkspaceDocument } from "./types";
+import { listActiveTransactions } from "./transaction-lifecycle";
 
 export interface QifEntry {
   amount: number;
@@ -178,7 +179,7 @@ export function buildQifExport(params: {
   fileName: string;
   transactionCount: number;
 } {
-  const transactions = params.workspace.transactions
+  const transactions = listActiveTransactions(params.workspace.transactions)
     .filter((transaction) => transaction.occurredOn >= params.from && transaction.occurredOn <= params.to)
     .filter((transaction) => transaction.postings.some((posting) => posting.accountId === params.accountId))
     .sort((left, right) => left.occurredOn.localeCompare(right.occurredOn) || left.id.localeCompare(right.id));

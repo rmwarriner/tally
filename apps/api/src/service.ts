@@ -1,6 +1,7 @@
 import { createNoopLogger, type Logger } from "@gnucash-ng/logging";
 import {
   addTransaction,
+  buildOperationalWorkspaceView,
   buildCloseSummary,
   buildGnuCashXmlExport,
   buildOfxExport,
@@ -9,6 +10,8 @@ import {
   buildQifExport,
   buildWorkspaceReport,
   closeWorkspacePeriod,
+  deleteTransaction,
+  destroyTransaction,
   executeScheduledTransaction,
   importTransactionsFromCsvRows,
   importTransactionsFromStatement,
@@ -25,6 +28,8 @@ import {
 import type {
   BackupEnvelope,
   BackupsEnvelope,
+  DeleteTransactionRequest,
+  DestroyTransactionRequest,
   ErrorEnvelope,
   GetGnuCashXmlExportRequest,
   GetBackupsRequest,
@@ -80,6 +85,12 @@ export interface WorkspaceService {
   ): Promise<ServiceResponse<StatementExportEnvelope | ErrorEnvelope>>;
   getReport(request: GetReportRequest): Promise<ServiceResponse<ReportEnvelope | ErrorEnvelope>>;
   getWorkspace(request: GetWorkspaceRequest): Promise<ServiceResponse<WorkspaceEnvelope | ErrorEnvelope>>;
+  deleteTransaction(
+    request: DeleteTransactionRequest,
+  ): Promise<ServiceResponse<WorkspaceEnvelope | ErrorEnvelope>>;
+  destroyTransaction(
+    request: DestroyTransactionRequest,
+  ): Promise<ServiceResponse<WorkspaceEnvelope | ErrorEnvelope>>;
   postCsvImport(
     request: PostCsvImportRequest,
   ): Promise<ServiceResponse<WorkspaceEnvelope | ErrorEnvelope>>;
@@ -156,6 +167,10 @@ export function createWorkspaceService(params: {
     await params.repository.save(document, { logger: getRequestLogger(requestLogger) });
   }
 
+  function presentWorkspace(document: FinanceWorkspaceDocument): FinanceWorkspaceDocument {
+    return buildOperationalWorkspaceView(document);
+  }
+
   return {
     async getWorkspace(request) {
       const requestLogger = getRequestLogger(request.logger).child({
@@ -180,7 +195,7 @@ export function createWorkspaceService(params: {
         }
         requestLogger.info("service command completed");
 
-        return success(200, { workspace });
+        return success(200, { workspace: presentWorkspace(workspace) });
       } catch (error) {
         const apiError = toApiError(error);
         requestLogger.error("service command failed", {
@@ -363,7 +378,7 @@ export function createWorkspaceService(params: {
 
         await saveWorkspace(result.document, requestLogger);
         requestLogger.info("service command completed");
-        return success(201, { workspace: result.document });
+        return success(201, { workspace: presentWorkspace(result.document) });
       } catch (error) {
         const apiError = toApiError(error);
         requestLogger.error("service command failed", {
@@ -438,7 +453,7 @@ export function createWorkspaceService(params: {
         requestLogger.info("service command completed", {
           backupId: request.backupId,
         });
-        return success(200, { workspace: restored });
+        return success(200, { workspace: presentWorkspace(restored) });
       } catch (error) {
         const apiError = toApiError(error);
         requestLogger.error("service command failed", {
@@ -623,7 +638,7 @@ export function createWorkspaceService(params: {
           );
         }
 
-        const exportResult = buildGnuCashXmlExport({ workspace });
+        const exportResult = buildGnuCashXmlExport({ workspace: presentWorkspace(workspace) });
 
         requestLogger.info("service command completed");
         return success(200, {
@@ -686,7 +701,7 @@ export function createWorkspaceService(params: {
 
         await saveWorkspace(result.document, requestLogger);
         requestLogger.info("service command completed");
-        return success(201, { workspace: result.document });
+        return success(201, { workspace: presentWorkspace(result.document) });
       } catch (error) {
         const apiError = toApiError(error);
         requestLogger.error("service command failed", {
@@ -741,7 +756,7 @@ export function createWorkspaceService(params: {
 
         await saveWorkspace(result.document, requestLogger);
         requestLogger.info("service command completed");
-        return success(201, { workspace: result.document });
+        return success(201, { workspace: presentWorkspace(result.document) });
       } catch (error) {
         const apiError = toApiError(error);
         requestLogger.error("service command failed", {
@@ -797,7 +812,7 @@ export function createWorkspaceService(params: {
 
         await saveWorkspace(result.document, requestLogger);
         requestLogger.info("service command completed");
-        return success(201, { workspace: result.document });
+        return success(201, { workspace: presentWorkspace(result.document) });
       } catch (error) {
         const apiError = toApiError(error);
         requestLogger.error("service command failed", {
@@ -851,7 +866,7 @@ export function createWorkspaceService(params: {
 
         await saveWorkspace(result.document, requestLogger);
         requestLogger.info("service command completed");
-        return success(200, { workspace: result.document });
+        return success(200, { workspace: presentWorkspace(result.document) });
       } catch (error) {
         const apiError = toApiError(error);
         requestLogger.error("service command failed", {
@@ -906,7 +921,117 @@ export function createWorkspaceService(params: {
 
         await saveWorkspace(result.document, requestLogger);
         requestLogger.info("service command completed");
-        return success(200, { workspace: result.document });
+        return success(200, { workspace: presentWorkspace(result.document) });
+      } catch (error) {
+        const apiError = toApiError(error);
+        requestLogger.error("service command failed", {
+          error: apiError.message,
+          errorCode: apiError.code,
+        });
+        return failure(apiError);
+      }
+    },
+
+    async deleteTransaction(request) {
+      const requestLogger = getRequestLogger(request.logger).child({
+        operation: "deleteTransaction",
+        transactionId: request.transactionId,
+        workspaceId: request.workspaceId,
+      });
+      requestLogger.info("service command started");
+
+      try {
+        const workspace = await loadWorkspace(request.workspaceId, requestLogger);
+        const authorization = authorizeWorkspaceAccess(workspace, request.auth, "write");
+
+        if (!authorization.ok) {
+          requestLogger.warn("service command authorization failed", { errors: [authorization.error] });
+          return failure(
+            new ApiError({
+              code: "auth.forbidden",
+              message: authorization.error ?? "Forbidden.",
+              status: 403,
+            }),
+          );
+        }
+
+        const result = deleteTransaction(workspace, request.transactionId, {}, {
+          audit: {
+            actor: request.auth.actor,
+          },
+          logger: requestLogger,
+        });
+
+        if (!result.ok) {
+          requestLogger.warn("service command validation failed", { errors: result.errors });
+          return failure(
+            new ApiError({
+              code: "validation.failed",
+              details: { issues: result.errors },
+              message: result.errors[0] ?? "Request validation failed.",
+              status: 422,
+            }),
+          );
+        }
+
+        await saveWorkspace(result.document, requestLogger);
+        requestLogger.info("service command completed");
+        return success(200, { workspace: presentWorkspace(result.document) });
+      } catch (error) {
+        const apiError = toApiError(error);
+        requestLogger.error("service command failed", {
+          error: apiError.message,
+          errorCode: apiError.code,
+        });
+        return failure(apiError);
+      }
+    },
+
+    async destroyTransaction(request) {
+      const requestLogger = getRequestLogger(request.logger).child({
+        operation: "destroyTransaction",
+        transactionId: request.transactionId,
+        workspaceId: request.workspaceId,
+      });
+      requestLogger.info("service command started");
+
+      try {
+        const workspace = await loadWorkspace(request.workspaceId, requestLogger);
+        const authorization = authorizeWorkspaceAccess(workspace, request.auth, "destroy");
+
+        if (!authorization.ok) {
+          requestLogger.warn("service command authorization failed", { errors: [authorization.error] });
+          return failure(
+            new ApiError({
+              code: "auth.forbidden",
+              message: authorization.error ?? "Forbidden.",
+              status: 403,
+            }),
+          );
+        }
+
+        const result = destroyTransaction(workspace, request.transactionId, {
+          audit: {
+            actor: request.auth.actor,
+          },
+          logger: requestLogger,
+        });
+
+        if (!result.ok) {
+          requestLogger.warn("service command validation failed", { errors: result.errors });
+          return failure(
+            new ApiError({
+              code: "validation.failed",
+              details: { issues: result.errors },
+              message: result.errors[0] ?? "Request validation failed.",
+              status: 422,
+            }),
+          );
+        }
+
+        await saveWorkspace(result.document, requestLogger);
+        requestLogger.info("service command completed");
+        return success(200, { workspace: presentWorkspace(result.document) });
       } catch (error) {
         const apiError = toApiError(error);
         requestLogger.error("service command failed", {
@@ -970,7 +1095,7 @@ export function createWorkspaceService(params: {
 
         await saveWorkspace(result.document, requestLogger);
         requestLogger.info("service command completed");
-        return success(201, { workspace: result.document });
+        return success(201, { workspace: presentWorkspace(result.document) });
       } catch (error) {
         const apiError = toApiError(error);
         requestLogger.error("service command failed", {
@@ -1036,7 +1161,7 @@ export function createWorkspaceService(params: {
 
         await saveWorkspace(result.document, requestLogger);
         requestLogger.info("service command completed");
-        return success(200, { workspace: result.document });
+        return success(200, { workspace: presentWorkspace(result.document) });
       } catch (error) {
         const apiError = toApiError(error);
         requestLogger.error("service command failed", {
@@ -1090,7 +1215,7 @@ export function createWorkspaceService(params: {
 
         await saveWorkspace(result.document, requestLogger);
         requestLogger.info("service command completed", { warnings: result.errors });
-        return success(200, { workspace: result.document });
+        return success(200, { workspace: presentWorkspace(result.document) });
       } catch (error) {
         const apiError = toApiError(error);
         requestLogger.error("service command failed", {
@@ -1153,7 +1278,7 @@ export function createWorkspaceService(params: {
 
         await saveWorkspace(result.document, requestLogger);
         requestLogger.info("service command completed");
-        return success(200, { workspace: result.document });
+        return success(200, { workspace: presentWorkspace(result.document) });
       } catch (error) {
         const apiError = toApiError(error);
         requestLogger.error("service command failed", {
@@ -1207,7 +1332,7 @@ export function createWorkspaceService(params: {
 
         await saveWorkspace(result.document, requestLogger);
         requestLogger.info("service command completed");
-        return success(200, { workspace: result.document });
+        return success(200, { workspace: presentWorkspace(result.document) });
       } catch (error) {
         const apiError = toApiError(error);
         requestLogger.error("service command failed", {
@@ -1260,7 +1385,7 @@ export function createWorkspaceService(params: {
 
         await saveWorkspace(result.document, requestLogger);
         requestLogger.info("service command completed");
-        return success(200, { workspace: result.document });
+        return success(200, { workspace: presentWorkspace(result.document) });
       } catch (error) {
         const apiError = toApiError(error);
         requestLogger.error("service command failed", {
@@ -1314,7 +1439,7 @@ export function createWorkspaceService(params: {
 
         await saveWorkspace(result.document, requestLogger);
         requestLogger.info("service command completed");
-        return success(200, { workspace: result.document });
+        return success(200, { workspace: presentWorkspace(result.document) });
       } catch (error) {
         const apiError = toApiError(error);
         requestLogger.error("service command failed", {
@@ -1367,7 +1492,7 @@ export function createWorkspaceService(params: {
 
         await saveWorkspace(result.document, requestLogger);
         requestLogger.info("service command completed");
-        return success(200, { workspace: result.document });
+        return success(200, { workspace: presentWorkspace(result.document) });
       } catch (error) {
         const apiError = toApiError(error);
         requestLogger.error("service command failed", {

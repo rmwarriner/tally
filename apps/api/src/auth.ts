@@ -78,10 +78,14 @@ export function resolveAuthContext(params: {
 export function authorizeWorkspaceAccess(
   workspace: FinanceWorkspaceDocument,
   auth: AuthContext,
-  access: "read" | "write",
+  access: "destroy" | "read" | "write",
 ): AuthorizationResult {
   if (auth.role === "local-admin" || auth.role === "admin") {
     return { ok: true };
+  }
+
+  if (access === "destroy") {
+    return { ok: false, error: "Privileged authority is required for destructive transaction removal." };
   }
 
   if (!workspace.householdMembers.includes(auth.actor)) {

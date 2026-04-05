@@ -20,6 +20,11 @@ import { parseGnuCashXml } from "./gnucash-xml";
 import { parseOfxStatement } from "./ofx";
 import { parseQif } from "./qif";
 import { buildCloseSummary } from "./reports";
+import {
+  isTransactionDeleted,
+  listActiveTransactions,
+  replaceActiveTransactions,
+} from "./transaction-lifecycle";
 import type {
   CsvImportRow,
   FinanceWorkspaceDocument,
@@ -50,6 +55,10 @@ export interface ApplyScheduledTransactionExceptionInput {
   nextDueOn?: string;
   note?: string;
   scheduleId: string;
+}
+
+export interface DeleteTransactionInput {
+  deletedAt?: string;
 }
 
 function upsertById<T extends { id: string }>(items: T[], nextItem: T): T[] {
@@ -99,6 +108,28 @@ function lockErrorForDate(document: FinanceWorkspaceDocument, date: string): str
   }
 
   return `Date ${date} is locked by closed period ${lockingPeriod.from} through ${lockingPeriod.to}.`;
+}
+
+function actorForMutation(options: CommandOptions): string {
+  return options.audit?.actor ?? "system";
+}
+
+function referencedTransactionErrors(document: FinanceWorkspaceDocument, transactionId: string): string[] {
+  const errors: string[] = [];
+
+  const importBatch = document.importBatches.find((batch) => batch.transactionIds.includes(transactionId));
+  if (importBatch) {
+    errors.push(`Transaction ${transactionId} is referenced by import batch ${importBatch.id}.`);
+  }
+
+  const reconciliationSession = document.reconciliationSessions.find((session) =>
+    session.clearedTransactionIds.includes(transactionId),
+  );
+  if (reconciliationSession) {
+    errors.push(`Transaction ${transactionId} is referenced by reconciliation session ${reconciliationSession.id}.`);
+  }
+
+  return errors;
 }
 
 function buildImportedTransaction(params: {
@@ -248,7 +279,7 @@ export function addTransaction(
   }
 
   const posted = postTransaction(
-    { accounts: document.accounts, transactions: document.transactions },
+    { accounts: document.accounts, transactions: listActiveTransactions(document.transactions) },
     transaction,
   );
 
@@ -263,7 +294,7 @@ export function addTransaction(
   const nextDocument = appendAuditEvent(
     {
       ...document,
-      transactions: posted.ledger.transactions,
+      transactions: replaceActiveTransactions(document, posted.ledger.transactions),
     },
     {
       entityIds: [transaction.id],
@@ -311,6 +342,12 @@ export function updateTransaction(
     return { ok: false, errors, document };
   }
 
+  if (isTransactionDeleted(existingTransaction)) {
+    const errors = [`Transaction ${transactionId} is soft-deleted and cannot be updated.`];
+    logger.warn("workspace command validation failed", { errors });
+    return { ok: false, errors, document };
+  }
+
   const existingLockError = lockErrorForDate(document, existingTransaction.occurredOn);
 
   if (existingLockError) {
@@ -332,7 +369,7 @@ export function updateTransaction(
     return { ok: false, errors: validation.errors, document };
   }
 
-  const nextTransactions = document.transactions.map((candidate) =>
+  const nextTransactions = listActiveTransactions(document.transactions).map((candidate) =>
     candidate.id === transactionId ? transaction : candidate,
   );
 
@@ -344,7 +381,7 @@ export function updateTransaction(
   const nextDocument = appendAuditEvent(
     {
       ...document,
-      transactions: nextTransactions,
+      transactions: replaceActiveTransactions(document, nextTransactions),
     },
     {
       entityIds: [transactionId],
@@ -354,6 +391,150 @@ export function updateTransaction(
         occurredOn: transaction.occurredOn,
         postingCount: transaction.postings.length,
         previousOccurredOn: existingTransaction.occurredOn,
+      },
+    },
+    options.audit,
+  );
+
+  return {
+    ok: true,
+    errors: [],
+    document: nextDocument,
+  };
+}
+
+export function deleteTransaction(
+  document: FinanceWorkspaceDocument,
+  transactionId: string,
+  input: DeleteTransactionInput = {},
+  options: CommandOptions = {},
+): CommandResult {
+  const logger = (options.logger ?? createNoopLogger()).child({
+    command: "deleteTransaction",
+    transactionId,
+    workspaceId: document.id,
+  });
+  logger.info("workspace command started");
+
+  const existingTransaction = document.transactions.find((candidate) => candidate.id === transactionId);
+
+  if (!existingTransaction) {
+    const errors = [`Transaction ${transactionId} does not exist.`];
+    logger.warn("workspace command validation failed", { errors });
+    return { ok: false, errors, document };
+  }
+
+  if (isTransactionDeleted(existingTransaction)) {
+    const errors = [`Transaction ${transactionId} is already soft-deleted.`];
+    logger.warn("workspace command validation failed", { errors });
+    return { ok: false, errors, document };
+  }
+
+  const lockError = lockErrorForDate(document, existingTransaction.occurredOn);
+  if (lockError) {
+    logger.warn("workspace command validation failed", { errors: [lockError] });
+    return { ok: false, errors: [lockError], document };
+  }
+
+  const deletedAt = input.deletedAt ?? options.audit?.occurredAt ?? new Date().toISOString();
+  const deletedBy = actorForMutation(options);
+  const nextTransactions = listActiveTransactions(document.transactions).map((candidate) =>
+    candidate.id === transactionId
+      ? {
+          ...candidate,
+          deletion: {
+            deletedAt,
+            deletedBy,
+          },
+        }
+      : candidate,
+  );
+
+  logger.info("workspace command completed", {
+    deletedAt,
+    deletedBy,
+    transactionCount: nextTransactions.length,
+  });
+
+  const nextDocument = appendAuditEvent(
+    {
+      ...document,
+      transactions: replaceActiveTransactions(document, nextTransactions),
+    },
+    {
+      entityIds: [transactionId],
+      eventType: "transaction.deleted",
+      summary: {
+        deletedAt,
+        deletedBy,
+        description: existingTransaction.description,
+        occurredOn: existingTransaction.occurredOn,
+        postingCount: existingTransaction.postings.length,
+      },
+    },
+    options.audit,
+  );
+
+  return {
+    ok: true,
+    errors: [],
+    document: nextDocument,
+  };
+}
+
+export function destroyTransaction(
+  document: FinanceWorkspaceDocument,
+  transactionId: string,
+  options: CommandOptions = {},
+): CommandResult {
+  const logger = (options.logger ?? createNoopLogger()).child({
+    command: "destroyTransaction",
+    transactionId,
+    workspaceId: document.id,
+  });
+  logger.info("workspace command started");
+
+  const existingTransaction = document.transactions.find((candidate) => candidate.id === transactionId);
+
+  if (!existingTransaction) {
+    const errors = [`Transaction ${transactionId} does not exist.`];
+    logger.warn("workspace command validation failed", { errors });
+    return { ok: false, errors, document };
+  }
+
+  const lockError = lockErrorForDate(document, existingTransaction.occurredOn);
+  if (lockError) {
+    logger.warn("workspace command validation failed", { errors: [lockError] });
+    return { ok: false, errors: [lockError], document };
+  }
+
+  const referenceErrors = referencedTransactionErrors(document, transactionId);
+  if (referenceErrors.length > 0) {
+    logger.warn("workspace command validation failed", { errors: referenceErrors });
+    return { ok: false, errors: referenceErrors, document };
+  }
+
+  const nextTransactions = document.transactions.filter((candidate) => candidate.id !== transactionId);
+
+  logger.info("workspace command completed", {
+    destroyedPreviouslyDeleted: isTransactionDeleted(existingTransaction),
+    transactionCount: nextTransactions.length,
+  });
+
+  const nextDocument = appendAuditEvent(
+    {
+      ...document,
+      transactions: nextTransactions,
+    },
+    {
+      entityIds: [transactionId],
+      eventType: "transaction.destroyed",
+      summary: {
+        deletedAt: existingTransaction.deletion?.deletedAt,
+        deletedBy: existingTransaction.deletion?.deletedBy,
+        description: existingTransaction.description,
+        occurredOn: existingTransaction.occurredOn,
+        postingCount: existingTransaction.postings.length,
       },
     },
     options.audit,
@@ -810,7 +991,21 @@ export function reconcileAccount(
     return { ok: false, errors: [`Unknown account ${params.accountId}.`], document };
   }
 
-  const clearedTransactions = document.transactions.filter((transaction) =>
+  const activeTransactions = listActiveTransactions(document.transactions);
+
+  const missingTransactionIds = params.clearedTransactionIds.filter(
+    (transactionId) => !activeTransactions.some((transaction) => transaction.id === transactionId),
+  );
+
+  if (missingTransactionIds.length > 0) {
+    const errors = missingTransactionIds.map(
+      (transactionId) => `Transaction ${transactionId} does not exist or is soft-deleted.`,
+    );
+    logger.warn("workspace command validation failed", { errors });
+    return { ok: false, errors, document };
+  }
+
+  const clearedTransactions = activeTransactions.filter((transaction) =>
     params.clearedTransactionIds.includes(transaction.id),
   );
   const clearedBalance = sumPostingsForAccount(
@@ -833,7 +1028,7 @@ export function reconcileAccount(
     completedAt: difference.quantity === 0 ? params.statementDate : undefined,
   };
 
-  const nextTransactions = document.transactions.map((transaction) => {
+  const nextTransactions = activeTransactions.map((transaction) => {
     if (!params.clearedTransactionIds.includes(transaction.id)) {
       return transaction;
     }
@@ -864,7 +1059,7 @@ export function reconcileAccount(
   const nextDocument = appendAuditEvent(
     {
       ...document,
-      transactions: nextTransactions,
+      transactions: replaceActiveTransactions(document, nextTransactions),
       reconciliationSessions: upsertById(document.reconciliationSessions, session),
     },
     {

@@ -102,7 +102,9 @@ export function buildGnuCashXmlExport(params: {
       [
         `<ws:transaction id="${escapeXml(transaction.id)}" occurredOn="${escapeXml(transaction.occurredOn)}" description="${escapeXml(transaction.description)}"${
           transaction.payee ? ` payee="${escapeXml(transaction.payee)}"` : ""
-        }${transaction.scheduleId ? ` scheduleId="${escapeXml(transaction.scheduleId)}"` : ""}>`,
+        }${transaction.scheduleId ? ` scheduleId="${escapeXml(transaction.scheduleId)}"` : ""}${
+          transaction.deletion?.deletedAt ? ` deletedAt="${escapeXml(transaction.deletion.deletedAt)}"` : ""
+        }${transaction.deletion?.deletedBy ? ` deletedBy="${escapeXml(transaction.deletion.deletedBy)}"` : ""}>`,
         "<ws:postings>",
         ...transaction.postings.map(
           (posting) =>
@@ -333,6 +335,13 @@ export function parseGnuCashXml(contents: string): {
           }),
         ),
         scheduleId: extractAttribute(attributes, "scheduleId"),
+        deletion:
+          extractAttribute(attributes, "deletedAt") && extractAttribute(attributes, "deletedBy")
+            ? {
+                deletedAt: extractAttribute(attributes, "deletedAt") ?? "",
+                deletedBy: extractAttribute(attributes, "deletedBy") ?? "",
+              }
+            : undefined,
         source:
           sourceAttributes.length > 0
             ? {

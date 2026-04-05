@@ -115,6 +115,16 @@ export function validateWorkspaceDocumentForPersistence(
   }
 
   for (const transaction of document.transactions) {
+    if (transaction.deletion) {
+      if (!transaction.deletion.deletedBy.trim()) {
+        issues.push(`Transaction ${transaction.id}: deletedBy is required when deletion metadata is present.`);
+      }
+
+      if (Number.isNaN(Date.parse(transaction.deletion.deletedAt))) {
+        issues.push(`Transaction ${transaction.id}: deletedAt must be a valid ISO timestamp.`);
+      }
+    }
+
     const validation = validateTransactionForLedger(transaction, document.accounts);
 
     if (!validation.ok) {

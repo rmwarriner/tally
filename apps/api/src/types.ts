@@ -118,6 +118,20 @@ export interface UpdateTransactionRequest {
   workspaceId: string;
 }
 
+export interface DeleteTransactionRequest {
+  auth: AuthContext;
+  logger?: Logger;
+  transactionId: string;
+  workspaceId: string;
+}
+
+export interface DestroyTransactionRequest {
+  auth: AuthContext;
+  logger?: Logger;
+  transactionId: string;
+  workspaceId: string;
+}
+
 export interface PostReconciliationRequest {
   auth: AuthContext;
   logger?: Logger;

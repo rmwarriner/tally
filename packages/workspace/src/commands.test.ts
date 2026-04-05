@@ -7,8 +7,11 @@ import { createLogger, type LogRecord } from "@gnucash-ng/logging";
 import {
   addTransaction,
   applyScheduledTransactionException,
+  buildDashboardSnapshot,
   closeWorkspacePeriod,
   createDemoWorkspace,
+  deleteTransaction,
+  destroyTransaction,
   executeScheduledTransaction,
   importTransactionsFromCsvRows,
   importTransactionsFromStatement,
@@ -130,6 +133,54 @@ describe("workspace commands", () => {
 
     expect(result.ok).toBe(false);
     expect(result.errors).toEqual(["Transaction txn-missing does not exist."]);
+  });
+
+  it("soft-deletes transactions without leaving them in operational balances", () => {
+    const workspace = createDemoWorkspace();
+    const before = buildDashboardSnapshot(workspace, {
+      from: "2026-04-01",
+      to: "2026-04-30",
+    });
+    const result = deleteTransaction(
+      workspace,
+      "txn-grocery-1",
+      {
+        deletedAt: "2026-04-03T12:00:00Z",
+      },
+      {
+        audit: { actor: "Primary", occurredAt: "2026-04-03T12:00:00Z" },
+      },
+    );
+
+    expect(result.ok).toBe(true);
+    expect(result.document.transactions.find((transaction) => transaction.id === "txn-grocery-1")?.deletion).toEqual({
+      deletedAt: "2026-04-03T12:00:00Z",
+      deletedBy: "Primary",
+    });
+    expect(result.document.auditEvents.at(-1)?.eventType).toBe("transaction.deleted");
+
+    const after = buildDashboardSnapshot(result.document, {
+      from: "2026-04-01",
+      to: "2026-04-30",
+    });
+    expect(after.accountBalances.find((balance) => balance.accountId === "acct-checking")?.balance).toBeGreaterThan(
+      before.accountBalances.find((balance) => balance.accountId === "acct-checking")?.balance ?? 0,
+    );
+  });
+
+  it("destroys unreferenced transactions and records a durable destroy audit event", () => {
+    const workspace = createDemoWorkspace();
+    const result = destroyTransaction(workspace, "txn-grocery-1", {
+      audit: { actor: "Primary", occurredAt: "2026-04-03T12:05:00Z" },
+    });
+
+    expect(result.ok).toBe(true);
+    expect(result.document.transactions.some((transaction) => transaction.id === "txn-grocery-1")).toBe(false);
+    expect(result.document.auditEvents.at(-1)).toMatchObject({
+      actor: "Primary",
+      entityIds: ["txn-grocery-1"],
+      eventType: "transaction.destroyed",
+    });
   });
 
   it("imports csv transactions and skips duplicates by fingerprint", () => {

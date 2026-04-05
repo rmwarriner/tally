@@ -39,6 +39,11 @@ export interface Posting {
   reconciledAt?: string;
 }
 
+export interface TransactionDeletion {
+  deletedAt: string;
+  deletedBy: string;
+}
+
 export interface Transaction {
   id: UUID;
   occurredOn: string;
@@ -48,6 +53,7 @@ export interface Transaction {
   source?: ImportSource;
   tags?: string[];
   scheduleId?: UUID;
+  deletion?: TransactionDeletion;
 }
 
 export type ScheduleFrequency =

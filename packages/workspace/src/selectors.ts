@@ -7,17 +7,20 @@ import {
   validateBudgetConfiguration,
   validateTransactionForLedger,
 } from "@gnucash-ng/domain";
+import { listActiveTransactions } from "./transaction-lifecycle";
 import type { FinanceWorkspaceDocument } from "./types";
 
 export function buildDashboardSnapshot(
   document: FinanceWorkspaceDocument,
   range: { from: string; to: string },
 ) {
+  const transactions = listActiveTransactions(document.transactions);
+
   return {
     budgetSnapshot: buildBaselineBudgetSnapshot(
       document.baselineBudgetLines,
       document.accounts,
-      document.transactions,
+      transactions,
       range,
     ),
     envelopeSnapshot: buildEnvelopeBudgetSnapshot(
@@ -25,18 +28,18 @@ export function buildDashboardSnapshot(
       document.envelopeAllocations,
       document.baselineBudgetLines,
       document.accounts,
-      document.transactions,
+      transactions,
       range,
     ),
-    accountBalances: computeAccountBalances(document.accounts, document.transactions, range.to),
+    accountBalances: computeAccountBalances(document.accounts, transactions, range.to),
     netWorth: calculateNetWorth(
       document.accounts,
-      document.transactions,
+      transactions,
       document.baseCommodityCode,
       range.to,
     ),
     dueTransactions: materializeDueTransactions(document.scheduledTransactions, range.to),
-    ledgerErrors: document.transactions.flatMap((transaction) =>
+    ledgerErrors: transactions.flatMap((transaction) =>
       validateTransactionForLedger(transaction, document.accounts).errors.map(
         (error) => `${transaction.id}: ${error}`,
       ),

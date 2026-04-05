@@ -7,4 +7,5 @@ export * from "./ofx";
 export * from "./qif";
 export * from "./reports";
 export * from "./selectors";
+export * from "./transaction-lifecycle";
 export * from "./types";

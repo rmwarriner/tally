@@ -70,6 +70,32 @@ describe("api request validation", () => {
     expect(result.errors).toContain("transaction.postings[1].amount.quantity must be a finite number.");
   });
 
+  it("rejects caller-supplied transaction deletion metadata", () => {
+    const result = validateTransactionRequestBody({
+      transaction: {
+        deletion: {
+          deletedAt: "2026-04-03T12:00:00Z",
+          deletedBy: "Primary",
+        },
+        description: "Attempted spoof",
+        id: "txn-invalid-delete-1",
+        occurredOn: "2026-04-03",
+        postings: [
+          {
+            accountId: "acct-expense-groceries",
+            amount: { commodityCode: "USD", quantity: 15 },
+          },
+          {
+            accountId: "acct-checking",
+            amount: { commodityCode: "USD", quantity: -15 },
+          },
+        ],
+      },
+    });
+
+    expect(result.errors).toContain("transaction.deletion is managed by the service and cannot be supplied.");
+  });
+
   it("accepts valid reconciliation payloads and rejects invalid optional ids", () => {
     const valid = validateReconciliationRequestBody({
       payload: {

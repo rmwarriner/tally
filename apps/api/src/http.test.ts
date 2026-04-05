@@ -552,6 +552,76 @@ Lacct-expense-utilities
     await fixture.cleanup();
   });
 
+  it("soft-deletes transactions over HTTP", async () => {
+    const fixture = await createFixture();
+    const service = createWorkspaceService({
+      repository: createFileSystemWorkspaceRepository({ rootDirectory: fixture.directory }),
+    });
+    const handler = createHttpHandler({ service });
+
+    const response = await handler(
+      new Request(`http://localhost/api/workspaces/${fixture.workspace.id}/transactions/txn-grocery-1`, {
+        method: "DELETE",
+      }),
+    );
+    const body = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(body.workspace.transactions.some((item: { id: string }) => item.id === "txn-grocery-1")).toBe(false);
+    expect(body.workspace.auditEvents.at(-1).eventType).toBe("transaction.deleted");
+
+    await fixture.cleanup();
+  });
+
+  it("requires privileged authority to destroy transactions over HTTP", async () => {
+    const fixture = await createFixture();
+    const service = createWorkspaceService({
+      repository: createFileSystemWorkspaceRepository({ rootDirectory: fixture.directory }),
+    });
+    const handler = createHttpHandler({
+      authIdentities: [
+        { actor: "Primary", role: "member", token: "member-token" },
+        { actor: "Admin", role: "admin", token: "admin-token" },
+      ],
+      service,
+    });
+
+    const forbidden = await handler(
+      new Request(
+        `http://localhost/api/workspaces/${fixture.workspace.id}/transactions/txn-grocery-1/destroy`,
+        {
+          headers: {
+            authorization: "Bearer member-token",
+          },
+          method: "DELETE",
+        },
+      ),
+    );
+
+    expect(forbidden.status).toBe(403);
+
+    const allowed = await handler(
+      new Request(
+        `http://localhost/api/workspaces/${fixture.workspace.id}/transactions/txn-grocery-1/destroy`,
+        {
+          headers: {
+            authorization: "Bearer admin-token",
+          },
+          method: "DELETE",
+        },
+      ),
+    );
+    const allowedBody = await allowed.json();
+
+    expect(allowed.status).toBe(200);
+    expect(allowedBody.workspace.transactions.some((item: { id: string }) => item.id === "txn-grocery-1")).toBe(
+      false,
+    );
+    expect(allowedBody.workspace.auditEvents.at(-1).eventType).toBe("transaction.destroyed");
+
+    await fixture.cleanup();
+  });
+
   it("accepts budget line and envelope writes over HTTP", async () => {
     const fixture = await createFixture();
     const service = createWorkspaceService({

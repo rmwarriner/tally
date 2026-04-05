@@ -121,7 +121,7 @@ Completed:
 
 Next:
 
-1. Trust and integrity hardening for transaction lifecycle audit depth, soft delete, and destructive controls
+1. Continue trust and integrity hardening after the first transaction soft-delete and privileged-destroy pass
 2. Budgeting and planning model definition for remaining-to-budget, rollover, and envelope funding rules
 3. Family-scale identity and authorization model
 4. Automation and review workflows, including sync, inbox, rules, and optional AI assistance

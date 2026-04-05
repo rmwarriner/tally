@@ -31,6 +31,10 @@ describe("gnucash xml adapter", () => {
     ];
     workspace.transactions = [
       {
+        deletion: {
+          deletedAt: "2026-04-03T00:00:00.000Z",
+          deletedBy: "Primary",
+        },
         description: "Paycheck <April>",
         id: "txn-1",
         occurredOn: "2026-04-01",
@@ -162,6 +166,10 @@ describe("gnucash xml adapter", () => {
     );
     expect(parsed.document?.transactions[0]).toEqual(
       expect.objectContaining({
+        deletion: {
+          deletedAt: "2026-04-03T00:00:00.000Z",
+          deletedBy: "Primary",
+        },
         payee: "Employer & Co",
         scheduleId: "sched-1",
         source: expect.objectContaining({

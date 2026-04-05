@@ -802,6 +802,65 @@ describe("workspace service", () => {
     await fixture.cleanup();
   });
 
+  it("soft-deletes transactions through the service layer without returning them in workspace reads", async () => {
+    const fixture = await createFixture();
+    const service = createWorkspaceService({
+      logger: createTestLogger([]),
+      repository: createFileSystemWorkspaceRepository({ rootDirectory: fixture.directory }),
+    });
+
+    const response = await service.deleteTransaction({
+      auth: { actor: "Primary", kind: "token", role: "member", token: "token-1" },
+      transactionId: "txn-grocery-1",
+      workspaceId: fixture.workspace.id,
+    });
+
+    expect(response.status).toBe(200);
+    expectWorkspaceBody(response.body);
+    expect(response.body.workspace.transactions.some((item) => item.id === "txn-grocery-1")).toBe(false);
+    expect(response.body.workspace.auditEvents.at(-1)?.eventType).toBe("transaction.deleted");
+
+    const refreshed = await service.getWorkspace({
+      auth: { actor: "local-admin", kind: "local", role: "local-admin" },
+      workspaceId: fixture.workspace.id,
+    });
+    expectWorkspaceBody(refreshed.body);
+    expect(refreshed.body.workspace.transactions.some((item) => item.id === "txn-grocery-1")).toBe(false);
+
+    await fixture.cleanup();
+  });
+
+  it("requires privileged authority for transaction destroy through the service layer", async () => {
+    const fixture = await createFixture();
+    const service = createWorkspaceService({
+      logger: createTestLogger([]),
+      repository: createFileSystemWorkspaceRepository({ rootDirectory: fixture.directory }),
+    });
+
+    const forbidden = await service.destroyTransaction({
+      auth: { actor: "Primary", kind: "token", role: "member", token: "token-1" },
+      transactionId: "txn-grocery-1",
+      workspaceId: fixture.workspace.id,
+    });
+
+    expect(forbidden.status).toBe(403);
+    expectAnyErrorBody(forbidden.body);
+    expect(forbidden.body.error.code).toBe("auth.forbidden");
+
+    const allowed = await service.destroyTransaction({
+      auth: { actor: "local-admin", kind: "local", role: "local-admin" },
+      transactionId: "txn-grocery-1",
+      workspaceId: fixture.workspace.id,
+    });
+
+    expect(allowed.status).toBe(200);
+    expectWorkspaceBody(allowed.body);
+    expect(allowed.body.workspace.transactions.some((item) => item.id === "txn-grocery-1")).toBe(false);
+    expect(allowed.body.workspace.auditEvents.at(-1)?.eventType).toBe("transaction.destroyed");
+
+    await fixture.cleanup();
+  });
+
   it("records reconciliations through the service layer", async () => {
     const fixture = await createFixture();
     const service = createWorkspaceService({

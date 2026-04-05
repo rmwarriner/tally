@@ -32,6 +32,17 @@ describe("api auth", () => {
     });
   });
 
+  it("rejects unknown configured tokens", () => {
+    const result = resolveAuthContext({
+      apiKeyHeader: "unknown",
+      authIdentities: [{ actor: "Primary", role: "member", token: "token-1" }],
+      authRequired: true,
+    });
+
+    expect(result.ok).toBe(false);
+    expect(result.error).toBe("Authentication is required.");
+  });
+
   it("denies workspace access to non-members", () => {
     const workspace = createDemoWorkspace();
     const authorization = authorizeWorkspaceAccess(
@@ -42,5 +53,23 @@ describe("api auth", () => {
 
     expect(authorization.ok).toBe(false);
     expect(authorization.error).toContain("not authorized");
+  });
+
+  it("denies destroy access to non-privileged members and allows admins", () => {
+    const workspace = createDemoWorkspace();
+    const memberAuthorization = authorizeWorkspaceAccess(
+      workspace,
+      { actor: "Primary", kind: "token", role: "member", token: "token-1" },
+      "destroy",
+    );
+    const adminAuthorization = authorizeWorkspaceAccess(
+      workspace,
+      { actor: "Admin", kind: "token", role: "admin", token: "token-2" },
+      "destroy",
+    );
+
+    expect(memberAuthorization.ok).toBe(false);
+    expect(memberAuthorization.error).toContain("Privileged authority");
+    expect(adminAuthorization.ok).toBe(true);
   });
 });

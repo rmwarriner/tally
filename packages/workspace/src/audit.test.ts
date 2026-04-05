@@ -1,6 +1,14 @@
 import { describe, expect, it } from "vitest";
 import { createMoney } from "@gnucash-ng/domain";
-import { addTransaction, createDemoWorkspace, reconcileAccount, updateTransaction } from "./index";
+import {
+  addTransaction,
+  createAuditEvent,
+  createDemoWorkspace,
+  deleteTransaction,
+  destroyTransaction,
+  reconcileAccount,
+  updateTransaction,
+} from "./index";
 
 describe("workspace audit events", () => {
   it("appends a durable audit event for successful transaction creation", () => {
@@ -118,5 +126,64 @@ describe("workspace audit events", () => {
       eventType: "transaction.updated",
       occurredAt: "2026-04-03T12:00:00Z",
     });
+  });
+
+  it("appends durable audit events for transaction soft delete and destroy", () => {
+    const workspace = createDemoWorkspace();
+    const deleted = deleteTransaction(
+      workspace,
+      "txn-grocery-1",
+      {
+        deletedAt: "2026-04-03T13:00:00Z",
+      },
+      {
+        audit: {
+          actor: "Primary",
+          occurredAt: "2026-04-03T13:00:00Z",
+        },
+      },
+    );
+
+    expect(deleted.ok).toBe(true);
+    expect(deleted.document.auditEvents.at(-1)).toMatchObject({
+      actor: "Primary",
+      entityIds: ["txn-grocery-1"],
+      eventType: "transaction.deleted",
+      occurredAt: "2026-04-03T13:00:00Z",
+    });
+
+    const destroyed = destroyTransaction(deleted.document, "txn-grocery-1", {
+      audit: {
+        actor: "Admin",
+        occurredAt: "2026-04-03T13:05:00Z",
+      },
+    });
+
+    expect(destroyed.ok).toBe(true);
+    expect(destroyed.document.auditEvents.at(-1)).toMatchObject({
+      actor: "Admin",
+      entityIds: ["txn-grocery-1"],
+      eventType: "transaction.destroyed",
+      occurredAt: "2026-04-03T13:05:00Z",
+    });
+  });
+
+  it("falls back to event type and system actor when audit context omits identifiers", () => {
+    const workspace = createDemoWorkspace();
+    const event = createAuditEvent(
+      workspace,
+      {
+        entityIds: [],
+        eventType: "transaction.created",
+        summary: {},
+      },
+      {
+        occurredAt: "2026-04-03T14:00:00Z",
+      },
+    );
+
+    expect(event.id).toBe("audit:transaction.created:transaction.created:2026-04-03T14:00:00Z");
+    expect(event.actor).toBe("system");
+    expect(event.entityIds).toEqual([]);
   });
 });

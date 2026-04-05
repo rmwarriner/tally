@@ -96,6 +96,7 @@ This repository currently includes:
 - formal workspace audit-event system for successful financial mutations
 - durable audit-event persistence in workspace documents
 - health checks, request correlation, and in-process request metrics for the API layer
+- transaction lifecycle now includes soft delete by default plus privileged destroy with durable audit coverage
 
 ### Security Foundation
 
@@ -114,11 +115,11 @@ The repository is no longer mainly missing core backend foundations.
 
 The main remaining work is now product and architecture shaping across a growing idea backlog. The highest-value next areas are:
 
-1. Trust and integrity hardening for audit depth, soft delete, destructive controls, and encryption guidance
+1. Continue trust and integrity hardening beyond the new transaction soft-delete/destroy model, especially encryption guidance and broader review controls
 2. Budgeting-model definition for remaining-to-budget, rollover, cleanup, and envelope funding semantics
 3. Family-scale multi-user identity and authorization design
 4. Review, automation, and ingestion workflows on top of the current import foundation
-5. Backend-operability follow-through, including broader persistence integration verification and possible config-carrying retry ergonomics for failed migration reports
+5. Backend-operability follow-through, including broader persistence integration verification and production-oriented operational guidance across backends
 
 ## Deferred Follow-Up
 

@@ -107,6 +107,10 @@ function normalizeRouteLabel(method: string, path: string): string {
     return "/api/workspaces/:workspaceId/transactions";
   }
 
+  if (/^\/api\/workspaces\/[^/]+\/transactions\/[^/]+\/destroy$/.test(path)) {
+    return "/api/workspaces/:workspaceId/transactions/:transactionId/destroy";
+  }
+
   if (/^\/api\/workspaces\/[^/]+\/transactions\/[^/]+$/.test(path)) {
     return "/api/workspaces/:workspaceId/transactions/:transactionId";
   }
@@ -1699,6 +1703,55 @@ export function createHttpHandler(params: {
           transactionId,
           workspaceId,
         });
+        return completeJsonResponse(response.status, response.body);
+      }
+    }
+
+    if (request.method === "DELETE") {
+      const destroyTransactionMatch = path.match(/^\/api\/workspaces\/([^/]+)\/transactions\/([^/]+)\/destroy$/);
+      const deleteTransactionMatch = path.match(/^\/api\/workspaces\/([^/]+)\/transactions\/([^/]+)$/);
+
+      if (destroyTransactionMatch || deleteTransactionMatch) {
+        const rateLimited = enforceRateLimit(requestKey, rateLimitPolicy.mutation, requestLogger);
+
+        if (rateLimited) {
+          return completeJsonResponse(
+            rateLimited.status,
+            await rateLimited.json(),
+            Object.fromEntries(rateLimited.headers.entries()),
+          );
+        }
+
+        const workspaceId = decodeURIComponent((destroyTransactionMatch ?? deleteTransactionMatch)?.[1] ?? "");
+        const transactionId = decodeURIComponent((destroyTransactionMatch ?? deleteTransactionMatch)?.[2] ?? "");
+
+        if (!isSafeWorkspaceId(workspaceId) || !/^[a-zA-Z0-9:_-]+$/.test(transactionId)) {
+          return completeJsonResponse(
+            400,
+            toErrorEnvelope(
+              new ApiError({
+                code: "repository.invalid_identifier",
+                message: "Workspace or transaction identifier is invalid.",
+                status: 400,
+              }),
+            ),
+          );
+        }
+
+        const response = destroyTransactionMatch
+          ? await params.service.destroyTransaction({
+              auth: auth.context,
+              logger: requestLogger,
+              transactionId,
+              workspaceId,
+            })
+          : await params.service.deleteTransaction({
+              auth: auth.context,
+              logger: requestLogger,
+              transactionId,
+              workspaceId,
+            });
+
         return completeJsonResponse(response.status, response.body);
       }
     }

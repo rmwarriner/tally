@@ -137,6 +137,10 @@ export function validateTransactionRequestBody(body: unknown): {
     errors.push("transaction.occurredOn must use YYYY-MM-DD format.");
   }
 
+  if (transaction.deletion !== undefined) {
+    errors.push("transaction.deletion is managed by the service and cannot be supplied.");
+  }
+
   if (!Array.isArray(transaction.postings) || transaction.postings.length < 2) {
     errors.push("transaction.postings must contain at least two postings.");
   } else {
