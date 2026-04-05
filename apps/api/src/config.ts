@@ -5,7 +5,7 @@ import { ConfigValidationError } from "./errors";
 export type ApiRuntimeMode = "development" | "production" | "test";
 export type ApiAuthSource = "env" | "file" | "none";
 export type ApiAuthStrategy = "identities" | "none" | "token";
-export type ApiPersistenceBackend = "json" | "sqlite";
+export type ApiPersistenceBackend = "json" | "postgres" | "sqlite";
 
 export interface ApiRuntimeConfig {
   authIdentities: Array<{
@@ -20,6 +20,7 @@ export interface ApiRuntimeConfig {
   host: string;
   persistenceBackend: ApiPersistenceBackend;
   port: number;
+  postgresUrl: string;
   runtimeMode: ApiRuntimeMode;
   rateLimit: {
     importLimit: number;
@@ -35,12 +36,12 @@ export interface ApiRuntimeConfig {
 function parsePersistenceBackend(value: string | undefined): ApiPersistenceBackend {
   const candidate = value ?? "json";
 
-  if (candidate === "json" || candidate === "sqlite") {
+  if (candidate === "json" || candidate === "postgres" || candidate === "sqlite") {
     return candidate;
   }
 
   throw new ConfigValidationError([
-    "GNUCASH_NG_API_PERSISTENCE_BACKEND must be json or sqlite.",
+    "GNUCASH_NG_API_PERSISTENCE_BACKEND must be json, sqlite, or postgres.",
   ]);
 }
 
@@ -281,6 +282,14 @@ export function createApiRuntimeConfig(
     ]);
   }
 
+  const postgresUrl = env.GNUCASH_NG_API_POSTGRES_URL ?? "";
+
+  if (persistenceBackend === "postgres" && postgresUrl.length === 0) {
+    throw new ConfigValidationError([
+      "GNUCASH_NG_API_POSTGRES_URL is required when GNUCASH_NG_API_PERSISTENCE_BACKEND=postgres.",
+    ]);
+  }
+
   return {
     authIdentities: authConfig.authIdentities,
     authSource: authConfig.authSource,
@@ -290,6 +299,7 @@ export function createApiRuntimeConfig(
     host,
     persistenceBackend,
     port,
+    postgresUrl,
     runtimeMode,
     rateLimit: {
       importLimit,

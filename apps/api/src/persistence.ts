@@ -2,9 +2,10 @@ import type { Logger } from "@gnucash-ng/logging";
 import type { FinanceWorkspaceDocument } from "@gnucash-ng/workspace";
 import type { ApiRuntimeConfig } from "./config";
 import { createFileSystemWorkspacePersistenceBackend } from "./persistence-json";
+import { createPostgresWorkspacePersistenceBackend } from "./persistence-postgres";
 import { createSqliteWorkspacePersistenceBackend } from "./persistence-sqlite";
 
-export type WorkspacePersistenceBackendKind = "json" | "sqlite";
+export type WorkspacePersistenceBackendKind = "json" | "postgres" | "sqlite";
 
 export interface WorkspaceBackup {
   createdAt: string;
@@ -32,6 +33,13 @@ export function createWorkspacePersistenceBackend(params: {
   config: ApiRuntimeConfig;
   logger?: Logger;
 }): WorkspacePersistenceBackend {
+  if (params.config.persistenceBackend === "postgres") {
+    return createPostgresWorkspacePersistenceBackend({
+      logger: params.logger,
+      postgresUrl: params.config.postgresUrl,
+    });
+  }
+
   if (params.config.persistenceBackend === "sqlite") {
     return createSqliteWorkspacePersistenceBackend({
       databasePath: params.config.sqlitePath,
@@ -46,4 +54,5 @@ export function createWorkspacePersistenceBackend(params: {
 }
 
 export { createFileSystemWorkspacePersistenceBackend } from "./persistence-json";
+export { createPostgresWorkspacePersistenceBackend } from "./persistence-postgres";
 export { createSqliteWorkspacePersistenceBackend } from "./persistence-sqlite";

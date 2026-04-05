@@ -13,6 +13,7 @@ function createConfig(overrides: Partial<ApiRuntimeConfig> = {}): ApiRuntimeConf
     host: "127.0.0.1",
     persistenceBackend: "json",
     port: 4000,
+    postgresUrl: "",
     rateLimit: {
       importLimit: 10,
       mutationLimit: 30,
@@ -159,6 +160,44 @@ describe("api runtime", () => {
         }),
       }),
     );
+  });
+
+  it("logs postgres backend configuration without exposing connection details", async () => {
+    const records: LogRecord[] = [];
+
+    const runtime = createApiRuntime({
+      config: createConfig({
+        persistenceBackend: "postgres",
+        postgresUrl: "postgres://ledger:secret@localhost:5432/ledger",
+      }),
+      createServer() {
+        return {
+          close(callback) {
+            callback();
+          },
+          listen(_port, _host, callback) {
+            callback();
+          },
+        };
+      },
+      ensureSeed: vi.fn(async () => {}),
+      logger: createSilentLogger((record) => {
+        records.push(record);
+      }),
+    });
+
+    await runtime.start();
+
+    expect(records).toContainEqual(
+      expect.objectContaining({
+        message: "api runtime configured",
+        fields: expect.objectContaining({
+          persistenceBackend: "postgres",
+          postgresConfigured: true,
+        }),
+      }),
+    );
+    expect(JSON.stringify(records)).not.toContain("postgres://ledger:secret");
   });
 
   it("returns immediately when shutdown is requested before startup", async () => {

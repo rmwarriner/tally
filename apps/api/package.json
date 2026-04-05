@@ -6,10 +6,12 @@
   "dependencies": {
     "@gnucash-ng/domain": "workspace:*",
     "@gnucash-ng/logging": "workspace:*",
-    "@gnucash-ng/workspace": "workspace:*"
+    "@gnucash-ng/workspace": "workspace:*",
+    "pg": "^8.20.0"
   },
   "devDependencies": {
     "@types/node": "^24.0.0",
+    "@types/pg": "^8.20.0",
     "tsx": "^4.19.3"
   },
   "scripts": {

@@ -82,7 +82,7 @@ The repository now runs as:
 
 - shared TypeScript domain and workspace logic reused across clients and the API
 - `apps/api` as the command, persistence, auth, validation, audit, and import/export boundary
-- file-backed workspace persistence with repository-managed backups and load-time migration
+- pluggable workspace persistence with `json`, `sqlite`, and `postgres` backends behind one repository contract
 - web and mobile clients consuming the same service boundary for reads and writes
 - a documented single-host Linux deployment model for the API runtime
 
@@ -120,7 +120,7 @@ Completed:
 
 Next:
 
-1. Postgres implementation on top of the new persistence abstraction without weakening audit or migration guarantees
+1. Migration and operational workflows across `json`, `sqlite`, and `postgres` without weakening audit or migration guarantees
 2. Trust and integrity hardening for transaction lifecycle audit depth, soft delete, and destructive controls
 3. Budgeting and planning model definition for remaining-to-budget, rollover, and envelope funding rules
 4. Family-scale identity and authorization model

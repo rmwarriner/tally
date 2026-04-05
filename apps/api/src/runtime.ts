@@ -29,6 +29,7 @@ function createRuntimeLogger(config: ApiRuntimeConfig, env: NodeJS.ProcessEnv): 
     host: config.host,
     persistenceBackend: config.persistenceBackend,
     port: config.port,
+    postgresConfigured: config.persistenceBackend === "postgres",
     runtimeMode: config.runtimeMode,
     sqlitePath: config.persistenceBackend === "sqlite" ? config.sqlitePath : undefined,
   });
@@ -45,6 +46,7 @@ function logRuntimeConfiguration(logger: Logger, config: ApiRuntimeConfig): void
     host: config.host,
     persistenceBackend: config.persistenceBackend,
     port: config.port,
+    postgresConfigured: config.persistenceBackend === "postgres",
     rateLimitImport: config.rateLimit.importLimit,
     rateLimitMutation: config.rateLimit.mutationLimit,
     rateLimitRead: config.rateLimit.readLimit,

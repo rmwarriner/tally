@@ -42,12 +42,16 @@ The production-oriented startup path now uses the same runtime assembly as devel
   - defaults to `4000`
 - `GNUCASH_NG_API_PERSISTENCE_BACKEND`
   - persistence backend selector
-  - `json` or `sqlite`
+  - `json`, `sqlite`, or `postgres`
   - defaults to `json`
 - `GNUCASH_NG_API_SQLITE_PATH`
   - sqlite database file path
   - only used when `GNUCASH_NG_API_PERSISTENCE_BACKEND=sqlite`
   - defaults to `workspaces.sqlite` under the configured data directory
+- `GNUCASH_NG_API_POSTGRES_URL`
+  - postgres connection string
+  - required when `GNUCASH_NG_API_PERSISTENCE_BACKEND=postgres`
+  - should be supplied through environment or secret injection, not logged
 - `GNUCASH_NG_DATA_DIR`
   - workspace data directory
   - defaults to `data` relative to the API process working directory
@@ -93,11 +97,12 @@ The production-oriented startup path now uses the same runtime assembly as devel
 
 ## Current Deployment Assumptions
 
-- persistence currently supports `json` and `sqlite`
+- persistence currently supports `json`, `sqlite`, and `postgres`
 - `json` stores one workspace file per document under the configured data directory
 - `sqlite` stores workspaces and repository-managed backups in a single database file
+- `postgres` stores workspaces and repository-managed backups in relational tables behind the same repository contract
 - the runtime now assembles persistence through a backend seam rather than hard-coding file storage directly into the repository contract
-- workspace backups are stored either under the API data root for `json` or in the sqlite backup table for `sqlite`
+- workspace backups are stored either under the API data root for `json` or in backend-managed backup tables for `sqlite` and `postgres`
 - metrics are exposed from the same API process at `/metrics`
 - liveness and readiness are exposed at `/health/live` and `/health/ready`
 - request correlation is carried through logs with `requestId`
@@ -121,6 +126,6 @@ See `docs/api-deployment-and-recovery-runbook.md` for the concrete deployment, s
 
 ## Near-Term Follow-Up
 
-- add a Postgres implementation behind the persistence backend seam
+- add migration, import/export, and operational guidance between `json`, `sqlite`, and `postgres` backends
 - add external metrics, tracing sinks, and alert routing once the hosting target is selected beyond the single-node default
 - add encryption-at-rest and key-handling guidance once secret-management and external backup targets are finalized

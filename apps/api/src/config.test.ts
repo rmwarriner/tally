@@ -20,6 +20,7 @@ describe("api runtime config", () => {
       host: "127.0.0.1",
       persistenceBackend: "json",
       port: 4000,
+      postgresUrl: "",
       runtimeMode: "development",
       rateLimit: {
         importLimit: 10,
@@ -39,7 +40,8 @@ describe("api runtime config", () => {
         GNUCASH_NG_API_AUTH_TOKEN: "top-secret",
         GNUCASH_NG_API_HOST: "0.0.0.0",
         GNUCASH_NG_API_PORT: "4100",
-        GNUCASH_NG_API_PERSISTENCE_BACKEND: "sqlite",
+        GNUCASH_NG_API_PERSISTENCE_BACKEND: "postgres",
+        GNUCASH_NG_API_POSTGRES_URL: "postgres://ledger:test@localhost:5432/ledger",
         GNUCASH_NG_API_RUNTIME_MODE: "production",
         GNUCASH_NG_API_SEED_DEMO_WORKSPACE: "false",
         GNUCASH_NG_API_SHUTDOWN_TIMEOUT_MS: "15000",
@@ -59,8 +61,9 @@ describe("api runtime config", () => {
       bodyLimitBytes: 1048576,
       dataDirectory: "/tmp/gnucash-ng/var/workspaces",
       host: "0.0.0.0",
-      persistenceBackend: "sqlite",
+      persistenceBackend: "postgres",
       port: 4100,
+      postgresUrl: "postgres://ledger:test@localhost:5432/ledger",
       runtimeMode: "production",
       rateLimit: {
         importLimit: 4,
@@ -139,11 +142,11 @@ describe("api runtime config", () => {
         createApiRuntimeConfig(
           {
             GNUCASH_NG_API_RUNTIME_MODE: "development",
-            GNUCASH_NG_API_PERSISTENCE_BACKEND: "postgres",
+            GNUCASH_NG_API_PERSISTENCE_BACKEND: "mysql",
           },
           "/tmp/gnucash-ng",
         ),
-    ).toThrow("GNUCASH_NG_API_PERSISTENCE_BACKEND must be json or sqlite.");
+    ).toThrow("GNUCASH_NG_API_PERSISTENCE_BACKEND must be json, sqlite, or postgres.");
   });
 
   it("accepts an explicit sqlite path override", () => {
@@ -157,6 +160,21 @@ describe("api runtime config", () => {
     );
 
     expect(config.sqlitePath).toBe("/tmp/gnucash-ng/runtime/api.sqlite");
+  });
+
+  it("requires a postgres url when the postgres backend is selected", () => {
+    expect(
+      () =>
+        createApiRuntimeConfig(
+          {
+            GNUCASH_NG_API_RUNTIME_MODE: "development",
+            GNUCASH_NG_API_PERSISTENCE_BACKEND: "postgres",
+          },
+          "/tmp/gnucash-ng",
+        ),
+    ).toThrow(
+      "GNUCASH_NG_API_POSTGRES_URL is required when GNUCASH_NG_API_PERSISTENCE_BACKEND=postgres.",
+    );
   });
 
   it("rejects malformed auth identity configuration", () => {

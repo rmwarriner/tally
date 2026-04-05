@@ -87,7 +87,7 @@ This repository currently includes:
 - documented API runtime operations for environment, startup mode, and shutdown behavior
 - concrete single-host deployment and recovery runbook for the API runtime
 - file-backed auth secret loading and safe runtime configuration logging
-- initial persistence abstraction under the API repository, with JSON and SQLite backends now supported and Postgres as the next planned extension
+- initial persistence abstraction under the API repository, with JSON, SQLite, and Postgres backends now supported
 - CI and security quality gates
 - security baseline documentation and audited hardening for API/runtime boundaries
 
@@ -114,7 +114,7 @@ The repository is no longer mainly missing core backend foundations.
 
 The main remaining work is now product and architecture shaping across a growing idea backlog. The highest-value next areas are:
 
-1. Persistence abstraction and backend evolution beyond JSON-only storage
+1. Migration and operational workflow across JSON, SQLite, and Postgres storage backends
 2. Trust and integrity hardening for audit depth, soft delete, destructive controls, and encryption guidance
 3. Budgeting-model definition for remaining-to-budget, rollover, cleanup, and envelope funding semantics
 4. Family-scale multi-user identity and authorization design

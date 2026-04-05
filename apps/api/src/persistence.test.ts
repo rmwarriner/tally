@@ -5,7 +5,88 @@ import { afterEach, describe, expect, it } from "vitest";
 import { createDemoWorkspace } from "@gnucash-ng/workspace";
 import { createApiRuntimeConfig } from "./config";
 import { createWorkspacePersistenceBackend } from "./persistence";
+import {
+  createPostgresWorkspacePersistenceBackend,
+  type PostgresQueryable,
+} from "./persistence-postgres";
 import { createSqliteWorkspacePersistenceBackend } from "./persistence-sqlite";
+
+class FakePostgresPool implements PostgresQueryable {
+  private readonly backups = new Map<string, Array<{
+    created_at: string;
+    document_json: string;
+    id: string;
+    size_bytes: number;
+    workspace_id: string;
+  }>>();
+
+  private readonly workspaces = new Map<string, string>();
+  public ended = false;
+
+  async end(): Promise<void> {
+    this.ended = true;
+  }
+
+  async query<TResult extends object = Record<string, unknown>>(
+    text: string,
+    params: unknown[] = [],
+  ): Promise<{ rowCount: number; rows: TResult[] }> {
+    const normalized = text.replace(/\s+/g, " ").trim();
+
+    if (
+      normalized.startsWith("CREATE TABLE IF NOT EXISTS workspaces") ||
+      normalized.startsWith("CREATE TABLE IF NOT EXISTS workspace_backups") ||
+      normalized.startsWith("CREATE INDEX IF NOT EXISTS workspace_backups_workspace_created_idx")
+    ) {
+      return { rowCount: 0, rows: [] };
+    }
+
+    if (normalized.startsWith("SELECT document_json FROM workspaces WHERE id = $1")) {
+      const workspaceId = String(params[0]);
+      const documentJson = this.workspaces.get(workspaceId);
+      return {
+        rowCount: documentJson ? 1 : 0,
+        rows: documentJson ? ([{ document_json: documentJson }] as unknown as TResult[]) : [],
+      };
+    }
+
+    if (normalized.includes("INSERT INTO workspaces (id, document_json, updated_at)")) {
+      this.workspaces.set(String(params[0]), String(params[1]));
+      return { rowCount: 1, rows: [] };
+    }
+
+    if (normalized.includes("INSERT INTO workspace_backups")) {
+      const row = {
+        id: String(params[0]),
+        workspace_id: String(params[1]),
+        created_at: String(params[2]),
+        document_json: String(params[3]),
+        size_bytes: Number(params[4]),
+      };
+      const current = this.backups.get(row.workspace_id) ?? [];
+      current.push(row);
+      this.backups.set(row.workspace_id, current);
+      return { rowCount: 1, rows: [] };
+    }
+
+    if (normalized.includes("FROM workspace_backups WHERE workspace_id = $1 ORDER BY id DESC")) {
+      const rows = [...(this.backups.get(String(params[0])) ?? [])].sort((left, right) =>
+        right.id.localeCompare(left.id),
+      );
+      return { rowCount: rows.length, rows: rows as unknown as TResult[] };
+    }
+
+    if (normalized.includes("FROM workspace_backups WHERE workspace_id = $1 AND id = $2")) {
+      const row = (this.backups.get(String(params[0])) ?? []).find((candidate) => candidate.id === String(params[1]));
+      return {
+        rowCount: row ? 1 : 0,
+        rows: row ? ([row] as unknown as TResult[]) : [],
+      };
+    }
+
+    throw new Error(`Unsupported fake postgres query: ${normalized}`);
+  }
+}
 
 describe("workspace persistence backends", () => {
   const cleanupPaths: string[] = [];
@@ -28,6 +109,24 @@ describe("workspace persistence backends", () => {
     const backend = createWorkspacePersistenceBackend({ config });
 
     expect(backend.kind).toBe("sqlite");
+    await backend.close?.();
+  });
+
+  it("selects the postgres backend from runtime config", async () => {
+    const directory = await mkdtemp(join(tmpdir(), "gnucash-ng-postgres-config-"));
+    cleanupPaths.push(directory);
+    const config = createApiRuntimeConfig(
+      {
+        GNUCASH_NG_API_RUNTIME_MODE: "development",
+        GNUCASH_NG_API_PERSISTENCE_BACKEND: "postgres",
+        GNUCASH_NG_API_POSTGRES_URL: "postgres://ledger:test@localhost:5432/ledger",
+      },
+      directory,
+    );
+
+    const backend = createWorkspacePersistenceBackend({ config });
+
+    expect(backend.kind).toBe("postgres");
     await backend.close?.();
   });
 
@@ -84,5 +183,34 @@ describe("workspace persistence backends", () => {
     expect(loaded.auditEvents).toEqual([]);
 
     await backend.close?.();
+  });
+
+  it("loads, saves, backs up, restores, and migrates workspaces in postgres", async () => {
+    const pool = new FakePostgresPool();
+    const backend = createPostgresWorkspacePersistenceBackend({
+      pool,
+      postgresUrl: "postgres://ledger:test@localhost:5432/ledger",
+    });
+
+    const workspace = createDemoWorkspace();
+    await backend.save(workspace);
+
+    const loaded = await backend.load(workspace.id);
+    expect(loaded.id).toBe(workspace.id);
+
+    const backup = await backend.createBackup(workspace.id);
+    const backups = await backend.listBackups(workspace.id);
+    expect(backup.id).toContain("backup-");
+    expect(backups).toHaveLength(1);
+    expect(backups[0]?.id).toBe(backup.id);
+
+    workspace.name = "Changed Name";
+    await backend.save(workspace);
+
+    const restored = await backend.restoreBackup(workspace.id, backup.id);
+    expect(restored.name).toBe("Household Finance");
+
+    await backend.close?.();
+    expect(pool.ended).toBe(true);
   });
 });
