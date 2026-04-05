@@ -11,6 +11,8 @@ Implemented pieces:
 - read service for dashboard projections
 - write service for transaction creation
 - write service for transaction updates
+- write service for transaction soft delete
+- privileged write service for transaction destroy
 - write service for reconciliation
 - write service for CSV import
 - write service for QIF import
@@ -49,6 +51,7 @@ Implemented pieces:
 - a postgres persistence backend with the same repository contract for load, save, backup, and restore flows
 - an admin persistence migration and export workflow for copy, copy-all, export, and import operations across supported backends
 - dry-run validation reports plus backup-backed rollback handling for persistence copy and import operations
+- multi-workspace persistence migration, partial-failure policy controls, and retry-from-report workflow across supported backends
 - concrete deployment and recovery runbook for a single-node Linux `systemd` target
 
 ## Current Shape

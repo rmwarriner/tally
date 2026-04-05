@@ -34,7 +34,7 @@ The roadmap now separates work into:
 ## Standards Still Needed
 
 - external metrics, tracing, and alert routing beyond in-process foundations
-- encryption-at-rest and key-handling guidance once backup and restore are implemented
+- encryption-at-rest and key-handling guidance across supported persistence backends
 - multi-user identity and authorization guidance for family-scale collaboration
 
 ## Phase 1 Completed
@@ -74,7 +74,7 @@ The next phase should be driven by a smaller set of explicit themes rather than 
 - keep the ledger/accounting core minimal and authoritative
 - model envelope and bank-sync behaviors as decorators or higher-order layers
 - define persistence abstractions for JSON, SQLite, and Postgres
-- preserve migration, backup, and audit behavior across future backends
+- preserve migration, backup, audit, and rollback behavior across future backends
 
 ### 4. Automation, Ingestion, And Assistive Workflows
 
@@ -99,7 +99,7 @@ These are the next candidates for promotion into active delivery work.
 2. Budgeting model definition for remaining-to-budget, rollover, and envelope funding rules
 3. Family-scale identity and authorization model, including external access providers such as Cloudflare Access and OpenID/OIDC
 4. Transaction review and import-automation foundation
-5. Backend-operability follow-through beyond the current migration admin workflow, including broader verification and operational guidance
+5. External observability sinks and production security guidance beyond the single-node default
 
 ## Idea Backlog Policy
 

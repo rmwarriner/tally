@@ -128,6 +128,5 @@ See `docs/api-deployment-and-recovery-runbook.md` for the concrete deployment, s
 
 ## Near-Term Follow-Up
 
-- add migration, import/export, and operational guidance between `json`, `sqlite`, and `postgres` backends
 - add external metrics, tracing sinks, and alert routing once the hosting target is selected beyond the single-node default
 - add encryption-at-rest and key-handling guidance once secret-management and external backup targets are finalized

@@ -56,7 +56,7 @@ This repository currently includes:
 
 - file-system workspace repository
 - service methods for workspace reads and dashboard projections
-- service methods for transaction creation, transaction updates, reconciliation, and CSV import
+- service methods for transaction creation, transaction updates, soft delete, privileged destroy, reconciliation, and CSV import
 - service methods for QIF import and QIF export
 - service methods for reports and close-summary reads
 - HTTP handler for workspace and dashboard reads plus core write routes
@@ -102,6 +102,7 @@ This repository currently includes:
 
 - non-loopback API binding requires auth configuration
 - typed authentication and workspace-level authorization
+- privileged destructive transaction removal separate from ordinary write access
 - HTTP body size limits and JSON enforcement
 - strict request schema validation for core write routes
 - transport-level rate limiting with separate read, mutation, and import thresholds
@@ -119,7 +120,7 @@ The main remaining work is now product and architecture shaping across a growing
 2. Budgeting-model definition for remaining-to-budget, rollover, cleanup, and envelope funding semantics
 3. Family-scale multi-user identity and authorization design
 4. Review, automation, and ingestion workflows on top of the current import foundation
-5. Backend-operability follow-through, including broader persistence integration verification and production-oriented operational guidance across backends
+5. Encryption-at-rest, key-handling, and broader trust-boundary guidance across supported persistence backends
 
 ## Deferred Follow-Up
 
