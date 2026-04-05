@@ -10,7 +10,7 @@
     "@gnucash-ng/logging": "workspace:*"
   },
   "devDependencies": {
-    "@types/node": "^24.0.0"
+    "@types/node": "^25.5.2"
   },
   "scripts": {
     "typecheck": "tsc --noEmit -p tsconfig.json"
