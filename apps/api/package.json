@@ -16,6 +16,7 @@
   },
   "scripts": {
     "dev": "tsx watch src/dev-server.ts",
+    "persistence:admin": "tsx src/persistence-admin-cli.ts",
     "start": "tsx src/server.ts",
     "typecheck": "tsc --noEmit -p tsconfig.json"
   }

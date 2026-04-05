@@ -47,6 +47,7 @@ Implemented pieces:
 - an explicit persistence backend seam underneath the repository, with the current JSON/file implementation wired through it
 - a sqlite persistence backend with the same repository contract for load, save, backup, and restore flows
 - a postgres persistence backend with the same repository contract for load, save, backup, and restore flows
+- an admin persistence migration and export workflow for copy, export, and import operations across supported backends
 - concrete deployment and recovery runbook for a single-node Linux `systemd` target
 
 ## Current Shape
@@ -108,18 +109,19 @@ On local development startup, the API seeds `workspace-household-demo.json` auto
 Production-oriented startup does not seed demo data and requires explicit auth configuration.
 
 See `docs/api-runtime-operations.md` and `docs/api-deployment-and-recovery-runbook.md` for the current runtime-mode and deployment-facing guidance.
+See `docs/persistence-migration-workflow.md` for backend migration and export commands.
 
 ## Current Gaps
 
 - no durable metrics backend yet beyond in-process `/metrics`
 - no distributed tracing yet beyond request correlation ids in logs and responses
 - no external audit stream beyond workspace persistence
-- no backend migration/import/export workflow yet across `json`, `sqlite`, and `postgres`
+- no runbook-grade verification and rollback guidance yet for backend migration across `json`, `sqlite`, and `postgres`
 - no family-scale auth model yet beyond the current single-runtime token/identity setup
 
 ## Recommended Next Steps
 
-1. Add migration and operational workflows across `json`, `sqlite`, and `postgres` backends
+1. Add verification, rollback, and multi-workspace operational guidance on top of the current backend migration workflow
 2. Extend the audit model to cover full transaction lifecycle changes and privileged destructive actions
 3. Define family-scale auth and authorization expectations before broadening collaborative access
 4. Add external observability sinks once hosting is selected beyond the single-node default

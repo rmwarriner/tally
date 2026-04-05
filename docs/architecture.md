@@ -85,6 +85,7 @@ The repository now runs as:
 - pluggable workspace persistence with `json`, `sqlite`, and `postgres` backends behind one repository contract
 - web and mobile clients consuming the same service boundary for reads and writes
 - a documented single-host Linux deployment model for the API runtime
+- an offline/admin migration workflow for moving workspaces between supported persistence backends
 
 See `docs/service-layer.md`, `docs/api-runtime-operations.md`, and `docs/api-deployment-and-recovery-runbook.md` for the current operational shape.
 
@@ -120,7 +121,7 @@ Completed:
 
 Next:
 
-1. Migration and operational workflows across `json`, `sqlite`, and `postgres` without weakening audit or migration guarantees
+1. Verification, rollback, and operational hardening for migration across `json`, `sqlite`, and `postgres`
 2. Trust and integrity hardening for transaction lifecycle audit depth, soft delete, and destructive controls
 3. Budgeting and planning model definition for remaining-to-budget, rollover, and envelope funding rules
 4. Family-scale identity and authorization model

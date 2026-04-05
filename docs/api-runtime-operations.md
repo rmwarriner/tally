@@ -29,6 +29,8 @@ The API now supports explicit runtime modes:
 
 The production-oriented startup path now uses the same runtime assembly as development, but with production defaults for auth and seeding behavior.
 
+Administrative persistence migration and export commands are documented in `docs/persistence-migration-workflow.md`.
+
 ## Environment Variables
 
 - `GNUCASH_NG_API_RUNTIME_MODE`
