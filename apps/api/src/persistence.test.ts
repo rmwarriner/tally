@@ -4,12 +4,16 @@ import { tmpdir } from "node:os";
 import { afterEach, describe, expect, it } from "vitest";
 import { createDemoWorkspace } from "@gnucash-ng/workspace";
 import { createApiRuntimeConfig } from "./config";
-import { createWorkspacePersistenceBackend } from "./persistence";
+import {
+  createWorkspacePersistenceBackend,
+  importWorkspaceDocument,
+} from "./persistence";
 import {
   createPostgresWorkspacePersistenceBackend,
   type PostgresQueryable,
 } from "./persistence-postgres";
 import { createSqliteWorkspacePersistenceBackend } from "./persistence-sqlite";
+import { validateWorkspaceDocumentForPersistence } from "./persistence-validation";
 
 class FakePostgresPool implements PostgresQueryable {
   private readonly backups = new Map<string, Array<{
@@ -212,5 +216,73 @@ describe("workspace persistence backends", () => {
 
     await backend.close?.();
     expect(pool.ended).toBe(true);
+  });
+
+  it("reports validation issues for persistence documents", () => {
+    const workspace = createDemoWorkspace();
+    workspace.transactions = [
+      {
+        ...workspace.transactions[0]!,
+        id: workspace.transactions[0]!.id,
+        postings: [
+          {
+            ...workspace.transactions[0]!.postings[0]!,
+            accountId: "missing-account",
+          },
+          workspace.transactions[0]!.postings[1]!,
+        ],
+      },
+      workspace.transactions[0]!,
+    ];
+
+    const report = validateWorkspaceDocumentForPersistence(workspace);
+
+    expect(report.ok).toBe(false);
+    expect(report.issues.some((issue) => issue.startsWith("Duplicate transaction id "))).toBe(true);
+    expect(report.issues.some((issue) => issue.includes("references unknown account missing-account"))).toBe(true);
+  });
+
+  it("backs up and rolls back target workspaces when verified imports fail", async () => {
+    const directory = await mkdtemp(join(tmpdir(), "gnucash-ng-sqlite-import-rollback-"));
+    cleanupPaths.push(directory);
+    const backend = createSqliteWorkspacePersistenceBackend({
+      databasePath: join(directory, "workspaces.sqlite"),
+    });
+    const existing = createDemoWorkspace();
+    await backend.save(existing);
+
+    const invalidReplacement = {
+      ...createDemoWorkspace(),
+      id: existing.id,
+      transactions: [
+        {
+          ...createDemoWorkspace().transactions[0]!,
+          postings: [
+            {
+              ...createDemoWorkspace().transactions[0]!.postings[0]!,
+              accountId: "missing-account",
+            },
+            createDemoWorkspace().transactions[0]!.postings[1]!,
+          ],
+        },
+      ],
+    };
+
+    await expect(
+      importWorkspaceDocument({
+        backend,
+        backupTarget: true,
+        document: invalidReplacement,
+        rollbackOnFailure: true,
+      }),
+    ).rejects.toThrow("failed validation after write");
+
+    const loaded = await backend.load(existing.id);
+    expect(loaded.name).toBe(existing.name);
+
+    const backups = await backend.listBackups(existing.id);
+    expect(backups).toHaveLength(1);
+
+    await backend.close?.();
   });
 });

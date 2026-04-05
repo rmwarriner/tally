@@ -1,9 +1,14 @@
 import type { Logger } from "@gnucash-ng/logging";
 import type { FinanceWorkspaceDocument } from "@gnucash-ng/workspace";
 import type { ApiPersistenceBackend, ApiRuntimeConfig } from "./config";
+import { ApiError } from "./errors";
 import { createFileSystemWorkspacePersistenceBackend } from "./persistence-json";
 import { createPostgresWorkspacePersistenceBackend } from "./persistence-postgres";
 import { createSqliteWorkspacePersistenceBackend } from "./persistence-sqlite";
+import {
+  validateWorkspaceDocumentForPersistence,
+  type WorkspaceValidationReport,
+} from "./persistence-validation";
 
 export type WorkspacePersistenceBackendKind = "json" | "postgres" | "sqlite";
 
@@ -37,8 +42,54 @@ export interface WorkspacePersistenceOptions {
 }
 
 export interface PersistenceCopyResult {
+  dryRun: boolean;
+  rolledBack: boolean;
+  sourceValidation?: WorkspaceValidationReport;
+  targetBackupId?: string;
   targetWorkspaceId: string;
+  targetWorkspaceValidation?: WorkspaceValidationReport;
+  targetWorkspaceWasPresent: boolean;
   workspaceId: string;
+}
+
+export interface PersistenceExportResult {
+  document: FinanceWorkspaceDocument;
+  dryRun: boolean;
+  validation?: WorkspaceValidationReport;
+}
+
+export interface PersistenceImportResult {
+  dryRun: boolean;
+  rolledBack: boolean;
+  targetBackupId?: string;
+  targetWorkspaceValidation?: WorkspaceValidationReport;
+  targetWorkspaceWasPresent: boolean;
+  workspaceId: string;
+  validation?: WorkspaceValidationReport;
+}
+
+export interface PersistenceWriteOptions {
+  backupTarget?: boolean;
+  dryRun?: boolean;
+  logger?: Logger;
+  rollbackOnFailure?: boolean;
+  validate?: boolean;
+}
+
+async function loadWorkspaceIfExists(params: {
+  backend: WorkspacePersistenceBackend;
+  logger?: Logger;
+  workspaceId: string;
+}): Promise<FinanceWorkspaceDocument | undefined> {
+  try {
+    return await params.backend.load(params.workspaceId, { logger: params.logger });
+  } catch (error) {
+    if (error instanceof ApiError && error.code === "workspace.not_found") {
+      return undefined;
+    }
+
+    throw error;
+  }
 }
 
 export function createWorkspacePersistenceBackendFromOptions(params: {
@@ -82,29 +133,89 @@ export function createWorkspacePersistenceBackend(params: {
 
 export async function exportWorkspaceDocument(params: {
   backend: WorkspacePersistenceBackend;
+  dryRun?: boolean;
   logger?: Logger;
+  validate?: boolean;
   workspaceId: string;
-}): Promise<FinanceWorkspaceDocument> {
-  return params.backend.load(params.workspaceId, { logger: params.logger });
+}): Promise<PersistenceExportResult> {
+  const document = await params.backend.load(params.workspaceId, { logger: params.logger });
+
+  return {
+    document,
+    dryRun: params.dryRun ?? false,
+    validation:
+      params.validate === false ? undefined : validateWorkspaceDocumentForPersistence(document),
+  };
 }
 
 export async function importWorkspaceDocument(params: {
   backend: WorkspacePersistenceBackend;
   document: FinanceWorkspaceDocument;
-  logger?: Logger;
-}): Promise<FinanceWorkspaceDocument> {
-  await params.backend.save(params.document, { logger: params.logger });
-  return params.document;
+} & PersistenceWriteOptions): Promise<PersistenceImportResult> {
+  const validation =
+    params.validate === false ? undefined : validateWorkspaceDocumentForPersistence(params.document);
+  const targetWorkspaceId = params.document.id;
+  const targetWorkspace = await loadWorkspaceIfExists({
+    backend: params.backend,
+    logger: params.logger,
+    workspaceId: targetWorkspaceId,
+  });
+  const targetWorkspaceWasPresent = targetWorkspace !== undefined;
+
+  if (params.dryRun) {
+    return {
+      dryRun: true,
+      rolledBack: false,
+      targetWorkspaceWasPresent,
+      validation,
+      workspaceId: targetWorkspaceId,
+    };
+  }
+
+  let targetBackupId: string | undefined;
+
+  if (params.backupTarget && targetWorkspaceWasPresent) {
+    const backup = await params.backend.createBackup(targetWorkspaceId, { logger: params.logger });
+    targetBackupId = backup.id;
+  }
+
+  try {
+    await params.backend.save(params.document, { logger: params.logger });
+    const persistedDocument = await params.backend.load(targetWorkspaceId, { logger: params.logger });
+    const targetWorkspaceValidation =
+      params.validate === false ? undefined : validateWorkspaceDocumentForPersistence(persistedDocument);
+
+    if (targetWorkspaceValidation && !targetWorkspaceValidation.ok) {
+      throw new Error(`Persisted workspace ${targetWorkspaceId} failed validation after write.`);
+    }
+
+    return {
+      dryRun: false,
+      rolledBack: false,
+      targetBackupId,
+      targetWorkspaceValidation,
+      targetWorkspaceWasPresent,
+      validation,
+      workspaceId: targetWorkspaceId,
+    };
+  } catch (error) {
+    if (targetBackupId && params.rollbackOnFailure) {
+      await params.backend.restoreBackup(targetWorkspaceId, targetBackupId, { logger: params.logger });
+    }
+
+    throw error;
+  }
 }
 
 export async function copyWorkspaceBetweenBackends(params: {
-  logger?: Logger;
   source: WorkspacePersistenceBackend;
   sourceWorkspaceId: string;
   target: WorkspacePersistenceBackend;
   targetWorkspaceId?: string;
-}): Promise<PersistenceCopyResult> {
+} & PersistenceWriteOptions): Promise<PersistenceCopyResult> {
   const document = await params.source.load(params.sourceWorkspaceId, { logger: params.logger });
+  const sourceValidation =
+    params.validate === false ? undefined : validateWorkspaceDocumentForPersistence(document);
   const targetWorkspaceId = params.targetWorkspaceId ?? document.id;
   const targetDocument =
     targetWorkspaceId === document.id
@@ -113,10 +224,24 @@ export async function copyWorkspaceBetweenBackends(params: {
           ...document,
           id: targetWorkspaceId,
         };
-  await params.target.save(targetDocument, { logger: params.logger });
+  const imported = await importWorkspaceDocument({
+    backend: params.target,
+    backupTarget: params.backupTarget,
+    document: targetDocument,
+    dryRun: params.dryRun,
+    logger: params.logger,
+    rollbackOnFailure: params.rollbackOnFailure,
+    validate: params.validate,
+  });
 
   return {
+    dryRun: imported.dryRun,
+    rolledBack: imported.rolledBack,
+    sourceValidation,
+    targetBackupId: imported.targetBackupId,
     targetWorkspaceId,
+    targetWorkspaceValidation: imported.targetWorkspaceValidation,
+    targetWorkspaceWasPresent: imported.targetWorkspaceWasPresent,
     workspaceId: document.id,
   };
 }

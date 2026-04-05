@@ -8,12 +8,25 @@ import {
   createWorkspacePersistenceBackendFromOptions,
   exportWorkspaceDocument,
   importWorkspaceDocument,
+  type PersistenceCopyResult,
+  type PersistenceExportResult,
+  type PersistenceImportResult,
   type WorkspacePersistenceOptions,
 } from "./persistence";
 
+interface ParsedFlags {
+  booleans: Set<string>;
+  values: Map<string, string>;
+}
+
 export type PersistenceAdminCommand =
   | {
+      backupTarget: boolean;
       command: "copy";
+      dryRun: boolean;
+      reportPath?: string;
+      rollbackOnFailure: boolean;
+      skipValidation: boolean;
       source: WorkspacePersistenceOptions;
       target: WorkspacePersistenceOptions;
       targetWorkspaceId?: string;
@@ -21,19 +34,28 @@ export type PersistenceAdminCommand =
     }
   | {
       command: "export";
+      dryRun: boolean;
       outputPath: string;
+      reportPath?: string;
+      skipValidation: boolean;
       source: WorkspacePersistenceOptions;
       workspaceId: string;
     }
   | {
+      backupTarget: boolean;
       command: "import";
+      dryRun: boolean;
       inputPath: string;
+      reportPath?: string;
+      rollbackOnFailure: boolean;
+      skipValidation: boolean;
       target: WorkspacePersistenceOptions;
       targetWorkspaceId?: string;
       workspaceId: string;
     };
 
-function parseFlagMap(argv: string[]): Map<string, string> {
+function parseFlags(argv: string[]): ParsedFlags {
+  const booleans = new Set<string>();
   const values = new Map<string, string>();
 
   for (let index = 0; index < argv.length; index += 1) {
@@ -47,18 +69,22 @@ function parseFlagMap(argv: string[]): Map<string, string> {
     const value = argv[index + 1];
 
     if (!value || value.startsWith("--")) {
-      throw new ConfigValidationError([`Missing value for --${key}.`]);
+      booleans.add(key);
+      continue;
     }
 
     values.set(key, value);
     index += 1;
   }
 
-  return values;
+  return {
+    booleans,
+    values,
+  };
 }
 
-function readRequired(flags: Map<string, string>, key: string): string {
-  const value = flags.get(key);
+function readRequired(flags: ParsedFlags, key: string): string {
+  const value = flags.values.get(key);
 
   if (!value) {
     throw new ConfigValidationError([`--${key} is required.`]);
@@ -67,7 +93,7 @@ function readRequired(flags: Map<string, string>, key: string): string {
   return value;
 }
 
-function readBackendOptions(flags: Map<string, string>, prefix: "source" | "target" | "backend"): WorkspacePersistenceOptions {
+function readBackendOptions(flags: ParsedFlags, prefix: "source" | "target" | "backend"): WorkspacePersistenceOptions {
   const backendKey = prefix === "backend" ? "backend" : `${prefix}-backend`;
   const dataDirKey = prefix === "backend" ? "data-dir" : `${prefix}-data-dir`;
   const sqlitePathKey = prefix === "backend" ? "sqlite-path" : `${prefix}-sqlite-path`;
@@ -78,9 +104,9 @@ function readBackendOptions(flags: Map<string, string>, prefix: "source" | "targ
     throw new ConfigValidationError([`--${backendKey} must be json, sqlite, or postgres.`]);
   }
 
-  const dataDirectory = resolve(flags.get(dataDirKey) ?? "./data");
-  const sqlitePath = resolve(flags.get(sqlitePathKey) ?? `${dataDirectory}/workspaces.sqlite`);
-  const postgresUrl = flags.get(postgresUrlKey) ?? "";
+  const dataDirectory = resolve(flags.values.get(dataDirKey) ?? "./data");
+  const sqlitePath = resolve(flags.values.get(sqlitePathKey) ?? `${dataDirectory}/workspaces.sqlite`);
+  const postgresUrl = flags.values.get(postgresUrlKey) ?? "";
 
   if (persistenceBackend === "postgres" && postgresUrl.length === 0) {
     throw new ConfigValidationError([`--${postgresUrlKey} is required when --${backendKey}=postgres.`]);
@@ -94,9 +120,33 @@ function readBackendOptions(flags: Map<string, string>, prefix: "source" | "targ
   };
 }
 
+function readBooleanFlag(flags: ParsedFlags, key: string): boolean {
+  return flags.booleans.has(key);
+}
+
+async function writeReportFile(reportPath: string | undefined, report: unknown): Promise<void> {
+  if (!reportPath) {
+    return;
+  }
+
+  await mkdir(dirname(reportPath), { recursive: true });
+  await writeFile(reportPath, `${JSON.stringify(report, null, 2)}\n`, "utf8");
+}
+
+function buildAdminReport(params: {
+  command: PersistenceAdminCommand["command"];
+  result: PersistenceCopyResult | PersistenceExportResult | PersistenceImportResult;
+}): Record<string, unknown> {
+  return {
+    command: params.command,
+    generatedAt: new Date().toISOString(),
+    ...params.result,
+  };
+}
+
 export function parsePersistenceAdminCommand(argv: string[]): PersistenceAdminCommand {
   const [commandName] = argv;
-  const flags = parseFlagMap(argv.slice(1));
+  const flags = parseFlags(argv.slice(1));
 
   if (commandName !== "copy" && commandName !== "export" && commandName !== "import") {
     throw new ConfigValidationError([
@@ -106,10 +156,15 @@ export function parsePersistenceAdminCommand(argv: string[]): PersistenceAdminCo
 
   if (commandName === "copy") {
     return {
+      backupTarget: readBooleanFlag(flags, "backup-target"),
       command: "copy",
+      dryRun: readBooleanFlag(flags, "dry-run"),
+      reportPath: flags.values.get("report-path") ? resolve(flags.values.get("report-path") as string) : undefined,
+      rollbackOnFailure: readBooleanFlag(flags, "rollback-on-failure"),
+      skipValidation: readBooleanFlag(flags, "skip-validation"),
       source: readBackendOptions(flags, "source"),
       target: readBackendOptions(flags, "target"),
-      targetWorkspaceId: flags.get("target-workspace-id"),
+      targetWorkspaceId: flags.values.get("target-workspace-id"),
       workspaceId: readRequired(flags, "workspace-id"),
     };
   }
@@ -117,17 +172,25 @@ export function parsePersistenceAdminCommand(argv: string[]): PersistenceAdminCo
   if (commandName === "export") {
     return {
       command: "export",
+      dryRun: readBooleanFlag(flags, "dry-run"),
       outputPath: resolve(readRequired(flags, "output")),
+      reportPath: flags.values.get("report-path") ? resolve(flags.values.get("report-path") as string) : undefined,
+      skipValidation: readBooleanFlag(flags, "skip-validation"),
       source: readBackendOptions(flags, "backend"),
       workspaceId: readRequired(flags, "workspace-id"),
     };
   }
 
   return {
+    backupTarget: readBooleanFlag(flags, "backup-target"),
     command: "import",
+    dryRun: readBooleanFlag(flags, "dry-run"),
     inputPath: resolve(readRequired(flags, "input")),
+    reportPath: flags.values.get("report-path") ? resolve(flags.values.get("report-path") as string) : undefined,
+    rollbackOnFailure: readBooleanFlag(flags, "rollback-on-failure"),
+    skipValidation: readBooleanFlag(flags, "skip-validation"),
     target: readBackendOptions(flags, "backend"),
-    targetWorkspaceId: flags.get("target-workspace-id"),
+    targetWorkspaceId: flags.values.get("target-workspace-id"),
     workspaceId: readRequired(flags, "workspace-id"),
   };
 }
@@ -155,17 +218,27 @@ export async function runPersistenceAdminCommand(params: {
     });
 
     try {
-      await copyWorkspaceBetweenBackends({
+      const result = await copyWorkspaceBetweenBackends({
+        backupTarget: command.backupTarget,
+        dryRun: command.dryRun,
         logger,
+        rollbackOnFailure: command.rollbackOnFailure,
         source,
         sourceWorkspaceId: command.workspaceId,
         target,
         targetWorkspaceId: command.targetWorkspaceId,
+        validate: !command.skipValidation,
       });
+      await writeReportFile(command.reportPath, buildAdminReport({ command: "copy", result }));
       logger.info("persistence workspace copy completed", {
+        dryRun: result.dryRun,
+        sourceValidationOk: result.sourceValidation?.ok,
         sourceBackend: command.source.persistenceBackend,
+        targetBackupId: result.targetBackupId,
         targetBackend: command.target.persistenceBackend,
         targetWorkspaceId: command.targetWorkspaceId ?? command.workspaceId,
+        targetValidationOk: result.targetWorkspaceValidation?.ok,
+        targetWorkspaceWasPresent: result.targetWorkspaceWasPresent,
         workspaceId: command.workspaceId,
       });
     } finally {
@@ -182,16 +255,25 @@ export async function runPersistenceAdminCommand(params: {
     });
 
     try {
-      const document = await exportWorkspaceDocument({
+      const result = await exportWorkspaceDocument({
         backend: source,
+        dryRun: command.dryRun,
         logger,
+        validate: !command.skipValidation,
         workspaceId: command.workspaceId,
       });
-      await mkdir(dirname(command.outputPath), { recursive: true });
-      await writeFile(command.outputPath, `${JSON.stringify(document, null, 2)}\n`, "utf8");
+      await writeReportFile(command.reportPath, buildAdminReport({ command: "export", result }));
+
+      if (!command.dryRun) {
+        await mkdir(dirname(command.outputPath), { recursive: true });
+        await writeFile(command.outputPath, `${JSON.stringify(result.document, null, 2)}\n`, "utf8");
+      }
+
       logger.info("persistence workspace export completed", {
+        dryRun: result.dryRun,
         outputPath: command.outputPath,
         sourceBackend: command.source.persistenceBackend,
+        validationOk: result.validation?.ok,
         workspaceId: command.workspaceId,
       });
     } finally {
@@ -216,15 +298,25 @@ export async function runPersistenceAdminCommand(params: {
             id: command.targetWorkspaceId,
           }
         : importedDocument;
-    await importWorkspaceDocument({
+    const result = await importWorkspaceDocument({
       backend: target,
+      backupTarget: command.backupTarget,
       document,
+      dryRun: command.dryRun,
       logger,
+      rollbackOnFailure: command.rollbackOnFailure,
+      validate: !command.skipValidation,
     });
+    await writeReportFile(command.reportPath, buildAdminReport({ command: "import", result }));
     logger.info("persistence workspace import completed", {
+      dryRun: result.dryRun,
       inputPath: command.inputPath,
+      targetBackupId: result.targetBackupId,
       targetBackend: command.target.persistenceBackend,
       targetWorkspaceId: document.id,
+      targetValidationOk: result.targetWorkspaceValidation?.ok,
+      targetWorkspaceWasPresent: result.targetWorkspaceWasPresent,
+      validationOk: result.validation?.ok,
       workspaceId: command.workspaceId,
     });
   } finally {

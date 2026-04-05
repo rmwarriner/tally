@@ -87,7 +87,7 @@ This repository currently includes:
 - documented API runtime operations for environment, startup mode, and shutdown behavior
 - concrete single-host deployment and recovery runbook for the API runtime
 - file-backed auth secret loading and safe runtime configuration logging
-- initial persistence abstraction under the API repository, with JSON, SQLite, and Postgres backends now supported plus admin copy/export/import workflow between them
+- initial persistence abstraction under the API repository, with JSON, SQLite, and Postgres backends now supported plus admin copy/export/import workflow, validation reports, dry-run verification, and backup-backed rollback support between them
 - CI and security quality gates
 - security baseline documentation and audited hardening for API/runtime boundaries
 
@@ -114,11 +114,11 @@ The repository is no longer mainly missing core backend foundations.
 
 The main remaining work is now product and architecture shaping across a growing idea backlog. The highest-value next areas are:
 
-1. Verification and rollback workflow across JSON, SQLite, and Postgres storage backends
-2. Trust and integrity hardening for audit depth, soft delete, destructive controls, and encryption guidance
-3. Budgeting-model definition for remaining-to-budget, rollover, cleanup, and envelope funding semantics
-4. Family-scale multi-user identity and authorization design
-5. Review, automation, and ingestion workflows on top of the current import foundation
+1. Trust and integrity hardening for audit depth, soft delete, destructive controls, and encryption guidance
+2. Budgeting-model definition for remaining-to-budget, rollover, cleanup, and envelope funding semantics
+3. Family-scale multi-user identity and authorization design
+4. Review, automation, and ingestion workflows on top of the current import foundation
+5. Multi-workspace persistence migration orchestration and backend-operability follow-through
 
 ## Deferred Follow-Up
 

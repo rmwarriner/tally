@@ -95,11 +95,11 @@ The next phase should be driven by a smaller set of explicit themes rather than 
 
 These are the next candidates for promotion into active delivery work.
 
-1. Add verification and rollback workflow across JSON, SQLite, and Postgres backends
-2. Trust and integrity hardening for transaction audit depth, soft delete, and destructive controls
-3. Budgeting model definition for remaining-to-budget, rollover, and envelope funding rules
-4. Family-scale identity and authorization model, including external access providers such as Cloudflare Access and OpenID/OIDC
-5. Transaction review and import-automation foundation
+1. Trust and integrity hardening for transaction audit depth, soft delete, and destructive controls
+2. Budgeting model definition for remaining-to-budget, rollover, and envelope funding rules
+3. Family-scale identity and authorization model, including external access providers such as Cloudflare Access and OpenID/OIDC
+4. Transaction review and import-automation foundation
+5. Multi-workspace migration orchestration and backend-operability follow-through beyond the current single-workspace admin workflow
 
 ## Idea Backlog Policy
 

@@ -4,8 +4,8 @@ import { tmpdir } from "node:os";
 import { afterEach, describe, expect, it } from "vitest";
 import { createDemoWorkspace } from "@gnucash-ng/workspace";
 import {
-  copyWorkspaceBetweenBackends,
   createFileSystemWorkspacePersistenceBackend,
+  copyWorkspaceBetweenBackends,
   createSqliteWorkspacePersistenceBackend,
 } from "./persistence";
 import {
@@ -26,6 +26,8 @@ describe("persistence admin", () => {
         "copy",
         "--workspace-id",
         "workspace-a",
+        "--dry-run",
+        "--backup-target",
         "--source-backend",
         "json",
         "--source-data-dir",
@@ -34,9 +36,14 @@ describe("persistence admin", () => {
         "sqlite",
         "--target-sqlite-path",
         "/tmp/target/workspaces.sqlite",
+        "--report-path",
+        "/tmp/report.json",
       ]),
     ).toMatchObject({
+      backupTarget: true,
       command: "copy",
+      dryRun: true,
+      reportPath: "/tmp/report.json",
       workspaceId: "workspace-a",
     });
 
@@ -51,9 +58,11 @@ describe("persistence admin", () => {
         "/tmp/source",
         "--output",
         "/tmp/export/workspace.json",
+        "--dry-run",
       ]),
     ).toMatchObject({
       command: "export",
+      dryRun: true,
       workspaceId: "workspace-a",
     });
 
@@ -62,6 +71,7 @@ describe("persistence admin", () => {
         "import",
         "--workspace-id",
         "workspace-a",
+        "--rollback-on-failure",
         "--backend",
         "sqlite",
         "--sqlite-path",
@@ -71,6 +81,7 @@ describe("persistence admin", () => {
       ]),
     ).toMatchObject({
       command: "import",
+      rollbackOnFailure: true,
       workspaceId: "workspace-a",
     });
   });
@@ -150,5 +161,57 @@ describe("persistence admin", () => {
     expect(imported.id).toBe(workspace.id);
 
     await Promise.all([source.close?.(), target.close?.()]);
+  });
+
+  it("supports dry-run copy reports without writing the target workspace", async () => {
+    const sourceDirectory = await mkdtemp(join(tmpdir(), "gnucash-ng-copy-report-source-"));
+    const targetDirectory = await mkdtemp(join(tmpdir(), "gnucash-ng-copy-report-target-"));
+    cleanupPaths.push(sourceDirectory, targetDirectory);
+    const reportPath = join(targetDirectory, "copy-report.json");
+
+    const source = createFileSystemWorkspacePersistenceBackend({
+      rootDirectory: sourceDirectory,
+    });
+    const workspace = createDemoWorkspace();
+    await source.save(workspace);
+
+    await runPersistenceAdminCommand({
+      argv: [
+        "copy",
+        "--workspace-id",
+        workspace.id,
+        "--dry-run",
+        "--report-path",
+        reportPath,
+        "--source-backend",
+        "json",
+        "--source-data-dir",
+        sourceDirectory,
+        "--target-backend",
+        "sqlite",
+        "--target-sqlite-path",
+        join(targetDirectory, "workspaces.sqlite"),
+      ],
+    });
+
+    const report = JSON.parse(await readFile(reportPath, "utf8")) as {
+      command: string;
+      dryRun: boolean;
+      sourceValidation?: { ok: boolean };
+      targetWorkspaceWasPresent: boolean;
+    };
+    expect(report.command).toBe("copy");
+    expect(report.dryRun).toBe(true);
+    expect(report.sourceValidation?.ok).toBe(true);
+    expect(report.targetWorkspaceWasPresent).toBe(false);
+    const target = createSqliteWorkspacePersistenceBackend({
+      databasePath: join(targetDirectory, "workspaces.sqlite"),
+    });
+    await expect(target.load(workspace.id)).rejects.toMatchObject({
+      code: "workspace.not_found",
+    });
+    await target.close?.();
+
+    await source.close?.();
   });
 });

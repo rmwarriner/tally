@@ -121,8 +121,8 @@ Completed:
 
 Next:
 
-1. Verification, rollback, and operational hardening for migration across `json`, `sqlite`, and `postgres`
-2. Trust and integrity hardening for transaction lifecycle audit depth, soft delete, and destructive controls
-3. Budgeting and planning model definition for remaining-to-budget, rollover, and envelope funding rules
-4. Family-scale identity and authorization model
-5. Automation and review workflows, including sync, inbox, rules, and optional AI assistance
+1. Trust and integrity hardening for transaction lifecycle audit depth, soft delete, and destructive controls
+2. Budgeting and planning model definition for remaining-to-budget, rollover, and envelope funding rules
+3. Family-scale identity and authorization model
+4. Automation and review workflows, including sync, inbox, rules, and optional AI assistance
+5. Multi-workspace migration orchestration and backend-operability follow-through across `json`, `sqlite`, and `postgres`
