@@ -2,7 +2,7 @@ import { mkdtemp, rm } from "node:fs/promises";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
 import { describe, expect, it } from "vitest";
-import { createDemoWorkspace } from "@gnucash-ng/workspace";
+import { buildGnuCashXmlExport, createDemoWorkspace } from "@gnucash-ng/workspace";
 import { saveWorkspaceToFile } from "@gnucash-ng/workspace/src/node";
 import {
   createInMemoryRateLimiter,
@@ -207,6 +207,57 @@ Lacct-expense-utilities
       true,
     );
     expect(body.workspace.auditEvents.at(-1).eventType).toBe("import.qif.recorded");
+
+    await fixture.cleanup();
+  });
+
+  it("imports ofx transactions over HTTP", async () => {
+    const fixture = await createFixture();
+    const service = createWorkspaceService({
+      repository: createFileSystemWorkspaceRepository({ rootDirectory: fixture.directory }),
+    });
+    const handler = createHttpHandler({ service });
+
+    const response = await handler(
+      new Request(`http://localhost/api/workspaces/${fixture.workspace.id}/imports/ofx`, {
+        body: JSON.stringify({
+          payload: {
+            batchId: "http-ofx-1",
+            cashAccountId: "acct-checking",
+            defaultCounterpartAccountId: "acct-expense-groceries",
+            format: "ofx",
+            importedAt: "2026-04-05T00:00:00Z",
+            sourceLabel: "checking.ofx",
+            statement: `OFXHEADER:100
+<OFX>
+<BANKMSGSRSV1>
+<STMTTRNRS>
+<STMTRS>
+<BANKTRANLIST>
+<STMTTRN>
+<TRNTYPE>DEBIT
+<DTPOSTED>20260403000000
+<TRNAMT>-45.12
+<FITID>fit-http-1
+<NAME>City Utilities
+<MEMO>Electric bill
+</STMTTRN>
+</BANKTRANLIST>
+</STMTRS>
+</STMTTRNRS>
+</BANKMSGSRSV1>
+</OFX>`,
+          },
+        }),
+        headers: { "content-type": "application/json" },
+        method: "POST",
+      }),
+    );
+    const body = await response.json();
+
+    expect(response.status).toBe(201);
+    expect(body.workspace.transactions.some((item: { id: string }) => item.id === "http-ofx-1:1")).toBe(true);
+    expect(body.workspace.auditEvents.at(-1).eventType).toBe("import.ofx.recorded");
 
     await fixture.cleanup();
   });

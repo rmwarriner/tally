@@ -46,6 +46,22 @@ export interface GetQifExportRequest {
   workspaceId: string;
 }
 
+export interface GetStatementExportRequest {
+  accountId: string;
+  auth: AuthContext;
+  format: "ofx" | "qfx";
+  from: string;
+  logger?: Logger;
+  to: string;
+  workspaceId: string;
+}
+
+export interface GetGnuCashXmlExportRequest {
+  auth: AuthContext;
+  logger?: Logger;
+  workspaceId: string;
+}
+
 export interface GetReportRequest {
   auth: AuthContext;
   from: string;
@@ -162,6 +178,33 @@ export interface PostQifImportRequest {
   workspaceId: string;
 }
 
+export interface PostStatementImportRequest {
+  auth: AuthContext;
+  logger?: Logger;
+  payload: {
+    batchId: string;
+    cashAccountId: string;
+    defaultCounterpartAccountId: string;
+    format: "ofx" | "qfx";
+    importedAt: string;
+    nameMappings?: Record<string, string>;
+    sourceLabel: string;
+    statement: string;
+  };
+  workspaceId: string;
+}
+
+export interface PostGnuCashXmlImportRequest {
+  auth: AuthContext;
+  logger?: Logger;
+  payload: {
+    importedAt: string;
+    sourceLabel: string;
+    xml: string;
+  };
+  workspaceId: string;
+}
+
 export interface WorkspaceEnvelope {
   workspace: FinanceWorkspaceDocument;
 }
@@ -180,6 +223,23 @@ export interface QifExportEnvelope {
     fileName: string;
     format: "qif";
     transactionCount: number;
+  };
+}
+
+export interface StatementExportEnvelope {
+  export: {
+    contents: string;
+    fileName: string;
+    format: "ofx" | "qfx";
+    transactionCount: number;
+  };
+}
+
+export interface GnuCashXmlExportEnvelope {
+  export: {
+    contents: string;
+    fileName: string;
+    format: "gnucash-xml";
   };
 }
 

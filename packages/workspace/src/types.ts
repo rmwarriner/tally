@@ -40,7 +40,20 @@ export type AuditEventType =
   | "envelope-allocation.recorded"
   | "reconciliation.recorded"
   | "import.csv.recorded"
-  | "import.qif.recorded";
+  | "import.qif.recorded"
+  | "import.ofx.recorded"
+  | "import.qfx.recorded"
+  | "import.gnucash-xml.recorded"
+  | "close.recorded";
+
+export interface WorkspaceClosePeriod {
+  id: string;
+  closedAt: string;
+  closedBy: string;
+  from: string;
+  notes?: string;
+  to: string;
+}
 
 export interface AuditEvent {
   id: string;
@@ -67,6 +80,7 @@ export interface FinanceWorkspaceDocument {
   envelopeAllocations: EnvelopeAllocation[];
   importBatches: ImportBatch[];
   reconciliationSessions: ReconciliationSession[];
+  closePeriods?: WorkspaceClosePeriod[];
   auditEvents: AuditEvent[];
 }
 

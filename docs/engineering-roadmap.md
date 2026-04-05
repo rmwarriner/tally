@@ -18,47 +18,25 @@
   Documented in `docs/ci-and-security-gates.md`
 - Security baseline
   Documented in `docs/security-standards.md`
+- API runtime operations
+  Documented in `docs/api-runtime-operations.md`
 
 ## Standards Still Needed
 
-### Configuration Management Extensions
-
-Required for:
-
-- safe secret handling
-- local/test/prod separation
-- deployment-facing operational guidance
-
-### Security Baseline
-
-Required for:
-
-- encryption and key handling
-- dependency and secret scanning
-- deployment and TLS guidance
-
-### Observability
-
-Required for:
-
-- metrics
-- tracing
-- health checks
-- alertable failure signals
-
-### CI/CD Gates
-
-Required for:
-
-- mandatory tests
-- typecheck
-- coverage expectations
-- linting and dependency checks
+- concrete deployment runbooks for a chosen hosting target
+- external metrics, tracing, and alert routing beyond in-process foundations
+- encryption-at-rest and key-handling guidance once backup and restore are implemented
+- broader import/export format coverage and resilience playbooks
 
 ## Implementation Order
 
+Completed:
+
 1. Metrics, tracing, and health checks
 2. Configuration and deployment operations
-3. Import/export expansion beyond CSV
-4. Reporting engine and close workflow
+
+Current next sequence:
+
+3. Import/export expansion beyond QIF
+4. Reporting engine and durable close workflow
 5. Backup, migration, restore, and broader resilience hardening

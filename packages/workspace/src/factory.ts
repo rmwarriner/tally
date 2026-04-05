@@ -34,6 +34,7 @@ export function createDemoWorkspace(): FinanceWorkspaceDocument {
     envelopeAllocations: demoEnvelopeAllocations,
     importBatches: [],
     reconciliationSessions: [],
+    closePeriods: [],
     auditEvents: [],
   };
 }

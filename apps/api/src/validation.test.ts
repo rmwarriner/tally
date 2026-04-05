@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   validateApplyScheduledTransactionExceptionRequestBody,
   validateBaselineBudgetLineRequestBody,
+  validateGnuCashXmlImportRequestBody,
   validateCsvImportRequestBody,
   validateEnvelopeAllocationRequestBody,
   validateEnvelopeRequestBody,
@@ -12,6 +13,8 @@ import {
   validateReconciliationRequestBody,
   validateReportQuery,
   validateScheduledTransactionRequestBody,
+  validateStatementExportQuery,
+  validateStatementImportRequestBody,
   validateTransactionRequestBody,
 } from "./validation";
 
@@ -206,6 +209,45 @@ describe("api request validation", () => {
       "from must use YYYY-MM-DD format.",
       "to must use YYYY-MM-DD format.",
     ]);
+  });
+
+  it("validates statement import payloads", () => {
+    expect(
+      validateStatementImportRequestBody({
+        payload: {
+          batchId: "stmt-1",
+          cashAccountId: "acct-checking",
+          defaultCounterpartAccountId: "acct-expense-groceries",
+          format: "ofx",
+          importedAt: "2026-04-05T00:00:00Z",
+          sourceLabel: "checking.ofx",
+          statement: "<OFX />",
+        },
+      }).errors,
+    ).toEqual([]);
+  });
+
+  it("validates statement export query params", () => {
+    expect(
+      validateStatementExportQuery({
+        accountId: "acct-checking",
+        format: "qfx",
+        from: "2026-04-01",
+        to: "2026-04-30",
+      }).errors,
+    ).toEqual([]);
+  });
+
+  it("validates gnucash xml import payloads", () => {
+    expect(
+      validateGnuCashXmlImportRequestBody({
+        payload: {
+          importedAt: "2026-04-05T00:00:00Z",
+          sourceLabel: "workspace.gnucash.xml",
+          xml: "<gnc-v2 />",
+        },
+      }).errors,
+    ).toEqual([]);
   });
 
   it("validates report and close-summary query parameters", () => {

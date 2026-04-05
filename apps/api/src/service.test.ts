@@ -4,7 +4,7 @@ import { tmpdir } from "node:os";
 import { describe, expect, it } from "vitest";
 import { createMoney } from "@gnucash-ng/domain";
 import { createLogger, type LogRecord } from "@gnucash-ng/logging";
-import { createDemoWorkspace } from "@gnucash-ng/workspace";
+import { buildGnuCashXmlExport, createDemoWorkspace } from "@gnucash-ng/workspace";
 import { saveWorkspaceToFile } from "@gnucash-ng/workspace/src/node";
 import { ApiError } from "./errors";
 import {
@@ -132,6 +132,88 @@ describe("workspace service", () => {
     });
     expectWorkspaceBody(refreshed.body);
     expect(refreshed.body.workspace.transactions.some((item) => item.id === "txn-cell-1")).toBe(true);
+
+    await fixture.cleanup();
+  });
+
+  it("imports ofx statements through the service layer", async () => {
+    const fixture = await createFixture();
+    const service = createWorkspaceService({
+      logger: createTestLogger([]),
+      repository: createFileSystemWorkspaceRepository({ rootDirectory: fixture.directory }),
+    });
+
+    const response = await service.postStatementImport({
+      auth: { actor: "Primary", kind: "token", role: "member", token: "token-1" },
+      payload: {
+        batchId: "service-ofx-1",
+        cashAccountId: "acct-checking",
+        defaultCounterpartAccountId: "acct-expense-groceries",
+        format: "ofx",
+        importedAt: "2026-04-05T00:00:00Z",
+        sourceLabel: "checking.ofx",
+        statement: `OFXHEADER:100
+<OFX>
+<BANKMSGSRSV1>
+<STMTTRNRS>
+<STMTRS>
+<BANKTRANLIST>
+<STMTTRN>
+<TRNTYPE>DEBIT
+<DTPOSTED>20260403000000
+<TRNAMT>-45.12
+<FITID>fit-service-1
+<NAME>City Utilities
+<MEMO>Electric bill
+</STMTTRN>
+</BANKTRANLIST>
+</STMTRS>
+</STMTTRNRS>
+</BANKMSGSRSV1>
+</OFX>`,
+      },
+      workspaceId: fixture.workspace.id,
+    });
+
+    expect(response.status).toBe(201);
+    expectWorkspaceBody(response.body);
+    expect(response.body.workspace.auditEvents.at(-1)?.eventType).toBe("import.ofx.recorded");
+
+    await fixture.cleanup();
+  });
+
+  it("exports and reimports gnucash xml through the service layer", async () => {
+    const fixture = await createFixture();
+    const service = createWorkspaceService({
+      logger: createTestLogger([]),
+      repository: createFileSystemWorkspaceRepository({ rootDirectory: fixture.directory }),
+    });
+
+    const exported = await service.getGnuCashXmlExport({
+      auth: { actor: "local-admin", kind: "local", role: "local-admin" },
+      workspaceId: fixture.workspace.id,
+    });
+
+    expect(exported.status).toBe(200);
+    expect("export" in exported.body).toBe(true);
+
+    const xml = buildGnuCashXmlExport({ workspace: fixture.workspace }).contents.replace(
+      'name="Household Finance"',
+      'name="Imported Through Service"',
+    );
+    const imported = await service.postGnuCashXmlImport({
+      auth: { actor: "Primary", kind: "token", role: "member", token: "token-1" },
+      payload: {
+        importedAt: "2026-04-05T00:00:00Z",
+        sourceLabel: "workspace.gnucash.xml",
+        xml,
+      },
+      workspaceId: fixture.workspace.id,
+    });
+
+    expect(imported.status).toBe(200);
+    expectWorkspaceBody(imported.body);
+    expect(imported.body.workspace.name).toBe("Imported Through Service");
 
     await fixture.cleanup();
   });

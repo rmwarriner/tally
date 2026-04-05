@@ -2,12 +2,16 @@ import { createNoopLogger, type Logger } from "@gnucash-ng/logging";
 import {
   addTransaction,
   buildCloseSummary,
+  buildGnuCashXmlExport,
+  buildOfxExport,
   applyScheduledTransactionException,
   buildDashboardSnapshot,
   buildQifExport,
   buildWorkspaceReport,
   executeScheduledTransaction,
   importTransactionsFromCsvRows,
+  importTransactionsFromStatement,
+  importWorkspaceFromGnuCashXml,
   importTransactionsFromQif,
   reconcileAccount,
   recordEnvelopeAllocation,
@@ -19,23 +23,29 @@ import {
 } from "@gnucash-ng/workspace";
 import type {
   ErrorEnvelope,
+  GetGnuCashXmlExportRequest,
   ApplyScheduledTransactionExceptionRequest,
   CloseSummaryEnvelope,
   ExecuteScheduledTransactionRequest,
   GetCloseSummaryRequest,
   GetDashboardRequest,
   GetQifExportRequest,
+  GetStatementExportRequest,
   GetReportRequest,
   GetWorkspaceRequest,
+  GnuCashXmlExportEnvelope,
   PostBaselineBudgetLineRequest,
   PostCsvImportRequest,
   PostEnvelopeAllocationRequest,
   PostEnvelopeRequest,
+  PostGnuCashXmlImportRequest,
   PostQifImportRequest,
   PostReconciliationRequest,
   PostScheduledTransactionRequest,
+  PostStatementImportRequest,
   PostTransactionRequest,
   ServiceResponse,
+  StatementExportEnvelope,
   UpdateTransactionRequest,
   DashboardEnvelope,
   QifExportEnvelope,
@@ -50,8 +60,14 @@ export interface WorkspaceService {
   getCloseSummary(
     request: GetCloseSummaryRequest,
   ): Promise<ServiceResponse<CloseSummaryEnvelope | ErrorEnvelope>>;
+  getGnuCashXmlExport(
+    request: GetGnuCashXmlExportRequest,
+  ): Promise<ServiceResponse<GnuCashXmlExportEnvelope | ErrorEnvelope>>;
   getDashboard(request: GetDashboardRequest): Promise<ServiceResponse<DashboardEnvelope | ErrorEnvelope>>;
   getQifExport(request: GetQifExportRequest): Promise<ServiceResponse<QifExportEnvelope | ErrorEnvelope>>;
+  getStatementExport(
+    request: GetStatementExportRequest,
+  ): Promise<ServiceResponse<StatementExportEnvelope | ErrorEnvelope>>;
   getReport(request: GetReportRequest): Promise<ServiceResponse<ReportEnvelope | ErrorEnvelope>>;
   getWorkspace(request: GetWorkspaceRequest): Promise<ServiceResponse<WorkspaceEnvelope | ErrorEnvelope>>;
   postCsvImport(
@@ -59,6 +75,12 @@ export interface WorkspaceService {
   ): Promise<ServiceResponse<WorkspaceEnvelope | ErrorEnvelope>>;
   postQifImport(
     request: PostQifImportRequest,
+  ): Promise<ServiceResponse<WorkspaceEnvelope | ErrorEnvelope>>;
+  postStatementImport(
+    request: PostStatementImportRequest,
+  ): Promise<ServiceResponse<WorkspaceEnvelope | ErrorEnvelope>>;
+  postGnuCashXmlImport(
+    request: PostGnuCashXmlImportRequest,
   ): Promise<ServiceResponse<WorkspaceEnvelope | ErrorEnvelope>>;
   executeScheduledTransaction(
     request: ExecuteScheduledTransactionRequest,
@@ -329,6 +351,104 @@ export function createWorkspaceService(params: {
       }
     },
 
+    async getStatementExport(request) {
+      const requestLogger = getRequestLogger(request.logger).child({
+        accountId: request.accountId,
+        format: request.format,
+        from: request.from,
+        operation: "getStatementExport",
+        to: request.to,
+        workspaceId: request.workspaceId,
+      });
+      requestLogger.info("service command started");
+
+      try {
+        const workspace = await loadWorkspace(request.workspaceId, requestLogger);
+        const authorization = authorizeWorkspaceAccess(workspace, request.auth, "read");
+
+        if (!authorization.ok) {
+          requestLogger.warn("service command authorization failed", { errors: [authorization.error] });
+          return failure(
+            new ApiError({
+              code: "auth.forbidden",
+              message: authorization.error ?? "Forbidden.",
+              status: 403,
+            }),
+          );
+        }
+
+        const exportResult = buildOfxExport({
+          accountId: request.accountId,
+          format: request.format,
+          from: request.from,
+          to: request.to,
+          workspace,
+        });
+
+        requestLogger.info("service command completed", {
+          format: request.format,
+          transactionCount: exportResult.transactionCount,
+        });
+        return success(200, {
+          export: {
+            contents: exportResult.contents,
+            fileName: exportResult.fileName,
+            format: request.format,
+            transactionCount: exportResult.transactionCount,
+          },
+        });
+      } catch (error) {
+        const apiError = toApiError(error);
+        requestLogger.error("service command failed", {
+          error: apiError.message,
+          errorCode: apiError.code,
+        });
+        return failure(apiError);
+      }
+    },
+
+    async getGnuCashXmlExport(request) {
+      const requestLogger = getRequestLogger(request.logger).child({
+        operation: "getGnuCashXmlExport",
+        workspaceId: request.workspaceId,
+      });
+      requestLogger.info("service command started");
+
+      try {
+        const workspace = await loadWorkspace(request.workspaceId, requestLogger);
+        const authorization = authorizeWorkspaceAccess(workspace, request.auth, "read");
+
+        if (!authorization.ok) {
+          requestLogger.warn("service command authorization failed", { errors: [authorization.error] });
+          return failure(
+            new ApiError({
+              code: "auth.forbidden",
+              message: authorization.error ?? "Forbidden.",
+              status: 403,
+            }),
+          );
+        }
+
+        const exportResult = buildGnuCashXmlExport({ workspace });
+
+        requestLogger.info("service command completed");
+        return success(200, {
+          export: {
+            contents: exportResult.contents,
+            fileName: exportResult.fileName,
+            format: "gnucash-xml",
+          },
+        });
+      } catch (error) {
+        const apiError = toApiError(error);
+        requestLogger.error("service command failed", {
+          error: apiError.message,
+          errorCode: apiError.code,
+        });
+        return failure(apiError);
+      }
+    },
+
     async postTransaction(request) {
       const requestLogger = getRequestLogger(request.logger).child({
         operation: "postTransaction",
@@ -428,6 +548,116 @@ export function createWorkspaceService(params: {
         await saveWorkspace(result.document, requestLogger);
         requestLogger.info("service command completed");
         return success(201, { workspace: result.document });
+      } catch (error) {
+        const apiError = toApiError(error);
+        requestLogger.error("service command failed", {
+          error: apiError.message,
+          errorCode: apiError.code,
+        });
+        return failure(apiError);
+      }
+    },
+
+    async postStatementImport(request) {
+      const requestLogger = getRequestLogger(request.logger).child({
+        batchId: request.payload.batchId,
+        format: request.payload.format,
+        operation: "postStatementImport",
+        workspaceId: request.workspaceId,
+      });
+      requestLogger.info("service command started");
+
+      try {
+        const workspace = await loadWorkspace(request.workspaceId, requestLogger);
+        const authorization = authorizeWorkspaceAccess(workspace, request.auth, "write");
+
+        if (!authorization.ok) {
+          requestLogger.warn("service command authorization failed", { errors: [authorization.error] });
+          return failure(
+            new ApiError({
+              code: "auth.forbidden",
+              message: authorization.error ?? "Forbidden.",
+              status: 403,
+            }),
+          );
+        }
+
+        const result = importTransactionsFromStatement(workspace, request.payload, {
+          audit: {
+            actor: request.auth.actor,
+          },
+          logger: requestLogger,
+        });
+
+        if (!result.ok) {
+          requestLogger.warn("service command validation failed", { errors: result.errors });
+          return failure(
+            new ApiError({
+              code: "validation.failed",
+              details: { issues: result.errors },
+              message: result.errors[0] ?? "Request validation failed.",
+              status: 422,
+            }),
+          );
+        }
+
+        await saveWorkspace(result.document, requestLogger);
+        requestLogger.info("service command completed");
+        return success(201, { workspace: result.document });
+      } catch (error) {
+        const apiError = toApiError(error);
+        requestLogger.error("service command failed", {
+          error: apiError.message,
+          errorCode: apiError.code,
+        });
+        return failure(apiError);
+      }
+    },
+
+    async postGnuCashXmlImport(request) {
+      const requestLogger = getRequestLogger(request.logger).child({
+        operation: "postGnuCashXmlImport",
+        workspaceId: request.workspaceId,
+      });
+      requestLogger.info("service command started");
+
+      try {
+        const workspace = await loadWorkspace(request.workspaceId, requestLogger);
+        const authorization = authorizeWorkspaceAccess(workspace, request.auth, "write");
+
+        if (!authorization.ok) {
+          requestLogger.warn("service command authorization failed", { errors: [authorization.error] });
+          return failure(
+            new ApiError({
+              code: "auth.forbidden",
+              message: authorization.error ?? "Forbidden.",
+              status: 403,
+            }),
+          );
+        }
+
+        const result = importWorkspaceFromGnuCashXml(workspace, request.payload, {
+          audit: {
+            actor: request.auth.actor,
+          },
+          logger: requestLogger,
+        });
+
+        if (!result.ok) {
+          requestLogger.warn("service command validation failed", { errors: result.errors });
+          return failure(
+            new ApiError({
+              code: "validation.failed",
+              details: { issues: result.errors },
+              message: result.errors[0] ?? "Request validation failed.",
+              status: 422,
+            }),
+          );
+        }
+
+        await saveWorkspace(result.document, requestLogger);
+        requestLogger.info("service command completed");
+        return success(200, { workspace: result.document });
       } catch (error) {
         const apiError = toApiError(error);
         requestLogger.error("service command failed", {

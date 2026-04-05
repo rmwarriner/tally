@@ -12,9 +12,12 @@ import {
   validateExecuteScheduledTransactionRequestBody,
   validateBaselineBudgetLineRequestBody,
   validateCsvImportRequestBody,
+  validateGnuCashXmlImportRequestBody,
   validateReportQuery,
   validateQifExportQuery,
   validateQifImportRequestBody,
+  validateStatementExportQuery,
+  validateStatementImportRequestBody,
   validateEnvelopeAllocationRequestBody,
   validateEnvelopeRequestBody,
   validateReconciliationRequestBody,
@@ -131,8 +134,32 @@ function normalizeRouteLabel(method: string, path: string): string {
     return "/api/workspaces/:workspaceId/imports/qif";
   }
 
+  if (/^\/api\/workspaces\/[^/]+\/imports\/ofx$/.test(path)) {
+    return "/api/workspaces/:workspaceId/imports/ofx";
+  }
+
+  if (/^\/api\/workspaces\/[^/]+\/imports\/qfx$/.test(path)) {
+    return "/api/workspaces/:workspaceId/imports/qfx";
+  }
+
+  if (/^\/api\/workspaces\/[^/]+\/imports\/gnucash-xml$/.test(path)) {
+    return "/api/workspaces/:workspaceId/imports/gnucash-xml";
+  }
+
   if (/^\/api\/workspaces\/[^/]+\/exports\/qif$/.test(path)) {
     return "/api/workspaces/:workspaceId/exports/qif";
+  }
+
+  if (/^\/api\/workspaces\/[^/]+\/exports\/ofx$/.test(path)) {
+    return "/api/workspaces/:workspaceId/exports/ofx";
+  }
+
+  if (/^\/api\/workspaces\/[^/]+\/exports\/qfx$/.test(path)) {
+    return "/api/workspaces/:workspaceId/exports/qfx";
+  }
+
+  if (/^\/api\/workspaces\/[^/]+\/exports\/gnucash-xml$/.test(path)) {
+    return "/api/workspaces/:workspaceId/exports/gnucash-xml";
   }
 
   return path;
@@ -309,6 +336,8 @@ export function createHttpHandler(params: {
       const reportMatch = path.match(/^\/api\/workspaces\/([^/]+)\/reports\/([^/]+)$/);
       const closeSummaryMatch = path.match(/^\/api\/workspaces\/([^/]+)\/close-summary$/);
       const qifExportMatch = path.match(/^\/api\/workspaces\/([^/]+)\/exports\/qif$/);
+      const statementExportMatch = path.match(/^\/api\/workspaces\/([^/]+)\/exports\/(ofx|qfx)$/);
+      const gnucashXmlExportMatch = path.match(/^\/api\/workspaces\/([^/]+)\/exports\/gnucash-xml$/);
 
       if (workspaceMatch) {
         const rateLimited = enforceRateLimit(requestKey, rateLimitPolicy.read, requestLogger);
@@ -569,6 +598,100 @@ export function createHttpHandler(params: {
         });
         return completeJsonResponse(response.status, response.body);
       }
+
+      if (statementExportMatch) {
+        const rateLimited = enforceRateLimit(requestKey, rateLimitPolicy.read, requestLogger);
+
+        if (rateLimited) {
+          return completeJsonResponse(
+            rateLimited.status,
+            await rateLimited.json(),
+            Object.fromEntries(rateLimited.headers.entries()),
+          );
+        }
+
+        const workspaceId = decodeURIComponent(statementExportMatch[1]);
+
+        if (!isSafeWorkspaceId(workspaceId)) {
+          return completeJsonResponse(
+            400,
+            toErrorEnvelope(
+              new ApiError({
+                code: "repository.invalid_identifier",
+                message: "Workspace identifier is invalid.",
+                status: 400,
+              }),
+            ),
+          );
+        }
+
+        const query = validateStatementExportQuery({
+          accountId: url.searchParams.get("accountId"),
+          format: decodeURIComponent(statementExportMatch[2]),
+          from: url.searchParams.get("from"),
+          to: url.searchParams.get("to"),
+        });
+
+        if (query.errors.length > 0 || !query.value) {
+          requestLogger.warn("http request validation failed", { errors: query.errors });
+          return completeJsonResponse(
+            400,
+            toErrorEnvelope(
+              new ApiError({
+                code: "validation.failed",
+                details: { issues: query.errors },
+                message: query.errors[0] ?? "Request validation failed.",
+                status: 400,
+              }),
+            ),
+          );
+        }
+
+        const response = await params.service.getStatementExport({
+          accountId: query.value.accountId,
+          auth: auth.context,
+          format: query.value.format,
+          from: query.value.from,
+          logger: requestLogger,
+          to: query.value.to,
+          workspaceId,
+        });
+        return completeJsonResponse(response.status, response.body);
+      }
+
+      if (gnucashXmlExportMatch) {
+        const rateLimited = enforceRateLimit(requestKey, rateLimitPolicy.read, requestLogger);
+
+        if (rateLimited) {
+          return completeJsonResponse(
+            rateLimited.status,
+            await rateLimited.json(),
+            Object.fromEntries(rateLimited.headers.entries()),
+          );
+        }
+
+        const workspaceId = decodeURIComponent(gnucashXmlExportMatch[1]);
+
+        if (!isSafeWorkspaceId(workspaceId)) {
+          return completeJsonResponse(
+            400,
+            toErrorEnvelope(
+              new ApiError({
+                code: "repository.invalid_identifier",
+                message: "Workspace identifier is invalid.",
+                status: 400,
+              }),
+            ),
+          );
+        }
+
+        const response = await params.service.getGnuCashXmlExport({
+          auth: auth.context,
+          logger: requestLogger,
+          workspaceId,
+        });
+        return completeJsonResponse(response.status, response.body);
+      }
     }
 
     if (request.method === "POST") {
@@ -582,6 +705,8 @@ export function createHttpHandler(params: {
       const reconciliationMatch = path.match(/^\/api\/workspaces\/([^/]+)\/reconciliations$/);
       const csvImportMatch = path.match(/^\/api\/workspaces\/([^/]+)\/imports\/csv$/);
       const qifImportMatch = path.match(/^\/api\/workspaces\/([^/]+)\/imports\/qif$/);
+      const statementImportMatch = path.match(/^\/api\/workspaces\/([^/]+)\/imports\/(ofx|qfx)$/);
+      const gnucashXmlImportMatch = path.match(/^\/api\/workspaces\/([^/]+)\/imports\/gnucash-xml$/);
 
       if (!request.headers.get("content-type")?.includes("application/json")) {
         requestLogger.warn("http request validation failed", {
@@ -782,6 +907,113 @@ export function createHttpHandler(params: {
           auth: auth.context,
           envelope: payload.value.envelope,
           logger: requestLogger,
+          workspaceId,
+        });
+        return completeJsonResponse(response.status, response.body);
+      }
+
+      if (statementImportMatch) {
+        const rateLimited = enforceRateLimit(requestKey, rateLimitPolicy.import, requestLogger);
+
+        if (rateLimited) {
+          return completeJsonResponse(
+            rateLimited.status,
+            await rateLimited.json(),
+            Object.fromEntries(rateLimited.headers.entries()),
+          );
+        }
+
+        const workspaceId = decodeURIComponent(statementImportMatch[1]);
+
+        if (!isSafeWorkspaceId(workspaceId)) {
+          return completeJsonResponse(
+            400,
+            toErrorEnvelope(
+              new ApiError({
+                code: "repository.invalid_identifier",
+                message: "Workspace identifier is invalid.",
+                status: 400,
+              }),
+            ),
+          );
+        }
+
+        const payload = validateStatementImportRequestBody(body);
+
+        if (payload.errors.length > 0 || !payload.value) {
+          requestLogger.warn("http request validation failed", { errors: payload.errors });
+          return completeJsonResponse(
+            400,
+            toErrorEnvelope(
+              new ApiError({
+                code: "validation.failed",
+                details: { issues: payload.errors },
+                message: payload.errors[0] ?? "Request validation failed.",
+                status: 400,
+              }),
+            ),
+          );
+        }
+
+        const response = await params.service.postStatementImport({
+          auth: auth.context,
+          logger: requestLogger,
+          payload: {
+            ...payload.value.payload,
+            format: decodeURIComponent(statementImportMatch[2]) as "ofx" | "qfx",
+          },
+          workspaceId,
+        });
+        return completeJsonResponse(response.status, response.body);
+      }
+
+      if (gnucashXmlImportMatch) {
+        const rateLimited = enforceRateLimit(requestKey, rateLimitPolicy.import, requestLogger);
+
+        if (rateLimited) {
+          return completeJsonResponse(
+            rateLimited.status,
+            await rateLimited.json(),
+            Object.fromEntries(rateLimited.headers.entries()),
+          );
+        }
+
+        const workspaceId = decodeURIComponent(gnucashXmlImportMatch[1]);
+
+        if (!isSafeWorkspaceId(workspaceId)) {
+          return completeJsonResponse(
+            400,
+            toErrorEnvelope(
+              new ApiError({
+                code: "repository.invalid_identifier",
+                message: "Workspace identifier is invalid.",
+                status: 400,
+              }),
+            ),
+          );
+        }
+
+        const payload = validateGnuCashXmlImportRequestBody(body);
+
+        if (payload.errors.length > 0 || !payload.value) {
+          requestLogger.warn("http request validation failed", { errors: payload.errors });
+          return completeJsonResponse(
+            400,
+            toErrorEnvelope(
+              new ApiError({
+                code: "validation.failed",
+                details: { issues: payload.errors },
+                message: payload.errors[0] ?? "Request validation failed.",
+                status: 400,
+              }),
+            ),
+          );
+        }
+
+        const response = await params.service.postGnuCashXmlImport({
+          auth: auth.context,
+          logger: requestLogger,
+          payload: payload.value.payload,
           workspaceId,
         });
         return completeJsonResponse(response.status, response.body);

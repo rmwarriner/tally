@@ -10,10 +10,13 @@ import {
   createDemoWorkspace,
   executeScheduledTransaction,
   importTransactionsFromCsvRows,
+  importTransactionsFromStatement,
+  importWorkspaceFromGnuCashXml,
   importTransactionsFromQif,
   reconcileAccount,
   updateTransaction,
 } from "./index";
+import { buildGnuCashXmlExport } from "./gnucash-xml";
 import { loadWorkspaceFromFile, saveWorkspaceToFile } from "./storage-node";
 
 describe("workspace commands", () => {
@@ -221,6 +224,85 @@ LSalary
       },
     ]);
     expect(result.document.auditEvents.at(-1)?.eventType).toBe("import.qif.recorded");
+  });
+
+  it("imports ofx transactions with name mappings", () => {
+    const workspace = createDemoWorkspace();
+    const result = importTransactionsFromStatement(
+      workspace,
+      {
+        batchId: "ofx-import-1",
+        cashAccountId: "acct-checking",
+        defaultCounterpartAccountId: "acct-expense-groceries",
+        format: "ofx",
+        importedAt: "2026-04-05T00:00:00Z",
+        nameMappings: {
+          Employer: "acct-income-salary",
+        },
+        sourceLabel: "checking.ofx",
+        statement: `OFXHEADER:100
+<OFX>
+<BANKMSGSRSV1>
+<STMTTRNRS>
+<STMTRS>
+<BANKTRANLIST>
+<STMTTRN>
+<TRNTYPE>CREDIT
+<DTPOSTED>20260404000000
+<TRNAMT>3200.00
+<FITID>fit-1
+<NAME>Employer
+<MEMO>Payroll
+</STMTTRN>
+</BANKTRANLIST>
+</STMTRS>
+</STMTTRNRS>
+</BANKMSGSRSV1>
+</OFX>`,
+      },
+      {
+        audit: { actor: "Primary" },
+      },
+    );
+
+    expect(result.ok).toBe(true);
+    expect(result.document.transactions.find((transaction) => transaction.id === "ofx-import-1:1")?.postings).toEqual([
+      {
+        accountId: "acct-income-salary",
+        amount: createMoney("USD", -3200),
+        memo: "Payroll",
+      },
+      {
+        accountId: "acct-checking",
+        amount: createMoney("USD", 3200),
+        memo: "Payroll",
+        cleared: true,
+      },
+    ]);
+    expect(result.document.auditEvents.at(-1)?.eventType).toBe("import.ofx.recorded");
+  });
+
+  it("replaces a workspace from gnucash xml", () => {
+    const workspace = createDemoWorkspace();
+    const xml = buildGnuCashXmlExport({ workspace }).contents.replace(
+      'name="Household Finance"',
+      'name="Imported Household Finance"',
+    );
+    const result = importWorkspaceFromGnuCashXml(
+      workspace,
+      {
+        importedAt: "2026-04-05T00:00:00Z",
+        sourceLabel: "workspace.gnucash.xml",
+        xml,
+      },
+      {
+        audit: { actor: "Primary" },
+      },
+    );
+
+    expect(result.ok).toBe(true);
+    expect(result.document.name).toBe("Imported Household Finance");
+    expect(result.document.auditEvents.at(-1)?.eventType).toBe("import.gnucash-xml.recorded");
   });
 
   it("executes due scheduled transactions and advances the schedule", () => {

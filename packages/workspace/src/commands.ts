@@ -16,6 +16,8 @@ import {
 } from "@gnucash-ng/domain";
 import { createNoopLogger, type Logger } from "@gnucash-ng/logging";
 import { appendAuditEvent, type AuditContext } from "./audit";
+import { parseGnuCashXml } from "./gnucash-xml";
+import { parseOfxStatement } from "./ofx";
 import { parseQif } from "./qif";
 import type {
   CsvImportRow,
@@ -90,7 +92,8 @@ function buildImportedTransaction(params: {
   memo?: string;
   occurredOn: string;
   payee?: string;
-  provider: "csv" | "qif";
+  provider: "csv" | "gnucash-xml" | "ofx" | "qfx" | "qif";
+  externalReference?: string;
   sourceFingerprintParts: string[];
   tags?: string[];
   workspace: FinanceWorkspaceDocument;
@@ -122,8 +125,80 @@ function buildImportedTransaction(params: {
       provider: params.provider,
       fingerprint: params.sourceFingerprintParts.join("|"),
       importedAt: params.importedAt,
-      externalReference: `${params.batchId}:${params.index + 1}`,
+      externalReference: params.externalReference ?? `${params.batchId}:${params.index + 1}`,
     },
+  };
+}
+
+function finalizeImportedTransactions(params: {
+  batchId: string;
+  document: FinanceWorkspaceDocument;
+  eventType:
+    | "import.csv.recorded"
+    | "import.gnucash-xml.recorded"
+    | "import.ofx.recorded"
+    | "import.qfx.recorded"
+    | "import.qif.recorded";
+  importedAt: string;
+  logger: Logger;
+  options: CommandOptions;
+  provider: ImportBatch["provider"];
+  skippedDuplicates: number;
+  sourceLabel: string;
+  transactionsToImport: Transaction[];
+}): CommandResult {
+  let nextDocument = params.document;
+
+  for (const transaction of params.transactionsToImport) {
+    const result = addTransaction(nextDocument, transaction, {
+      audit: { ...params.options.audit, disabled: true },
+      logger: params.logger,
+    });
+
+    if (!result.ok) {
+      params.logger.warn("workspace command failed while posting imported transactions", {
+        errors: result.errors,
+      });
+      return result;
+    }
+
+    nextDocument = result.document;
+  }
+
+  const batch: ImportBatch = {
+    id: params.batchId,
+    importedAt: params.importedAt,
+    provider: params.provider,
+    sourceLabel: params.sourceLabel,
+    transactionIds: params.transactionsToImport.map((transaction) => transaction.id),
+    fingerprint: params.transactionsToImport.map(fingerprintForTransaction).join("||"),
+  };
+
+  params.logger.info("workspace command completed", {
+    importedTransactionCount: params.transactionsToImport.length,
+    skippedDuplicates: params.skippedDuplicates,
+  });
+
+  return {
+    ok: true,
+    errors: [],
+    document: appendAuditEvent(
+      {
+        ...nextDocument,
+        importBatches: upsertById(nextDocument.importBatches, batch),
+      },
+      {
+        entityIds: [batch.id, ...batch.transactionIds],
+        eventType: params.eventType,
+        summary: {
+          importedAt: params.importedAt,
+          importedTransactionCount: params.transactionsToImport.length,
+          skippedDuplicates: params.skippedDuplicates,
+          sourceLabel: params.sourceLabel,
+        },
+      },
+      params.options.audit,
+    ),
   };
 }
 
@@ -813,59 +888,18 @@ export function importTransactionsFromCsvRows(
     return { ok: false, errors, document };
   }
 
-  let nextDocument = document;
-
-  for (const transaction of transactionsToImport) {
-    const result = addTransaction(nextDocument, transaction, {
-      audit: { ...options.audit, disabled: true },
-      logger,
-    });
-
-    if (!result.ok) {
-      logger.warn("workspace command failed while posting imported transactions", {
-        errors: result.errors,
-      });
-      return result;
-    }
-
-    nextDocument = result.document;
-  }
-
-  const batch: ImportBatch = {
-    id: metadata.batchId,
+  return finalizeImportedTransactions({
+    batchId: metadata.batchId,
+    document,
+    eventType: "import.csv.recorded",
     importedAt: metadata.importedAt,
+    logger,
+    options,
     provider: "csv",
-    sourceLabel: metadata.sourceLabel,
-    transactionIds: transactionsToImport.map((transaction) => transaction.id),
-    fingerprint: transactionsToImport.map(fingerprintForTransaction).join("||"),
-  };
-
-  logger.info("workspace command completed", {
-    importedTransactionCount: transactionsToImport.length,
     skippedDuplicates,
+    sourceLabel: metadata.sourceLabel,
+    transactionsToImport,
   });
-
-  return {
-    ok: true,
-    errors: [],
-    document: appendAuditEvent(
-      {
-        ...nextDocument,
-        importBatches: upsertById(nextDocument.importBatches, batch),
-      },
-      {
-        entityIds: [batch.id, ...batch.transactionIds],
-        eventType: "import.csv.recorded",
-        summary: {
-          importedAt: metadata.importedAt,
-          importedTransactionCount: transactionsToImport.length,
-          skippedDuplicates,
-          sourceLabel: metadata.sourceLabel,
-        },
-      },
-      options.audit,
-    ),
-  };
 }
 
 export function importTransactionsFromQif(
@@ -944,54 +978,166 @@ export function importTransactionsFromQif(
     transactionsToImport.push(transaction);
   }
 
-  let nextDocument = document;
+  return finalizeImportedTransactions({
+    batchId: params.batchId,
+    document,
+    eventType: "import.qif.recorded",
+    importedAt: params.importedAt,
+    logger,
+    options,
+    provider: "qif",
+    skippedDuplicates,
+    sourceLabel: params.sourceLabel,
+    transactionsToImport,
+  });
+}
 
-  for (const transaction of transactionsToImport) {
-    const result = addTransaction(nextDocument, transaction, {
-      audit: { ...options.audit, disabled: true },
-      logger,
-    });
+export function importTransactionsFromStatement(
+  document: FinanceWorkspaceDocument,
+  params: {
+    batchId: string;
+    cashAccountId: string;
+    defaultCounterpartAccountId: string;
+    format: "ofx" | "qfx";
+    importedAt: string;
+    nameMappings?: Record<string, string>;
+    sourceLabel: string;
+    statement: string;
+  },
+  options: CommandOptions = {},
+): CommandResult {
+  const logger = (options.logger ?? createNoopLogger()).child({
+    batchId: params.batchId,
+    command: "importTransactionsFromStatement",
+    provider: params.format,
+    sourceLabel: params.sourceLabel,
+    workspaceId: document.id,
+  });
+  logger.info("workspace command started");
+  const parsed = parseOfxStatement(params.statement);
 
-    if (!result.ok) {
-      logger.warn("workspace command failed while posting imported transactions", {
-        errors: result.errors,
-      });
-      return result;
-    }
-
-    nextDocument = result.document;
+  if (parsed.errors.length > 0) {
+    logger.warn("workspace command validation failed", { errors: parsed.errors });
+    return { ok: false, errors: parsed.errors, document };
   }
 
-  const batch: ImportBatch = {
-    id: params.batchId,
+  const seenFingerprints = duplicateImportFingerprints(document);
+  const transactionsToImport: Transaction[] = [];
+  let skippedDuplicates = 0;
+
+  for (const [index, entry] of parsed.entries.entries()) {
+    const mappingKey = entry.name?.trim() ?? entry.memo?.trim() ?? "";
+    const counterpartAccountId =
+      (mappingKey ? params.nameMappings?.[mappingKey] : undefined) ?? params.defaultCounterpartAccountId;
+    const description =
+      entry.memo ?? entry.name ?? entry.transactionType ?? `Imported ${params.format.toUpperCase()} transaction`;
+    const fingerprintParts = [
+      params.sourceLabel,
+      entry.fitId ?? "",
+      entry.date,
+      String(entry.amount),
+      params.cashAccountId,
+      counterpartAccountId,
+    ];
+    const transaction = buildImportedTransaction({
+      amount: entry.amount,
+      batchId: params.batchId,
+      cashAccountId: params.cashAccountId,
+      counterpartAccountId,
+      description,
+      externalReference: entry.fitId,
+      importedAt: params.importedAt,
+      index,
+      memo: entry.memo,
+      occurredOn: entry.date,
+      payee: entry.name,
+      provider: params.format,
+      sourceFingerprintParts: fingerprintParts,
+      workspace: document,
+    });
+    const validation = validateTransactionForLedger(transaction, document.accounts);
+
+    if (!validation.ok) {
+      const errors = validation.errors.map((error) => `entry ${index + 1}: ${error}`);
+      logger.warn("workspace command validation failed", { errors });
+      return { ok: false, errors, document };
+    }
+
+    if (seenFingerprints.has(transaction.source!.fingerprint)) {
+      skippedDuplicates += 1;
+      continue;
+    }
+
+    seenFingerprints.add(transaction.source!.fingerprint);
+    transactionsToImport.push(transaction);
+  }
+
+  return finalizeImportedTransactions({
+    batchId: params.batchId,
+    document,
+    eventType: params.format === "ofx" ? "import.ofx.recorded" : "import.qfx.recorded",
     importedAt: params.importedAt,
-    provider: "qif",
+    logger,
+    options,
+    provider: params.format,
+    skippedDuplicates,
     sourceLabel: params.sourceLabel,
-    transactionIds: transactionsToImport.map((transaction) => transaction.id),
-    fingerprint: transactionsToImport.map(fingerprintForTransaction).join("||"),
+    transactionsToImport,
+  });
+}
+
+export function importWorkspaceFromGnuCashXml(
+  document: FinanceWorkspaceDocument,
+  params: {
+    importedAt: string;
+    sourceLabel: string;
+    xml: string;
+  },
+  options: CommandOptions = {},
+): CommandResult {
+  const logger = (options.logger ?? createNoopLogger()).child({
+    command: "importWorkspaceFromGnuCashXml",
+    provider: "gnucash-xml",
+    sourceLabel: params.sourceLabel,
+    workspaceId: document.id,
+  });
+  logger.info("workspace command started");
+  const parsed = parseGnuCashXml(params.xml);
+
+  if (parsed.errors.length > 0 || !parsed.document) {
+    const errors = parsed.errors.length > 0 ? parsed.errors : ["workspace XML could not be parsed."];
+    logger.warn("workspace command validation failed", { errors });
+    return { ok: false, errors, document };
+  }
+
+  if (parsed.document.id !== document.id) {
+    const errors = [`Workspace XML id ${parsed.document.id} does not match target workspace ${document.id}.`];
+    logger.warn("workspace command validation failed", { errors });
+    return { ok: false, errors, document };
+  }
+
+  const importedDocument: FinanceWorkspaceDocument = {
+    ...parsed.document,
+    auditEvents: parsed.document.auditEvents,
+    closePeriods: parsed.document.closePeriods ?? document.closePeriods ?? [],
   };
 
   logger.info("workspace command completed", {
-    importedTransactionCount: transactionsToImport.length,
-    skippedDuplicates,
+    transactionCount: importedDocument.transactions.length,
   });
 
   return {
     ok: true,
     errors: [],
     document: appendAuditEvent(
+      importedDocument,
       {
-        ...nextDocument,
-        importBatches: upsertById(nextDocument.importBatches, batch),
-      },
-      {
-        entityIds: [batch.id, ...batch.transactionIds],
-        eventType: "import.qif.recorded",
+        entityIds: [document.id],
+        eventType: "import.gnucash-xml.recorded",
         summary: {
           importedAt: params.importedAt,
-          importedTransactionCount: transactionsToImport.length,
-          skippedDuplicates,
           sourceLabel: params.sourceLabel,
+          transactionCount: importedDocument.transactions.length,
         },
       },
       options.audit,

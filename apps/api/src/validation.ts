@@ -2,15 +2,18 @@ import type {
   ApplyScheduledTransactionExceptionRequest,
   ExecuteScheduledTransactionRequest,
   GetCloseSummaryRequest,
+  GetStatementExportRequest,
   GetQifExportRequest,
   GetReportRequest,
   PostBaselineBudgetLineRequest,
   PostCsvImportRequest,
   PostEnvelopeAllocationRequest,
   PostEnvelopeRequest,
+  PostGnuCashXmlImportRequest,
   PostQifImportRequest,
   PostReconciliationRequest,
   PostScheduledTransactionRequest,
+  PostStatementImportRequest,
   PostTransactionRequest,
 } from "./types";
 
@@ -40,6 +43,10 @@ function isIsoDate(value: unknown): value is string {
 
 function isIsoTimestamp(value: unknown): value is string {
   return typeof value === "string" && !Number.isNaN(Date.parse(value));
+}
+
+function isStatementFormat(value: unknown): value is "ofx" | "qfx" {
+  return value === "ofx" || value === "qfx";
 }
 
 function isBoolean(value: unknown): value is boolean {
@@ -365,6 +372,143 @@ export function validateQifExportQuery(query: {
           from: query.from,
           to: query.to,
         },
+      };
+}
+
+export function validateStatementImportRequestBody(body: unknown): {
+  errors: string[];
+  value?: Pick<PostStatementImportRequest, "payload">;
+} {
+  const errors: string[] = [];
+
+  if (!isObject(body) || !isObject(body.payload)) {
+    return {
+      errors: ["payload is required."],
+    };
+  }
+
+  const payload = body.payload;
+
+  if (!isNonEmptyString(payload.batchId)) {
+    errors.push("payload.batchId is required.");
+  }
+
+  if (!isStatementFormat(payload.format)) {
+    errors.push("payload.format must be ofx or qfx.");
+  }
+
+  if (!isNonEmptyString(payload.sourceLabel)) {
+    errors.push("payload.sourceLabel is required.");
+  }
+
+  if (!isIsoTimestamp(payload.importedAt)) {
+    errors.push("payload.importedAt must be a valid ISO timestamp.");
+  }
+
+  if (!isNonEmptyString(payload.cashAccountId)) {
+    errors.push("payload.cashAccountId is required.");
+  }
+
+  if (!isNonEmptyString(payload.defaultCounterpartAccountId)) {
+    errors.push("payload.defaultCounterpartAccountId is required.");
+  }
+
+  if (!isNonEmptyString(payload.statement)) {
+    errors.push("payload.statement is required.");
+  }
+
+  if (payload.nameMappings !== undefined) {
+    if (!isObject(payload.nameMappings)) {
+      errors.push("payload.nameMappings must be an object when provided.");
+    } else {
+      for (const [key, value] of Object.entries(payload.nameMappings)) {
+        if (!isNonEmptyString(key) || !isNonEmptyString(value)) {
+          errors.push("payload.nameMappings must contain only non-empty string keys and values.");
+          break;
+        }
+      }
+    }
+  }
+
+  return errors.length > 0
+    ? { errors }
+    : {
+        errors: [],
+        value: body as Pick<PostStatementImportRequest, "payload">,
+      };
+}
+
+export function validateStatementExportQuery(query: {
+  accountId: string | null;
+  format: string | null;
+  from: string | null;
+  to: string | null;
+}): {
+  errors: string[];
+  value?: Pick<GetStatementExportRequest, "accountId" | "format" | "from" | "to">;
+} {
+  const errors: string[] = [];
+
+  if (!isStatementFormat(query.format)) {
+    errors.push("format must be ofx or qfx.");
+  }
+
+  if (!isNonEmptyString(query.accountId)) {
+    errors.push("accountId is required.");
+  }
+
+  if (!isIsoDate(query.from)) {
+    errors.push("from must use YYYY-MM-DD format.");
+  }
+
+  if (!isIsoDate(query.to)) {
+    errors.push("to must use YYYY-MM-DD format.");
+  }
+
+  return errors.length > 0 || !query.accountId || !query.from || !query.to || !query.format
+    ? { errors }
+    : {
+        errors: [],
+        value: {
+          accountId: query.accountId,
+          format: query.format as GetStatementExportRequest["format"],
+          from: query.from,
+          to: query.to,
+        },
+      };
+}
+
+export function validateGnuCashXmlImportRequestBody(body: unknown): {
+  errors: string[];
+  value?: Pick<PostGnuCashXmlImportRequest, "payload">;
+} {
+  const errors: string[] = [];
+
+  if (!isObject(body) || !isObject(body.payload)) {
+    return {
+      errors: ["payload is required."],
+    };
+  }
+
+  const payload = body.payload;
+
+  if (!isNonEmptyString(payload.sourceLabel)) {
+    errors.push("payload.sourceLabel is required.");
+  }
+
+  if (!isIsoTimestamp(payload.importedAt)) {
+    errors.push("payload.importedAt must be a valid ISO timestamp.");
+  }
+
+  if (!isNonEmptyString(payload.xml)) {
+    errors.push("payload.xml is required.");
+  }
+
+  return errors.length > 0
+    ? { errors }
+    : {
+        errors: [],
+        value: body as Pick<PostGnuCashXmlImportRequest, "payload">,
       };
 }
 

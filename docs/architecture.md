@@ -33,10 +33,10 @@ Responsibilities:
 
 Responsibilities:
 
-- OFX / QFX ingest
+- OFX / QFX ingest and export
 - QIF ingest and export
 - CSV mapping pipelines
-- GnuCash XML import and export
+- GnuCash XML workspace snapshot import and export
 - ledger-safe deduplication and source traceability
 
 ### Reporting Engine
