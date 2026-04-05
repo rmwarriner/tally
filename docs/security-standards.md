@@ -38,12 +38,22 @@ Changes are incomplete if they introduce new operational behavior without consid
 - ledger and workspace files are sensitive financial records
 - persistence adapters must not allow path traversal
 - backups and exports should be treated as sensitive artifacts
+- deployment and recovery procedures must preserve least-privilege filesystem ownership and avoid leaking secret material during incident response
 
 ## Logging And Audit
 
 - logs must be structured and redact secrets
 - audit records must be durable for financial mutations
 - client-controlled actor fields must not be trusted across the transport boundary
+
+## Operational Guidance
+
+- production-oriented API runtime should use file-backed auth secrets rather than inline token env vars
+- the default deployment target is a single Linux host with a `systemd`-managed API process and a private data directory
+- backup copies outside the API host should be treated as sensitive financial records with controlled access
+- encryption-at-rest and key rotation remain follow-up work and are not yet a completed baseline
+
+See `docs/api-runtime-operations.md` and `docs/api-deployment-and-recovery-runbook.md` for the current runtime and recovery guidance.
 
 ## CI And Automation
 

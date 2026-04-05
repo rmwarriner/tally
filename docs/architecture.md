@@ -76,6 +76,18 @@ Responsibilities:
 - Rust is a possible future backend/runtime option, but it is not the current recommendation for the API layer.
 - See `docs/rust-api-reassessment.md` for the conditions that would justify revisiting that decision.
 
+## Current Operating Shape
+
+The repository now runs as:
+
+- shared TypeScript domain and workspace logic reused across clients and the API
+- `apps/api` as the command, persistence, auth, validation, audit, and import/export boundary
+- file-backed workspace persistence with repository-managed backups and load-time migration
+- web and mobile clients consuming the same service boundary for reads and writes
+- a documented single-host Linux deployment model for the API runtime
+
+See `docs/service-layer.md`, `docs/api-runtime-operations.md`, and `docs/api-deployment-and-recovery-runbook.md` for the current operational shape.
+
 ## Data Strategy
 
 - The ledger remains the system of record.
@@ -85,10 +97,18 @@ Responsibilities:
 
 ## Delivery Phases
 
+Completed:
+
 1. Domain and ledger invariants
 2. Workspace document model and write commands
-3. Service layer for persistence, command handling, and audit
+3. Service layer for persistence, command handling, audit, and runtime operations
 4. Web workspace backed by service APIs
-5. Mobile quick-actions client backed by the same service contract
-6. Import/export adapters
-7. Reporting and close workflow
+5. Mobile client backed by the same service contract
+6. Import/export adapters for CSV, QIF, OFX, QFX, and GnuCash XML snapshot flows
+7. Reporting, close workflow, backup, restore, and migration foundations
+
+Next:
+
+1. External observability sinks and alert routing
+2. Encryption-at-rest and key-handling guidance for persisted data and backups
+3. Product-driven desktop wrapper discovery and client cleanup
