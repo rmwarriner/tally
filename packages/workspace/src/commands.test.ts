@@ -10,6 +10,7 @@ import {
   createDemoWorkspace,
   executeScheduledTransaction,
   importTransactionsFromCsvRows,
+  importTransactionsFromQif,
   reconcileAccount,
   updateTransaction,
 } from "./index";
@@ -165,6 +166,61 @@ describe("workspace commands", () => {
           record.fields.skippedDuplicates === 1,
       ),
     ).toBe(true);
+  });
+
+  it("imports qif transactions with category mappings", () => {
+    const workspace = createDemoWorkspace();
+    const result = importTransactionsFromQif(
+      workspace,
+      {
+        batchId: "qif-import-1",
+        cashAccountId: "acct-checking",
+        categoryMappings: {
+          Salary: "acct-income-salary",
+        },
+        defaultCounterpartAccountId: "acct-expense-groceries",
+        importedAt: "2026-04-05T00:00:00Z",
+        qif: `!Type:Bank
+D04/03/2026
+T-45.12
+PCity Utilities
+MElectric bill
+LUtilities
+^
+D04/04/2026
+T3200.00
+PEmployer
+MPayroll
+LSalary
+^
+`,
+        sourceLabel: "checking.qif",
+      },
+      {
+        audit: { actor: "Primary" },
+      },
+    );
+
+    expect(result.ok).toBe(true);
+    expect(
+      result.document.transactions.filter((transaction) => transaction.id.startsWith("qif-import-1")),
+    ).toHaveLength(2);
+    expect(
+      result.document.transactions.find((transaction) => transaction.id === "qif-import-1:2")?.postings,
+    ).toEqual([
+      {
+        accountId: "acct-income-salary",
+        amount: createMoney("USD", -3200),
+        memo: "Payroll",
+      },
+      {
+        accountId: "acct-checking",
+        amount: createMoney("USD", 3200),
+        memo: "Payroll",
+        cleared: true,
+      },
+    ]);
+    expect(result.document.auditEvents.at(-1)?.eventType).toBe("import.qif.recorded");
   });
 
   it("executes due scheduled transactions and advances the schedule", () => {

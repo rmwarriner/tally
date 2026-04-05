@@ -1,10 +1,12 @@
 import type {
   ApplyScheduledTransactionExceptionRequest,
   ExecuteScheduledTransactionRequest,
+  GetQifExportRequest,
   PostBaselineBudgetLineRequest,
   PostCsvImportRequest,
   PostEnvelopeAllocationRequest,
   PostEnvelopeRequest,
+  PostQifImportRequest,
   PostReconciliationRequest,
   PostScheduledTransactionRequest,
   PostTransactionRequest,
@@ -262,6 +264,99 @@ export function validateCsvImportRequestBody(body: unknown): {
     : {
         errors: [],
         value: body as Pick<PostCsvImportRequest, "payload">,
+      };
+}
+
+export function validateQifImportRequestBody(body: unknown): {
+  errors: string[];
+  value?: Pick<PostQifImportRequest, "payload">;
+} {
+  const errors: string[] = [];
+
+  if (!isObject(body) || !isObject(body.payload)) {
+    return {
+      errors: ["payload is required."],
+    };
+  }
+
+  const payload = body.payload;
+
+  if (!isNonEmptyString(payload.batchId)) {
+    errors.push("payload.batchId is required.");
+  }
+
+  if (!isNonEmptyString(payload.sourceLabel)) {
+    errors.push("payload.sourceLabel is required.");
+  }
+
+  if (!isIsoTimestamp(payload.importedAt)) {
+    errors.push("payload.importedAt must be a valid ISO timestamp.");
+  }
+
+  if (!isNonEmptyString(payload.cashAccountId)) {
+    errors.push("payload.cashAccountId is required.");
+  }
+
+  if (!isNonEmptyString(payload.defaultCounterpartAccountId)) {
+    errors.push("payload.defaultCounterpartAccountId is required.");
+  }
+
+  if (!isNonEmptyString(payload.qif)) {
+    errors.push("payload.qif is required.");
+  }
+
+  if (payload.categoryMappings !== undefined) {
+    if (!isObject(payload.categoryMappings)) {
+      errors.push("payload.categoryMappings must be an object when provided.");
+    } else {
+      for (const [key, value] of Object.entries(payload.categoryMappings)) {
+        if (!isNonEmptyString(key) || !isNonEmptyString(value)) {
+          errors.push("payload.categoryMappings must contain only non-empty string keys and values.");
+          break;
+        }
+      }
+    }
+  }
+
+  return errors.length > 0
+    ? { errors }
+    : {
+        errors: [],
+        value: body as Pick<PostQifImportRequest, "payload">,
+      };
+}
+
+export function validateQifExportQuery(query: {
+  accountId: string | null;
+  from: string | null;
+  to: string | null;
+}): {
+  errors: string[];
+  value?: Pick<GetQifExportRequest, "accountId" | "from" | "to">;
+} {
+  const errors: string[] = [];
+
+  if (!isNonEmptyString(query.accountId)) {
+    errors.push("accountId is required.");
+  }
+
+  if (!isIsoDate(query.from)) {
+    errors.push("from must use YYYY-MM-DD format.");
+  }
+
+  if (!isIsoDate(query.to)) {
+    errors.push("to must use YYYY-MM-DD format.");
+  }
+
+  return errors.length > 0 || !query.accountId || !query.from || !query.to
+    ? { errors }
+    : {
+        errors: [],
+        value: {
+          accountId: query.accountId,
+          from: query.from,
+          to: query.to,
+        },
       };
 }
 

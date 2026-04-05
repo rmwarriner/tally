@@ -41,6 +41,7 @@ This repository currently includes:
 - workspace document model
 - reconciliation support
 - CSV import with duplicate detection
+- QIF import and export foundation
 - JSON workspace persistence
 
 ### Service Layer
@@ -48,6 +49,7 @@ This repository currently includes:
 - file-system workspace repository
 - service methods for workspace reads and dashboard projections
 - service methods for transaction creation, transaction updates, reconciliation, and CSV import
+- service methods for QIF import and QIF export
 - HTTP handler for workspace and dashboard reads plus core write routes
 - Node HTTP server adapter
 - runnable API bootstrap and local development server wiring
@@ -97,13 +99,13 @@ This repository currently includes:
 
 ## Not Started
 
-- import/export adapters for OFX, QFX, QIF, and GnuCash XML
+- import/export adapters for OFX, QFX, and GnuCash XML
 - reporting engine and close workflow
 - backup, migration, and restore strategy
 
 ## Recommended Next Sequence
 
-1. Add import/export adapters for OFX, QFX, QIF, and GnuCash XML
+1. Extend import/export beyond QIF with OFX, QFX, and GnuCash XML
 2. Add reporting engine and close workflow
 3. Add backup, migration, and restore strategy
 

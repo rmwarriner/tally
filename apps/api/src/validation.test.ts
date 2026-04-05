@@ -6,6 +6,8 @@ import {
   validateEnvelopeAllocationRequestBody,
   validateEnvelopeRequestBody,
   validateExecuteScheduledTransactionRequestBody,
+  validateQifExportQuery,
+  validateQifImportRequestBody,
   validateReconciliationRequestBody,
   validateScheduledTransactionRequestBody,
   validateTransactionRequestBody,
@@ -140,6 +142,68 @@ describe("api request validation", () => {
     expect(invalid.errors).toContain("payload.rows[1].amount must be a finite number.");
     expect(invalid.errors).toContain("payload.rows[1].counterpartAccountId is required.");
     expect(invalid.errors).toContain("payload.rows[1].cashAccountId is required.");
+  });
+
+  it("accepts valid qif import payloads and rejects malformed category mappings", () => {
+    const valid = validateQifImportRequestBody({
+      payload: {
+        batchId: "batch-1",
+        cashAccountId: "acct-checking",
+        categoryMappings: {
+          Salary: "acct-income-salary",
+        },
+        defaultCounterpartAccountId: "acct-expense-misc",
+        importedAt: "2026-04-04T12:00:00.000Z",
+        qif: "!Type:Bank\n^\n",
+        sourceLabel: "checking.qif",
+      },
+    });
+
+    expect(valid.errors).toEqual([]);
+
+    const invalid = validateQifImportRequestBody({
+      payload: {
+        batchId: "",
+        cashAccountId: "",
+        categoryMappings: {
+          Salary: "",
+        },
+        defaultCounterpartAccountId: "",
+        importedAt: "not-a-date",
+        qif: "",
+        sourceLabel: "",
+      },
+    });
+
+    expect(invalid.errors).toContain("payload.batchId is required.");
+    expect(invalid.errors).toContain("payload.sourceLabel is required.");
+    expect(invalid.errors).toContain("payload.importedAt must be a valid ISO timestamp.");
+    expect(invalid.errors).toContain("payload.cashAccountId is required.");
+    expect(invalid.errors).toContain("payload.defaultCounterpartAccountId is required.");
+    expect(invalid.errors).toContain("payload.qif is required.");
+    expect(invalid.errors).toContain("payload.categoryMappings must contain only non-empty string keys and values.");
+  });
+
+  it("validates qif export query parameters", () => {
+    expect(
+      validateQifExportQuery({
+        accountId: "acct-checking",
+        from: "2026-04-01",
+        to: "2026-04-30",
+      }).errors,
+    ).toEqual([]);
+
+    expect(
+      validateQifExportQuery({
+        accountId: null,
+        from: "2026/04/01",
+        to: null,
+      }).errors,
+    ).toEqual([
+      "accountId is required.",
+      "from must use YYYY-MM-DD format.",
+      "to must use YYYY-MM-DD format.",
+    ]);
   });
 
   it("validates baseline budget lines including optional notes", () => {

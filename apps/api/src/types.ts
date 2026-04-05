@@ -29,6 +29,15 @@ export interface GetDashboardRequest {
   workspaceId: string;
 }
 
+export interface GetQifExportRequest {
+  accountId: string;
+  auth: AuthContext;
+  from: string;
+  logger?: Logger;
+  to: string;
+  workspaceId: string;
+}
+
 export interface PostTransactionRequest {
   auth: AuthContext;
   logger?: Logger;
@@ -121,12 +130,36 @@ export interface PostCsvImportRequest {
   workspaceId: string;
 }
 
+export interface PostQifImportRequest {
+  auth: AuthContext;
+  logger?: Logger;
+  payload: {
+    batchId: string;
+    cashAccountId: string;
+    categoryMappings?: Record<string, string>;
+    defaultCounterpartAccountId: string;
+    importedAt: string;
+    qif: string;
+    sourceLabel: string;
+  };
+  workspaceId: string;
+}
+
 export interface WorkspaceEnvelope {
   workspace: FinanceWorkspaceDocument;
 }
 
 export interface DashboardEnvelope {
   dashboard: ReturnType<typeof import("@gnucash-ng/workspace").buildDashboardSnapshot>;
+}
+
+export interface QifExportEnvelope {
+  export: {
+    contents: string;
+    fileName: string;
+    format: "qif";
+    transactionCount: number;
+  };
 }
 
 export type { ErrorEnvelope };

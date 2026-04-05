@@ -11,6 +11,8 @@ import {
   validateExecuteScheduledTransactionRequestBody,
   validateBaselineBudgetLineRequestBody,
   validateCsvImportRequestBody,
+  validateQifExportQuery,
+  validateQifImportRequestBody,
   validateEnvelopeAllocationRequestBody,
   validateEnvelopeRequestBody,
   validateReconciliationRequestBody,
@@ -113,6 +115,14 @@ function normalizeRouteLabel(method: string, path: string): string {
 
   if (/^\/api\/workspaces\/[^/]+\/imports\/csv$/.test(path)) {
     return "/api/workspaces/:workspaceId/imports/csv";
+  }
+
+  if (/^\/api\/workspaces\/[^/]+\/imports\/qif$/.test(path)) {
+    return "/api/workspaces/:workspaceId/imports/qif";
+  }
+
+  if (/^\/api\/workspaces\/[^/]+\/exports\/qif$/.test(path)) {
+    return "/api/workspaces/:workspaceId/exports/qif";
   }
 
   return path;
@@ -286,6 +296,7 @@ export function createHttpHandler(params: {
     if (request.method === "GET") {
       const workspaceMatch = path.match(/^\/api\/workspaces\/([^/]+)$/);
       const dashboardMatch = path.match(/^\/api\/workspaces\/([^/]+)\/dashboard$/);
+      const qifExportMatch = path.match(/^\/api\/workspaces\/([^/]+)\/exports\/qif$/);
 
       if (workspaceMatch) {
         const rateLimited = enforceRateLimit(requestKey, rateLimitPolicy.read, requestLogger);
@@ -374,6 +385,64 @@ export function createHttpHandler(params: {
         });
         return completeJsonResponse(response.status, response.body);
       }
+
+      if (qifExportMatch) {
+        const rateLimited = enforceRateLimit(requestKey, rateLimitPolicy.read, requestLogger);
+
+        if (rateLimited) {
+          return completeJsonResponse(
+            rateLimited.status,
+            await rateLimited.json(),
+            Object.fromEntries(rateLimited.headers.entries()),
+          );
+        }
+
+        const workspaceId = decodeURIComponent(qifExportMatch[1]);
+
+        if (!isSafeWorkspaceId(workspaceId)) {
+          return completeJsonResponse(
+            400,
+            toErrorEnvelope(
+              new ApiError({
+                code: "repository.invalid_identifier",
+                message: "Workspace identifier is invalid.",
+                status: 400,
+              }),
+            ),
+          );
+        }
+
+        const query = validateQifExportQuery({
+          accountId: url.searchParams.get("accountId"),
+          from: url.searchParams.get("from"),
+          to: url.searchParams.get("to"),
+        });
+
+        if (query.errors.length > 0 || !query.value) {
+          requestLogger.warn("http request validation failed", { errors: query.errors });
+          return completeJsonResponse(
+            400,
+            toErrorEnvelope(
+              new ApiError({
+                code: "validation.failed",
+                details: { issues: query.errors },
+                message: query.errors[0] ?? "Request validation failed.",
+                status: 400,
+              }),
+            ),
+          );
+        }
+
+        const response = await params.service.getQifExport({
+          accountId: query.value.accountId,
+          auth: auth.context,
+          from: query.value.from,
+          logger: requestLogger,
+          to: query.value.to,
+          workspaceId,
+        });
+        return completeJsonResponse(response.status, response.body);
+      }
     }
 
     if (request.method === "POST") {
@@ -386,6 +455,7 @@ export function createHttpHandler(params: {
       const transactionMatch = path.match(/^\/api\/workspaces\/([^/]+)\/transactions$/);
       const reconciliationMatch = path.match(/^\/api\/workspaces\/([^/]+)\/reconciliations$/);
       const csvImportMatch = path.match(/^\/api\/workspaces\/([^/]+)\/imports\/csv$/);
+      const qifImportMatch = path.match(/^\/api\/workspaces\/([^/]+)\/imports\/qif$/);
 
       if (!request.headers.get("content-type")?.includes("application/json")) {
         requestLogger.warn("http request validation failed", {
@@ -899,6 +969,58 @@ export function createHttpHandler(params: {
         }
 
         const response = await params.service.postCsvImport({
+          auth: auth.context,
+          logger: requestLogger,
+          payload: payload.value.payload,
+          workspaceId,
+        });
+        return completeJsonResponse(response.status, response.body);
+      }
+
+      if (qifImportMatch) {
+        const rateLimited = enforceRateLimit(requestKey, rateLimitPolicy.import, requestLogger);
+
+        if (rateLimited) {
+          return completeJsonResponse(
+            rateLimited.status,
+            await rateLimited.json(),
+            Object.fromEntries(rateLimited.headers.entries()),
+          );
+        }
+
+        const workspaceId = decodeURIComponent(qifImportMatch[1]);
+
+        if (!isSafeWorkspaceId(workspaceId)) {
+          return completeJsonResponse(
+            400,
+            toErrorEnvelope(
+              new ApiError({
+                code: "repository.invalid_identifier",
+                message: "Workspace identifier is invalid.",
+                status: 400,
+              }),
+            ),
+          );
+        }
+
+        const payload = validateQifImportRequestBody(body);
+
+        if (payload.errors.length > 0 || !payload.value) {
+          requestLogger.warn("http request validation failed", { errors: payload.errors });
+          return completeJsonResponse(
+            400,
+            toErrorEnvelope(
+              new ApiError({
+                code: "validation.failed",
+                details: { issues: payload.errors },
+                message: payload.errors[0] ?? "Request validation failed.",
+                status: 400,
+              }),
+            ),
+          );
+        }
+
+        const response = await params.service.postQifImport({
           auth: auth.context,
           logger: requestLogger,
           payload: payload.value.payload,

@@ -13,6 +13,8 @@ Implemented pieces:
 - write service for transaction updates
 - write service for reconciliation
 - write service for CSV import
+- write service for QIF import
+- read service for QIF export
 - write service for baseline budget lines, envelopes, envelope allocations, scheduled transaction execution, and schedule exceptions
 - HTTP request handler for read and write routes
 - Node HTTP server adapter
@@ -26,6 +28,7 @@ Implemented pieces:
 - mobile read integration for workspace and dashboard loading
 - mobile write integration for transaction capture, reconciliation capture, schedules, due approvals, schedule exceptions, and envelope operations
 - strict request schema validation for core write routes
+- strict request/query validation for QIF import and export routes
 - auth, authorization, actor handling, body limits, security headers, and rate limiting at the HTTP boundary
 - local development seeding of the demo workspace for first-run UI review
 - explicit runtime modes for development and production-oriented startup
@@ -95,12 +98,12 @@ See `docs/api-runtime-operations.md` for the current runtime-mode and deployment
 - no durable metrics backend yet beyond in-process `/metrics`
 - no distributed tracing yet beyond request correlation ids in logs and responses
 - no external audit stream beyond workspace persistence
-- no OFX, QFX, QIF, or GnuCash XML adapters yet
+- OFX, QFX, and GnuCash XML adapters still do not exist
 - no reporting or close workflow yet
 - no backup, migration, or restore strategy yet
 
 ## Recommended Next Steps
 
-1. Extend import/export support beyond CSV
+1. Extend import/export support beyond QIF to OFX, QFX, and GnuCash XML
 2. Add reporting engine and close workflow
 3. Add backup, migration, and restore strategy

@@ -3,8 +3,10 @@ import {
   addTransaction,
   applyScheduledTransactionException,
   buildDashboardSnapshot,
+  buildQifExport,
   executeScheduledTransaction,
   importTransactionsFromCsvRows,
+  importTransactionsFromQif,
   reconcileAccount,
   recordEnvelopeAllocation,
   upsertBaselineBudgetLine,
@@ -18,17 +20,20 @@ import type {
   ApplyScheduledTransactionExceptionRequest,
   ExecuteScheduledTransactionRequest,
   GetDashboardRequest,
+  GetQifExportRequest,
   GetWorkspaceRequest,
   PostBaselineBudgetLineRequest,
   PostCsvImportRequest,
   PostEnvelopeAllocationRequest,
   PostEnvelopeRequest,
+  PostQifImportRequest,
   PostReconciliationRequest,
   PostScheduledTransactionRequest,
   PostTransactionRequest,
   ServiceResponse,
   UpdateTransactionRequest,
   DashboardEnvelope,
+  QifExportEnvelope,
   WorkspaceEnvelope,
 } from "./types";
 import { authorizeWorkspaceAccess } from "./auth";
@@ -37,9 +42,13 @@ import type { WorkspaceRepository } from "./repository";
 
 export interface WorkspaceService {
   getDashboard(request: GetDashboardRequest): Promise<ServiceResponse<DashboardEnvelope | ErrorEnvelope>>;
+  getQifExport(request: GetQifExportRequest): Promise<ServiceResponse<QifExportEnvelope | ErrorEnvelope>>;
   getWorkspace(request: GetWorkspaceRequest): Promise<ServiceResponse<WorkspaceEnvelope | ErrorEnvelope>>;
   postCsvImport(
     request: PostCsvImportRequest,
+  ): Promise<ServiceResponse<WorkspaceEnvelope | ErrorEnvelope>>;
+  postQifImport(
+    request: PostQifImportRequest,
   ): Promise<ServiceResponse<WorkspaceEnvelope | ErrorEnvelope>>;
   executeScheduledTransaction(
     request: ExecuteScheduledTransactionRequest,
@@ -171,6 +180,59 @@ export function createWorkspaceService(params: {
       }
     },
 
+    async getQifExport(request) {
+      const requestLogger = getRequestLogger(request.logger).child({
+        accountId: request.accountId,
+        from: request.from,
+        operation: "getQifExport",
+        to: request.to,
+        workspaceId: request.workspaceId,
+      });
+      requestLogger.info("service command started");
+
+      try {
+        const workspace = await loadWorkspace(request.workspaceId, requestLogger);
+        const authorization = authorizeWorkspaceAccess(workspace, request.auth, "read");
+
+        if (!authorization.ok) {
+          requestLogger.warn("service command authorization failed", { errors: [authorization.error] });
+          return failure(
+            new ApiError({
+              code: "auth.forbidden",
+              message: authorization.error ?? "Forbidden.",
+              status: 403,
+            }),
+          );
+        }
+
+        const exportResult = buildQifExport({
+          accountId: request.accountId,
+          from: request.from,
+          to: request.to,
+          workspace,
+        });
+
+        requestLogger.info("service command completed", {
+          transactionCount: exportResult.transactionCount,
+        });
+        return success(200, {
+          export: {
+            contents: exportResult.contents,
+            fileName: exportResult.fileName,
+            format: "qif",
+            transactionCount: exportResult.transactionCount,
+          },
+        });
+      } catch (error) {
+        const apiError = toApiError(error);
+        requestLogger.error("service command failed", {
+          error: apiError.message,
+          errorCode: apiError.code,
+        });
+        return failure(apiError);
+      }
+    },
+
     async postTransaction(request) {
       const requestLogger = getRequestLogger(request.logger).child({
         operation: "postTransaction",
@@ -194,6 +256,61 @@ export function createWorkspaceService(params: {
           );
         }
         const result = addTransaction(workspace, request.transaction, {
+          audit: {
+            actor: request.auth.actor,
+          },
+          logger: requestLogger,
+        });
+
+        if (!result.ok) {
+          requestLogger.warn("service command validation failed", { errors: result.errors });
+          return failure(
+            new ApiError({
+              code: "validation.failed",
+              details: { issues: result.errors },
+              message: result.errors[0] ?? "Request validation failed.",
+              status: 422,
+            }),
+          );
+        }
+
+        await saveWorkspace(result.document, requestLogger);
+        requestLogger.info("service command completed");
+        return success(201, { workspace: result.document });
+      } catch (error) {
+        const apiError = toApiError(error);
+        requestLogger.error("service command failed", {
+          error: apiError.message,
+          errorCode: apiError.code,
+        });
+        return failure(apiError);
+      }
+    },
+
+    async postQifImport(request) {
+      const requestLogger = getRequestLogger(request.logger).child({
+        batchId: request.payload.batchId,
+        operation: "postQifImport",
+        workspaceId: request.workspaceId,
+      });
+      requestLogger.info("service command started");
+
+      try {
+        const workspace = await loadWorkspace(request.workspaceId, requestLogger);
+        const authorization = authorizeWorkspaceAccess(workspace, request.auth, "write");
+
+        if (!authorization.ok) {
+          requestLogger.warn("service command authorization failed", { errors: [authorization.error] });
+          return failure(
+            new ApiError({
+              code: "auth.forbidden",
+              message: authorization.error ?? "Forbidden.",
+              status: 403,
+            }),
+          );
+        }
+
+        const result = importTransactionsFromQif(workspace, request.payload, {
           audit: {
             actor: request.auth.actor,
           },

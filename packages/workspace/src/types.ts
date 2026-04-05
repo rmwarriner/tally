@@ -39,7 +39,8 @@ export type AuditEventType =
   | "envelope.upserted"
   | "envelope-allocation.recorded"
   | "reconciliation.recorded"
-  | "import.csv.recorded";
+  | "import.csv.recorded"
+  | "import.qif.recorded";
 
 export interface AuditEvent {
   id: string;

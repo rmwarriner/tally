@@ -136,6 +136,69 @@ describe("api http transport", () => {
     await fixture.cleanup();
   });
 
+  it("imports qif transactions over HTTP", async () => {
+    const fixture = await createFixture();
+    const service = createWorkspaceService({
+      repository: createFileSystemWorkspaceRepository({ rootDirectory: fixture.directory }),
+    });
+    const handler = createHttpHandler({ service });
+
+    const response = await handler(
+      new Request(`http://localhost/api/workspaces/${fixture.workspace.id}/imports/qif`, {
+        body: JSON.stringify({
+          payload: {
+            batchId: "http-qif-1",
+            cashAccountId: "acct-checking",
+            defaultCounterpartAccountId: "acct-expense-groceries",
+            importedAt: "2026-04-05T00:00:00Z",
+            qif: `!Type:Bank
+D04/03/2026
+T-45.12
+PCity Utilities
+MElectric bill
+Lacct-expense-utilities
+^
+`,
+            sourceLabel: "checking.qif",
+          },
+        }),
+        headers: { "content-type": "application/json" },
+        method: "POST",
+      }),
+    );
+    const body = await response.json();
+
+    expect(response.status).toBe(201);
+    expect(body.workspace.transactions.some((item: { id: string }) => item.id === "http-qif-1:1")).toBe(
+      true,
+    );
+    expect(body.workspace.auditEvents.at(-1).eventType).toBe("import.qif.recorded");
+
+    await fixture.cleanup();
+  });
+
+  it("exports qif transactions over HTTP", async () => {
+    const fixture = await createFixture();
+    const service = createWorkspaceService({
+      repository: createFileSystemWorkspaceRepository({ rootDirectory: fixture.directory }),
+    });
+    const handler = createHttpHandler({ service });
+
+    const response = await handler(
+      new Request(
+        `http://localhost/api/workspaces/${fixture.workspace.id}/exports/qif?accountId=acct-checking&from=2026-04-01&to=2026-04-30`,
+      ),
+    );
+    const body = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(body.export.fileName).toBe("workspace-household-demo-acct-checking-2026-04-01-2026-04-30.qif");
+    expect(body.export.transactionCount).toBeGreaterThan(0);
+    expect(body.export.contents).toContain("!Type:Bank");
+
+    await fixture.cleanup();
+  });
+
   it("accepts transaction posts over HTTP", async () => {
     const fixture = await createFixture();
     const service = createWorkspaceService({

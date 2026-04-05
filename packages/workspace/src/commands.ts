@@ -16,6 +16,7 @@ import {
 } from "@gnucash-ng/domain";
 import { createNoopLogger, type Logger } from "@gnucash-ng/logging";
 import { appendAuditEvent, type AuditContext } from "./audit";
+import { parseQif } from "./qif";
 import type {
   CsvImportRow,
   FinanceWorkspaceDocument,
@@ -76,6 +77,54 @@ function duplicateImportFingerprints(document: FinanceWorkspaceDocument): Set<st
       .map((transaction) => transaction.source?.fingerprint)
       .filter((fingerprint): fingerprint is string => Boolean(fingerprint)),
   );
+}
+
+function buildImportedTransaction(params: {
+  amount: number;
+  batchId: string;
+  cashAccountId: string;
+  counterpartAccountId: string;
+  description: string;
+  importedAt: string;
+  index: number;
+  memo?: string;
+  occurredOn: string;
+  payee?: string;
+  provider: "csv" | "qif";
+  sourceFingerprintParts: string[];
+  tags?: string[];
+  workspace: FinanceWorkspaceDocument;
+}): Transaction {
+  const absoluteAmount = Math.abs(params.amount);
+  const cashQuantity = params.amount >= 0 ? absoluteAmount : -absoluteAmount;
+  const counterpartQuantity = -cashQuantity;
+
+  return {
+    id: `${params.batchId}:${params.index + 1}`,
+    occurredOn: params.occurredOn,
+    description: params.description,
+    payee: params.payee,
+    postings: [
+      {
+        accountId: params.counterpartAccountId,
+        amount: createMoney(params.workspace.baseCommodityCode, counterpartQuantity),
+        memo: params.memo,
+      },
+      {
+        accountId: params.cashAccountId,
+        amount: createMoney(params.workspace.baseCommodityCode, cashQuantity),
+        memo: params.memo,
+        cleared: true,
+      },
+    ],
+    tags: params.tags,
+    source: {
+      provider: params.provider,
+      fingerprint: params.sourceFingerprintParts.join("|"),
+      importedAt: params.importedAt,
+      externalReference: `${params.batchId}:${params.index + 1}`,
+    },
+  };
 }
 
 export function addTransaction(
@@ -720,39 +769,29 @@ export function importTransactionsFromCsvRows(
   let skippedDuplicates = 0;
 
   for (const [index, row] of rows.entries()) {
-    const transaction: Transaction = {
-      id: `${metadata.batchId}:${index + 1}`,
-      occurredOn: row.occurredOn,
+    const transaction = buildImportedTransaction({
+      amount: -Math.abs(row.amount),
+      batchId: metadata.batchId,
+      cashAccountId: row.cashAccountId,
+      counterpartAccountId: row.counterpartAccountId,
       description: row.description,
+      importedAt: metadata.importedAt,
+      index,
+      memo: row.memo,
+      occurredOn: row.occurredOn,
       payee: row.payee,
-      postings: [
-        {
-          accountId: row.counterpartAccountId,
-          amount: createMoney(document.baseCommodityCode, Math.abs(row.amount)),
-          memo: row.memo,
-        },
-        {
-          accountId: row.cashAccountId,
-          amount: createMoney(document.baseCommodityCode, -Math.abs(row.amount)),
-          memo: row.memo,
-          cleared: true,
-        },
+      provider: "csv",
+      sourceFingerprintParts: [
+        metadata.sourceLabel,
+        row.occurredOn,
+        row.description,
+        row.amount.toFixed(2),
+        row.cashAccountId,
+        row.counterpartAccountId,
       ],
       tags: row.tags,
-      source: {
-        provider: "csv",
-        fingerprint: [
-          metadata.sourceLabel,
-          row.occurredOn,
-          row.description,
-          row.amount.toFixed(2),
-          row.cashAccountId,
-          row.counterpartAccountId,
-        ].join("|"),
-        importedAt: metadata.importedAt,
-        externalReference: `${metadata.batchId}:${index + 1}`,
-      },
-    };
+      workspace: document,
+    });
     const validation = validateTransactionForLedger(transaction, document.accounts);
 
     if (!validation.ok) {
@@ -811,8 +850,8 @@ export function importTransactionsFromCsvRows(
     errors: [],
     document: appendAuditEvent(
       {
-      ...nextDocument,
-      importBatches: upsertById(nextDocument.importBatches, batch),
+        ...nextDocument,
+        importBatches: upsertById(nextDocument.importBatches, batch),
       },
       {
         entityIds: [batch.id, ...batch.transactionIds],
@@ -822,6 +861,137 @@ export function importTransactionsFromCsvRows(
           importedTransactionCount: transactionsToImport.length,
           skippedDuplicates,
           sourceLabel: metadata.sourceLabel,
+        },
+      },
+      options.audit,
+    ),
+  };
+}
+
+export function importTransactionsFromQif(
+  document: FinanceWorkspaceDocument,
+  params: {
+    batchId: string;
+    cashAccountId: string;
+    categoryMappings?: Record<string, string>;
+    defaultCounterpartAccountId: string;
+    importedAt: string;
+    qif: string;
+    sourceLabel: string;
+  },
+  options: CommandOptions = {},
+): CommandResult {
+  const logger = (options.logger ?? createNoopLogger()).child({
+    batchId: params.batchId,
+    command: "importTransactionsFromQif",
+    provider: "qif",
+    sourceLabel: params.sourceLabel,
+    workspaceId: document.id,
+  });
+  logger.info("workspace command started");
+  const parsed = parseQif(params.qif);
+
+  if (parsed.errors.length > 0) {
+    logger.warn("workspace command validation failed", { errors: parsed.errors });
+    return { ok: false, errors: parsed.errors, document };
+  }
+
+  const seenFingerprints = duplicateImportFingerprints(document);
+  const transactionsToImport: Transaction[] = [];
+  let skippedDuplicates = 0;
+
+  for (const [index, entry] of parsed.entries.entries()) {
+    const category = entry.category?.trim();
+    const counterpartAccountId =
+      (category ? params.categoryMappings?.[category] : undefined) ?? params.defaultCounterpartAccountId;
+    const description = entry.memo ?? entry.payee ?? category ?? "Imported QIF transaction";
+    const transaction = buildImportedTransaction({
+      amount: entry.amount,
+      batchId: params.batchId,
+      cashAccountId: params.cashAccountId,
+      counterpartAccountId,
+      description,
+      importedAt: params.importedAt,
+      index,
+      memo: entry.memo,
+      occurredOn: entry.date,
+      payee: entry.payee,
+      provider: "qif",
+      sourceFingerprintParts: [
+        params.sourceLabel,
+        entry.date,
+        String(entry.amount),
+        params.cashAccountId,
+        counterpartAccountId,
+        category ?? "",
+      ],
+      workspace: document,
+    });
+    const validation = validateTransactionForLedger(transaction, document.accounts);
+
+    if (!validation.ok) {
+      const errors = validation.errors.map((error) => `entry ${index + 1}: ${error}`);
+      logger.warn("workspace command validation failed", { errors });
+      return { ok: false, errors, document };
+    }
+
+    if (seenFingerprints.has(transaction.source!.fingerprint)) {
+      skippedDuplicates += 1;
+      continue;
+    }
+
+    seenFingerprints.add(transaction.source!.fingerprint);
+    transactionsToImport.push(transaction);
+  }
+
+  let nextDocument = document;
+
+  for (const transaction of transactionsToImport) {
+    const result = addTransaction(nextDocument, transaction, {
+      audit: { ...options.audit, disabled: true },
+      logger,
+    });
+
+    if (!result.ok) {
+      logger.warn("workspace command failed while posting imported transactions", {
+        errors: result.errors,
+      });
+      return result;
+    }
+
+    nextDocument = result.document;
+  }
+
+  const batch: ImportBatch = {
+    id: params.batchId,
+    importedAt: params.importedAt,
+    provider: "qif",
+    sourceLabel: params.sourceLabel,
+    transactionIds: transactionsToImport.map((transaction) => transaction.id),
+    fingerprint: transactionsToImport.map(fingerprintForTransaction).join("||"),
+  };
+
+  logger.info("workspace command completed", {
+    importedTransactionCount: transactionsToImport.length,
+    skippedDuplicates,
+  });
+
+  return {
+    ok: true,
+    errors: [],
+    document: appendAuditEvent(
+      {
+        ...nextDocument,
+        importBatches: upsertById(nextDocument.importBatches, batch),
+      },
+      {
+        entityIds: [batch.id, ...batch.transactionIds],
+        eventType: "import.qif.recorded",
+        summary: {
+          importedAt: params.importedAt,
+          importedTransactionCount: transactionsToImport.length,
+          skippedDuplicates,
+          sourceLabel: params.sourceLabel,
         },
       },
       options.audit,
