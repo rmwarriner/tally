@@ -1,8 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { colors, typography } from "@gnucash-ng/ui";
 import {
-  fetchDashboard,
-  fetchWorkspace,
   postBaselineBudgetLine,
   postCsvImport,
   postEnvelope,
@@ -11,19 +9,13 @@ import {
   postScheduledTransaction,
   postTransaction,
   putTransaction,
-  type DashboardResponse,
-  type WorkspaceResponse,
 } from "./api";
 import {
   findAccountSearchExactMatch,
-  getAccountSearchMatches,
   createReconciliationWorkspaceModel,
   createLedgerWorkspaceModel,
   createOverviewCards,
-  getNextPostingFocusTarget,
   getPostingBalanceSummary,
-  getPreferredAccountTypesForPostingAmount,
-  getTransactionEditorHotkeyAction,
   getWorkspaceViewDefinition,
   movePostingIndex,
   type PostingFocusField,
@@ -33,153 +25,25 @@ import {
 import { useLedgerFiltersAndSelection, useLedgerKeyboardAndSelectionSync } from "./ledger-state";
 import { LedgerRegisterPanel } from "./LedgerRegisterPanel";
 import { LedgerSidebar } from "./LedgerSidebar";
+import { LedgerTransactionEditorPanel } from "./LedgerTransactionEditorPanel";
+import { NonLedgerMainPanels } from "./NonLedgerMainPanels";
+import { APRIL_RANGE, WORKSPACE_ID } from "./app-constants";
+import {
+  createEntityId,
+  createTransactionId,
+  formatAccountOptionLabel,
+  formatCurrency,
+  formatSignedCurrency,
+  formatTransactionStatus,
+  parseCsvRows,
+} from "./app-format";
+import {
+  createTransactionEditorState,
+  type TransactionEditorState,
+  validateTransactionEditorState,
+} from "./transaction-editor";
+import { useWorkspaceRuntime } from "./use-workspace-runtime";
 import "../app/styles.css";
-
-const aprilRange = { from: "2026-04-01", to: "2026-04-30" };
-const workspaceId = "workspace-household-demo";
-
-interface TransactionEditorPosting {
-  accountId: string;
-  accountQuery: string;
-  amount: string;
-  cleared: boolean;
-  memo: string;
-}
-
-interface TransactionEditorState {
-  description: string;
-  occurredOn: string;
-  payee: string;
-  postings: TransactionEditorPosting[];
-  tags: string;
-  transactionId: string;
-}
-
-function formatCurrency(amount: number): string {
-  return amount.toLocaleString("en-US", {
-    style: "currency",
-    currency: "USD",
-  });
-}
-
-function formatSignedCurrency(amount: number): string {
-  const formatted = formatCurrency(Math.abs(amount));
-  return amount < 0 ? `-${formatted}` : formatted;
-}
-
-function createTransactionId(): string {
-  return `txn-web-${Date.now()}`;
-}
-
-function createEntityId(prefix: string): string {
-  return `${prefix}-${Date.now()}`;
-}
-
-function formatTransactionStatus(status: "cleared" | "open" | "reconciled"): string {
-  switch (status) {
-    case "reconciled":
-      return "Reconciled";
-    case "cleared":
-      return "Cleared";
-    default:
-      return "Open";
-  }
-}
-
-function formatAccountOptionLabel(account: WorkspaceResponse["workspace"]["accounts"][number]): string {
-  return account.code ? `${account.name} (${account.code})` : account.name;
-}
-
-function parseCsvRows(csvText: string) {
-  return csvText
-    .split("\n")
-    .map((line) => line.trim())
-    .filter(Boolean)
-    .map((line) => {
-      const [occurredOn, description, amount, counterpartAccountId, cashAccountId] = line.split(",");
-
-      return {
-        occurredOn: occurredOn.trim(),
-        description: description.trim(),
-        amount: Number.parseFloat(amount.trim()),
-        counterpartAccountId: counterpartAccountId.trim(),
-        cashAccountId: cashAccountId.trim(),
-      };
-    });
-}
-
-function createTransactionEditorState(
-  transaction: WorkspaceResponse["workspace"]["transactions"][number],
-  accounts: WorkspaceResponse["workspace"]["accounts"],
-): TransactionEditorState {
-  return {
-    description: transaction.description,
-    occurredOn: transaction.occurredOn,
-    payee: transaction.payee ?? "",
-    postings: transaction.postings.map((posting) => {
-      const account = accounts.find((candidate) => candidate.id === posting.accountId);
-
-      return {
-        accountId: posting.accountId,
-        accountQuery: account ? formatAccountOptionLabel(account) : posting.accountId,
-        amount: String(posting.amount.quantity),
-        cleared: Boolean(posting.cleared),
-        memo: posting.memo ?? "",
-      };
-    }),
-    tags: transaction.tags?.join(", ") ?? "",
-    transactionId: transaction.id,
-  };
-}
-
-function validateTransactionEditorState(editor: TransactionEditorState): string[] {
-  const errors: string[] = [];
-
-  if (!editor.description.trim()) {
-    errors.push("Description is required.");
-  }
-
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(editor.occurredOn.trim())) {
-    errors.push("Occurred on must use YYYY-MM-DD format.");
-  }
-
-  if (editor.postings.length < 2) {
-    errors.push("At least two postings are required.");
-  }
-
-  let total = 0;
-  editor.postings.forEach((posting, index) => {
-    if (!posting.accountId.trim()) {
-      errors.push(`Posting ${index + 1} account is required.`);
-    }
-
-    const amount = Number.parseFloat(posting.amount);
-    if (!Number.isFinite(amount)) {
-      errors.push(`Posting ${index + 1} amount must be a number.`);
-      return;
-    }
-
-    total += amount;
-  });
-
-  if (editor.postings.length >= 2 && Math.abs(total) > 0.000001) {
-    errors.push("Transaction postings must balance to zero.");
-  }
-
-  return errors;
-}
-
-function EmptyPanel(props: { message: string; title: string }) {
-  return (
-    <article className="panel empty-panel">
-      <div className="panel-header">
-        <span>{props.title}</span>
-        <span className="muted">Roadmap</span>
-      </div>
-      <p>{props.message}</p>
-    </article>
-  );
-}
 
 function ShellState(props: { message: string; title: string }) {
   return (
@@ -201,12 +65,6 @@ export function App() {
     field: PostingFocusField;
     focusIndex: number;
   } | null>(null);
-  const [dashboard, setDashboard] = useState<DashboardResponse["dashboard"] | null>(null);
-  const [error, setError] = useState<string | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [workspace, setWorkspace] = useState<WorkspaceResponse["workspace"] | null>(null);
-  const [busy, setBusy] = useState<string | null>(null);
-  const [statusMessage, setStatusMessage] = useState<string | null>(null);
   const ledgerSearchInputRef = useRef<HTMLInputElement | null>(null);
   const postingAccountInputRefs = useRef<Array<HTMLInputElement | null>>([]);
   const postingAmountInputRefs = useRef<Array<HTMLInputElement | null>>([]);
@@ -277,30 +135,12 @@ export function App() {
     setLedgerSearchText,
     setSelectedLedgerAccountId,
     setSelectedLedgerTransactionId,
-  } = useLedgerFiltersAndSelection({ initialRange: aprilRange });
-
-  async function loadWorkspaceData() {
-    setLoading(true);
-    setError(null);
-
-    try {
-      const [workspaceResponse, dashboardResponse] = await Promise.all([
-        fetchWorkspace(workspaceId),
-        fetchDashboard({ ...aprilRange, workspaceId }),
-      ]);
-
-      setWorkspace(workspaceResponse.workspace);
-      setDashboard(dashboardResponse.dashboard);
-    } catch (loadError) {
-      setError(loadError instanceof Error ? loadError.message : "Failed to load workspace.");
-    } finally {
-      setLoading(false);
-    }
-  }
-
-  useEffect(() => {
-    void loadWorkspaceData();
-  }, []);
+  } = useLedgerFiltersAndSelection({ initialRange: APRIL_RANGE });
+  const { busy, dashboard, error, loading, runMutation, statusMessage, workspace } =
+    useWorkspaceRuntime({
+      range: APRIL_RANGE,
+      workspaceId: WORKSPACE_ID,
+    });
 
   const loadedWorkspace = workspace;
   const loadedDashboard = dashboard;
@@ -430,21 +270,6 @@ export function App() {
     refsByField[pendingPostingFocusTarget.field][pendingPostingFocusTarget.focusIndex]?.focus();
     setPendingPostingFocusTarget(null);
   }, [pendingPostingFocusTarget, transactionEditor]);
-
-  async function runMutation(label: string, operation: () => Promise<void>) {
-    try {
-      setBusy(label);
-      setStatusMessage(null);
-      setError(null);
-      await operation();
-      await loadWorkspaceData();
-      setStatusMessage(`${label} completed.`);
-    } catch (mutationError) {
-      setError(mutationError instanceof Error ? mutationError.message : `${label} failed.`);
-    } finally {
-      setBusy(null);
-    }
-  }
 
   if (loading) {
     return (
@@ -599,7 +424,7 @@ export function App() {
     }
 
     await runMutation("Transaction update", async () => {
-      await putTransaction(workspaceId, transactionEditor.transactionId, {
+      await putTransaction(WORKSPACE_ID, transactionEditor.transactionId, {
         actor: "Primary",
         transaction: {
           description: transactionEditor.description.trim(),
@@ -626,610 +451,36 @@ export function App() {
 
   function renderTransactionEditorPanel() {
     return (
-      <article className="panel ledger-detail-panel">
-        <div className="panel-header">
-          <span>Register detail</span>
-          <span className="muted">
-            {ledgerWorkspace.selectedTransaction?.id ?? "Select a register row"}
-          </span>
-        </div>
-        {transactionEditor && ledgerWorkspace.selectedTransaction ? (
-          <div className="ledger-detail-layout">
-            <div className="ledger-detail-summary">
-              <div className="detail-stack">
-                <div className="status-item">
-                  <span>Description</span>
-                  <strong>{ledgerWorkspace.selectedTransaction.description}</strong>
-                </div>
-                <div className="status-item">
-                  <span>Occurred on</span>
-                  <strong>{ledgerWorkspace.selectedTransaction.occurredOn}</strong>
-                </div>
-                <div className="status-item">
-                  <span>Payee</span>
-                  <strong>{ledgerWorkspace.selectedTransaction.payee ?? "Unassigned"}</strong>
-                </div>
-                <div className="status-item">
-                  <span>Split count</span>
-                  <strong>{ledgerWorkspace.selectedTransaction.postings.length}</strong>
-                </div>
-                <div className="status-item">
-                  <span>Tags</span>
-                  <strong>
-                    {ledgerWorkspace.selectedTransaction.tags.length > 0
-                      ? ledgerWorkspace.selectedTransaction.tags.join(", ")
-                      : "None"}
-                  </strong>
-                </div>
-                <div className="status-item">
-                  <span>Status</span>
-                  <strong>{formatTransactionStatus(ledgerWorkspace.selectedTransaction.status)}</strong>
-                </div>
-              </div>
-              <div className="detail-stack">
-                {ledgerWorkspace.selectedTransaction.postings.map((posting) => (
-                  <div
-                    key={`${ledgerWorkspace.selectedTransaction?.id}:${posting.accountId}:${posting.amount}`}
-                    className="posting-summary-row"
-                  >
-                    <div>
-                      <strong>{posting.accountName}</strong>
-                      <div className="candidate-meta">
-                        {posting.memo ?? "No memo"}
-                        {posting.cleared ? " · cleared" : " · open"}
-                      </div>
-                    </div>
-                    <strong>{formatSignedCurrency(posting.amount)}</strong>
-                  </div>
-                ))}
-              </div>
-            </div>
-            <form
-              className="form-stack ledger-detail-form"
-              onKeyDown={(event) => {
-                const action = getTransactionEditorHotkeyAction({
-                  ctrlKey: event.ctrlKey,
-                  key: event.key,
-                  metaKey: event.metaKey,
-                });
-
-                if (action === "reset") {
-                  event.preventDefault();
-                  resetTransactionEditorDraft();
-                  return;
-                }
-
-                if (action === "save") {
-                  event.preventDefault();
-                  void saveTransactionEditor();
-                }
-              }}
-              onSubmit={(event) => {
-                event.preventDefault();
-                void saveTransactionEditor();
-              }}
-            >
-              <label>
-                Description
-                <input
-                  value={transactionEditor.description}
-                  onChange={(event) =>
-                    setTransactionEditor((current) =>
-                      current ? { ...current, description: event.target.value } : current,
-                    )
-                  }
-                />
-              </label>
-              <div className="form-inline">
-                <label>
-                  Occurred on
-                  <input
-                    value={transactionEditor.occurredOn}
-                    onChange={(event) =>
-                      setTransactionEditor((current) =>
-                        current ? { ...current, occurredOn: event.target.value } : current,
-                      )
-                    }
-                  />
-                </label>
-                <label>
-                  Payee
-                  <input
-                    value={transactionEditor.payee}
-                    onChange={(event) =>
-                      setTransactionEditor((current) =>
-                        current ? { ...current, payee: event.target.value } : current,
-                      )
-                    }
-                  />
-                </label>
-              </div>
-              <label>
-                Tags
-                <input
-                  value={transactionEditor.tags}
-                  placeholder="comma-separated"
-                  onChange={(event) =>
-                    setTransactionEditor((current) =>
-                      current ? { ...current, tags: event.target.value } : current,
-                    )
-                  }
-                />
-              </label>
-              <div className="detail-stack">
-                {transactionEditor.postings.map((posting, index) => {
-                  const accountMatches = getAccountSearchMatches({
-                    accounts: workspaceAccounts,
-                    preferredAccountTypes: getPreferredAccountTypesForPostingAmount(posting.amount),
-                    query: posting.accountQuery,
-                    selectedAccountId: posting.accountId,
-                  });
-                  const highlightedMatch =
-                    accountMatches[
-                      Math.min(highlightedPostingAccountMatchIndex, Math.max(accountMatches.length - 1, 0))
-                    ] ?? null;
-
-                  return (
-                    <div key={`${transactionEditor.transactionId}:posting:${index}`} className="posting-card">
-                      <div className="form-inline">
-                        <label className="account-search-field">
-                          Account
-                          <input
-                            ref={(element) => {
-                              postingAccountInputRefs.current[index] = element;
-                            }}
-                            value={posting.accountQuery}
-                            placeholder="Search by name, code, or id"
-                            role="combobox"
-                            aria-autocomplete="list"
-                            aria-expanded={activePostingAccountSearchIndex === index}
-                            aria-controls={`posting-account-options-${index}`}
-                            onFocus={() => {
-                              setActivePostingAccountSearchIndex(index);
-                              setHighlightedPostingAccountMatchIndex(0);
-                            }}
-                            onBlur={() => {
-                              setActivePostingAccountSearchIndex((current) =>
-                                current === index ? null : current,
-                              );
-                            }}
-                            onKeyDown={(event) => {
-                              if (event.altKey && event.key === "ArrowUp") {
-                                event.preventDefault();
-                                movePosting("up", index);
-                                return;
-                              }
-
-                              if (event.altKey && event.key === "ArrowDown") {
-                                event.preventDefault();
-                                movePosting("down", index);
-                                return;
-                              }
-
-                              if (event.key === "ArrowDown") {
-                                event.preventDefault();
-                                setActivePostingAccountSearchIndex(index);
-                                setHighlightedPostingAccountMatchIndex((current) =>
-                                  Math.min(current + 1, Math.max(accountMatches.length - 1, 0)),
-                                );
-                                return;
-                              }
-
-                              if (event.key === "ArrowUp") {
-                                event.preventDefault();
-                                setActivePostingAccountSearchIndex(index);
-                                setHighlightedPostingAccountMatchIndex((current) =>
-                                  Math.max(current - 1, 0),
-                                );
-                                return;
-                              }
-
-                              if (event.key !== "Enter" || event.ctrlKey || event.metaKey || event.shiftKey) {
-                                if (event.key === "Escape") {
-                                  setActivePostingAccountSearchIndex(null);
-                                }
-                                return;
-                              }
-
-                              event.preventDefault();
-
-                              if (highlightedMatch) {
-                                selectPostingAccount(index, highlightedMatch.account.id);
-                              } else if (!posting.accountId.trim()) {
-                                return;
-                              }
-
-                              const nextTarget = getNextPostingFocusTarget({
-                                field: "account",
-                                postingCount: transactionEditor.postings.length,
-                                postingIndex: index,
-                              });
-                              setPendingPostingFocusTarget({
-                                field: nextTarget.field,
-                                focusIndex: nextTarget.focusIndex,
-                              });
-                            }}
-                            onChange={(event) => updatePostingAccountSearch(index, event.target.value)}
-                          />
-                          {activePostingAccountSearchIndex === index ? (
-                            <div
-                              id={`posting-account-options-${index}`}
-                              className="account-search-menu"
-                              role="listbox"
-                            >
-                              {accountMatches.length > 0 ? (
-                                accountMatches.map((match, matchIndex) => (
-                                  <button
-                                    key={match.account.id}
-                                    className={`account-search-option${
-                                      matchIndex === highlightedPostingAccountMatchIndex ? " active" : ""
-                                    }`}
-                                    type="button"
-                                    onMouseDown={(event) => {
-                                      event.preventDefault();
-                                      selectPostingAccount(index, match.account.id);
-                                      setPendingPostingFocusTarget({
-                                        field: "amount",
-                                        focusIndex: index,
-                                      });
-                                    }}
-                                  >
-                                    <div className="account-search-option-row">
-                                      <strong>{match.label}</strong>
-                                      {match.recommended ? (
-                                        <span className="account-search-badge">Suggested</span>
-                                      ) : null}
-                                    </div>
-                                    <span>{match.meta}</span>
-                                  </button>
-                                ))
-                              ) : (
-                                <div className="account-search-empty">No matching accounts.</div>
-                              )}
-                            </div>
-                          ) : null}
-                        </label>
-                        <label>
-                          Signed amount
-                          <input
-                            ref={(element) => {
-                              postingAmountInputRefs.current[index] = element;
-                            }}
-                            value={posting.amount}
-                            onKeyDown={(event) => {
-                              if (event.altKey && event.key === "ArrowUp") {
-                                event.preventDefault();
-                                movePosting("up", index);
-                                return;
-                              }
-
-                              if (event.altKey && event.key === "ArrowDown") {
-                                event.preventDefault();
-                                movePosting("down", index);
-                                return;
-                              }
-
-                              if (event.key !== "Enter" || event.ctrlKey || event.metaKey || event.shiftKey) {
-                                return;
-                              }
-
-                              event.preventDefault();
-                              const nextTarget = getNextPostingFocusTarget({
-                                field: "amount",
-                                postingCount: transactionEditor.postings.length,
-                                postingIndex: index,
-                              });
-
-                              if (nextTarget.addPosting) {
-                                addPostingToEditor();
-                                return;
-                              }
-
-                              setPendingPostingFocusTarget({
-                                field: nextTarget.field,
-                                focusIndex: nextTarget.focusIndex,
-                              });
-                            }}
-                            onChange={(event) =>
-                              setTransactionEditor((current) =>
-                                current
-                                  ? {
-                                      ...current,
-                                      postings: current.postings.map((candidate, candidateIndex) =>
-                                        candidateIndex === index
-                                          ? { ...candidate, amount: event.target.value }
-                                          : candidate,
-                                      ),
-                                    }
-                                  : current,
-                              )
-                            }
-                          />
-                        </label>
-                      </div>
-                      <label>
-                        Memo
-                        <input
-                          ref={(element) => {
-                            postingMemoInputRefs.current[index] = element;
-                          }}
-                          value={posting.memo}
-                          onKeyDown={(event) => {
-                            if (event.altKey && event.key === "ArrowUp") {
-                              event.preventDefault();
-                              movePosting("up", index);
-                              return;
-                            }
-
-                            if (event.altKey && event.key === "ArrowDown") {
-                              event.preventDefault();
-                              movePosting("down", index);
-                              return;
-                            }
-
-                            if (event.key !== "Enter" || event.ctrlKey || event.metaKey || event.shiftKey) {
-                              return;
-                            }
-
-                            event.preventDefault();
-                            const nextTarget = getNextPostingFocusTarget({
-                              field: "memo",
-                              postingCount: transactionEditor.postings.length,
-                              postingIndex: index,
-                            });
-
-                            if (nextTarget.addPosting) {
-                              addPostingToEditor();
-                              return;
-                            }
-
-                            setPendingPostingFocusTarget({
-                              field: nextTarget.field,
-                              focusIndex: nextTarget.focusIndex,
-                            });
-                          }}
-                          onChange={(event) =>
-                            setTransactionEditor((current) =>
-                              current
-                                ? {
-                                    ...current,
-                                    postings: current.postings.map((candidate, candidateIndex) =>
-                                      candidateIndex === index
-                                        ? { ...candidate, memo: event.target.value }
-                                        : candidate,
-                                    ),
-                                  }
-                                : current,
-                            )
-                          }
-                        />
-                      </label>
-                      <div className="posting-editor-row">
-                        <div className="posting-reorder-row">
-                          <button type="button" onClick={() => movePosting("up", index)}>
-                            Move up
-                          </button>
-                          <button type="button" onClick={() => movePosting("down", index)}>
-                            Move down
-                          </button>
-                        </div>
-                        <label className="checkbox-row">
-                          <input
-                            checked={posting.cleared}
-                            type="checkbox"
-                            onChange={(event) =>
-                              setTransactionEditor((current) =>
-                                current
-                                  ? {
-                                      ...current,
-                                      postings: current.postings.map((candidate, candidateIndex) =>
-                                        candidateIndex === index
-                                          ? { ...candidate, cleared: event.target.checked }
-                                          : candidate,
-                                      ),
-                                    }
-                                  : current,
-                              )
-                            }
-                          />
-                          <span>Cleared</span>
-                        </label>
-                        <button
-                          disabled={transactionEditor.postings.length <= 2}
-                          type="button"
-                          onClick={() => {
-                            setTransactionEditor((current) =>
-                              current
-                                ? {
-                                    ...current,
-                                    postings: current.postings.filter(
-                                      (_, candidateIndex) => candidateIndex !== index,
-                                    ),
-                                  }
-                                : current,
-                            );
-                            setActivePostingAccountSearchIndex((current) => {
-                              if (current === null) {
-                                return current;
-                              }
-
-                              if (current === index) {
-                                return null;
-                              }
-
-                              return current > index ? current - 1 : current;
-                            });
-                          }}
-                        >
-                          Remove posting
-                        </button>
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-              <button type="button" onClick={() => addPostingToEditor()}>
-                Add posting
-              </button>
-              <p className="form-hint">
-                Shortcuts: `Ctrl/Cmd+S` save, `Ctrl/Cmd+Enter` save, `Esc` reset, `Enter` advances
-                across posting fields, `Alt+Up/Down` reorders the current split
-              </p>
-              {transactionEditorErrors.length > 0 ? (
-                <div className="editor-balance-callout warning">
-                  <div className="editor-balance-callout-header">
-                    <strong>Transaction out of balance</strong>
-                    <span>
-                      Remaining difference:{" "}
-                      {postingBalanceSummary.balance === null
-                        ? "invalid amount"
-                        : formatSignedCurrency(postingBalanceSummary.balance)}
-                    </span>
-                  </div>
-                  <div className="error-stack">
-                    {transactionEditorErrors.map((issue) => (
-                      <p key={issue} className="form-hint error-text">
-                        {issue}
-                      </p>
-                    ))}
-                  </div>
-                </div>
-              ) : (
-                <div className="editor-balance-callout balanced">
-                  <div className="editor-balance-callout-header">
-                    <strong>Transaction balanced</strong>
-                    <span>
-                      Difference:{" "}
-                      {postingBalanceSummary.balance === null
-                        ? "invalid amount"
-                        : formatSignedCurrency(postingBalanceSummary.balance)}
-                    </span>
-                  </div>
-                </div>
-              )}
-              <div className="posting-meta">
-                <span>Transaction id</span>
-                <span>{transactionEditor.transactionId}</span>
-              </div>
-              <div className="posting-editor-row">
-                <button type="button" onClick={() => resetTransactionEditorDraft()}>
-                  Reset draft
-                </button>
-                <button type="submit" disabled={busy !== null || transactionEditorErrors.length > 0}>
-                  {busy === "Transaction update" ? "Saving..." : "Save transaction"}
-                </button>
-              </div>
-            </form>
-          </div>
-        ) : (
-          <div className="ledger-detail-empty">
-            <p>Select a register row to open a full transaction detail pane.</p>
-            <p className="form-hint">
-              The detail pane supports inline split edits, keyboard navigation, reordering, and
-              audited save back through the service route.
-            </p>
-          </div>
-        )}
-      </article>
+      <LedgerTransactionEditorPanel
+        activePostingAccountSearchIndex={activePostingAccountSearchIndex}
+        addPostingToEditor={addPostingToEditor}
+        busy={busy}
+        highlightedPostingAccountMatchIndex={highlightedPostingAccountMatchIndex}
+        ledgerWorkspace={ledgerWorkspace}
+        movePosting={movePosting}
+        pendingPostingFocusTargetSetter={setPendingPostingFocusTarget}
+        postingAccountInputRefs={postingAccountInputRefs}
+        postingAmountInputRefs={postingAmountInputRefs}
+        postingBalanceSummary={postingBalanceSummary}
+        postingMemoInputRefs={postingMemoInputRefs}
+        resetTransactionEditorDraft={resetTransactionEditorDraft}
+        saveTransactionEditor={saveTransactionEditor}
+        selectPostingAccount={selectPostingAccount}
+        setActivePostingAccountSearchIndex={setActivePostingAccountSearchIndex}
+        setHighlightedPostingAccountMatchIndex={setHighlightedPostingAccountMatchIndex}
+        setTransactionEditor={setTransactionEditor}
+        transactionEditor={transactionEditor}
+        transactionEditorErrors={transactionEditorErrors}
+        updatePostingAccountSearch={updatePostingAccountSearch}
+        workspaceAccounts={workspaceAccounts}
+      />
     );
   }
 
   function renderMainPanels() {
-    switch (activeView) {
-      case "overview":
-        return (
-          <>
-            <article className="panel overview-panel">
-              <div className="panel-header">
-                <span>Workspace modes</span>
-                <span className="muted">Desktop command center</span>
-              </div>
-              <div className="overview-card-grid">
-                {overviewCards.map((card) => {
-                  const targetView = getWorkspaceViewDefinition(card.id);
-
-                  return (
-                    <button
-                      key={card.id}
-                      className="overview-card"
-                      type="button"
-                      onClick={() => setActiveView(card.id)}
-                    >
-                      <span className="overview-card-metric">{card.metric}</span>
-                      <strong>{targetView.label}</strong>
-                      <span>{card.summary}</span>
-                    </button>
-                  );
-                })}
-              </div>
-            </article>
-
-            <article className="panel">
-              <div className="panel-header">
-                <span>Recent register activity</span>
-                <span className="muted">Latest ledger entries</span>
-              </div>
-              <table>
-                <thead>
-                  <tr>
-                    <th>Date</th>
-                    <th>Description</th>
-                    <th>Payee</th>
-                    <th>Tags</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {recentTransactions.map((transaction) => (
-                    <tr key={transaction.id}>
-                      <td>{transaction.occurredOn}</td>
-                      <td>{transaction.description}</td>
-                      <td>{transaction.payee}</td>
-                      <td>{transaction.tags?.join(", ")}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </article>
-
-            <article className="panel">
-              <div className="panel-header">
-                <span>Budget drift</span>
-                <span className="muted">Largest variances</span>
-              </div>
-              {topBudgetVarianceRows.map((row) => (
-                <div key={row.accountId} className="metric-row metric-grid">
-                  <span>{row.accountName}</span>
-                  <span className="muted">Plan {formatCurrency(row.planned.quantity)}</span>
-                  <span className="muted">Actual {formatCurrency(row.actual.quantity)}</span>
-                  <strong>{formatCurrency(row.variance.quantity)} left</strong>
-                </div>
-              ))}
-            </article>
-
-            <article className="panel">
-              <div className="panel-header">
-                <span>Due schedule queue</span>
-                <span className="muted">Next automations</span>
-              </div>
-              {dueTransactions.length > 0 ? (
-                dueTransactions.map((transaction) => (
-                  <div key={transaction.id} className="metric-row">
-                    <span>{transaction.description}</span>
-                    <strong>{transaction.occurredOn}</strong>
-                  </div>
-                ))
-              ) : (
-                <div className="metric-row">
-                  <span>Due items</span>
-                  <strong>None in April</strong>
-                </div>
-              )}
-            </article>
-          </>
-        );
-      case "ledger":
-        return (
-          <>
+    if (activeView === "ledger") {
+      return (
+        <>
             <LedgerRegisterPanel
               formatCurrency={formatCurrency}
               formatTransactionStatus={formatTransactionStatus}
@@ -1259,7 +510,7 @@ export function App() {
                   event.preventDefault();
                   void runMutation("Transaction post", async () => {
                     const amount = Number.parseFloat(transactionForm.amount);
-                    await postTransaction(workspaceId, {
+                    await postTransaction(WORKSPACE_ID, {
                       actor: "Primary",
                       transaction: {
                         id: createTransactionId(),
@@ -1355,7 +606,7 @@ export function App() {
                 onSubmit={(event) => {
                   event.preventDefault();
                   void runMutation("Reconciliation", async () => {
-                    await postReconciliation(workspaceId, {
+                    await postReconciliation(WORKSPACE_ID, {
                       actor: "Primary",
                       payload: {
                         accountId: reconciliationForm.accountId,
@@ -1476,653 +727,47 @@ export function App() {
                 </button>
               </form>
             </article>
-          </>
-        );
-      case "budget":
-        return (
-          <>
-            <article className="panel">
-              <div className="panel-header">
-                <span>Baseline Budget</span>
-                <span className="muted">Plan of record</span>
-              </div>
-              {baselineSnapshot.map((row) => (
-                <div key={row.accountId} className="metric-row metric-grid">
-                  <span>{row.accountName}</span>
-                  <span className="muted">Plan {formatCurrency(row.planned.quantity)}</span>
-                  <span className="muted">Actual {formatCurrency(row.actual.quantity)}</span>
-                  <strong>{formatCurrency(row.variance.quantity)} left</strong>
-                </div>
-              ))}
-            </article>
-
-            <article className="panel form-panel">
-              <div className="panel-header">
-                <span>Baseline Budget Edit</span>
-                <span className="muted">Plan of record</span>
-              </div>
-              <form
-                className="form-stack"
-                onSubmit={(event) => {
-                  event.preventDefault();
-                  void runMutation("Budget line save", async () => {
-                    await postBaselineBudgetLine(workspaceId, {
-                      line: {
-                        accountId: budgetLineForm.accountId,
-                        budgetPeriod: budgetLineForm.budgetPeriod as
-                          | "monthly"
-                          | "quarterly"
-                          | "annually",
-                        period: budgetLineForm.period,
-                        plannedAmount: {
-                          commodityCode: "USD",
-                          quantity: Number.parseFloat(budgetLineForm.plannedAmount),
-                        },
-                      },
-                    });
-                  });
-                }}
-              >
-                <label>
-                  Expense account
-                  <select
-                    value={budgetLineForm.accountId}
-                    onChange={(event) =>
-                      setBudgetLineForm((current) => ({ ...current, accountId: event.target.value }))
-                    }
-                  >
-                    {expenseAccounts.map((account) => (
-                      <option key={account.id} value={account.id}>
-                        {account.name}
-                      </option>
-                    ))}
-                  </select>
-                </label>
-                <label>
-                  Period
-                  <input
-                    value={budgetLineForm.period}
-                    onChange={(event) =>
-                      setBudgetLineForm((current) => ({ ...current, period: event.target.value }))
-                    }
-                  />
-                </label>
-                <label>
-                  Budget period
-                  <select
-                    value={budgetLineForm.budgetPeriod}
-                    onChange={(event) =>
-                      setBudgetLineForm((current) => ({
-                        ...current,
-                        budgetPeriod: event.target.value,
-                      }))
-                    }
-                  >
-                    <option value="monthly">Monthly</option>
-                    <option value="quarterly">Quarterly</option>
-                    <option value="annually">Annually</option>
-                  </select>
-                </label>
-                <label>
-                  Planned amount
-                  <input
-                    value={budgetLineForm.plannedAmount}
-                    onChange={(event) =>
-                      setBudgetLineForm((current) => ({
-                        ...current,
-                        plannedAmount: event.target.value,
-                      }))
-                    }
-                  />
-                </label>
-                <button type="submit" disabled={busy !== null}>
-                  {busy === "Budget line save" ? "Saving..." : "Save budget line"}
-                </button>
-              </form>
-            </article>
-          </>
-        );
-      case "envelopes":
-        return (
-          <>
-            <article className="panel">
-              <div className="panel-header">
-                <span>Envelope Budget</span>
-                <span className="muted">Operational cash allocation</span>
-              </div>
-              {envelopeSnapshot.map((envelope) => (
-                <div key={envelope.envelopeId} className="metric-row metric-grid">
-                  <span>{envelope.name}</span>
-                  <span className="muted">Funded {formatCurrency(envelope.funded.quantity)}</span>
-                  <span className="muted">Spent {formatCurrency(envelope.spent.quantity)}</span>
-                  <strong>{formatCurrency(envelope.available.quantity)} available</strong>
-                </div>
-              ))}
-            </article>
-
-            <article className="panel form-panel">
-              <div className="panel-header">
-                <span>Envelope Setup</span>
-                <span className="muted">Operational category</span>
-              </div>
-              <form
-                className="form-stack"
-                onSubmit={(event) => {
-                  event.preventDefault();
-                  void runMutation("Envelope save", async () => {
-                    await postEnvelope(workspaceId, {
-                      envelope: {
-                        availableAmount: {
-                          commodityCode: "USD",
-                          quantity: Number.parseFloat(envelopeForm.availableAmount),
-                        },
-                        expenseAccountId: envelopeForm.expenseAccountId,
-                        fundingAccountId: envelopeForm.fundingAccountId,
-                        id: envelopeForm.id || createEntityId("env-web"),
-                        name: envelopeForm.name,
-                        rolloverEnabled: envelopeForm.rolloverEnabled,
-                        targetAmount: {
-                          commodityCode: "USD",
-                          quantity: Number.parseFloat(envelopeForm.targetAmount),
-                        },
-                      },
-                    });
-                  });
-                }}
-              >
-                <label>
-                  Envelope id
-                  <input
-                    value={envelopeForm.id}
-                    onChange={(event) =>
-                      setEnvelopeForm((current) => ({ ...current, id: event.target.value }))
-                    }
-                  />
-                </label>
-                <label>
-                  Name
-                  <input
-                    value={envelopeForm.name}
-                    onChange={(event) =>
-                      setEnvelopeForm((current) => ({ ...current, name: event.target.value }))
-                    }
-                  />
-                </label>
-                <label>
-                  Expense account
-                  <select
-                    value={envelopeForm.expenseAccountId}
-                    onChange={(event) =>
-                      setEnvelopeForm((current) => ({
-                        ...current,
-                        expenseAccountId: event.target.value,
-                      }))
-                    }
-                  >
-                    {expenseAccounts.map((account) => (
-                      <option key={account.id} value={account.id}>
-                        {account.name}
-                      </option>
-                    ))}
-                  </select>
-                </label>
-                <label>
-                  Funding account
-                  <select
-                    value={envelopeForm.fundingAccountId}
-                    onChange={(event) =>
-                      setEnvelopeForm((current) => ({
-                        ...current,
-                        fundingAccountId: event.target.value,
-                      }))
-                    }
-                  >
-                    {fundingAccounts.map((account) => (
-                      <option key={account.id} value={account.id}>
-                        {account.name}
-                      </option>
-                    ))}
-                  </select>
-                </label>
-                <div className="form-inline">
-                  <label>
-                    Target
-                    <input
-                      value={envelopeForm.targetAmount}
-                      onChange={(event) =>
-                        setEnvelopeForm((current) => ({
-                          ...current,
-                          targetAmount: event.target.value,
-                        }))
-                      }
-                    />
-                  </label>
-                  <label>
-                    Available
-                    <input
-                      value={envelopeForm.availableAmount}
-                      onChange={(event) =>
-                        setEnvelopeForm((current) => ({
-                          ...current,
-                          availableAmount: event.target.value,
-                        }))
-                      }
-                    />
-                  </label>
-                </div>
-                <label className="checkbox-row">
-                  <input
-                    checked={envelopeForm.rolloverEnabled}
-                    type="checkbox"
-                    onChange={(event) =>
-                      setEnvelopeForm((current) => ({
-                        ...current,
-                        rolloverEnabled: event.target.checked,
-                      }))
-                    }
-                  />
-                  <span>Enable rollover</span>
-                </label>
-                <button type="submit" disabled={busy !== null}>
-                  {busy === "Envelope save" ? "Saving..." : "Save envelope"}
-                </button>
-              </form>
-            </article>
-
-            <article className="panel form-panel">
-              <div className="panel-header">
-                <span>Envelope Allocation</span>
-                <span className="muted">Fund or release cash</span>
-              </div>
-              <form
-                className="form-stack"
-                onSubmit={(event) => {
-                  event.preventDefault();
-                  void runMutation("Envelope allocation", async () => {
-                    await postEnvelopeAllocation(workspaceId, {
-                      allocation: {
-                        amount: {
-                          commodityCode: "USD",
-                          quantity: Number.parseFloat(envelopeAllocationForm.amount),
-                        },
-                        envelopeId: envelopeAllocationForm.envelopeId,
-                        id: createEntityId("alloc-web"),
-                        note: envelopeAllocationForm.note,
-                        occurredOn: envelopeAllocationForm.occurredOn,
-                        type: envelopeAllocationForm.type as "fund" | "release" | "cover-overspend",
-                      },
-                    });
-                  });
-                }}
-              >
-                <label>
-                  Envelope
-                  <select
-                    value={envelopeAllocationForm.envelopeId}
-                    onChange={(event) =>
-                      setEnvelopeAllocationForm((current) => ({
-                        ...current,
-                        envelopeId: event.target.value,
-                      }))
-                    }
-                  >
-                    {workspaceEnvelopes.map((envelope) => (
-                      <option key={envelope.id} value={envelope.id}>
-                        {envelope.name}
-                      </option>
-                    ))}
-                  </select>
-                </label>
-                <div className="form-inline">
-                  <label>
-                    Date
-                    <input
-                      value={envelopeAllocationForm.occurredOn}
-                      onChange={(event) =>
-                        setEnvelopeAllocationForm((current) => ({
-                          ...current,
-                          occurredOn: event.target.value,
-                        }))
-                      }
-                    />
-                  </label>
-                  <label>
-                    Type
-                    <select
-                      value={envelopeAllocationForm.type}
-                      onChange={(event) =>
-                        setEnvelopeAllocationForm((current) => ({
-                          ...current,
-                          type: event.target.value,
-                        }))
-                      }
-                    >
-                      <option value="fund">Fund</option>
-                      <option value="release">Release</option>
-                      <option value="cover-overspend">Cover overspend</option>
-                    </select>
-                  </label>
-                </div>
-                <label>
-                  Amount
-                  <input
-                    value={envelopeAllocationForm.amount}
-                    onChange={(event) =>
-                      setEnvelopeAllocationForm((current) => ({
-                        ...current,
-                        amount: event.target.value,
-                      }))
-                    }
-                  />
-                </label>
-                <label>
-                  Note
-                  <input
-                    value={envelopeAllocationForm.note}
-                    onChange={(event) =>
-                      setEnvelopeAllocationForm((current) => ({
-                        ...current,
-                        note: event.target.value,
-                      }))
-                    }
-                  />
-                </label>
-                <button type="submit" disabled={busy !== null}>
-                  {busy === "Envelope allocation" ? "Recording..." : "Record allocation"}
-                </button>
-              </form>
-            </article>
-          </>
-        );
-      case "imports":
-        return (
-          <>
-            <article className="panel form-panel">
-              <div className="panel-header">
-                <span>CSV Import</span>
-                <span className="muted">One row per line</span>
-              </div>
-              <form
-                className="form-stack"
-                onSubmit={(event) => {
-                  event.preventDefault();
-                  void runMutation("CSV import", async () => {
-                    await postCsvImport(workspaceId, {
-                      actor: "Primary",
-                      payload: {
-                        batchId: `import-web-${Date.now()}`,
-                        importedAt: new Date().toISOString(),
-                        rows: parseCsvRows(csvForm.csvText),
-                        sourceLabel: csvForm.sourceLabel,
-                      },
-                    });
-                  });
-                }}
-              >
-                <label>
-                  Source label
-                  <input
-                    value={csvForm.sourceLabel}
-                    onChange={(event) =>
-                      setCsvForm((current) => ({ ...current, sourceLabel: event.target.value }))
-                    }
-                  />
-                </label>
-                <label>
-                  CSV rows
-                  <textarea
-                    rows={6}
-                    value={csvForm.csvText}
-                    onChange={(event) =>
-                      setCsvForm((current) => ({ ...current, csvText: event.target.value }))
-                    }
-                  />
-                </label>
-                <p className="form-hint">
-                  Format: `date,description,amount,counterpartAccountId,cashAccountId`
-                </p>
-                <button type="submit" disabled={busy !== null}>
-                  {busy === "CSV import" ? "Importing..." : "Import CSV"}
-                </button>
-              </form>
-            </article>
-
-            <article className="panel roadmap-panel">
-              <div className="panel-header">
-                <span>Interchange roadmap</span>
-                <span className="muted">Next adapters</span>
-              </div>
-              <div className="roadmap-list">
-                {["OFX / QFX bank feeds", "QIF import and export", "GnuCash XML and compressed XML"].map(
-                  (item) => (
-                    <div key={item} className="metric-row">
-                      <span>{item}</span>
-                      <strong>Planned</strong>
-                    </div>
-                  ),
-                )}
-              </div>
-            </article>
-          </>
-        );
-      case "automations":
-        return (
-          <>
-            <article className="panel">
-              <div className="panel-header">
-                <span>Schedule queue</span>
-                <span className="muted">Recurring templates</span>
-              </div>
-              {nextScheduledTransactions.map((schedule) => (
-                <div key={schedule.id} className="metric-row">
-                  <span>{schedule.name}</span>
-                  <strong>{schedule.nextDueOn}</strong>
-                </div>
-              ))}
-            </article>
-
-            <article className="panel">
-              <div className="panel-header">
-                <span>Due items</span>
-                <span className="muted">Materialization queue</span>
-              </div>
-              {dueTransactions.length > 0 ? (
-                dueTransactions.map((transaction) => (
-                  <div key={transaction.id} className="metric-row">
-                    <span>{transaction.description}</span>
-                    <strong>{transaction.occurredOn}</strong>
-                  </div>
-                ))
-              ) : (
-                <div className="metric-row">
-                  <span>Due items</span>
-                  <strong>None in April</strong>
-                </div>
-              )}
-            </article>
-
-            <article className="panel form-panel">
-              <div className="panel-header">
-                <span>Scheduled Transaction</span>
-                <span className="muted">Automation template</span>
-              </div>
-              <form
-                className="form-stack"
-                onSubmit={(event) => {
-                  event.preventDefault();
-                  void runMutation("Schedule save", async () => {
-                    const amount = Number.parseFloat(scheduleForm.amount);
-                    await postScheduledTransaction(workspaceId, {
-                      schedule: {
-                        autoPost: scheduleForm.autoPost,
-                        frequency: scheduleForm.frequency as
-                          | "daily"
-                          | "weekly"
-                          | "biweekly"
-                          | "monthly"
-                          | "quarterly"
-                          | "annually",
-                        id: scheduleForm.id || createEntityId("sched-web"),
-                        name: scheduleForm.name,
-                        nextDueOn: scheduleForm.nextDueOn,
-                        templateTransaction: {
-                          description: scheduleForm.description,
-                          payee: scheduleForm.payee,
-                          postings: [
-                            {
-                              accountId: scheduleForm.expenseAccountId,
-                              amount: { commodityCode: "USD", quantity: amount },
-                            },
-                            {
-                              accountId: scheduleForm.fundingAccountId,
-                              amount: { commodityCode: "USD", quantity: -amount },
-                            },
-                          ],
-                          tags: ["scheduled", "web"],
-                        },
-                      },
-                    });
-                  });
-                }}
-              >
-                <label>
-                  Schedule id
-                  <input
-                    value={scheduleForm.id}
-                    onChange={(event) =>
-                      setScheduleForm((current) => ({ ...current, id: event.target.value }))
-                    }
-                  />
-                </label>
-                <label>
-                  Name
-                  <input
-                    value={scheduleForm.name}
-                    onChange={(event) =>
-                      setScheduleForm((current) => ({ ...current, name: event.target.value }))
-                    }
-                  />
-                </label>
-                <div className="form-inline">
-                  <label>
-                    Frequency
-                    <select
-                      value={scheduleForm.frequency}
-                      onChange={(event) =>
-                        setScheduleForm((current) => ({ ...current, frequency: event.target.value }))
-                      }
-                    >
-                      <option value="monthly">Monthly</option>
-                      <option value="weekly">Weekly</option>
-                      <option value="biweekly">Biweekly</option>
-                      <option value="quarterly">Quarterly</option>
-                      <option value="annually">Annually</option>
-                      <option value="daily">Daily</option>
-                    </select>
-                  </label>
-                  <label>
-                    Next due
-                    <input
-                      value={scheduleForm.nextDueOn}
-                      onChange={(event) =>
-                        setScheduleForm((current) => ({ ...current, nextDueOn: event.target.value }))
-                      }
-                    />
-                  </label>
-                </div>
-                <label>
-                  Description
-                  <input
-                    value={scheduleForm.description}
-                    onChange={(event) =>
-                      setScheduleForm((current) => ({
-                        ...current,
-                        description: event.target.value,
-                      }))
-                    }
-                  />
-                </label>
-                <label>
-                  Payee
-                  <input
-                    value={scheduleForm.payee}
-                    onChange={(event) =>
-                      setScheduleForm((current) => ({ ...current, payee: event.target.value }))
-                    }
-                  />
-                </label>
-                <div className="form-inline">
-                  <label>
-                    Expense account
-                    <select
-                      value={scheduleForm.expenseAccountId}
-                      onChange={(event) =>
-                        setScheduleForm((current) => ({
-                          ...current,
-                          expenseAccountId: event.target.value,
-                        }))
-                      }
-                    >
-                      {expenseAccounts.map((account) => (
-                        <option key={account.id} value={account.id}>
-                          {account.name}
-                        </option>
-                      ))}
-                    </select>
-                  </label>
-                  <label>
-                    Funding account
-                    <select
-                      value={scheduleForm.fundingAccountId}
-                      onChange={(event) =>
-                        setScheduleForm((current) => ({
-                          ...current,
-                          fundingAccountId: event.target.value,
-                        }))
-                      }
-                    >
-                      {fundingAccounts.map((account) => (
-                        <option key={account.id} value={account.id}>
-                          {account.name}
-                        </option>
-                      ))}
-                    </select>
-                  </label>
-                </div>
-                <label>
-                  Amount
-                  <input
-                    value={scheduleForm.amount}
-                    onChange={(event) =>
-                      setScheduleForm((current) => ({ ...current, amount: event.target.value }))
-                    }
-                  />
-                </label>
-                <label className="checkbox-row">
-                  <input
-                    checked={scheduleForm.autoPost}
-                    type="checkbox"
-                    onChange={(event) =>
-                      setScheduleForm((current) => ({ ...current, autoPost: event.target.checked }))
-                    }
-                  />
-                  <span>Auto-post when due</span>
-                </label>
-                <button type="submit" disabled={busy !== null}>
-                  {busy === "Schedule save" ? "Saving..." : "Save schedule"}
-                </button>
-              </form>
-            </article>
-          </>
-        );
-      case "reports":
-        return (
-          <EmptyPanel
-            title="Reporting workbench"
-            message="Reporting and close workflow are planned roadmap work. The desktop shell now reserves a dedicated surface for those flows instead of overloading the operational screens."
-          />
-        );
+        </>
+      );
     }
+
+    return (
+      <NonLedgerMainPanels
+        activeView={activeView}
+        baselineSnapshot={baselineSnapshot}
+        budgetLineForm={budgetLineForm}
+        busy={busy}
+        createEntityId={createEntityId}
+        csvForm={csvForm}
+        dueTransactions={dueTransactions}
+        envelopeAllocationForm={envelopeAllocationForm}
+        envelopeForm={envelopeForm}
+        envelopeSnapshot={envelopeSnapshot}
+        expenseAccounts={expenseAccounts}
+        formatCurrency={formatCurrency}
+        fundingAccounts={fundingAccounts}
+        getWorkspaceViewDefinition={getWorkspaceViewDefinition}
+        nextScheduledTransactions={nextScheduledTransactions}
+        overviewCards={overviewCards}
+        parseCsvRows={parseCsvRows}
+        postBaselineBudgetLine={postBaselineBudgetLine}
+        postCsvImport={postCsvImport}
+        postEnvelope={postEnvelope}
+        postEnvelopeAllocation={postEnvelopeAllocation}
+        postScheduledTransaction={postScheduledTransaction}
+        recentTransactions={recentTransactions}
+        runMutation={runMutation}
+        scheduleForm={scheduleForm}
+        setActiveView={setActiveView}
+        setBudgetLineForm={setBudgetLineForm}
+        setCsvForm={setCsvForm}
+        setEnvelopeAllocationForm={setEnvelopeAllocationForm}
+        setEnvelopeForm={setEnvelopeForm}
+        setScheduleForm={setScheduleForm}
+        topBudgetVarianceRows={topBudgetVarianceRows}
+        workspaceEnvelopes={workspaceEnvelopes}
+      />
+    );
   }
 
   function renderSidebarContent() {
