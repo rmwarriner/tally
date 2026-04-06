@@ -1,0 +1,259 @@
+import type { Dispatch, SetStateAction } from "react";
+import type { WorkspaceResponse } from "./api";
+import { postReconciliation, postTransaction } from "./api";
+import { WORKSPACE_ID } from "./app-constants";
+import { createTransactionId, formatSignedCurrency } from "./app-format";
+import type { createReconciliationWorkspaceModel } from "./shell";
+
+interface TransactionFormState {
+  amount: string;
+  date: string;
+  description: string;
+  expenseAccountId: string;
+  payee: string;
+}
+
+interface ReconciliationFormState {
+  accountId: string;
+  statementBalance: string;
+  statementDate: string;
+}
+
+interface LedgerOperationsPanelsProps {
+  busy: string | null;
+  expenseAccounts: WorkspaceResponse["workspace"]["accounts"];
+  liquidAccounts: WorkspaceResponse["workspace"]["accounts"];
+  reconciliationForm: ReconciliationFormState;
+  reconciliationWorkspace: ReturnType<typeof createReconciliationWorkspaceModel>;
+  runMutation: (label: string, operation: () => Promise<void>) => Promise<void>;
+  setReconciliationForm: Dispatch<SetStateAction<ReconciliationFormState>>;
+  setSelectedReconciliationTransactionIds: Dispatch<SetStateAction<Record<string, boolean>>>;
+  setTransactionForm: Dispatch<SetStateAction<TransactionFormState>>;
+  transactionForm: TransactionFormState;
+}
+
+export function LedgerOperationsPanels(props: LedgerOperationsPanelsProps) {
+  return (
+    <>
+      <article className="panel form-panel">
+        <div className="panel-header">
+          <span>New Transaction</span>
+          <span className="muted">Service-backed write</span>
+        </div>
+        <form
+          className="form-stack"
+          onSubmit={(event) => {
+            event.preventDefault();
+            void props.runMutation("Transaction post", async () => {
+              const amount = Number.parseFloat(props.transactionForm.amount);
+              await postTransaction(WORKSPACE_ID, {
+                actor: "Primary",
+                transaction: {
+                  id: createTransactionId(),
+                  occurredOn: props.transactionForm.date,
+                  description: props.transactionForm.description,
+                  payee: props.transactionForm.payee,
+                  postings: [
+                    {
+                      accountId: props.transactionForm.expenseAccountId,
+                      amount: { commodityCode: "USD", quantity: amount },
+                    },
+                    {
+                      accountId: "acct-checking",
+                      amount: { commodityCode: "USD", quantity: -amount },
+                      cleared: true,
+                    },
+                  ],
+                },
+              });
+            });
+          }}
+        >
+          <label>
+            Date
+            <input
+              value={props.transactionForm.date}
+              onChange={(event) =>
+                props.setTransactionForm((current) => ({ ...current, date: event.target.value }))
+              }
+            />
+          </label>
+          <label>
+            Description
+            <input
+              value={props.transactionForm.description}
+              onChange={(event) =>
+                props.setTransactionForm((current) => ({ ...current, description: event.target.value }))
+              }
+            />
+          </label>
+          <label>
+            Payee
+            <input
+              value={props.transactionForm.payee}
+              onChange={(event) =>
+                props.setTransactionForm((current) => ({ ...current, payee: event.target.value }))
+              }
+            />
+          </label>
+          <label>
+            Expense account
+            <select
+              value={props.transactionForm.expenseAccountId}
+              onChange={(event) =>
+                props.setTransactionForm((current) => ({ ...current, expenseAccountId: event.target.value }))
+              }
+            >
+              {props.expenseAccounts.map((account) => (
+                <option key={account.id} value={account.id}>
+                  {account.name}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label>
+            Amount
+            <input
+              value={props.transactionForm.amount}
+              onChange={(event) =>
+                props.setTransactionForm((current) => ({ ...current, amount: event.target.value }))
+              }
+            />
+          </label>
+          <button type="submit" disabled={props.busy !== null}>
+            {props.busy === "Transaction post" ? "Posting..." : "Post transaction"}
+          </button>
+        </form>
+      </article>
+
+      <article className="panel form-panel">
+        <div className="panel-header">
+          <span>Reconcile</span>
+          <span className="muted">Statement matching</span>
+        </div>
+        <form
+          className="form-stack"
+          onSubmit={(event) => {
+            event.preventDefault();
+            void props.runMutation("Reconciliation", async () => {
+              await postReconciliation(WORKSPACE_ID, {
+                actor: "Primary",
+                payload: {
+                  accountId: props.reconciliationForm.accountId,
+                  clearedTransactionIds: props.reconciliationWorkspace.candidateTransactions
+                    .filter((candidate) => candidate.selected)
+                    .map((candidate) => candidate.id),
+                  statementBalance: Number.parseFloat(props.reconciliationForm.statementBalance),
+                  statementDate: props.reconciliationForm.statementDate,
+                },
+              });
+            });
+          }}
+        >
+          <label>
+            Account
+            <select
+              value={props.reconciliationForm.accountId}
+              onChange={(event) =>
+                props.setReconciliationForm((current) => ({ ...current, accountId: event.target.value }))
+              }
+            >
+              {props.liquidAccounts.map((account) => (
+                <option key={account.id} value={account.id}>
+                  {account.name}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label>
+            Statement date
+            <input
+              value={props.reconciliationForm.statementDate}
+              onChange={(event) =>
+                props.setReconciliationForm((current) => ({ ...current, statementDate: event.target.value }))
+              }
+            />
+          </label>
+          <label>
+            Statement balance
+            <input
+              value={props.reconciliationForm.statementBalance}
+              onChange={(event) =>
+                props.setReconciliationForm((current) => ({
+                  ...current,
+                  statementBalance: event.target.value,
+                }))
+              }
+            />
+          </label>
+          {props.reconciliationWorkspace.latestSession ? (
+            <div className="reconciliation-note">
+              Latest session: {props.reconciliationWorkspace.latestSession.statementDate} with difference{" "}
+              {formatSignedCurrency(props.reconciliationWorkspace.latestSession.difference.quantity)}
+            </div>
+          ) : null}
+          <div className="reconciliation-summary-grid">
+            <div className="summary-card">
+              <span>Cleared total</span>
+              <strong>{formatSignedCurrency(props.reconciliationWorkspace.clearedTotal)}</strong>
+            </div>
+            <div
+              className={`summary-card${
+                props.reconciliationWorkspace.difference === 0 ? " balanced" : " warning"
+              }`}
+            >
+              <span>Difference</span>
+              <strong>
+                {props.reconciliationWorkspace.difference === null
+                  ? "Enter balance"
+                  : formatSignedCurrency(props.reconciliationWorkspace.difference)}
+              </strong>
+            </div>
+          </div>
+          <div className="reconciliation-candidate-list">
+            <div className="panel-header">
+              <span>Cleared candidates</span>
+              <span className="muted">
+                {props.reconciliationWorkspace.selectedAccount?.name ?? "Select account"}
+              </span>
+            </div>
+            {props.reconciliationWorkspace.candidateTransactions.length > 0 ? (
+              props.reconciliationWorkspace.candidateTransactions.map((candidate) => (
+                <button
+                  key={candidate.id}
+                  className={`reconciliation-candidate${candidate.selected ? " active" : ""}`}
+                  type="button"
+                  onClick={() =>
+                    props.setSelectedReconciliationTransactionIds((current) => ({
+                      ...current,
+                      [candidate.id]: !current[candidate.id],
+                    }))
+                  }
+                >
+                  <div>
+                    <strong>{candidate.description}</strong>
+                    <div className="candidate-meta">
+                      {candidate.occurredOn}
+                      {candidate.payee ? ` · ${candidate.payee}` : ""}
+                    </div>
+                  </div>
+                  <div className="candidate-side">
+                    <strong>{formatSignedCurrency(candidate.accountAmount)}</strong>
+                    <span>{candidate.selected ? "Cleared" : "Open"}</span>
+                  </div>
+                </button>
+              ))
+            ) : (
+              <p className="form-hint">
+                No transactions are available for the selected account and statement date.
+              </p>
+            )}
+          </div>
+          <button type="submit" disabled={props.busy !== null}>
+            {props.busy === "Reconciliation" ? "Reconciling..." : "Record reconciliation"}
+          </button>
+        </form>
+      </article>
+    </>
+  );
+}

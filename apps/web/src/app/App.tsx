@@ -5,9 +5,7 @@ import {
   postCsvImport,
   postEnvelope,
   postEnvelopeAllocation,
-  postReconciliation,
   postScheduledTransaction,
-  postTransaction,
   putTransaction,
 } from "./api";
 import {
@@ -23,17 +21,16 @@ import {
   workspaceViews
 } from "./shell";
 import { useLedgerFiltersAndSelection, useLedgerKeyboardAndSelectionSync } from "./ledger-state";
+import { LedgerOperationsPanels } from "./LedgerOperationsPanels";
 import { LedgerRegisterPanel } from "./LedgerRegisterPanel";
-import { LedgerSidebar } from "./LedgerSidebar";
 import { LedgerTransactionEditorPanel } from "./LedgerTransactionEditorPanel";
 import { NonLedgerMainPanels } from "./NonLedgerMainPanels";
+import { ShellInspectorContent, ShellSidebarContent } from "./ShellSidePanels";
 import { APRIL_RANGE, WORKSPACE_ID } from "./app-constants";
 import {
   createEntityId,
-  createTransactionId,
   formatAccountOptionLabel,
   formatCurrency,
-  formatSignedCurrency,
   formatTransactionStatus,
   parseCsvRows,
 } from "./app-format";
@@ -498,235 +495,18 @@ export function App() {
             />
 
             {renderTransactionEditorPanel()}
-
-            <article className="panel form-panel">
-              <div className="panel-header">
-                <span>New Transaction</span>
-                <span className="muted">Service-backed write</span>
-              </div>
-              <form
-                className="form-stack"
-                onSubmit={(event) => {
-                  event.preventDefault();
-                  void runMutation("Transaction post", async () => {
-                    const amount = Number.parseFloat(transactionForm.amount);
-                    await postTransaction(WORKSPACE_ID, {
-                      actor: "Primary",
-                      transaction: {
-                        id: createTransactionId(),
-                        occurredOn: transactionForm.date,
-                        description: transactionForm.description,
-                        payee: transactionForm.payee,
-                        postings: [
-                          {
-                            accountId: transactionForm.expenseAccountId,
-                            amount: { commodityCode: "USD", quantity: amount },
-                          },
-                          {
-                            accountId: "acct-checking",
-                            amount: { commodityCode: "USD", quantity: -amount },
-                            cleared: true,
-                          },
-                        ],
-                      },
-                    });
-                  });
-                }}
-              >
-                <label>
-                  Date
-                  <input
-                    value={transactionForm.date}
-                    onChange={(event) =>
-                      setTransactionForm((current) => ({ ...current, date: event.target.value }))
-                    }
-                  />
-                </label>
-                <label>
-                  Description
-                  <input
-                    value={transactionForm.description}
-                    onChange={(event) =>
-                      setTransactionForm((current) => ({
-                        ...current,
-                        description: event.target.value,
-                      }))
-                    }
-                  />
-                </label>
-                <label>
-                  Payee
-                  <input
-                    value={transactionForm.payee}
-                    onChange={(event) =>
-                      setTransactionForm((current) => ({ ...current, payee: event.target.value }))
-                    }
-                  />
-                </label>
-                <label>
-                  Expense account
-                  <select
-                    value={transactionForm.expenseAccountId}
-                    onChange={(event) =>
-                      setTransactionForm((current) => ({
-                        ...current,
-                        expenseAccountId: event.target.value,
-                      }))
-                    }
-                  >
-                    {expenseAccounts.map((account) => (
-                      <option key={account.id} value={account.id}>
-                        {account.name}
-                      </option>
-                    ))}
-                  </select>
-                </label>
-                <label>
-                  Amount
-                  <input
-                    value={transactionForm.amount}
-                    onChange={(event) =>
-                      setTransactionForm((current) => ({ ...current, amount: event.target.value }))
-                    }
-                  />
-                </label>
-                <button type="submit" disabled={busy !== null}>
-                  {busy === "Transaction post" ? "Posting..." : "Post transaction"}
-                </button>
-              </form>
-            </article>
-
-            <article className="panel form-panel">
-              <div className="panel-header">
-                <span>Reconcile</span>
-                <span className="muted">Statement matching</span>
-              </div>
-              <form
-                className="form-stack"
-                onSubmit={(event) => {
-                  event.preventDefault();
-                  void runMutation("Reconciliation", async () => {
-                    await postReconciliation(WORKSPACE_ID, {
-                      actor: "Primary",
-                      payload: {
-                        accountId: reconciliationForm.accountId,
-                        clearedTransactionIds: reconciliationWorkspace.candidateTransactions
-                          .filter((candidate) => candidate.selected)
-                          .map((candidate) => candidate.id),
-                        statementBalance: Number.parseFloat(reconciliationForm.statementBalance),
-                        statementDate: reconciliationForm.statementDate,
-                      },
-                    });
-                  });
-                }}
-              >
-                <label>
-                  Account
-                  <select
-                    value={reconciliationForm.accountId}
-                    onChange={(event) =>
-                      setReconciliationForm((current) => ({ ...current, accountId: event.target.value }))
-                    }
-                  >
-                    {liquidAccounts.map((account) => (
-                      <option key={account.id} value={account.id}>
-                        {account.name}
-                      </option>
-                    ))}
-                  </select>
-                </label>
-                <label>
-                  Statement date
-                  <input
-                    value={reconciliationForm.statementDate}
-                    onChange={(event) =>
-                      setReconciliationForm((current) => ({
-                        ...current,
-                        statementDate: event.target.value,
-                      }))
-                    }
-                  />
-                </label>
-                <label>
-                  Statement balance
-                  <input
-                    value={reconciliationForm.statementBalance}
-                    onChange={(event) =>
-                      setReconciliationForm((current) => ({
-                        ...current,
-                        statementBalance: event.target.value,
-                      }))
-                    }
-                  />
-                </label>
-                {reconciliationWorkspace.latestSession ? (
-                  <div className="reconciliation-note">
-                    Latest session: {reconciliationWorkspace.latestSession.statementDate} with difference{" "}
-                    {formatSignedCurrency(reconciliationWorkspace.latestSession.difference.quantity)}
-                  </div>
-                ) : null}
-                <div className="reconciliation-summary-grid">
-                  <div className="summary-card">
-                    <span>Cleared total</span>
-                    <strong>{formatSignedCurrency(reconciliationWorkspace.clearedTotal)}</strong>
-                  </div>
-                  <div
-                    className={`summary-card${
-                      reconciliationWorkspace.difference === 0 ? " balanced" : " warning"
-                    }`}
-                  >
-                    <span>Difference</span>
-                    <strong>
-                      {reconciliationWorkspace.difference === null
-                        ? "Enter balance"
-                        : formatSignedCurrency(reconciliationWorkspace.difference)}
-                    </strong>
-                  </div>
-                </div>
-                <div className="reconciliation-candidate-list">
-                  <div className="panel-header">
-                    <span>Cleared candidates</span>
-                    <span className="muted">
-                      {reconciliationWorkspace.selectedAccount?.name ?? "Select account"}
-                    </span>
-                  </div>
-                  {reconciliationWorkspace.candidateTransactions.length > 0 ? (
-                    reconciliationWorkspace.candidateTransactions.map((candidate) => (
-                      <button
-                        key={candidate.id}
-                        className={`reconciliation-candidate${candidate.selected ? " active" : ""}`}
-                        type="button"
-                        onClick={() =>
-                          setSelectedReconciliationTransactionIds((current) => ({
-                            ...current,
-                            [candidate.id]: !current[candidate.id],
-                          }))
-                        }
-                      >
-                        <div>
-                          <strong>{candidate.description}</strong>
-                          <div className="candidate-meta">
-                            {candidate.occurredOn}
-                            {candidate.payee ? ` · ${candidate.payee}` : ""}
-                          </div>
-                        </div>
-                        <div className="candidate-side">
-                          <strong>{formatSignedCurrency(candidate.accountAmount)}</strong>
-                          <span>{candidate.selected ? "Cleared" : "Open"}</span>
-                        </div>
-                      </button>
-                    ))
-                  ) : (
-                    <p className="form-hint">
-                      No transactions are available for the selected account and statement date.
-                    </p>
-                  )}
-                </div>
-                <button type="submit" disabled={busy !== null}>
-                  {busy === "Reconciliation" ? "Reconciling..." : "Record reconciliation"}
-                </button>
-              </form>
-            </article>
+            <LedgerOperationsPanels
+              busy={busy}
+              expenseAccounts={expenseAccounts}
+              liquidAccounts={liquidAccounts}
+              reconciliationForm={reconciliationForm}
+              reconciliationWorkspace={reconciliationWorkspace}
+              runMutation={runMutation}
+              setReconciliationForm={setReconciliationForm}
+              setSelectedReconciliationTransactionIds={setSelectedReconciliationTransactionIds}
+              setTransactionForm={setTransactionForm}
+              transactionForm={transactionForm}
+            />
         </>
       );
     }
@@ -771,290 +551,49 @@ export function App() {
   }
 
   function renderSidebarContent() {
-    switch (activeView) {
-      case "overview":
-        return (
-          <>
-            <div className="tree-section">
-              <h3>Focus queues</h3>
-              {overviewCards.map((card) => {
-                const targetView = getWorkspaceViewDefinition(card.id);
-
-                return (
-                  <button
-                    key={card.id}
-                    className="tree-button"
-                    type="button"
-                    onClick={() => setActiveView(card.id)}
-                  >
-                    <span>{targetView.label}</span>
-                    <span className="muted">{card.metric}</span>
-                  </button>
-                );
-              })}
-            </div>
-
-            <div className="tree-section">
-              <h3>Accounts</h3>
-              {workspaceAccounts.slice(0, 8).map((account) => (
-                <div key={account.id} className="tree-item">
-                  <span>{account.name}</span>
-                  <span className="muted">{account.code}</span>
-                </div>
-              ))}
-            </div>
-          </>
-        );
-      case "ledger":
-        return (
-          <LedgerSidebar
-            ledgerWorkspace={ledgerWorkspace}
-            selectedLedgerAccountId={selectedLedgerAccountId}
-            selectedLedgerTransactionId={selectedLedgerTransactionId}
-            setSelectedLedgerAccountId={setSelectedLedgerAccountId}
-            setSelectedLedgerTransactionId={setSelectedLedgerTransactionId}
-          />
-        );
-      case "budget":
-        return (
-          <div className="tree-section">
-            <h3>Budget categories</h3>
-            {baselineSnapshot.map((row) => (
-              <div key={row.accountId} className="tree-item">
-                <span>{row.accountName}</span>
-                <span className="muted">{formatCurrency(row.planned.quantity)}</span>
-              </div>
-            ))}
-          </div>
-        );
-      case "envelopes":
-        return (
-          <div className="tree-section">
-            <h3>Envelopes</h3>
-            {workspaceEnvelopes.map((envelope) => (
-              <div key={envelope.id} className="tree-item">
-                <span>{envelope.name}</span>
-                <span className="muted">{formatCurrency(envelope.availableAmount.quantity)}</span>
-              </div>
-            ))}
-          </div>
-        );
-      case "imports":
-        return (
-          <div className="tree-section">
-            <h3>Interchange formats</h3>
-            {["CSV", "OFX / QFX", "QIF", "GnuCash XML"].map((item) => (
-              <div key={item} className="tree-item">
-                <span>{item}</span>
-                <span className="muted">{item === "CSV" ? "Live" : "Planned"}</span>
-              </div>
-            ))}
-          </div>
-        );
-      case "automations":
-        return (
-          <div className="tree-section">
-            <h3>Schedules</h3>
-            {workspaceSchedules.map((schedule) => (
-              <div key={schedule.id} className="tree-item">
-                <span>{schedule.name}</span>
-                <span className="muted">{schedule.nextDueOn}</span>
-              </div>
-            ))}
-          </div>
-        );
-      case "reports":
-        return (
-          <div className="tree-section">
-            <h3>Planned views</h3>
-            {["Net worth", "Cash flow", "Budget variance", "Envelope burn-down"].map((item) => (
-              <div key={item} className="tree-item">
-                <span>{item}</span>
-                <span className="muted">Roadmap</span>
-              </div>
-            ))}
-          </div>
-        );
-    }
+    return (
+      <ShellSidebarContent
+        activeView={activeView}
+        baselineSnapshot={baselineSnapshot}
+        budgetConfigurationErrors={budgetConfigurationErrors}
+        dueTransactions={dueTransactions}
+        getWorkspaceViewDefinition={getWorkspaceViewDefinition}
+        ledgerValidationErrors={ledgerValidationErrors}
+        ledgerWorkspace={ledgerWorkspace}
+        overviewCards={overviewCards}
+        selectedLedgerAccountId={selectedLedgerAccountId}
+        selectedLedgerTransactionId={selectedLedgerTransactionId}
+        setActiveView={setActiveView}
+        setSelectedLedgerAccountId={setSelectedLedgerAccountId}
+        setSelectedLedgerTransactionId={setSelectedLedgerTransactionId}
+        workspaceAccounts={workspaceAccounts}
+        workspaceEnvelopes={workspaceEnvelopes}
+        workspaceSchedules={workspaceSchedules}
+      />
+    );
   }
 
   function renderInspectorContent() {
-    switch (activeView) {
-      case "overview":
-        return (
-          <>
-            <div className="inspector-section">
-              <h3>Integrity</h3>
-              <div className="status-list">
-                <div className="status-item">
-                  <span>Ledger checks</span>
-                  <strong>{ledgerValidationErrors.length === 0 ? "Passing" : "Issues found"}</strong>
-                </div>
-                <div className="status-item">
-                  <span>Budget checks</span>
-                  <strong>{budgetConfigurationErrors.length === 0 ? "Passing" : "Issues found"}</strong>
-                </div>
-              </div>
-            </div>
-
-            <div className="inspector-section">
-              <h3>Desktop direction</h3>
-              <p>
-                The desktop shell is intended to be dense, keyboard-first, and workspace-oriented,
-                while mobile remains focused on capture and approvals.
-              </p>
-            </div>
-          </>
-        );
-      case "ledger":
-        return (
-          <>
-            <div className="inspector-section">
-              <h3>Compliance</h3>
-              <p>
-                Transactions must balance and reconciliation sessions must tie cleared ledger activity
-                to a statement boundary.
-              </p>
-              <div className="status-list">
-                <div className="status-item">
-                  <span>Ledger checks</span>
-                  <strong>{ledgerValidationErrors.length === 0 ? "Passing" : "Issues found"}</strong>
-                </div>
-              </div>
-            </div>
-
-            <div className="inspector-section">
-              <h3>Account drill-down</h3>
-              {ledgerWorkspace.selectedAccount ? (
-                <div className="detail-stack">
-                  <div className="status-item">
-                    <span>Account</span>
-                    <strong>{ledgerWorkspace.selectedAccount.name}</strong>
-                  </div>
-                  <div className="status-item">
-                    <span>Type</span>
-                    <strong>{ledgerWorkspace.selectedAccount.type}</strong>
-                  </div>
-                  <div className="status-item">
-                    <span>Register matches</span>
-                    <strong>{ledgerWorkspace.selectedAccount.transactionCount}</strong>
-                  </div>
-                </div>
-              ) : (
-                <p>Select an account from the sidebar or balance list to narrow the register.</p>
-              )}
-            </div>
-
-            <div className="inspector-section">
-              <h3>Selected transaction</h3>
-              {ledgerWorkspace.selectedTransaction ? (
-                <div className="detail-stack">
-                  <div className="status-item">
-                    <span>Description</span>
-                    <strong>{ledgerWorkspace.selectedTransaction.description}</strong>
-                  </div>
-                  <div className="status-item">
-                    <span>Date</span>
-                    <strong>{ledgerWorkspace.selectedTransaction.occurredOn}</strong>
-                  </div>
-                  <div className="status-item">
-                    <span>Payee</span>
-                    <strong>{ledgerWorkspace.selectedTransaction.payee ?? "Unassigned"}</strong>
-                  </div>
-                  <div className="status-item">
-                    <span>Splits</span>
-                    <strong>{ledgerWorkspace.selectedTransaction.postings.length}</strong>
-                  </div>
-                  <div className="status-item">
-                    <span>Tags</span>
-                    <strong>
-                      {ledgerWorkspace.selectedTransaction.tags.length > 0
-                        ? ledgerWorkspace.selectedTransaction.tags.join(", ")
-                        : "None"}
-                    </strong>
-                  </div>
-                </div>
-              ) : (
-                <p>Select a register row to open the detail pane in the main workspace.</p>
-              )}
-            </div>
-
-            <div className="inspector-section">
-              <h3>Next desktop lift</h3>
-              <p>Native split reordering, faster keyboard-only editing, and a desktop wrapper evaluation are the natural next ledger slices.</p>
-            </div>
-          </>
-        );
-      case "budget":
-        return (
-          <div className="inspector-section">
-            <h3>Planning rules</h3>
-            <p>
-              Baseline budgets remain the plan of record and should target expense or income categories
-              rather than cash accounts.
-            </p>
-          </div>
-        );
-      case "envelopes":
-        return (
-          <div className="inspector-section">
-            <h3>Envelope guardrails</h3>
-            <p>
-              Envelope funding remains asset-backed cash allocation. It never bypasses the ledger or
-              invents balances outside the funding accounts.
-            </p>
-          </div>
-        );
-      case "imports":
-        return (
-          <div className="inspector-section">
-            <h3>Import guardrails</h3>
-            <p>
-              Import adapters must preserve source traceability, deduplicate safely, and reject
-              malformed payloads at the service boundary.
-            </p>
-          </div>
-        );
-      case "automations":
-        return (
-          <>
-            <div className="inspector-section">
-              <h3>Automation</h3>
-              <p>
-                Recurring templates are materialized into future ledger entries without bypassing review.
-                Due items become normal transactions tied back to their schedule.
-              </p>
-            </div>
-
-            <div className="inspector-section">
-              <h3>Queue status</h3>
-              {dueTransactions.length > 0 ? (
-                dueTransactions.map((transaction) => (
-                  <div key={transaction.id} className="status-item">
-                    <span>{transaction.description}</span>
-                    <strong>{transaction.occurredOn}</strong>
-                  </div>
-                ))
-              ) : (
-                <div className="status-item">
-                  <span>Due items</span>
-                  <strong>None in April</strong>
-                </div>
-              )}
-            </div>
-          </>
-        );
-      case "reports":
-        return (
-          <div className="inspector-section">
-            <h3>Roadmap note</h3>
-            <p>
-              Reporting and close workflow are tracked separately from operational UI so the desktop shell
-              has a dedicated destination ready when those services land.
-            </p>
-          </div>
-        );
-    }
+    return (
+      <ShellInspectorContent
+        activeView={activeView}
+        baselineSnapshot={baselineSnapshot}
+        budgetConfigurationErrors={budgetConfigurationErrors}
+        dueTransactions={dueTransactions}
+        getWorkspaceViewDefinition={getWorkspaceViewDefinition}
+        ledgerValidationErrors={ledgerValidationErrors}
+        ledgerWorkspace={ledgerWorkspace}
+        overviewCards={overviewCards}
+        selectedLedgerAccountId={selectedLedgerAccountId}
+        selectedLedgerTransactionId={selectedLedgerTransactionId}
+        setActiveView={setActiveView}
+        setSelectedLedgerAccountId={setSelectedLedgerAccountId}
+        setSelectedLedgerTransactionId={setSelectedLedgerTransactionId}
+        workspaceAccounts={workspaceAccounts}
+        workspaceEnvelopes={workspaceEnvelopes}
+        workspaceSchedules={workspaceSchedules}
+      />
+    );
   }
 
   return (
