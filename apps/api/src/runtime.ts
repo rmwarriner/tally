@@ -82,6 +82,36 @@ export function createApiRuntime(params: {
     authIdentities: params.config.authIdentities,
     logger,
     maxBodyBytes: params.config.bodyLimitBytes,
+    readinessProbe: async ({ logger: probeLogger }) => {
+      try {
+        await persistenceBackend.listWorkspaceIds({
+          logger: probeLogger.child({
+            component: "apiReadinessProbe",
+            operation: "listWorkspaceIds",
+            persistenceBackend: persistenceBackend.kind,
+          }),
+        });
+
+        return {
+          details: {
+            persistenceBackend: persistenceBackend.kind,
+          },
+          ok: true,
+        };
+      } catch (error) {
+        probeLogger.warn("readiness probe failed", {
+          error: error instanceof Error ? error.message : String(error),
+          persistenceBackend: persistenceBackend.kind,
+        });
+
+        return {
+          details: {
+            persistenceBackend: persistenceBackend.kind,
+          },
+          ok: false,
+        };
+      }
+    },
     rateLimiter: createInMemoryRateLimiter(),
     rateLimitPolicy: {
       import: {

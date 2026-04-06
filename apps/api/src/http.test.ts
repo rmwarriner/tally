@@ -45,18 +45,24 @@ describe("api http transport", () => {
     await fixture.cleanup();
   });
 
-  it("serves unauthenticated health checks over HTTP", async () => {
+  it("serves unauthenticated liveness and readiness checks over HTTP", async () => {
     const fixture = await createFixture();
     const service = createWorkspaceService({
       repository: createFileSystemWorkspaceRepository({ rootDirectory: fixture.directory }),
     });
     const handler = createHttpHandler({
       authIdentities: [{ actor: "Primary", role: "member", token: "top-secret" }],
+      readinessProbe: async () => ({
+        details: { persistenceBackend: "json" },
+        ok: true,
+      }),
       service,
     });
 
-    const live = await handler(new Request("http://localhost/health/live"));
-    const ready = await handler(new Request("http://localhost/health/ready"));
+    const live = await handler(new Request("http://localhost/healthz"));
+    const ready = await handler(new Request("http://localhost/readyz"));
+    const legacyLive = await handler(new Request("http://localhost/health/live"));
+    const legacyReady = await handler(new Request("http://localhost/health/ready"));
 
     expect(live.status).toBe(200);
     expect(await live.json()).toEqual({
@@ -66,8 +72,38 @@ describe("api http transport", () => {
 
     expect(ready.status).toBe(200);
     expect(await ready.json()).toEqual({
+      persistenceBackend: "json",
       service: "api",
       status: "ready",
+    });
+
+    expect(legacyLive.status).toBe(200);
+    expect(legacyReady.status).toBe(200);
+
+    await fixture.cleanup();
+  });
+
+  it("returns 503 for readiness checks when dependencies are unavailable", async () => {
+    const fixture = await createFixture();
+    const service = createWorkspaceService({
+      repository: createFileSystemWorkspaceRepository({ rootDirectory: fixture.directory }),
+    });
+    const handler = createHttpHandler({
+      authIdentities: [{ actor: "Primary", role: "member", token: "top-secret" }],
+      readinessProbe: async () => ({
+        details: { persistenceBackend: "postgres" },
+        ok: false,
+      }),
+      service,
+    });
+
+    const response = await handler(new Request("http://localhost/readyz"));
+
+    expect(response.status).toBe(503);
+    expect(await response.json()).toEqual({
+      persistenceBackend: "postgres",
+      service: "api",
+      status: "not_ready",
     });
 
     await fixture.cleanup();

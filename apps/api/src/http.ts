@@ -28,6 +28,11 @@ import {
 
 export type HttpHandler = (request: Request) => Promise<Response>;
 
+export interface ReadinessProbeResult {
+  details?: Record<string, unknown>;
+  ok: boolean;
+}
+
 function jsonResponse(status: number, body: unknown, extraHeaders: Record<string, string> = {}): Response {
   return new Response(JSON.stringify(body), {
     headers: {
@@ -63,12 +68,12 @@ function textResponse(
 }
 
 function normalizeRouteLabel(method: string, path: string): string {
-  if (method === "GET" && path === "/health/live") {
-    return "/health/live";
+  if (method === "GET" && (path === "/healthz" || path === "/health/live")) {
+    return "/healthz";
   }
 
-  if (method === "GET" && path === "/health/ready") {
-    return "/health/ready";
+  if (method === "GET" && (path === "/readyz" || path === "/health/ready")) {
+    return "/readyz";
   }
 
   if (method === "GET" && path === "/metrics") {
@@ -201,6 +206,7 @@ export function createHttpHandler(params: {
   logger?: Logger;
   maxBodyBytes?: number;
   metrics?: ApiMetrics;
+  readinessProbe?: (input: { logger: Logger }) => Promise<ReadinessProbeResult>;
   rateLimiter?: RateLimiter;
   rateLimitPolicy?: {
     import: RateLimitPolicy;
@@ -220,6 +226,11 @@ export function createHttpHandler(params: {
     mutation: { keyPrefix: "mutation", limit: 30, windowMs: 60000 },
     read: { keyPrefix: "read", limit: 120, windowMs: 60000 },
   };
+  const readinessProbe =
+    params.readinessProbe ??
+    (async (): Promise<ReadinessProbeResult> => ({
+      ok: true,
+    }));
 
   function isSafeWorkspaceId(workspaceId: string): boolean {
     return /^[a-zA-Z0-9_-]+$/.test(workspaceId);
@@ -306,17 +317,32 @@ export function createHttpHandler(params: {
       });
     }
 
-    if (request.method === "GET" && path === "/health/live") {
+    if (request.method === "GET" && (path === "/healthz" || path === "/health/live")) {
       return completeJsonResponse(200, {
         service: "api",
         status: "ok",
       });
     }
 
-    if (request.method === "GET" && path === "/health/ready") {
-      return completeJsonResponse(200, {
+    if (request.method === "GET" && (path === "/readyz" || path === "/health/ready")) {
+      const probeResult = await readinessProbe({
+        logger: requestLogger.child({
+          probe: "readiness",
+        }),
+      });
+
+      if (probeResult.ok) {
+        return completeJsonResponse(200, {
+          ...probeResult.details,
+          service: "api",
+          status: "ready",
+        });
+      }
+
+      return completeJsonResponse(503, {
+        ...probeResult.details,
         service: "api",
-        status: "ready",
+        status: "not_ready",
       });
     }
 

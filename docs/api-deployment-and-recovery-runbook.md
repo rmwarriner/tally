@@ -113,8 +113,8 @@ If a reverse proxy is used:
 
 Run after each deployment:
 
-1. `curl -sf http://127.0.0.1:4000/health/live`
-2. `curl -sf http://127.0.0.1:4000/health/ready`
+1. `curl -sf http://127.0.0.1:4000/healthz`
+2. `curl -sf http://127.0.0.1:4000/readyz`
 3. `curl -sf http://127.0.0.1:4000/metrics | head`
 4. `curl -sf -H "Authorization: Bearer $(cat /etc/gnucash-ng/api-token)" http://127.0.0.1:4000/api/workspaces/workspace-household-demo`
    Only if the deployment intentionally carries the demo workspace or another known workspace id.
@@ -122,7 +122,7 @@ Run after each deployment:
 
 Success criteria:
 
-- health endpoints return `200`
+- `/healthz` and `/readyz` return `200`
 - `/metrics` returns plain text
 - the authenticated workspace read succeeds for a known workspace id
 - startup logs show production runtime config without leaking secret material

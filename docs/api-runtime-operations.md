@@ -106,7 +106,7 @@ Administrative persistence migration and export commands are documented in `docs
 - the runtime now assembles persistence through a backend seam rather than hard-coding file storage directly into the repository contract
 - workspace backups are stored either under the API data root for `json` or in backend-managed backup tables for `sqlite` and `postgres`
 - metrics are exposed from the same API process at `/metrics`
-- liveness and readiness are exposed at `/health/live` and `/health/ready`
+- liveness and readiness are exposed at `/healthz` and `/readyz` (`/health/live` and `/health/ready` remain backward-compatible aliases)
 - request correlation is carried through logs with `requestId`
 - backup creation and restore are currently exposed through the same authenticated API process
 
