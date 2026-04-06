@@ -87,6 +87,7 @@ This repository currently includes:
 - documented API runtime operations for environment, startup mode, and shutdown behavior
 - concrete single-host deployment and recovery runbook for the API runtime
 - file-backed auth secret loading and safe runtime configuration logging
+- runtime-selectable log output format (`auto`, `pretty`, `json`) for human-friendly local console output and structured production logs
 - initial persistence abstraction under the API repository, with JSON, SQLite, and Postgres backends now supported plus admin copy/copy-all/export/import workflow, validation reports, dry-run verification, and backup-backed rollback support between them
 - CI and security quality gates
 - security baseline documentation and audited hardening for API/runtime boundaries

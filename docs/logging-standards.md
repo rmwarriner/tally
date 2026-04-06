@@ -19,6 +19,9 @@ Pure domain functions may remain side-effect free and do not need inline logging
 
 - structured logs, not ad hoc string dumps
 - log level usage: `debug`, `info`, `warn`, `error`
+- console output format suitable for context:
+  - interactive terminal output may be human-readable (`pretty`)
+  - non-interactive and aggregated environments should prefer structured JSON (`json`)
 - stable operation names in log context
 - workspace, entity, and command identifiers where relevant
 - redaction of sensitive fields

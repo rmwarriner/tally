@@ -21,6 +21,7 @@ describe("api runtime config", () => {
       persistenceBackend: "json",
       port: 4000,
       postgresUrl: "",
+      logFormat: "auto",
       runtimeMode: "development",
       rateLimit: {
         importLimit: 10,
@@ -65,6 +66,7 @@ describe("api runtime config", () => {
       persistenceBackend: "postgres",
       port: 4100,
       postgresUrl: "postgres://ledger:test@localhost:5432/ledger",
+      logFormat: "auto",
       runtimeMode: "production",
       rateLimit: {
         importLimit: 4,
@@ -149,6 +151,17 @@ describe("api runtime config", () => {
           "/tmp/gnucash-ng",
         ),
     ).toThrow("GNUCASH_NG_API_PERSISTENCE_BACKEND must be json, sqlite, or postgres.");
+
+    expect(
+      () =>
+        createApiRuntimeConfig(
+          {
+            GNUCASH_NG_API_RUNTIME_MODE: "development",
+            GNUCASH_NG_LOG_FORMAT: "text",
+          },
+          "/tmp/gnucash-ng",
+        ),
+    ).toThrow("GNUCASH_NG_LOG_FORMAT must be auto, json, or pretty.");
   });
 
   it("accepts an explicit sqlite path override", () => {

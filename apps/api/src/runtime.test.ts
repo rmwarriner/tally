@@ -14,6 +14,7 @@ function createConfig(overrides: Partial<ApiRuntimeConfig> = {}): ApiRuntimeConf
     persistenceBackend: "json",
     port: 4000,
     postgresUrl: "",
+    logFormat: "auto",
     rateLimit: {
       importLimit: 10,
       mutationLimit: 30,
@@ -355,5 +356,69 @@ describe("api runtime", () => {
       "Invalid API configuration: Production runtime requires explicit auth configuration (token, identities, or trusted-header auth).",
     );
     expect(exitSpy).toHaveBeenCalledWith(1);
+  });
+
+  it("emits pretty console logs when GNUCASH_NG_LOG_FORMAT=pretty", async () => {
+    const output: string[] = [];
+    const consoleSpy = vi.spyOn(console, "log").mockImplementation((value: unknown) => {
+      output.push(String(value));
+    });
+
+    const runtime = createApiRuntime({
+      config: createConfig({ logFormat: "pretty" }),
+      createServer() {
+        return {
+          close(callback) {
+            callback();
+          },
+          listen(_port, _host, callback) {
+            callback();
+          },
+        };
+      },
+      ensureSeed: vi.fn(async () => {}),
+      env: {
+        GNUCASH_NG_LOG_LEVEL: "debug",
+      },
+    });
+
+    await runtime.start();
+
+    expect(output.some((line) => line.includes("INFO gnucash-ng-api: api runtime configured"))).toBe(true);
+    expect(output.some((line) => line.includes("runtimeMode: development"))).toBe(true);
+
+    consoleSpy.mockRestore();
+  });
+
+  it("emits json console logs when GNUCASH_NG_LOG_FORMAT=json", async () => {
+    const output: string[] = [];
+    const consoleSpy = vi.spyOn(console, "log").mockImplementation((value: unknown) => {
+      output.push(String(value));
+    });
+
+    const runtime = createApiRuntime({
+      config: createConfig({ logFormat: "json" }),
+      createServer() {
+        return {
+          close(callback) {
+            callback();
+          },
+          listen(_port, _host, callback) {
+            callback();
+          },
+        };
+      },
+      ensureSeed: vi.fn(async () => {}),
+      env: {
+        GNUCASH_NG_LOG_LEVEL: "debug",
+      },
+    });
+
+    await runtime.start();
+
+    expect(output[0]).toContain('"message":"api runtime configured"');
+    expect(output[0]).toContain('"service":"gnucash-ng-api"');
+
+    consoleSpy.mockRestore();
   });
 });

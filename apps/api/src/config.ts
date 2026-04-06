@@ -6,6 +6,7 @@ export type ApiRuntimeMode = "development" | "production" | "test";
 export type ApiAuthSource = "env" | "file" | "none";
 export type ApiAuthStrategy = "identities" | "none" | "token" | "trusted-header";
 export type ApiPersistenceBackend = "json" | "postgres" | "sqlite";
+export type ApiLogFormat = "auto" | "json" | "pretty";
 
 export interface ApiRuntimeConfig {
   authIdentities: Array<{
@@ -28,6 +29,7 @@ export interface ApiRuntimeConfig {
   port: number;
   postgresUrl: string;
   runtimeMode: ApiRuntimeMode;
+  logFormat: ApiLogFormat;
   rateLimit: {
     importLimit: number;
     mutationLimit: number;
@@ -37,6 +39,18 @@ export interface ApiRuntimeConfig {
   seedDemoWorkspace: boolean;
   shutdownTimeoutMs: number;
   sqlitePath: string;
+}
+
+function parseLogFormat(value: string | undefined): ApiLogFormat {
+  const candidate = value ?? "auto";
+
+  if (candidate === "auto" || candidate === "json" || candidate === "pretty") {
+    return candidate;
+  }
+
+  throw new ConfigValidationError([
+    "GNUCASH_NG_LOG_FORMAT must be auto, json, or pretty.",
+  ]);
 }
 
 function parsePersistenceBackend(value: string | undefined): ApiPersistenceBackend {
@@ -299,6 +313,7 @@ export function createApiRuntimeConfig(
     env.GNUCASH_NG_API_RUNTIME_MODE,
     options.defaultRuntimeMode ?? "production",
   );
+  const logFormat = parseLogFormat(env.GNUCASH_NG_LOG_FORMAT);
   const port = parsePositiveInteger(env.GNUCASH_NG_API_PORT, 4000, "GNUCASH_NG_API_PORT");
   const host = env.GNUCASH_NG_API_HOST ?? "127.0.0.1";
   const persistenceBackend = parsePersistenceBackend(env.GNUCASH_NG_API_PERSISTENCE_BACKEND);
@@ -377,6 +392,7 @@ export function createApiRuntimeConfig(
     port,
     postgresUrl,
     runtimeMode,
+    logFormat,
     rateLimit: {
       importLimit,
       mutationLimit,

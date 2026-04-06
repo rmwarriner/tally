@@ -27,6 +27,12 @@ export interface LoggerOptions {
   sink?: (record: LogRecord) => void;
 }
 
+export type ConsoleLogFormat = "json" | "pretty";
+
+export interface ConsoleSinkOptions {
+  format?: ConsoleLogFormat;
+}
+
 const levelWeight: Record<LogLevel, number> = {
   debug: 10,
   info: 20,
@@ -80,8 +86,43 @@ function createRecord(
   };
 }
 
+function stringifyLogField(value: unknown): string {
+  if (typeof value === "string") {
+    return value;
+  }
+
+  return JSON.stringify(value);
+}
+
+function formatPrettyRecord(record: LogRecord): string {
+  const header = `${record.timestamp} ${record.level.toUpperCase()} ${record.service}: ${record.message}`;
+  const fieldEntries = Object.entries(record.fields);
+
+  if (fieldEntries.length === 0) {
+    return header;
+  }
+
+  return `${header}\n${fieldEntries
+    .map(([key, value]) => `  ${key}: ${stringifyLogField(value)}`)
+    .join("\n")}`;
+}
+
+export function createConsoleSink(options: ConsoleSinkOptions = {}): (record: LogRecord) => void {
+  const format = options.format ?? "json";
+
+  if (format === "pretty") {
+    return (record: LogRecord) => {
+      console.log(formatPrettyRecord(record));
+    };
+  }
+
+  return (record: LogRecord) => {
+    console.log(JSON.stringify(record));
+  };
+}
+
 export function createLogger(options: LoggerOptions): Logger {
-  const sink = options.sink ?? ((record: LogRecord) => console.log(JSON.stringify(record)));
+  const sink = options.sink ?? createConsoleSink({ format: "json" });
   const minLevel = options.minLevel ?? "info";
   const redactKeys = new Set([...(options.redactKeys ?? []), ...defaultRedactKeys]);
 

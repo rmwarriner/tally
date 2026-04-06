@@ -10,6 +10,7 @@ This repository now treats runtime configuration and operational failures as typ
 - numeric operational limits must be validated as positive integers
 - boolean runtime toggles must be validated explicitly
 - runtime mode must be explicit and validated against supported values
+- log output format must be explicit and validated against supported formats (`auto`, `pretty`, `json`)
 - persistence backend selection must be explicit and validated against supported backend identifiers
 - backend-specific path settings must be resolved and validated during startup
 - backend-specific connection settings must be validated when a networked backend is selected

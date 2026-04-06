@@ -1,5 +1,5 @@
 import type { Server } from "node:http";
-import { createLogger, type Logger } from "@gnucash-ng/logging";
+import { createConsoleSink, createLogger, type ConsoleLogFormat, type Logger } from "@gnucash-ng/logging";
 import { createApiRuntimeConfig, type ApiRuntimeConfig, type ApiRuntimeMode } from "./config";
 import { ConfigValidationError } from "./errors";
 import { createHttpHandler, createNodeHttpServer } from "./http";
@@ -20,9 +20,18 @@ interface RuntimeServer {
   listen(port: number, host: string, callback: () => void): void;
 }
 
+function resolveConsoleLogFormat(config: ApiRuntimeConfig): ConsoleLogFormat {
+  if (config.logFormat === "json" || config.logFormat === "pretty") {
+    return config.logFormat;
+  }
+
+  return process.stdout.isTTY === true ? "pretty" : "json";
+}
+
 function createRuntimeLogger(config: ApiRuntimeConfig, env: NodeJS.ProcessEnv): Logger {
   return createLogger({
     minLevel: env.GNUCASH_NG_LOG_LEVEL as "debug" | "info" | "warn" | "error" | undefined,
+    sink: createConsoleSink({ format: resolveConsoleLogFormat(config) }),
     service: "gnucash-ng-api",
   }).child({
     dataDirectory: config.dataDirectory,

@@ -96,6 +96,10 @@ Administrative persistence migration and export commands are documented in `docs
   - defaults to `10000`
 - `GNUCASH_NG_LOG_LEVEL`
   - `debug`, `info`, `warn`, or `error`
+- `GNUCASH_NG_LOG_FORMAT`
+  - `auto`, `pretty`, or `json`
+  - defaults to `auto`
+  - `auto` uses `pretty` when stdout is an interactive terminal and `json` otherwise
 
 ## Operational Rules
 
