@@ -12,6 +12,7 @@ interface InlineNewTransactionDraft {
 }
 
 interface InlineSplitDraft {
+  amount: string;
   cleared: boolean;
   memo: string;
 }
@@ -641,6 +642,7 @@ export function LedgerRegisterPanel(props: LedgerRegisterPanelProps) {
                                     setEditingSplitTransactionId(transaction.id);
                                     setEditingSplitDraft(
                                       transaction.postings.map((posting) => ({
+                                        amount: String(posting.amount),
                                         cleared: posting.cleared,
                                         memo: posting.memo ?? "",
                                       })),

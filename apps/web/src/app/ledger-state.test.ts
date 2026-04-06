@@ -157,10 +157,21 @@ describe("getSplitQuickEditKeyAction", () => {
     ).toEqual({ type: "cancel" });
   });
 
-  it("moves focus from memo to cleared on enter", () => {
+  it("moves focus from memo to amount on enter", () => {
     expect(
       getSplitQuickEditKeyAction({
         field: "memo",
+        key: "Enter",
+        splitCount: 3,
+        splitIndex: 1,
+      }),
+    ).toEqual({ splitIndex: 1, type: "focus-amount" });
+  });
+
+  it("moves focus from amount to cleared on enter", () => {
+    expect(
+      getSplitQuickEditKeyAction({
+        field: "amount",
         key: "Enter",
         splitCount: 3,
         splitIndex: 1,

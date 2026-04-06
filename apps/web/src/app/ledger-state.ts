@@ -11,7 +11,7 @@ interface LedgerRange {
   to: string;
 }
 
-export type SplitQuickEditField = "memo" | "cleared";
+export type SplitQuickEditField = "memo" | "amount" | "cleared";
 
 export function getSplitQuickEditKeyAction(input: {
   field: SplitQuickEditField;
@@ -21,6 +21,7 @@ export function getSplitQuickEditKeyAction(input: {
 }):
   | { type: "none" }
   | { type: "cancel" }
+  | { splitIndex: number; type: "focus-amount" }
   | { splitIndex: number; type: "focus-memo" }
   | { splitIndex: number; type: "focus-cleared" }
   | { type: "focus-save" } {
@@ -33,6 +34,10 @@ export function getSplitQuickEditKeyAction(input: {
   }
 
   if (input.field === "memo") {
+    return { splitIndex: input.splitIndex, type: "focus-amount" };
+  }
+
+  if (input.field === "amount") {
     return { splitIndex: input.splitIndex, type: "focus-cleared" };
   }
 
