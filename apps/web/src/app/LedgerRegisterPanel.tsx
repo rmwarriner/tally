@@ -1,9 +1,19 @@
-import type { Dispatch, RefObject, SetStateAction } from "react";
+import { useEffect, useState, type Dispatch, type RefObject, type SetStateAction } from "react";
 import type { WorkspaceResponse } from "./api";
 import type { LedgerInlineRowEditDraft } from "./ledger-state";
 import { type createLedgerWorkspaceModel } from "./shell";
 
+interface InlineNewTransactionDraft {
+  amount: string;
+  date: string;
+  description: string;
+  expenseAccountId: string;
+  payee: string;
+}
+
 interface LedgerRegisterPanelProps {
+  busy: string | null;
+  expenseAccounts: WorkspaceResponse["workspace"]["accounts"];
   formatCurrency: (amount: number) => string;
   formatTransactionStatus: (status: "cleared" | "open" | "reconciled") => string;
   ledgerRange: { from: string; to: string };
@@ -12,6 +22,7 @@ interface LedgerRegisterPanelProps {
   ledgerWorkspace: ReturnType<typeof createLedgerWorkspaceModel>;
   liquidAccounts: WorkspaceResponse["workspace"]["accounts"];
   onCancelInlineEdit: () => void;
+  onCreateInlineTransaction: (draft: InlineNewTransactionDraft) => void;
   onSaveInlineEdit: (transactionId: string) => void;
   onStartInlineEdit: (transaction: ReturnType<typeof createLedgerWorkspaceModel>["filteredTransactions"][number]) => void;
   onUpdateInlineEditField: (field: keyof LedgerInlineRowEditDraft, value: string) => void;
@@ -26,6 +37,13 @@ interface LedgerRegisterPanelProps {
 }
 
 export function LedgerRegisterPanel(props: LedgerRegisterPanelProps) {
+  const [newTransactionDraft, setNewTransactionDraft] = useState<InlineNewTransactionDraft>({
+    amount: "0.00",
+    date: "2026-04-03",
+    description: "",
+    expenseAccountId: props.expenseAccounts[0]?.id ?? "",
+    payee: "",
+  });
   const inlineDateIsValid = props.inlineEditDraft
     ? /^\d{4}-\d{2}-\d{2}$/.test(props.inlineEditDraft.occurredOn.trim())
     : false;
@@ -35,6 +53,29 @@ export function LedgerRegisterPanel(props: LedgerRegisterPanelProps) {
   const inlineSaveDisabled = props.inlineEditDraft
     ? !inlineDateIsValid || !inlineDescriptionIsValid
     : true;
+  const newRowDateIsValid = /^\d{4}-\d{2}-\d{2}$/.test(newTransactionDraft.date.trim());
+  const newRowDescriptionIsValid = newTransactionDraft.description.trim().length > 0;
+  const newRowAmount = Number.parseFloat(newTransactionDraft.amount);
+  const newRowAmountIsValid = Number.isFinite(newRowAmount) && newRowAmount > 0;
+  const newRowAccountIsValid = newTransactionDraft.expenseAccountId.trim().length > 0;
+  const newRowSaveDisabled =
+    !newRowDateIsValid || !newRowDescriptionIsValid || !newRowAmountIsValid || !newRowAccountIsValid;
+
+  useEffect(() => {
+    if (newTransactionDraft.expenseAccountId) {
+      return;
+    }
+
+    const fallbackAccount = props.expenseAccounts[0]?.id ?? "";
+    if (!fallbackAccount) {
+      return;
+    }
+
+    setNewTransactionDraft((current) => ({
+      ...current,
+      expenseAccountId: fallbackAccount,
+    }));
+  }, [newTransactionDraft.expenseAccountId, props.expenseAccounts]);
 
   return (
     <>
@@ -116,6 +157,108 @@ export function LedgerRegisterPanel(props: LedgerRegisterPanelProps) {
             </tr>
           </thead>
           <tbody>
+            <tr className="register-row">
+              <td>
+                <input
+                  value={newTransactionDraft.date}
+                  onChange={(event) =>
+                    setNewTransactionDraft((current) => ({
+                      ...current,
+                      date: event.target.value,
+                    }))
+                  }
+                />
+              </td>
+              <td>
+                <span className="status-chip open">New</span>
+              </td>
+              <td>
+                <input
+                  value={newTransactionDraft.description}
+                  placeholder="New transaction"
+                  onChange={(event) =>
+                    setNewTransactionDraft((current) => ({
+                      ...current,
+                      description: event.target.value,
+                    }))
+                  }
+                />
+              </td>
+              <td>
+                <input
+                  value={newTransactionDraft.payee}
+                  placeholder="Unassigned"
+                  onChange={(event) =>
+                    setNewTransactionDraft((current) => ({
+                      ...current,
+                      payee: event.target.value,
+                    }))
+                  }
+                />
+              </td>
+              <td>
+                <div className="form-inline">
+                  <select
+                    value={newTransactionDraft.expenseAccountId}
+                    onChange={(event) =>
+                      setNewTransactionDraft((current) => ({
+                        ...current,
+                        expenseAccountId: event.target.value,
+                      }))
+                    }
+                  >
+                    {props.expenseAccounts.map((account) => (
+                      <option key={account.id} value={account.id}>
+                        {account.name}
+                      </option>
+                    ))}
+                  </select>
+                  <input
+                    value={newTransactionDraft.amount}
+                    onChange={(event) =>
+                      setNewTransactionDraft((current) => ({
+                        ...current,
+                        amount: event.target.value,
+                      }))
+                    }
+                  />
+                </div>
+              </td>
+              <td>
+                {!newRowDateIsValid ? <div className="form-hint error-text">YYYY-MM-DD required.</div> : null}
+                {!newRowDescriptionIsValid ? (
+                  <div className="form-hint error-text">Description required.</div>
+                ) : null}
+                {!newRowAmountIsValid ? <div className="form-hint error-text">Amount must be positive.</div> : null}
+              </td>
+              <td>
+                <button
+                  disabled={newRowSaveDisabled || props.busy !== null}
+                  type="button"
+                  onClick={() => {
+                    if (newRowSaveDisabled) {
+                      return;
+                    }
+
+                    props.onCreateInlineTransaction({
+                      amount: newTransactionDraft.amount.trim(),
+                      date: newTransactionDraft.date.trim(),
+                      description: newTransactionDraft.description.trim(),
+                      expenseAccountId: newTransactionDraft.expenseAccountId.trim(),
+                      payee: newTransactionDraft.payee.trim(),
+                    });
+                    setNewTransactionDraft((current) => ({
+                      ...current,
+                      amount: "0.00",
+                      description: "",
+                      payee: "",
+                    }));
+                  }}
+                >
+                  {props.busy === "Transaction post" ? "Posting..." : "Post"}
+                </button>
+              </td>
+            </tr>
             {props.ledgerWorkspace.filteredTransactions.length > 0 ? (
               props.ledgerWorkspace.filteredTransactions.map((transaction) => {
                 const isEditingRow = props.inlineEditingTransactionId === transaction.id;

@@ -6,6 +6,7 @@ import {
   postEnvelope,
   postEnvelopeAllocation,
   postScheduledTransaction,
+  postTransaction,
   putTransaction,
 } from "./api";
 import {
@@ -32,6 +33,7 @@ import { NonLedgerMainPanels } from "./NonLedgerMainPanels";
 import { ShellInspectorContent, ShellSidebarContent } from "./ShellSidePanels";
 import { APRIL_RANGE, WORKSPACE_ID } from "./app-constants";
 import {
+  createTransactionId,
   createEntityId,
   formatAccountOptionLabel,
   formatCurrency,
@@ -71,13 +73,6 @@ export function App() {
   const postingAmountInputRefs = useRef<Array<HTMLInputElement | null>>([]);
   const postingMemoInputRefs = useRef<Array<HTMLInputElement | null>>([]);
 
-  const [transactionForm, setTransactionForm] = useState({
-    amount: "65.00",
-    date: "2026-04-03",
-    description: "Internet bill",
-    expenseAccountId: "acct-expense-utilities",
-    payee: "Provider",
-  });
   const [reconciliationForm, setReconciliationForm] = useState({
     accountId: "acct-checking",
     statementBalance: "3051.58",
@@ -515,6 +510,38 @@ export function App() {
     finishInlineEdit();
   }
 
+  async function postInlineLedgerTransaction(input: {
+    amount: string;
+    date: string;
+    description: string;
+    expenseAccountId: string;
+    payee: string;
+  }) {
+    await runMutation("Transaction post", async () => {
+      const amount = Number.parseFloat(input.amount);
+      await postTransaction(WORKSPACE_ID, {
+        actor: "Primary",
+        transaction: {
+          description: input.description,
+          id: createTransactionId(),
+          occurredOn: input.date,
+          payee: input.payee || undefined,
+          postings: [
+            {
+              accountId: input.expenseAccountId,
+              amount: { commodityCode: "USD", quantity: amount },
+            },
+            {
+              accountId: "acct-checking",
+              amount: { commodityCode: "USD", quantity: -amount },
+              cleared: true,
+            },
+          ],
+        },
+      });
+    });
+  }
+
   function renderTransactionEditorPanel() {
     return (
       <LedgerTransactionEditorPanel
@@ -548,6 +575,8 @@ export function App() {
       return (
         <>
             <LedgerRegisterPanel
+              busy={busy}
+              expenseAccounts={expenseAccounts}
               formatCurrency={formatCurrency}
               formatTransactionStatus={formatTransactionStatus}
               inlineEditDraft={inlineEditDraft}
@@ -558,6 +587,9 @@ export function App() {
               ledgerWorkspace={ledgerWorkspace}
               liquidAccounts={liquidAccounts}
               onCancelInlineEdit={cancelInlineEdit}
+              onCreateInlineTransaction={(draft) => {
+                void postInlineLedgerTransaction(draft);
+              }}
               onSaveInlineEdit={(transactionId) => {
                 void saveInlineLedgerRow(transactionId);
               }}
@@ -581,15 +613,12 @@ export function App() {
             {renderTransactionEditorPanel()}
             <LedgerOperationsPanels
               busy={busy}
-              expenseAccounts={expenseAccounts}
               liquidAccounts={liquidAccounts}
               reconciliationForm={reconciliationForm}
               reconciliationWorkspace={reconciliationWorkspace}
               runMutation={runMutation}
               setReconciliationForm={setReconciliationForm}
               setSelectedReconciliationTransactionIds={setSelectedReconciliationTransactionIds}
-              setTransactionForm={setTransactionForm}
-              transactionForm={transactionForm}
             />
         </>
       );
