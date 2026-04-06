@@ -22,6 +22,7 @@ import {
   workspaceViews
 } from "./shell";
 import {
+  getLedgerRegisterTabHotkeyAction,
   useLedgerInlineRowEditState,
   useLedgerKeyboardAndSelectionSync,
   validateInlineLedgerSplitDrafts,
@@ -143,6 +144,10 @@ export function App() {
   const [activeLedgerRegisterTabId, setActiveLedgerRegisterTabId] = useState("tab-all");
   const activeLedgerRegisterTab =
     ledgerRegisterTabs.find((tab) => tab.id === activeLedgerRegisterTabId) ?? ledgerRegisterTabs[0];
+  const activeLedgerRegisterTabIndex = Math.max(
+    0,
+    ledgerRegisterTabs.findIndex((tab) => tab.id === activeLedgerRegisterTabId),
+  );
   const ledgerRange = activeLedgerRegisterTab?.ledgerRange ?? APRIL_RANGE;
   const ledgerSearchText = activeLedgerRegisterTab?.ledgerSearchText ?? "";
   const selectedLedgerAccountId = activeLedgerRegisterTab?.selectedLedgerAccountId ?? null;
@@ -271,6 +276,79 @@ export function App() {
       );
     },
   });
+
+  useEffect(() => {
+    if (activeView !== "ledger") {
+      return;
+    }
+
+    const onKeyDown = (event: KeyboardEvent) => {
+      const action = getLedgerRegisterTabHotkeyAction({
+        activeTabIndex: activeLedgerRegisterTabIndex,
+        ctrlKey: event.ctrlKey,
+        key: event.key,
+        metaKey: event.metaKey,
+        shiftKey: event.shiftKey,
+        tabCount: ledgerRegisterTabs.length,
+      });
+      if (action.type === "none") {
+        return;
+      }
+
+      event.preventDefault();
+
+      if (action.type === "activate-next-tab") {
+        const nextTab = ledgerRegisterTabs[activeLedgerRegisterTabIndex + 1];
+        if (nextTab) {
+          setActiveLedgerRegisterTabId(nextTab.id);
+        }
+        return;
+      }
+
+      if (action.type === "activate-previous-tab") {
+        const previousTab = ledgerRegisterTabs[activeLedgerRegisterTabIndex - 1];
+        if (previousTab) {
+          setActiveLedgerRegisterTabId(previousTab.id);
+        }
+        return;
+      }
+
+      if (action.type === "move-tab-left") {
+        const activeTab = ledgerRegisterTabs[activeLedgerRegisterTabIndex];
+        if (activeTab) {
+          moveLedgerRegisterTab("left", activeTab.id);
+        }
+        return;
+      }
+
+      if (action.type === "move-tab-right") {
+        const activeTab = ledgerRegisterTabs[activeLedgerRegisterTabIndex];
+        if (activeTab) {
+          moveLedgerRegisterTab("right", activeTab.id);
+        }
+        return;
+      }
+
+      const activeTab = ledgerRegisterTabs[activeLedgerRegisterTabIndex];
+      if (activeTab && activeTab.id !== "tab-all") {
+        closeLedgerRegisterTab(activeTab.id);
+      }
+    };
+
+    window.addEventListener("keydown", onKeyDown);
+    return () => {
+      window.removeEventListener("keydown", onKeyDown);
+    };
+  }, [
+    activeLedgerRegisterTabIndex,
+    activeView,
+    ledgerRegisterTabs,
+  ]);
+
+  useEffect(() => {
+    cancelInlineEdit();
+    setActivePostingAccountSearchIndex(null);
+  }, [activeLedgerRegisterTabId, cancelInlineEdit]);
 
   useEffect(() => {
     if (!loadedWorkspace) {

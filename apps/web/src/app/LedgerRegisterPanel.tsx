@@ -344,7 +344,8 @@ export function LedgerRegisterPanel(props: LedgerRegisterPanelProps) {
           </div>
           <p className="form-hint">
             Hotkeys: `/` search, `j` or down move later, `k` or up move earlier, `Esc` clear
-            selection. Search supports tags, account code/name, and status tokens.
+            selection, `Ctrl/Cmd+Shift+[ ]` switch tabs. Search supports tags, account code/name, and
+            status tokens.
           </p>
         </div>
         <table>

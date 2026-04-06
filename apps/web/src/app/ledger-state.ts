@@ -128,6 +128,48 @@ export function getInlineSplitAccountApplyKeyAction(input: {
   return { type: "none" };
 }
 
+export function getLedgerRegisterTabHotkeyAction(input: {
+  ctrlKey: boolean;
+  metaKey: boolean;
+  shiftKey: boolean;
+  key: string;
+  tabCount: number;
+  activeTabIndex: number;
+}):
+  | { type: "none" }
+  | { type: "activate-next-tab" }
+  | { type: "activate-previous-tab" }
+  | { type: "move-tab-left" }
+  | { type: "move-tab-right" }
+  | { type: "close-tab" } {
+  const primaryModifier = input.ctrlKey || input.metaKey;
+  if (!primaryModifier || !input.shiftKey || input.tabCount <= 1) {
+    return { type: "none" };
+  }
+
+  if (input.key === "]" && input.activeTabIndex + 1 < input.tabCount) {
+    return { type: "activate-next-tab" };
+  }
+
+  if (input.key === "[" && input.activeTabIndex > 0) {
+    return { type: "activate-previous-tab" };
+  }
+
+  if (input.key === "ArrowRight" && input.activeTabIndex + 1 < input.tabCount) {
+    return { type: "move-tab-right" };
+  }
+
+  if (input.key === "ArrowLeft" && input.activeTabIndex > 0) {
+    return { type: "move-tab-left" };
+  }
+
+  if (input.key === "Backspace") {
+    return { type: "close-tab" };
+  }
+
+  return { type: "none" };
+}
+
 export function validateInlineLedgerSplitDrafts(input: {
   splits: InlineLedgerSplitDraft[];
 }): InlineLedgerSplitValidation {

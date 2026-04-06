@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import type { LedgerTransactionDetail } from "./shell";
 import {
   getInlineSplitAccountApplyKeyAction,
+  getLedgerRegisterTabHotkeyAction,
   createLedgerInlineRowEditDraft,
   getInlineSplitAccountGuidance,
   getInlineSplitAccountResolution,
@@ -444,6 +445,90 @@ describe("getInlineSplitAccountApplyKeyAction", () => {
         ctrlKey: false,
         key: "Enter",
         matchCount: 3,
+      }),
+    ).toEqual({ type: "none" });
+  });
+});
+
+describe("getLedgerRegisterTabHotkeyAction", () => {
+  it("activates adjacent tabs with primary+shift bracket hotkeys", () => {
+    expect(
+      getLedgerRegisterTabHotkeyAction({
+        activeTabIndex: 1,
+        ctrlKey: true,
+        key: "]",
+        metaKey: false,
+        shiftKey: true,
+        tabCount: 3,
+      }),
+    ).toEqual({ type: "activate-next-tab" });
+    expect(
+      getLedgerRegisterTabHotkeyAction({
+        activeTabIndex: 1,
+        ctrlKey: false,
+        key: "[",
+        metaKey: true,
+        shiftKey: true,
+        tabCount: 3,
+      }),
+    ).toEqual({ type: "activate-previous-tab" });
+  });
+
+  it("moves tabs with primary+shift arrow hotkeys", () => {
+    expect(
+      getLedgerRegisterTabHotkeyAction({
+        activeTabIndex: 1,
+        ctrlKey: true,
+        key: "ArrowRight",
+        metaKey: false,
+        shiftKey: true,
+        tabCount: 3,
+      }),
+    ).toEqual({ type: "move-tab-right" });
+    expect(
+      getLedgerRegisterTabHotkeyAction({
+        activeTabIndex: 1,
+        ctrlKey: true,
+        key: "ArrowLeft",
+        metaKey: false,
+        shiftKey: true,
+        tabCount: 3,
+      }),
+    ).toEqual({ type: "move-tab-left" });
+  });
+
+  it("returns close action for primary+shift backspace", () => {
+    expect(
+      getLedgerRegisterTabHotkeyAction({
+        activeTabIndex: 1,
+        ctrlKey: true,
+        key: "Backspace",
+        metaKey: false,
+        shiftKey: true,
+        tabCount: 3,
+      }),
+    ).toEqual({ type: "close-tab" });
+  });
+
+  it("returns none for unsupported combinations and edges", () => {
+    expect(
+      getLedgerRegisterTabHotkeyAction({
+        activeTabIndex: 0,
+        ctrlKey: false,
+        key: "]",
+        metaKey: false,
+        shiftKey: true,
+        tabCount: 3,
+      }),
+    ).toEqual({ type: "none" });
+    expect(
+      getLedgerRegisterTabHotkeyAction({
+        activeTabIndex: 0,
+        ctrlKey: true,
+        key: "[",
+        metaKey: false,
+        shiftKey: true,
+        tabCount: 3,
       }),
     ).toEqual({ type: "none" });
   });
