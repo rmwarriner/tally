@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState, type Dispatch, type RefObject, type SetStateAction } from "react";
 import type { WorkspaceResponse } from "./api";
 import {
+  getInlineSplitAccountApplyKeyAction,
   getInlineSplitAccountGuidance,
   getInlineSplitAccountResolution,
   getSplitReorderKeyAction,
@@ -698,6 +699,26 @@ export function LedgerRegisterPanel(props: LedgerRegisterPanelProps) {
                                               return;
                                             }
 
+                                            const applyAction = getInlineSplitAccountApplyKeyAction({
+                                              ctrlKey: event.ctrlKey,
+                                              key: event.key,
+                                              matchCount: accountMatches.length,
+                                            });
+                                            if (applyAction.type === "apply-first-match") {
+                                              event.preventDefault();
+                                              const firstMatch = accountMatches[0];
+                                              if (!firstMatch) {
+                                                return;
+                                              }
+
+                                              selectSplitAccount(posting.postingIndex, firstMatch.account.id);
+                                              focusSplitField({
+                                                field: "memo",
+                                                splitIndex: posting.postingIndex,
+                                              });
+                                              return;
+                                            }
+
                                           if (event.key === "ArrowDown") {
                                             event.preventDefault();
                                             setActiveSplitAccountSearchIndex(posting.postingIndex);
@@ -1129,7 +1150,10 @@ export function LedgerRegisterPanel(props: LedgerRegisterPanelProps) {
                             <div className="posting-editor-row">
                               {isEditingSplitRow ? (
                                 <>
-                                  <div className="form-hint">Tip: `Alt` + `Up/Down` reorders the focused split row.</div>
+                                  <div className="form-hint">
+                                    Tip: `Alt` + `Up/Down` reorders split rows. `Tab` or `Ctrl+Enter` accepts the
+                                    first account match.
+                                  </div>
                                   <button
                                     type="button"
                                     onClick={(event) => {

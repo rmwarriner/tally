@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import type { LedgerTransactionDetail } from "./shell";
 import {
+  getInlineSplitAccountApplyKeyAction,
   createLedgerInlineRowEditDraft,
   getInlineSplitAccountGuidance,
   getInlineSplitAccountResolution,
@@ -406,5 +407,44 @@ describe("inline split account guidance", () => {
         matchCount: 0,
       }),
     ).toBe("No exact match. Pick an existing account from the chart.");
+  });
+});
+
+describe("getInlineSplitAccountApplyKeyAction", () => {
+  it("applies first match on tab when matches are available", () => {
+    expect(
+      getInlineSplitAccountApplyKeyAction({
+        ctrlKey: false,
+        key: "Tab",
+        matchCount: 2,
+      }),
+    ).toEqual({ type: "apply-first-match" });
+  });
+
+  it("applies first match on ctrl+enter when matches are available", () => {
+    expect(
+      getInlineSplitAccountApplyKeyAction({
+        ctrlKey: true,
+        key: "Enter",
+        matchCount: 1,
+      }),
+    ).toEqual({ type: "apply-first-match" });
+  });
+
+  it("returns none when there are no matches or unsupported keys", () => {
+    expect(
+      getInlineSplitAccountApplyKeyAction({
+        ctrlKey: false,
+        key: "Tab",
+        matchCount: 0,
+      }),
+    ).toEqual({ type: "none" });
+    expect(
+      getInlineSplitAccountApplyKeyAction({
+        ctrlKey: false,
+        key: "Enter",
+        matchCount: 3,
+      }),
+    ).toEqual({ type: "none" });
   });
 });

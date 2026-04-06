@@ -108,6 +108,26 @@ export function getInlineSplitAccountGuidance(input: {
   return "Use Arrow Up/Down, then Enter, to choose an existing account.";
 }
 
+export function getInlineSplitAccountApplyKeyAction(input: {
+  ctrlKey: boolean;
+  key: string;
+  matchCount: number;
+}): { type: "none" } | { type: "apply-first-match" } {
+  if (input.matchCount <= 0) {
+    return { type: "none" };
+  }
+
+  if (input.key === "Tab") {
+    return { type: "apply-first-match" };
+  }
+
+  if (input.ctrlKey && input.key === "Enter") {
+    return { type: "apply-first-match" };
+  }
+
+  return { type: "none" };
+}
+
 export function validateInlineLedgerSplitDrafts(input: {
   splits: InlineLedgerSplitDraft[];
 }): InlineLedgerSplitValidation {
