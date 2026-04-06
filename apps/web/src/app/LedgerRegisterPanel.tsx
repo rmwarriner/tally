@@ -606,7 +606,12 @@ export function LedgerRegisterPanel(props: LedgerRegisterPanelProps) {
                                     accountQuery: splitDraftRow.accountQuery,
                                   })
                                 : "empty";
-                              const splitHasUnresolvedAccountQuery = splitAccountResolution === "unresolved";
+                              const splitAccountStatusChip =
+                                splitAccountResolution === "resolved"
+                                  ? { className: "reconciled", label: "Account set" }
+                                  : splitAccountResolution === "unresolved"
+                                    ? { className: "warning", label: "Unresolved account" }
+                                    : { className: "open", label: "Account required" };
                               const accountMatches =
                                 splitDraftRow !== null
                                   ? getAccountSearchMatches({
@@ -830,11 +835,9 @@ export function LedgerRegisterPanel(props: LedgerRegisterPanelProps) {
                                             )}
                                           </div>
                                         ) : null}
-                                        {splitHasUnresolvedAccountQuery ? (
-                                          <span className="status-chip warning">
-                                            Unresolved account: pick an existing account
-                                          </span>
-                                        ) : null}
+                                        <span className={`status-chip account-resolution-chip ${splitAccountStatusChip.className}`}>
+                                          {splitAccountStatusChip.label}
+                                        </span>
                                       </label>
                                       <input
                                         ref={(element) => {

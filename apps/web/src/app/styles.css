@@ -746,6 +746,10 @@ th {
   background: #f3ebdb;
 }
 
+.account-resolution-chip {
+  margin-top: 6px;
+}
+
 .posting-editor-row {
   display: flex;
   align-items: center;
