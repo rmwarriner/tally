@@ -56,6 +56,7 @@ interface LedgerRegisterPanelProps {
   onCloseLedgerRegisterTab: (tabId: string) => void;
   onCreateInlineTransaction: (draft: InlineNewTransactionDraft) => void;
   onMoveLedgerRegisterTab: (direction: "left" | "right", tabId: string) => void;
+  onOpenLinkedRegisterTabs: (transactionId: string) => void;
   onOpenLedgerRegisterTabForAccount: (accountId: string) => void;
   onOpenAdvancedEditor: (transactionId: string) => void;
   onSaveInlineEdit: (transactionId: string) => void;
@@ -674,6 +675,15 @@ export function LedgerRegisterPanel(props: LedgerRegisterPanelProps) {
                               }}
                             >
                               {isExpandedRow ? "Hide splits" : "Show splits"}
+                            </button>
+                            <button
+                              type="button"
+                              onClick={(event) => {
+                                event.stopPropagation();
+                                props.onOpenLinkedRegisterTabs(transaction.id);
+                              }}
+                            >
+                              Link tabs
                             </button>
                             <button
                               type="button"

@@ -72,6 +72,7 @@ export function App() {
   const [activeView, setActiveView] = useState<WorkspaceView>("overview");
   const [isLedgerDetailOpen, setIsLedgerDetailOpen] = useState(false);
   const [isLedgerOperationsOpen, setIsLedgerOperationsOpen] = useState(false);
+  const [isCommandPaletteOpen, setIsCommandPaletteOpen] = useState(false);
   const [transactionEditor, setTransactionEditor] = useState<TransactionEditorState | null>(null);
   const [activePostingAccountSearchIndex, setActivePostingAccountSearchIndex] = useState<number | null>(
     null,
@@ -319,6 +320,25 @@ export function App() {
   ]);
 
   useEffect(() => {
+    const onKeyDown = (event: KeyboardEvent) => {
+      if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === "k") {
+        event.preventDefault();
+        setIsCommandPaletteOpen((current) => !current);
+        return;
+      }
+
+      if (event.key === "Escape") {
+        setIsCommandPaletteOpen(false);
+      }
+    };
+
+    window.addEventListener("keydown", onKeyDown);
+    return () => {
+      window.removeEventListener("keydown", onKeyDown);
+    };
+  }, []);
+
+  useEffect(() => {
     cancelInlineEdit();
     setActivePostingAccountSearchIndex(null);
   }, [activeLedgerRegisterTabId, cancelInlineEdit]);
@@ -530,6 +550,17 @@ export function App() {
       setActiveLedgerRegisterTabId(nextTab.id);
       return [...currentTabs, nextTab];
     });
+  }
+
+  function openLinkedRegisterTabsForTransaction(transactionId: string) {
+    const transaction = ledgerWorkspace.filteredTransactions.find((candidate) => candidate.id === transactionId);
+    if (!transaction) {
+      return;
+    }
+
+    for (const accountId of transaction.matchedAccountIds) {
+      openLedgerRegisterTabForAccount(accountId);
+    }
   }
 
   function closeLedgerRegisterTab(tabId: string) {
@@ -882,6 +913,7 @@ export function App() {
                 void postInlineLedgerTransaction(draft);
               }}
               onMoveLedgerRegisterTab={moveLedgerRegisterTab}
+              onOpenLinkedRegisterTabs={openLinkedRegisterTabsForTransaction}
               onOpenLedgerRegisterTabForAccount={openLedgerRegisterTabForAccount}
               onOpenAdvancedEditor={() => setIsLedgerDetailOpen(true)}
               onSaveInlineEdit={(transactionId) => {
@@ -1119,6 +1151,64 @@ export function App() {
         </div>
         {renderInspectorContent()}
       </aside>
+
+      {isCommandPaletteOpen ? (
+        <div className="command-palette-overlay" role="dialog" aria-modal="true">
+          <div className="command-palette">
+            <div className="panel-header">
+              <span>Command palette</span>
+              <span className="muted">Register-first shortcuts</span>
+            </div>
+            <div className="detail-stack">
+              <button
+                type="button"
+                onClick={() => {
+                  setActiveView("ledger");
+                  setIsCommandPaletteOpen(false);
+                  ledgerSearchInputRef.current?.focus();
+                }}
+              >
+                Focus register search
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setActiveView("ledger");
+                  setIsLedgerDetailOpen((current) => !current);
+                  setIsCommandPaletteOpen(false);
+                }}
+              >
+                Toggle advanced editor
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setActiveView("ledger");
+                  setIsLedgerOperationsOpen((current) => !current);
+                  setIsCommandPaletteOpen(false);
+                }}
+              >
+                Toggle reconciliation workspace
+              </button>
+              <button
+                disabled={!selectedLedgerTransactionId}
+                type="button"
+                onClick={() => {
+                  if (selectedLedgerTransactionId) {
+                    openLinkedRegisterTabsForTransaction(selectedLedgerTransactionId);
+                  }
+                  setIsCommandPaletteOpen(false);
+                }}
+              >
+                Open linked registers for selected transaction
+              </button>
+              <button type="button" onClick={() => setIsCommandPaletteOpen(false)}>
+                Close palette
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
 
       <style>{`
         :root {
