@@ -38,6 +38,7 @@ interface LedgerRegisterPanelProps {
 }
 
 export function LedgerRegisterPanel(props: LedgerRegisterPanelProps) {
+  const [expandedTransactionId, setExpandedTransactionId] = useState<string | null>(null);
   const [newTransactionDraft, setNewTransactionDraft] = useState<InlineNewTransactionDraft>({
     amount: "0.00",
     date: "2026-04-03",
@@ -77,6 +78,20 @@ export function LedgerRegisterPanel(props: LedgerRegisterPanelProps) {
       expenseAccountId: fallbackAccount,
     }));
   }, [newTransactionDraft.expenseAccountId, props.expenseAccounts]);
+
+  useEffect(() => {
+    if (!expandedTransactionId) {
+      return;
+    }
+
+    const expandedRowStillVisible = props.ledgerWorkspace.filteredTransactions.some(
+      (transaction) => transaction.id === expandedTransactionId,
+    );
+
+    if (!expandedRowStillVisible) {
+      setExpandedTransactionId(null);
+    }
+  }, [expandedTransactionId, props.ledgerWorkspace.filteredTransactions]);
 
   return (
     <>
@@ -264,160 +279,213 @@ export function LedgerRegisterPanel(props: LedgerRegisterPanelProps) {
               props.ledgerWorkspace.filteredTransactions.map((transaction) => {
                 const isEditingRow = props.inlineEditingTransactionId === transaction.id;
                 const rowDraft = isEditingRow && props.inlineEditDraft ? props.inlineEditDraft : null;
+                const isExpandedRow = expandedTransactionId === transaction.id;
 
                 return (
-                  <tr
-                    key={transaction.id}
-                    className={
-                      props.selectedLedgerTransactionId === transaction.id
-                        ? "register-row selected"
-                        : "register-row"
-                    }
-                    onClick={() => props.setSelectedLedgerTransactionId(transaction.id)}
-                  >
-                    <td>
-                      {rowDraft ? (
-                        <>
+                  <>
+                    <tr
+                      key={transaction.id}
+                      className={
+                        props.selectedLedgerTransactionId === transaction.id
+                          ? "register-row selected"
+                          : "register-row"
+                      }
+                      onClick={() => props.setSelectedLedgerTransactionId(transaction.id)}
+                    >
+                      <td>
+                        {rowDraft ? (
+                          <>
+                            <input
+                              value={rowDraft.occurredOn}
+                              onClick={(event) => event.stopPropagation()}
+                              onChange={(event) =>
+                                props.onUpdateInlineEditField("occurredOn", event.target.value)
+                              }
+                              onKeyDown={(event) => {
+                                if (event.key === "Enter") {
+                                  event.preventDefault();
+                                  if (!inlineSaveDisabled) {
+                                    props.onSaveInlineEdit(transaction.id);
+                                  }
+                                }
+
+                                if (event.key === "Escape") {
+                                  event.preventDefault();
+                                  props.onCancelInlineEdit();
+                                }
+                              }}
+                            />
+                            {!inlineDateIsValid ? (
+                              <div className="form-hint error-text">Date must use YYYY-MM-DD.</div>
+                            ) : null}
+                          </>
+                        ) : (
+                          transaction.occurredOn
+                        )}
+                      </td>
+                      <td>
+                        <span className={`status-chip ${transaction.status}`}>
+                          {props.formatTransactionStatus(transaction.status)}
+                        </span>
+                      </td>
+                      <td>
+                        {rowDraft ? (
+                          <>
+                            <input
+                              value={rowDraft.description}
+                              onClick={(event) => event.stopPropagation()}
+                              onChange={(event) =>
+                                props.onUpdateInlineEditField("description", event.target.value)
+                              }
+                              onKeyDown={(event) => {
+                                if (event.key === "Enter") {
+                                  event.preventDefault();
+                                  if (!inlineSaveDisabled) {
+                                    props.onSaveInlineEdit(transaction.id);
+                                  }
+                                }
+
+                                if (event.key === "Escape") {
+                                  event.preventDefault();
+                                  props.onCancelInlineEdit();
+                                }
+                              }}
+                            />
+                            {!inlineDescriptionIsValid ? (
+                              <div className="form-hint error-text">Description is required.</div>
+                            ) : null}
+                          </>
+                        ) : (
+                          transaction.description
+                        )}
+                      </td>
+                      <td>
+                        {rowDraft ? (
                           <input
-                            value={rowDraft.occurredOn}
+                            value={rowDraft.payee}
+                            placeholder="Unassigned"
                             onClick={(event) => event.stopPropagation()}
-                            onChange={(event) =>
-                              props.onUpdateInlineEditField("occurredOn", event.target.value)
-                            }
+                            onChange={(event) => props.onUpdateInlineEditField("payee", event.target.value)}
                             onKeyDown={(event) => {
                               if (event.key === "Enter") {
                                 event.preventDefault();
-                                if (!inlineSaveDisabled) {
-                                  props.onSaveInlineEdit(transaction.id);
-                                }
-                              }
-
-                              if (event.key === "Escape") {
-                                event.preventDefault();
-                                props.onCancelInlineEdit();
-                              }
-                            }}
-                          />
-                          {!inlineDateIsValid ? (
-                            <div className="form-hint error-text">Date must use YYYY-MM-DD.</div>
-                          ) : null}
-                        </>
-                      ) : (
-                        transaction.occurredOn
-                      )}
-                    </td>
-                    <td>
-                      <span className={`status-chip ${transaction.status}`}>
-                        {props.formatTransactionStatus(transaction.status)}
-                      </span>
-                    </td>
-                    <td>
-                      {rowDraft ? (
-                        <>
-                          <input
-                            value={rowDraft.description}
-                            onClick={(event) => event.stopPropagation()}
-                            onChange={(event) =>
-                              props.onUpdateInlineEditField("description", event.target.value)
-                            }
-                            onKeyDown={(event) => {
-                              if (event.key === "Enter") {
-                                event.preventDefault();
-                                if (!inlineSaveDisabled) {
-                                  props.onSaveInlineEdit(transaction.id);
-                                }
-                              }
-
-                              if (event.key === "Escape") {
-                                event.preventDefault();
-                                props.onCancelInlineEdit();
-                              }
-                            }}
-                          />
-                          {!inlineDescriptionIsValid ? (
-                            <div className="form-hint error-text">Description is required.</div>
-                          ) : null}
-                        </>
-                      ) : (
-                        transaction.description
-                      )}
-                    </td>
-                    <td>
-                      {rowDraft ? (
-                        <input
-                          value={rowDraft.payee}
-                          placeholder="Unassigned"
-                          onClick={(event) => event.stopPropagation()}
-                          onChange={(event) => props.onUpdateInlineEditField("payee", event.target.value)}
-                          onKeyDown={(event) => {
-                            if (event.key === "Enter") {
-                              event.preventDefault();
-                              props.onSaveInlineEdit(transaction.id);
-                            }
-
-                            if (event.key === "Escape") {
-                              event.preventDefault();
-                              props.onCancelInlineEdit();
-                            }
-                          }}
-                        />
-                      ) : (
-                        transaction.payee ?? "Unassigned"
-                      )}
-                    </td>
-                    <td>{transaction.postings.map((posting) => posting.accountName).join(", ")}</td>
-                    <td>{transaction.tags.join(", ")}</td>
-                    <td>
-                      {rowDraft ? (
-                        <div className="posting-editor-row">
-                          <button
-                            disabled={inlineSaveDisabled}
-                            type="button"
-                            onClick={(event) => {
-                              event.stopPropagation();
-                              if (!inlineSaveDisabled) {
                                 props.onSaveInlineEdit(transaction.id);
                               }
+
+                              if (event.key === "Escape") {
+                                event.preventDefault();
+                                props.onCancelInlineEdit();
+                              }
                             }}
-                          >
-                            Save
-                          </button>
-                          <button
-                            type="button"
-                            onClick={(event) => {
-                              event.stopPropagation();
-                              props.onCancelInlineEdit();
-                            }}
-                          >
-                            Cancel
-                          </button>
-                        </div>
-                      ) : (
-                        <div className="posting-editor-row">
-                          <button
-                            type="button"
-                            onClick={(event) => {
-                              event.stopPropagation();
-                              props.setSelectedLedgerTransactionId(transaction.id);
-                              props.onStartInlineEdit(transaction);
-                            }}
-                          >
-                            Edit
-                          </button>
-                          <button
-                            type="button"
-                            onClick={(event) => {
-                              event.stopPropagation();
-                              props.setSelectedLedgerTransactionId(transaction.id);
-                              props.onOpenAdvancedEditor(transaction.id);
-                            }}
-                          >
-                            Advanced
-                          </button>
-                        </div>
-                      )}
-                    </td>
-                  </tr>
+                          />
+                        ) : (
+                          transaction.payee ?? "Unassigned"
+                        )}
+                      </td>
+                      <td>{transaction.postings.map((posting) => posting.accountName).join(", ")}</td>
+                      <td>{transaction.tags.join(", ")}</td>
+                      <td>
+                        {rowDraft ? (
+                          <div className="posting-editor-row">
+                            <button
+                              disabled={inlineSaveDisabled}
+                              type="button"
+                              onClick={(event) => {
+                                event.stopPropagation();
+                                if (!inlineSaveDisabled) {
+                                  props.onSaveInlineEdit(transaction.id);
+                                }
+                              }}
+                            >
+                              Save
+                            </button>
+                            <button
+                              type="button"
+                              onClick={(event) => {
+                                event.stopPropagation();
+                                props.onCancelInlineEdit();
+                              }}
+                            >
+                              Cancel
+                            </button>
+                          </div>
+                        ) : (
+                          <div className="posting-editor-row">
+                            <button
+                              type="button"
+                              onClick={(event) => {
+                                event.stopPropagation();
+                                props.setSelectedLedgerTransactionId(transaction.id);
+                                props.onStartInlineEdit(transaction);
+                              }}
+                            >
+                              Edit
+                            </button>
+                            <button
+                              type="button"
+                              onClick={(event) => {
+                                event.stopPropagation();
+                                setExpandedTransactionId((current) =>
+                                  current === transaction.id ? null : transaction.id,
+                                );
+                              }}
+                            >
+                              {isExpandedRow ? "Hide splits" : "Show splits"}
+                            </button>
+                            <button
+                              type="button"
+                              onClick={(event) => {
+                                event.stopPropagation();
+                                props.setSelectedLedgerTransactionId(transaction.id);
+                                props.onOpenAdvancedEditor(transaction.id);
+                              }}
+                            >
+                              Advanced
+                            </button>
+                          </div>
+                        )}
+                      </td>
+                    </tr>
+                    {isExpandedRow ? (
+                      <tr className="register-row">
+                        <td colSpan={7}>
+                          <div className="detail-stack">
+                            <div className="panel-header">
+                              <span>Split preview</span>
+                              <span className="muted">{transaction.id}</span>
+                            </div>
+                            {transaction.postings.map((posting) => (
+                              <div
+                                key={`${transaction.id}:${posting.accountId}:${posting.amount}`}
+                                className="posting-summary-row"
+                              >
+                                <div>
+                                  <strong>{posting.accountName}</strong>
+                                  <div className="candidate-meta">
+                                    {posting.memo ?? "No memo"}
+                                    {posting.cleared ? " · cleared" : " · open"}
+                                  </div>
+                                </div>
+                                <strong>{posting.amount}</strong>
+                              </div>
+                            ))}
+                            <div className="posting-editor-row">
+                              <button
+                                type="button"
+                                onClick={(event) => {
+                                  event.stopPropagation();
+                                  props.setSelectedLedgerTransactionId(transaction.id);
+                                  props.onOpenAdvancedEditor(transaction.id);
+                                }}
+                              >
+                                Edit splits in advanced editor
+                              </button>
+                            </div>
+                          </div>
+                        </td>
+                      </tr>
+                    ) : null}
+                  </>
                 );
               })
             ) : (
