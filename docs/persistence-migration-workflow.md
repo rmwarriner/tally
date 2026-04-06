@@ -1,5 +1,7 @@
 # Persistence Migration Workflow
 
+Last reviewed: 2026-04-06
+
 ## Scope
 
 This document defines the current admin workflow for moving workspace data between the supported persistence backends in `apps/api`.

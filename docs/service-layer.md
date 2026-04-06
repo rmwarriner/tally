@@ -1,5 +1,7 @@
 # Service Layer
 
+Last reviewed: 2026-04-06
+
 ## Current Implementation
 
 The repository now includes an application service layer in `apps/api`.

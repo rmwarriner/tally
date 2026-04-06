@@ -1,5 +1,7 @@
 # CI And Security Gates
 
+Last reviewed: 2026-04-06
+
 ## Policy
 
 This repository uses automated merge gates for code quality and security-sensitive regressions.

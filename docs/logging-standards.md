@@ -1,5 +1,7 @@
 # Logging Standards
 
+Last reviewed: 2026-04-06
+
 ## Policy
 
 Structured logging is required for operational code paths in this repository.

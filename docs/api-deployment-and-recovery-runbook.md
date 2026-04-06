@@ -1,5 +1,7 @@
 # API Deployment And Recovery Runbook
 
+Last reviewed: 2026-04-06
+
 ## Selected Default Target
 
 The default production-oriented deployment target for `apps/api` is:

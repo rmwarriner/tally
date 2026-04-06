@@ -1,5 +1,7 @@
 # Product Foundation
 
+Last reviewed: 2026-04-06
+
 ## Users
 
 - Individuals managing their own finances

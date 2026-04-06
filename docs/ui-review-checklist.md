@@ -1,5 +1,7 @@
 # UI Review Checklist
 
+Last reviewed: 2026-04-06
+
 ## Desktop Shell
 
 Run:
@@ -19,7 +21,7 @@ Review the desktop shell with this sequence:
    - envelopes
    - imports
    - automations
-   - reports placeholder
+   - reports (roadmap placeholder)
 3. In ledger:
    - filter by account from the sidebar and balance cards
    - change the date range and confirm the register updates to match

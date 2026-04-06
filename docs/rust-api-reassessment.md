@@ -1,5 +1,7 @@
 # Rust API Reassessment
 
+Last reviewed: 2026-04-06
+
 ## Purpose
 
 This note captures when a Rust implementation of the API layer would be worth revisiting as the project matures.

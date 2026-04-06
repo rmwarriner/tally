@@ -1,5 +1,7 @@
 # Engineering Roadmap
 
+Last reviewed: 2026-04-06
+
 ## Roadmap Structure
 
 The repository has moved out of the initial service-foundation phase.

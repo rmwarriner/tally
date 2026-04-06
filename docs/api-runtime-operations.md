@@ -1,5 +1,7 @@
 # API Runtime Operations
 
+Last reviewed: 2026-04-06
+
 ## Scope
 
 This document defines how `apps/api` should be started and configured in development, test, and production-oriented environments.

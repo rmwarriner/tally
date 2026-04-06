@@ -1,5 +1,7 @@
 # Native Desktop Assessment
 
+Last reviewed: 2026-04-06
+
 ## Scope
 
 This document evaluates whether the current `apps/web` desktop shell should gain a native desktop wrapper, and if so, whether the first wrapper should be Electron or Tauri.

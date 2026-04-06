@@ -1,5 +1,7 @@
 # Next Move: Service Layer
 
+Last reviewed: 2026-04-06
+
 This document captured the service-layer implementation proposal before the initial service boundary existed. The first foundation is now implemented in `apps/api`; see `docs/service-layer.md` for current status.
 
 ## Why This Is Next

@@ -1,5 +1,7 @@
 # Security Standards
 
+Last reviewed: 2026-04-06
+
 ## Policy
 
 Security is a first-class engineering requirement for this repository.

@@ -1,5 +1,7 @@
 # Ledger UI Rebuild Plan
 
+Last reviewed: 2026-04-06
+
 ## Purpose
 
 This document tracks two things:

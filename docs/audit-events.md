@@ -1,5 +1,7 @@
 # Audit Events
 
+Last reviewed: 2026-04-06
+
 ## Purpose
 
 Audit events provide a durable financial mutation history that is separate from transient logs.

@@ -1,5 +1,7 @@
 # Architecture
 
+Last reviewed: 2026-04-06
+
 ## Top-Level Modules
 
 ### Ledger Engine

@@ -1,5 +1,7 @@
 # Desktop UI Direction
 
+Last reviewed: 2026-04-06
+
 ## Intent
 
 The desktop shell should borrow the spatial workflow of tools like VS Code and Obsidian without copying their visual language.

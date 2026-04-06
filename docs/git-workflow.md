@@ -1,5 +1,7 @@
 # Git Workflow
 
+Last reviewed: 2026-04-06
+
 ## Policy
 
 This repository uses a light trunk-based workflow:

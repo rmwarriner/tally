@@ -1,5 +1,7 @@
 # Repository Guidelines
 
+Last reviewed: 2026-04-06
+
 ## Project Structure & Module Organization
 
 This repository is a `pnpm` monorepo.

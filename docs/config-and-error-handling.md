@@ -1,5 +1,7 @@
 # Configuration And Error Handling
 
+Last reviewed: 2026-04-06
+
 ## Scope
 
 This repository now treats runtime configuration and operational failures as typed boundaries rather than ad hoc strings and generic exceptions.
