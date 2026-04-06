@@ -22,7 +22,6 @@ import {
   workspaceViews
 } from "./shell";
 import {
-  useLedgerFiltersAndSelection,
   useLedgerInlineRowEditState,
   useLedgerKeyboardAndSelectionSync,
   validateInlineLedgerSplitDrafts,
@@ -56,6 +55,14 @@ function ShellState(props: { message: string; title: string }) {
       <p>{props.message}</p>
     </main>
   );
+}
+
+interface LedgerRegisterTabState {
+  id: string;
+  ledgerRange: { from: string; to: string };
+  ledgerSearchText: string;
+  selectedLedgerAccountId: string | null;
+  selectedLedgerTransactionId: string | null;
 }
 
 export function App() {
@@ -124,16 +131,22 @@ export function App() {
     nextDueOn: "2026-05-15",
     payee: "City Utilities",
   });
-  const {
-    ledgerRange,
-    ledgerSearchText,
-    selectedLedgerAccountId,
-    selectedLedgerTransactionId,
-    setLedgerRange,
-    setLedgerSearchText,
-    setSelectedLedgerAccountId,
-    setSelectedLedgerTransactionId,
-  } = useLedgerFiltersAndSelection({ initialRange: APRIL_RANGE });
+  const [ledgerRegisterTabs, setLedgerRegisterTabs] = useState<LedgerRegisterTabState[]>([
+    {
+      id: "tab-all",
+      ledgerRange: APRIL_RANGE,
+      ledgerSearchText: "",
+      selectedLedgerAccountId: null,
+      selectedLedgerTransactionId: null,
+    },
+  ]);
+  const [activeLedgerRegisterTabId, setActiveLedgerRegisterTabId] = useState("tab-all");
+  const activeLedgerRegisterTab =
+    ledgerRegisterTabs.find((tab) => tab.id === activeLedgerRegisterTabId) ?? ledgerRegisterTabs[0];
+  const ledgerRange = activeLedgerRegisterTab?.ledgerRange ?? APRIL_RANGE;
+  const ledgerSearchText = activeLedgerRegisterTab?.ledgerSearchText ?? "";
+  const selectedLedgerAccountId = activeLedgerRegisterTab?.selectedLedgerAccountId ?? null;
+  const selectedLedgerTransactionId = activeLedgerRegisterTab?.selectedLedgerTransactionId ?? null;
   const {
     cancelInlineEdit,
     editingDraft: inlineEditDraft,
@@ -239,7 +252,24 @@ export function App() {
     filteredTransactions: ledgerWorkspace.filteredTransactions,
     ledgerSearchInputRef,
     selectedLedgerTransactionId,
-    setSelectedLedgerTransactionId,
+    setSelectedLedgerTransactionId: (nextValue) => {
+      setLedgerRegisterTabs((currentTabs) =>
+        currentTabs.map((tab) => {
+          if (tab.id !== activeLedgerRegisterTabId) {
+            return tab;
+          }
+
+          const resolvedValue =
+            typeof nextValue === "function"
+              ? nextValue(tab.selectedLedgerTransactionId)
+              : nextValue;
+          return {
+            ...tab,
+            selectedLedgerTransactionId: resolvedValue,
+          };
+        }),
+      );
+    },
   });
 
   useEffect(() => {
@@ -338,6 +368,126 @@ export function App() {
           },
         ],
       };
+    });
+  }
+
+  function setLedgerRange(nextValue: { from: string; to: string } | ((current: { from: string; to: string }) => { from: string; to: string })) {
+    setLedgerRegisterTabs((currentTabs) =>
+      currentTabs.map((tab) => {
+        if (tab.id !== activeLedgerRegisterTabId) {
+          return tab;
+        }
+        return {
+          ...tab,
+          ledgerRange: typeof nextValue === "function" ? nextValue(tab.ledgerRange) : nextValue,
+        };
+      }),
+    );
+  }
+
+  function setLedgerSearchText(nextValue: string | ((current: string) => string)) {
+    setLedgerRegisterTabs((currentTabs) =>
+      currentTabs.map((tab) => {
+        if (tab.id !== activeLedgerRegisterTabId) {
+          return tab;
+        }
+        return {
+          ...tab,
+          ledgerSearchText:
+            typeof nextValue === "function" ? nextValue(tab.ledgerSearchText) : nextValue,
+        };
+      }),
+    );
+  }
+
+  function setSelectedLedgerAccountId(nextValue: string | null | ((current: string | null) => string | null)) {
+    setLedgerRegisterTabs((currentTabs) =>
+      currentTabs.map((tab) => {
+        if (tab.id !== activeLedgerRegisterTabId) {
+          return tab;
+        }
+        return {
+          ...tab,
+          selectedLedgerAccountId:
+            typeof nextValue === "function"
+              ? nextValue(tab.selectedLedgerAccountId)
+              : nextValue,
+        };
+      }),
+    );
+  }
+
+  function setSelectedLedgerTransactionId(nextValue: string | null | ((current: string | null) => string | null)) {
+    setLedgerRegisterTabs((currentTabs) =>
+      currentTabs.map((tab) => {
+        if (tab.id !== activeLedgerRegisterTabId) {
+          return tab;
+        }
+        return {
+          ...tab,
+          selectedLedgerTransactionId:
+            typeof nextValue === "function"
+              ? nextValue(tab.selectedLedgerTransactionId)
+              : nextValue,
+        };
+      }),
+    );
+  }
+
+  function openLedgerRegisterTabForAccount(accountId: string) {
+    setLedgerRegisterTabs((currentTabs) => {
+      const existingTab = currentTabs.find((tab) => tab.selectedLedgerAccountId === accountId);
+      if (existingTab) {
+        setActiveLedgerRegisterTabId(existingTab.id);
+        return currentTabs;
+      }
+
+      const nextTab: LedgerRegisterTabState = {
+        id: `tab-${accountId}-${currentTabs.length + 1}`,
+        ledgerRange: APRIL_RANGE,
+        ledgerSearchText: "",
+        selectedLedgerAccountId: accountId,
+        selectedLedgerTransactionId: null,
+      };
+      setActiveLedgerRegisterTabId(nextTab.id);
+      return [...currentTabs, nextTab];
+    });
+  }
+
+  function closeLedgerRegisterTab(tabId: string) {
+    setLedgerRegisterTabs((currentTabs) => {
+      if (currentTabs.length <= 1) {
+        return currentTabs;
+      }
+      const tabIndex = currentTabs.findIndex((tab) => tab.id === tabId);
+      if (tabIndex < 0) {
+        return currentTabs;
+      }
+      const nextTabs = currentTabs.filter((tab) => tab.id !== tabId);
+      if (activeLedgerRegisterTabId === tabId) {
+        const fallbackTab = nextTabs[Math.max(0, tabIndex - 1)] ?? nextTabs[0];
+        if (fallbackTab) {
+          setActiveLedgerRegisterTabId(fallbackTab.id);
+        }
+      }
+      return nextTabs;
+    });
+  }
+
+  function moveLedgerRegisterTab(direction: "left" | "right", tabId: string) {
+    setLedgerRegisterTabs((currentTabs) => {
+      const index = currentTabs.findIndex((tab) => tab.id === tabId);
+      if (index < 0) {
+        return currentTabs;
+      }
+      const nextIndex = direction === "left" ? index - 1 : index + 1;
+      if (nextIndex < 0 || nextIndex >= currentTabs.length) {
+        return currentTabs;
+      }
+      const nextTabs = [...currentTabs];
+      const [movedTab] = nextTabs.splice(index, 1);
+      nextTabs.splice(nextIndex, 0, movedTab);
+      return nextTabs;
     });
   }
 
@@ -626,6 +776,7 @@ export function App() {
       return (
         <>
             <LedgerRegisterPanel
+              activeLedgerRegisterTabId={activeLedgerRegisterTabId}
               busy={busy}
               expenseAccounts={expenseAccounts}
               formatCurrency={formatCurrency}
@@ -635,12 +786,24 @@ export function App() {
               ledgerRange={ledgerRange}
               ledgerSearchInputRef={ledgerSearchInputRef}
               ledgerSearchText={ledgerSearchText}
+              ledgerRegisterTabs={ledgerRegisterTabs.map((tab) => {
+                const account = workspaceAccounts.find((candidate) => candidate.id === tab.selectedLedgerAccountId);
+                return {
+                  accountId: tab.selectedLedgerAccountId,
+                  id: tab.id,
+                  label: account ? account.name : "All accounts",
+                };
+              })}
               ledgerWorkspace={ledgerWorkspace}
               liquidAccounts={liquidAccounts}
               onCancelInlineEdit={cancelInlineEdit}
+              onActivateLedgerRegisterTab={setActiveLedgerRegisterTabId}
+              onCloseLedgerRegisterTab={closeLedgerRegisterTab}
               onCreateInlineTransaction={(draft) => {
                 void postInlineLedgerTransaction(draft);
               }}
+              onMoveLedgerRegisterTab={moveLedgerRegisterTab}
+              onOpenLedgerRegisterTabForAccount={openLedgerRegisterTabForAccount}
               onOpenAdvancedEditor={() => setIsLedgerDetailOpen(true)}
               onSaveInlineEdit={(transactionId) => {
                 void saveInlineLedgerRow(transactionId);

@@ -666,6 +666,45 @@ th {
   gap: 10px;
 }
 
+.register-tab-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 10px;
+}
+
+.register-tab {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px;
+  border: 1px solid rgba(201, 193, 180, 0.7);
+  border-radius: 12px;
+  background: rgba(255, 250, 241, 0.8);
+}
+
+.register-tab.active {
+  border-color: rgba(181, 129, 40, 0.42);
+  background: #fff1cf;
+}
+
+.register-tab-actions {
+  display: inline-flex;
+  gap: 4px;
+}
+
+.register-tab-actions button {
+  min-width: 28px;
+  padding: 4px 6px;
+}
+
+.register-tab-new {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px;
+}
+
 .posting-card {
   padding: 12px;
   border: 1px solid rgba(201, 193, 180, 0.65);
