@@ -1,6 +1,8 @@
 import { useEffect, useRef, useState, type Dispatch, type RefObject, type SetStateAction } from "react";
 import type { WorkspaceResponse } from "./api";
 import {
+  getInlineSplitAccountGuidance,
+  getInlineSplitAccountResolution,
   getSplitReorderKeyAction,
   getSplitQuickEditKeyAction,
   type LedgerInlineRowEditDraft,
@@ -597,10 +599,13 @@ export function LedgerRegisterPanel(props: LedgerRegisterPanelProps) {
                             {postingRows.map((posting) => {
                               const splitDraftRow = isEditingSplitRow?.[posting.postingIndex] ?? null;
                               const splitAccountQuery = splitDraftRow?.accountQuery ?? "";
-                              const splitHasUnresolvedAccountQuery =
-                                splitDraftRow !== null &&
-                                splitDraftRow.accountQuery.trim().length > 0 &&
-                                splitDraftRow.accountId.trim().length === 0;
+                              const splitAccountResolution = splitDraftRow
+                                ? getInlineSplitAccountResolution({
+                                    accountId: splitDraftRow.accountId,
+                                    accountQuery: splitDraftRow.accountQuery,
+                                  })
+                                : "empty";
+                              const splitHasUnresolvedAccountQuery = splitAccountResolution === "unresolved";
                               const accountMatches =
                                 splitDraftRow !== null
                                   ? getAccountSearchMatches({
@@ -795,12 +800,19 @@ export function LedgerRegisterPanel(props: LedgerRegisterPanelProps) {
                                                 </button>
                                               ))
                                             ) : (
-                                              <div className="account-search-empty">No matching accounts.</div>
+                                              <div className="account-search-empty">
+                                                {getInlineSplitAccountGuidance({
+                                                  accountQuery: splitAccountQuery,
+                                                  matchCount: accountMatches.length,
+                                                })}
+                                              </div>
                                             )}
                                           </div>
                                         ) : null}
                                         {splitHasUnresolvedAccountQuery ? (
-                                          <span className="status-chip warning">Unresolved account</span>
+                                          <span className="status-chip warning">
+                                            Unresolved account: pick an existing account
+                                          </span>
                                         ) : null}
                                       </label>
                                       <input

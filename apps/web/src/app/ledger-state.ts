@@ -72,6 +72,42 @@ export interface InlineLedgerSplitValidation {
   parsedAmounts: number[];
 }
 
+export type InlineSplitAccountResolution = "empty" | "resolved" | "unresolved";
+
+export function getInlineSplitAccountResolution(input: {
+  accountId: string;
+  accountQuery: string;
+}): InlineSplitAccountResolution {
+  if (input.accountQuery.trim().length === 0) {
+    return "empty";
+  }
+
+  if (input.accountId.trim().length > 0) {
+    return "resolved";
+  }
+
+  return "unresolved";
+}
+
+export function getInlineSplitAccountGuidance(input: {
+  accountQuery: string;
+  matchCount: number;
+}): string {
+  if (input.accountQuery.trim().length === 0) {
+    return "Search by account name, code, or id.";
+  }
+
+  if (input.matchCount === 0) {
+    return "No exact match. Pick an existing account from the chart.";
+  }
+
+  if (input.matchCount === 1) {
+    return "Press Enter to choose the highlighted account.";
+  }
+
+  return "Use Arrow Up/Down, then Enter, to choose an existing account.";
+}
+
 export function validateInlineLedgerSplitDrafts(input: {
   splits: InlineLedgerSplitDraft[];
 }): InlineLedgerSplitValidation {

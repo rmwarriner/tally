@@ -2,6 +2,8 @@ import { describe, expect, it } from "vitest";
 import type { LedgerTransactionDetail } from "./shell";
 import {
   createLedgerInlineRowEditDraft,
+  getInlineSplitAccountGuidance,
+  getInlineSplitAccountResolution,
   getSplitQuickEditKeyAction,
   getSplitReorderKeyAction,
   getLedgerHotkeySelectionUpdate,
@@ -354,5 +356,55 @@ describe("getSplitReorderKeyAction", () => {
         splitIndex: 2,
       }),
     ).toEqual({ type: "none" });
+  });
+});
+
+describe("inline split account guidance", () => {
+  it("classifies account resolution states", () => {
+    expect(
+      getInlineSplitAccountResolution({
+        accountId: "",
+        accountQuery: "",
+      }),
+    ).toBe("empty");
+    expect(
+      getInlineSplitAccountResolution({
+        accountId: "acct-checking",
+        accountQuery: "Checking",
+      }),
+    ).toBe("resolved");
+    expect(
+      getInlineSplitAccountResolution({
+        accountId: "",
+        accountQuery: "checki",
+      }),
+    ).toBe("unresolved");
+  });
+
+  it("returns guidance for empty, single-match, multi-match, and no-match states", () => {
+    expect(
+      getInlineSplitAccountGuidance({
+        accountQuery: "",
+        matchCount: 0,
+      }),
+    ).toBe("Search by account name, code, or id.");
+    expect(
+      getInlineSplitAccountGuidance({
+        accountQuery: "checking",
+        matchCount: 1,
+      }),
+    ).toBe("Press Enter to choose the highlighted account.");
+    expect(
+      getInlineSplitAccountGuidance({
+        accountQuery: "cash",
+        matchCount: 3,
+      }),
+    ).toBe("Use Arrow Up/Down, then Enter, to choose an existing account.");
+    expect(
+      getInlineSplitAccountGuidance({
+        accountQuery: "missing",
+        matchCount: 0,
+      }),
+    ).toBe("No exact match. Pick an existing account from the chart.");
   });
 });
