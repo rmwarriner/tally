@@ -49,6 +49,7 @@ export function LedgerRegisterPanel(props: LedgerRegisterPanelProps) {
   const [editingSplitTransactionId, setEditingSplitTransactionId] = useState<string | null>(null);
   const [editingSplitDraft, setEditingSplitDraft] = useState<InlineSplitDraft[] | null>(null);
   const splitMemoInputRefs = useRef<Array<HTMLInputElement | null>>([]);
+  const splitAmountInputRefs = useRef<Array<HTMLInputElement | null>>([]);
   const splitClearedInputRefs = useRef<Array<HTMLInputElement | null>>([]);
   const splitSaveButtonRef = useRef<HTMLButtonElement | null>(null);
   const [newTransactionDraft, setNewTransactionDraft] = useState<InlineNewTransactionDraft>({
@@ -309,6 +310,18 @@ export function LedgerRegisterPanel(props: LedgerRegisterPanelProps) {
                 const isExpandedRow = expandedTransactionId === transaction.id;
                 const isEditingSplitRow =
                   editingSplitTransactionId === transaction.id ? editingSplitDraft : null;
+                const splitAmounts = isEditingSplitRow
+                  ? isEditingSplitRow.map((split) => Number.parseFloat(split.amount))
+                  : [];
+                const splitAmountsAreValid = isEditingSplitRow
+                  ? splitAmounts.every((amount) => Number.isFinite(amount))
+                  : true;
+                const splitBalance = isEditingSplitRow
+                  ? splitAmounts.reduce((sum, amount) => sum + amount, 0)
+                  : 0;
+                const splitIsBalanced = Math.abs(splitBalance) <= 0.000001;
+                const splitSaveDisabled =
+                  props.busy !== null || !isEditingSplitRow || !splitAmountsAreValid || !splitIsBalanced;
 
                 return (
                   <>
@@ -524,6 +537,48 @@ export function LedgerRegisterPanel(props: LedgerRegisterPanelProps) {
                                             return;
                                           }
 
+                                          if (keyAction.type === "focus-amount") {
+                                            splitAmountInputRefs.current[keyAction.splitIndex]?.focus();
+                                          }
+                                        }}
+                                        onChange={(event) => {
+                                          setEditingSplitDraft((current) =>
+                                            current
+                                              ? current.map((candidate, candidateIndex) =>
+                                                  candidateIndex === postingIndex
+                                                    ? { ...candidate, memo: event.target.value }
+                                                    : candidate,
+                                                )
+                                              : current,
+                                          );
+                                        }}
+                                      />
+                                      <input
+                                        ref={(element) => {
+                                          splitAmountInputRefs.current[postingIndex] = element;
+                                        }}
+                                        value={isEditingSplitRow[postingIndex]?.amount ?? ""}
+                                        placeholder="Amount"
+                                        onKeyDown={(event) => {
+                                          const keyAction = getSplitQuickEditKeyAction({
+                                            field: "amount",
+                                            key: event.key,
+                                            splitCount: transaction.postings.length,
+                                            splitIndex: postingIndex,
+                                          });
+
+                                          if (keyAction.type === "none") {
+                                            return;
+                                          }
+
+                                          event.preventDefault();
+
+                                          if (keyAction.type === "cancel") {
+                                            setEditingSplitTransactionId(null);
+                                            setEditingSplitDraft(null);
+                                            return;
+                                          }
+
                                           if (keyAction.type === "focus-cleared") {
                                             splitClearedInputRefs.current[keyAction.splitIndex]?.focus();
                                           }
@@ -533,7 +588,7 @@ export function LedgerRegisterPanel(props: LedgerRegisterPanelProps) {
                                             current
                                               ? current.map((candidate, candidateIndex) =>
                                                   candidateIndex === postingIndex
-                                                    ? { ...candidate, memo: event.target.value }
+                                                    ? { ...candidate, amount: event.target.value }
                                                     : candidate,
                                                 )
                                               : current,
@@ -601,24 +656,40 @@ export function LedgerRegisterPanel(props: LedgerRegisterPanelProps) {
                                     </div>
                                   )}
                                 </div>
-                                <strong>{posting.amount}</strong>
+                                <strong>
+                                  {isEditingSplitRow
+                                    ? isEditingSplitRow[postingIndex]?.amount ?? posting.amount
+                                    : posting.amount}
+                                </strong>
                               </div>
                             ))}
                             <div className="posting-editor-row">
                               {isEditingSplitRow ? (
                                 <>
+                                  {!splitAmountsAreValid ? (
+                                    <div className="form-hint error-text">
+                                      Split amounts must be valid numbers.
+                                    </div>
+                                  ) : null}
+                                  {splitAmountsAreValid && !splitIsBalanced ? (
+                                    <div className="form-hint error-text">
+                                      Split amounts must balance to zero.
+                                    </div>
+                                  ) : null}
                                   <button
                                     ref={splitSaveButtonRef}
-                                    disabled={props.busy !== null}
+                                    disabled={splitSaveDisabled}
                                     type="button"
                                     onClick={(event) => {
                                       event.stopPropagation();
-                                      props.onSaveInlineSplitEdit({
-                                        splits: isEditingSplitRow,
-                                        transactionId: transaction.id,
-                                      });
-                                      setEditingSplitTransactionId(null);
-                                      setEditingSplitDraft(null);
+                                      if (!splitSaveDisabled) {
+                                        props.onSaveInlineSplitEdit({
+                                          splits: isEditingSplitRow,
+                                          transactionId: transaction.id,
+                                        });
+                                        setEditingSplitTransactionId(null);
+                                        setEditingSplitDraft(null);
+                                      }
                                     }}
                                   >
                                     {props.busy === "Transaction update" ? "Saving..." : "Save split changes"}
