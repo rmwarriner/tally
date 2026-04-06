@@ -62,6 +62,7 @@ interface LedgerRegisterTabState {
   id: string;
   ledgerRange: { from: string; to: string };
   ledgerSearchText: string;
+  ledgerStatusFilter: "all" | "cleared" | "open" | "reconciled";
   selectedLedgerAccountId: string | null;
   selectedLedgerTransactionId: string | null;
 }
@@ -137,6 +138,7 @@ export function App() {
       id: "tab-all",
       ledgerRange: APRIL_RANGE,
       ledgerSearchText: "",
+      ledgerStatusFilter: "all",
       selectedLedgerAccountId: null,
       selectedLedgerTransactionId: null,
     },
@@ -150,6 +152,7 @@ export function App() {
   );
   const ledgerRange = activeLedgerRegisterTab?.ledgerRange ?? APRIL_RANGE;
   const ledgerSearchText = activeLedgerRegisterTab?.ledgerSearchText ?? "";
+  const ledgerStatusFilter = activeLedgerRegisterTab?.ledgerStatusFilter ?? "all";
   const selectedLedgerAccountId = activeLedgerRegisterTab?.selectedLedgerAccountId ?? null;
   const selectedLedgerTransactionId = activeLedgerRegisterTab?.selectedLedgerTransactionId ?? null;
   const {
@@ -216,6 +219,7 @@ export function App() {
         rangeEnd: ledgerRange.to,
         rangeStart: ledgerRange.from,
         searchText: ledgerSearchText,
+        statusFilter: ledgerStatusFilter,
         selectedAccountId: selectedLedgerAccountId,
         selectedTransactionId: selectedLedgerTransactionId,
         workspace: loadedWorkspace,
@@ -478,6 +482,32 @@ export function App() {
     );
   }
 
+  function setLedgerStatusFilter(
+    nextValue:
+      | "all"
+      | "cleared"
+      | "open"
+      | "reconciled"
+      | ((
+          current: "all" | "cleared" | "open" | "reconciled",
+        ) => "all" | "cleared" | "open" | "reconciled"),
+  ) {
+    setLedgerRegisterTabs((currentTabs) =>
+      currentTabs.map((tab) => {
+        if (tab.id !== activeLedgerRegisterTabId) {
+          return tab;
+        }
+        return {
+          ...tab,
+          ledgerStatusFilter:
+            typeof nextValue === "function"
+              ? nextValue(tab.ledgerStatusFilter)
+              : nextValue,
+        };
+      }),
+    );
+  }
+
   function setSelectedLedgerAccountId(nextValue: string | null | ((current: string | null) => string | null)) {
     setLedgerRegisterTabs((currentTabs) =>
       currentTabs.map((tab) => {
@@ -524,6 +554,7 @@ export function App() {
         id: `tab-${accountId}-${currentTabs.length + 1}`,
         ledgerRange: APRIL_RANGE,
         ledgerSearchText: "",
+        ledgerStatusFilter: "all",
         selectedLedgerAccountId: accountId,
         selectedLedgerTransactionId: null,
       };
@@ -864,6 +895,7 @@ export function App() {
               ledgerRange={ledgerRange}
               ledgerSearchInputRef={ledgerSearchInputRef}
               ledgerSearchText={ledgerSearchText}
+              ledgerStatusFilter={ledgerStatusFilter}
               ledgerRegisterTabs={ledgerRegisterTabs.map((tab) => {
                 const account = workspaceAccounts.find((candidate) => candidate.id === tab.selectedLedgerAccountId);
                 return {
@@ -902,6 +934,7 @@ export function App() {
               selectedLedgerTransactionId={selectedLedgerTransactionId}
               setLedgerRange={setLedgerRange}
               setLedgerSearchText={setLedgerSearchText}
+              setLedgerStatusFilter={setLedgerStatusFilter}
               setSelectedLedgerAccountId={setSelectedLedgerAccountId}
               setSelectedLedgerTransactionId={setSelectedLedgerTransactionId}
             />

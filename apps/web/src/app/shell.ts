@@ -631,6 +631,7 @@ export function createLedgerWorkspaceModel(input: {
   rangeEnd?: string;
   rangeStart?: string;
   searchText: string;
+  statusFilter?: "all" | "cleared" | "open" | "reconciled";
   selectedAccountId: string | null;
   selectedTransactionId: string | null;
   workspace: FinanceWorkspaceDocument;
@@ -675,6 +676,10 @@ export function createLedgerWorkspaceModel(input: {
       }
 
       if (input.rangeEnd && transaction.occurredOn > input.rangeEnd) {
+        return false;
+      }
+
+      if (input.statusFilter && input.statusFilter !== "all" && transaction.status !== input.statusFilter) {
         return false;
       }
 

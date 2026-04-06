@@ -48,6 +48,7 @@ interface LedgerRegisterPanelProps {
   }>;
   ledgerSearchInputRef: RefObject<HTMLInputElement | null>;
   ledgerSearchText: string;
+  ledgerStatusFilter: "all" | "cleared" | "open" | "reconciled";
   ledgerWorkspace: ReturnType<typeof createLedgerWorkspaceModel>;
   liquidAccounts: WorkspaceResponse["workspace"]["accounts"];
   onActivateLedgerRegisterTab: (tabId: string) => void;
@@ -67,6 +68,7 @@ interface LedgerRegisterPanelProps {
   selectedLedgerTransactionId: string | null;
   setLedgerRange: Dispatch<SetStateAction<{ from: string; to: string }>>;
   setLedgerSearchText: Dispatch<SetStateAction<string>>;
+  setLedgerStatusFilter: Dispatch<SetStateAction<"all" | "cleared" | "open" | "reconciled">>;
   setSelectedLedgerAccountId: Dispatch<SetStateAction<string | null>>;
   setSelectedLedgerTransactionId: Dispatch<SetStateAction<string | null>>;
 }
@@ -322,6 +324,18 @@ export function LedgerRegisterPanel(props: LedgerRegisterPanelProps) {
                 <strong>{props.formatCurrency(props.ledgerWorkspace.selectedAccountBalance.balance)}</strong>
               </div>
             ) : null}
+          </div>
+          <div className="ledger-chip-row">
+            {(["all", "open", "cleared", "reconciled"] as const).map((status) => (
+              <button
+                key={status}
+                className={`ledger-chip${props.ledgerStatusFilter === status ? " active" : ""}`}
+                type="button"
+                onClick={() => props.setLedgerStatusFilter(status)}
+              >
+                {status === "all" ? "All statuses" : status}
+              </button>
+            ))}
           </div>
           <div className="ledger-chip-row">
             <button

@@ -604,4 +604,72 @@ describe("web shell view model", () => {
 
     expect(model.filteredTransactions.map((transaction) => transaction.id)).toEqual(["txn-grocery-1"]);
   });
+
+  it("filters ledger transactions by explicit status filter", () => {
+    const model = createLedgerWorkspaceModel({
+      accountBalances: [],
+      searchText: "",
+      selectedAccountId: "acct-checking",
+      selectedTransactionId: null,
+      statusFilter: "cleared",
+      workspace: {
+        accounts: [
+          { code: "1000", id: "acct-checking", name: "Checking", type: "asset" },
+          { code: "6100", id: "acct-expense-groceries", name: "Groceries", type: "expense" },
+        ],
+        auditEvents: [],
+        baseCommodityCode: "USD",
+        baselineBudgetLines: [],
+        commodities: [],
+        envelopeAllocations: [],
+        envelopes: [],
+        householdMembers: ["Primary"],
+        id: "workspace-household-demo",
+        importBatches: [],
+        name: "Household",
+        reconciliationSessions: [],
+        schemaVersion: 1,
+        scheduledTransactions: [],
+        transactions: [
+          {
+            description: "Weekly groceries",
+            id: "txn-grocery-1",
+            occurredOn: "2026-04-02",
+            payee: "Neighborhood Market",
+            postings: [
+              {
+                accountId: "acct-expense-groceries",
+                amount: { commodityCode: "USD", quantity: 148.42 },
+              },
+              {
+                accountId: "acct-checking",
+                amount: { commodityCode: "USD", quantity: -148.42 },
+                cleared: true,
+              },
+            ],
+            tags: ["household"],
+          },
+          {
+            description: "Later groceries",
+            id: "txn-grocery-2",
+            occurredOn: "2026-04-20",
+            payee: "Neighborhood Market",
+            postings: [
+              {
+                accountId: "acct-expense-groceries",
+                amount: { commodityCode: "USD", quantity: 22.15 },
+              },
+              {
+                accountId: "acct-checking",
+                amount: { commodityCode: "USD", quantity: -22.15 },
+              },
+            ],
+            tags: ["household"],
+          },
+        ],
+      },
+    });
+
+    expect(model.filteredTransactions.map((transaction) => transaction.id)).toEqual(["txn-grocery-1"]);
+  });
 });
