@@ -32,6 +32,7 @@ import {
 } from "./shell";
 import { useLedgerFiltersAndSelection, useLedgerKeyboardAndSelectionSync } from "./ledger-state";
 import { LedgerRegisterPanel } from "./LedgerRegisterPanel";
+import { LedgerSidebar } from "./LedgerSidebar";
 import "../app/styles.css";
 
 const aprilRange = { from: "2026-04-01", to: "2026-04-30" };
@@ -2161,39 +2162,13 @@ export function App() {
         );
       case "ledger":
         return (
-          <>
-            <div className="tree-section">
-              <h3>Ledger accounts</h3>
-              {ledgerWorkspace.availableAccounts.map((account) => (
-                <button
-                  key={account.id}
-                  className={`tree-button${selectedLedgerAccountId === account.id ? " active" : ""}`}
-                  type="button"
-                  onClick={() =>
-                    setSelectedLedgerAccountId((current) => (current === account.id ? null : account.id))
-                  }
-                >
-                  <span>{account.name}</span>
-                  <span className="muted">{account.type}</span>
-                </button>
-              ))}
-            </div>
-
-            <div className="tree-section">
-              <h3>Filtered register</h3>
-              {ledgerWorkspace.filteredTransactions.slice(0, 8).map((transaction) => (
-                <button
-                  key={transaction.id}
-                  className={`tree-button${selectedLedgerTransactionId === transaction.id ? " active" : ""}`}
-                  type="button"
-                  onClick={() => setSelectedLedgerTransactionId(transaction.id)}
-                >
-                  <span>{transaction.description}</span>
-                  <span className="muted">{transaction.occurredOn}</span>
-                </button>
-              ))}
-            </div>
-          </>
+          <LedgerSidebar
+            ledgerWorkspace={ledgerWorkspace}
+            selectedLedgerAccountId={selectedLedgerAccountId}
+            selectedLedgerTransactionId={selectedLedgerTransactionId}
+            setSelectedLedgerAccountId={setSelectedLedgerAccountId}
+            setSelectedLedgerTransactionId={setSelectedLedgerTransactionId}
+          />
         );
       case "budget":
         return (
