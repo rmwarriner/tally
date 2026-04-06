@@ -1,25 +1,31 @@
 import type { Dispatch, SetStateAction } from "react";
 import { LedgerSidebar } from "./LedgerSidebar";
+import type { DashboardResponse, WorkspaceResponse } from "./api";
 import { formatCurrency } from "./app-format";
-import type { WorkspaceView } from "./shell";
+import type {
+  LedgerWorkspaceModel,
+  OverviewCard,
+  WorkspaceView,
+  WorkspaceViewDefinition,
+} from "./shell";
 
 interface ShellSidePanelsProps {
   activeView: WorkspaceView;
-  baselineSnapshot: any[];
+  baselineSnapshot: DashboardResponse["dashboard"]["budgetSnapshot"];
   budgetConfigurationErrors: string[];
-  dueTransactions: any[];
-  getWorkspaceViewDefinition: (view: WorkspaceView) => any;
+  dueTransactions: DashboardResponse["dashboard"]["dueTransactions"];
+  getWorkspaceViewDefinition: (view: WorkspaceView) => WorkspaceViewDefinition;
   ledgerValidationErrors: string[];
-  ledgerWorkspace: any;
-  overviewCards: any[];
+  ledgerWorkspace: LedgerWorkspaceModel;
+  overviewCards: OverviewCard[];
   selectedLedgerAccountId: string | null;
   selectedLedgerTransactionId: string | null;
   setActiveView: (view: WorkspaceView) => void;
   setSelectedLedgerAccountId: Dispatch<SetStateAction<string | null>>;
   setSelectedLedgerTransactionId: Dispatch<SetStateAction<string | null>>;
-  workspaceAccounts: any[];
-  workspaceEnvelopes: any[];
-  workspaceSchedules: any[];
+  workspaceAccounts: WorkspaceResponse["workspace"]["accounts"];
+  workspaceEnvelopes: WorkspaceResponse["workspace"]["envelopes"];
+  workspaceSchedules: WorkspaceResponse["workspace"]["scheduledTransactions"];
 }
 
 export function ShellSidebarContent(props: ShellSidePanelsProps) {

@@ -1,10 +1,58 @@
-import { useState } from "react";
-import type { WorkspaceView } from "./shell";
+import { useState, type Dispatch, type SetStateAction } from "react";
+import type { CsvImportRow } from "@gnucash-ng/workspace";
+import type {
+  DashboardResponse,
+  WorkspaceResponse,
+  postBaselineBudgetLine,
+  postCsvImport,
+  postEnvelope,
+  postEnvelopeAllocation,
+  postScheduledTransaction,
+} from "./api";
 import { WORKSPACE_ID } from "./app-constants";
+import type {
+  BudgetLineFormState,
+  CsvFormState,
+  EnvelopeAllocationFormState,
+  EnvelopeFormState,
+  ScheduleFormState,
+} from "./non-ledger-state";
+import type { OverviewCard, WorkspaceView, WorkspaceViewDefinition } from "./shell";
 
 interface NonLedgerMainPanelsProps {
   activeView: WorkspaceView;
-  [key: string]: any;
+  baselineSnapshot: DashboardResponse["dashboard"]["budgetSnapshot"];
+  budgetLineForm: BudgetLineFormState;
+  busy: string | null;
+  createEntityId: (prefix: string) => string;
+  csvForm: CsvFormState;
+  dueTransactions: DashboardResponse["dashboard"]["dueTransactions"];
+  envelopeAllocationForm: EnvelopeAllocationFormState;
+  envelopeForm: EnvelopeFormState;
+  envelopeSnapshot: DashboardResponse["dashboard"]["envelopeSnapshot"];
+  expenseAccounts: WorkspaceResponse["workspace"]["accounts"];
+  formatCurrency: (amount: number) => string;
+  fundingAccounts: WorkspaceResponse["workspace"]["accounts"];
+  getWorkspaceViewDefinition: (view: WorkspaceView) => WorkspaceViewDefinition;
+  nextScheduledTransactions: WorkspaceResponse["workspace"]["scheduledTransactions"];
+  overviewCards: OverviewCard[];
+  parseCsvRows: (input: string) => CsvImportRow[];
+  postBaselineBudgetLine: typeof postBaselineBudgetLine;
+  postCsvImport: typeof postCsvImport;
+  postEnvelope: typeof postEnvelope;
+  postEnvelopeAllocation: typeof postEnvelopeAllocation;
+  postScheduledTransaction: typeof postScheduledTransaction;
+  recentTransactions: WorkspaceResponse["workspace"]["transactions"];
+  runMutation: (label: string, operation: () => Promise<void>) => Promise<void>;
+  scheduleForm: ScheduleFormState;
+  setActiveView: (view: WorkspaceView) => void;
+  setBudgetLineForm: Dispatch<SetStateAction<BudgetLineFormState>>;
+  setCsvForm: Dispatch<SetStateAction<CsvFormState>>;
+  setEnvelopeAllocationForm: Dispatch<SetStateAction<EnvelopeAllocationFormState>>;
+  setEnvelopeForm: Dispatch<SetStateAction<EnvelopeFormState>>;
+  setScheduleForm: Dispatch<SetStateAction<ScheduleFormState>>;
+  topBudgetVarianceRows: DashboardResponse["dashboard"]["budgetSnapshot"];
+  workspaceEnvelopes: WorkspaceResponse["workspace"]["envelopes"];
 }
 
 export function NonLedgerMainPanels(props: NonLedgerMainPanelsProps) {
@@ -86,7 +134,7 @@ export function NonLedgerMainPanels(props: NonLedgerMainPanelsProps) {
               <span className="muted">Desktop command center</span>
             </div>
             <div className="overview-card-grid">
-              {overviewCards.map((card: any) => {
+              {overviewCards.map((card) => {
                 const targetView = getWorkspaceViewDefinition(card.id);
 
                 return (
@@ -120,7 +168,7 @@ export function NonLedgerMainPanels(props: NonLedgerMainPanelsProps) {
                 </tr>
               </thead>
               <tbody>
-                {recentTransactions.map((transaction: any) => (
+                {recentTransactions.map((transaction) => (
                   <tr key={transaction.id}>
                     <td>{transaction.occurredOn}</td>
                     <td>{transaction.description}</td>
@@ -137,7 +185,7 @@ export function NonLedgerMainPanels(props: NonLedgerMainPanelsProps) {
               <span>Budget drift</span>
               <span className="muted">Largest variances</span>
             </div>
-            {topBudgetVarianceRows.map((row: any) => (
+            {topBudgetVarianceRows.map((row) => (
               <div key={row.accountId} className="metric-row metric-grid">
                 <span>{row.accountName}</span>
                 <span className="muted">Plan {formatCurrency(row.planned.quantity)}</span>
@@ -153,7 +201,7 @@ export function NonLedgerMainPanels(props: NonLedgerMainPanelsProps) {
               <span className="muted">Next automations</span>
             </div>
             {dueTransactions.length > 0 ? (
-              dueTransactions.map((transaction: any) => (
+              dueTransactions.map((transaction) => (
                 <div key={transaction.id} className="metric-row">
                   <span>{transaction.description}</span>
                   <strong>{transaction.occurredOn}</strong>
@@ -189,7 +237,7 @@ export function NonLedgerMainPanels(props: NonLedgerMainPanelsProps) {
                 </tr>
               </thead>
               <tbody>
-                {baselineSnapshot.map((row: any) => {
+                {baselineSnapshot.map((row) => {
                   const draft = inlineBudgetDrafts[row.accountId] ?? {
                     budgetPeriod: "monthly",
                     period: budgetLineForm.period,
@@ -305,10 +353,10 @@ export function NonLedgerMainPanels(props: NonLedgerMainPanelsProps) {
                 <select
                   value={budgetLineForm.accountId}
                   onChange={(event) =>
-                    setBudgetLineForm((current: any) => ({ ...current, accountId: event.target.value }))
+                    setBudgetLineForm((current) => ({ ...current, accountId: event.target.value }))
                   }
                 >
-                  {expenseAccounts.map((account: any) => (
+                  {expenseAccounts.map((account) => (
                     <option key={account.id} value={account.id}>
                       {account.name}
                     </option>
@@ -320,7 +368,7 @@ export function NonLedgerMainPanels(props: NonLedgerMainPanelsProps) {
                 <input
                   value={budgetLineForm.period}
                   onChange={(event) =>
-                    setBudgetLineForm((current: any) => ({ ...current, period: event.target.value }))
+                    setBudgetLineForm((current) => ({ ...current, period: event.target.value }))
                   }
                 />
               </label>
@@ -329,7 +377,10 @@ export function NonLedgerMainPanels(props: NonLedgerMainPanelsProps) {
                 <select
                   value={budgetLineForm.budgetPeriod}
                   onChange={(event) =>
-                    setBudgetLineForm((current: any) => ({ ...current, budgetPeriod: event.target.value }))
+                    setBudgetLineForm((current) => ({
+                      ...current,
+                      budgetPeriod: event.target.value as "annually" | "monthly" | "quarterly",
+                    }))
                   }
                 >
                   <option value="monthly">Monthly</option>
@@ -342,7 +393,7 @@ export function NonLedgerMainPanels(props: NonLedgerMainPanelsProps) {
                 <input
                   value={budgetLineForm.plannedAmount}
                   onChange={(event) =>
-                    setBudgetLineForm((current: any) => ({ ...current, plannedAmount: event.target.value }))
+                    setBudgetLineForm((current) => ({ ...current, plannedAmount: event.target.value }))
                   }
                 />
               </label>
@@ -361,7 +412,7 @@ export function NonLedgerMainPanels(props: NonLedgerMainPanelsProps) {
               <span>Envelope Budget</span>
               <span className="muted">Operational cash allocation</span>
             </div>
-            {envelopeSnapshot.map((envelope: any) => (
+            {envelopeSnapshot.map((envelope) => (
               <div key={envelope.envelopeId} className="metric-row metric-grid">
                 <span>{envelope.name}</span>
                 <span className="muted">Funded {formatCurrency(envelope.funded.quantity)}</span>
@@ -387,7 +438,7 @@ export function NonLedgerMainPanels(props: NonLedgerMainPanelsProps) {
                 </tr>
               </thead>
               <tbody>
-                {workspaceEnvelopes.map((envelope: any) => {
+                {workspaceEnvelopes.map((envelope) => {
                   const draft = inlineEnvelopeDrafts[envelope.id] ?? {
                     availableAmount: String(envelope.availableAmount?.quantity ?? 0),
                     name: envelope.name,
@@ -527,7 +578,7 @@ export function NonLedgerMainPanels(props: NonLedgerMainPanelsProps) {
                 <input
                   value={envelopeForm.id}
                   onChange={(event) =>
-                    setEnvelopeForm((current: any) => ({ ...current, id: event.target.value }))
+                    setEnvelopeForm((current) => ({ ...current, id: event.target.value }))
                   }
                 />
               </label>
@@ -536,7 +587,7 @@ export function NonLedgerMainPanels(props: NonLedgerMainPanelsProps) {
                 <input
                   value={envelopeForm.name}
                   onChange={(event) =>
-                    setEnvelopeForm((current: any) => ({ ...current, name: event.target.value }))
+                    setEnvelopeForm((current) => ({ ...current, name: event.target.value }))
                   }
                 />
               </label>
@@ -545,13 +596,13 @@ export function NonLedgerMainPanels(props: NonLedgerMainPanelsProps) {
                 <select
                   value={envelopeForm.expenseAccountId}
                   onChange={(event) =>
-                    setEnvelopeForm((current: any) => ({
+                    setEnvelopeForm((current) => ({
                       ...current,
                       expenseAccountId: event.target.value,
                     }))
                   }
                 >
-                  {expenseAccounts.map((account: any) => (
+                  {expenseAccounts.map((account) => (
                     <option key={account.id} value={account.id}>
                       {account.name}
                     </option>
@@ -563,13 +614,13 @@ export function NonLedgerMainPanels(props: NonLedgerMainPanelsProps) {
                 <select
                   value={envelopeForm.fundingAccountId}
                   onChange={(event) =>
-                    setEnvelopeForm((current: any) => ({
+                    setEnvelopeForm((current) => ({
                       ...current,
                       fundingAccountId: event.target.value,
                     }))
                   }
                 >
-                  {fundingAccounts.map((account: any) => (
+                  {fundingAccounts.map((account) => (
                     <option key={account.id} value={account.id}>
                       {account.name}
                     </option>
@@ -582,7 +633,7 @@ export function NonLedgerMainPanels(props: NonLedgerMainPanelsProps) {
                   <input
                     value={envelopeForm.targetAmount}
                     onChange={(event) =>
-                      setEnvelopeForm((current: any) => ({
+                      setEnvelopeForm((current) => ({
                         ...current,
                         targetAmount: event.target.value,
                       }))
@@ -594,7 +645,7 @@ export function NonLedgerMainPanels(props: NonLedgerMainPanelsProps) {
                   <input
                     value={envelopeForm.availableAmount}
                     onChange={(event) =>
-                      setEnvelopeForm((current: any) => ({
+                      setEnvelopeForm((current) => ({
                         ...current,
                         availableAmount: event.target.value,
                       }))
@@ -607,7 +658,7 @@ export function NonLedgerMainPanels(props: NonLedgerMainPanelsProps) {
                   checked={envelopeForm.rolloverEnabled}
                   type="checkbox"
                   onChange={(event) =>
-                    setEnvelopeForm((current: any) => ({
+                    setEnvelopeForm((current) => ({
                       ...current,
                       rolloverEnabled: event.target.checked,
                     }))
@@ -652,13 +703,13 @@ export function NonLedgerMainPanels(props: NonLedgerMainPanelsProps) {
                 <select
                   value={envelopeAllocationForm.envelopeId}
                   onChange={(event) =>
-                    setEnvelopeAllocationForm((current: any) => ({
+                    setEnvelopeAllocationForm((current) => ({
                       ...current,
                       envelopeId: event.target.value,
                     }))
                   }
                 >
-                  {workspaceEnvelopes.map((envelope: any) => (
+                  {workspaceEnvelopes.map((envelope) => (
                     <option key={envelope.id} value={envelope.id}>
                       {envelope.name}
                     </option>
@@ -671,7 +722,7 @@ export function NonLedgerMainPanels(props: NonLedgerMainPanelsProps) {
                   <input
                     value={envelopeAllocationForm.occurredOn}
                     onChange={(event) =>
-                      setEnvelopeAllocationForm((current: any) => ({
+                      setEnvelopeAllocationForm((current) => ({
                         ...current,
                         occurredOn: event.target.value,
                       }))
@@ -683,12 +734,12 @@ export function NonLedgerMainPanels(props: NonLedgerMainPanelsProps) {
                   <select
                     value={envelopeAllocationForm.type}
                     onChange={(event) =>
-                      setEnvelopeAllocationForm((current: any) => ({
-                        ...current,
-                        type: event.target.value,
-                      }))
-                    }
-                  >
+                    setEnvelopeAllocationForm((current) => ({
+                      ...current,
+                      type: event.target.value as "cover-overspend" | "fund" | "release",
+                    }))
+                  }
+                >
                     <option value="fund">Fund</option>
                     <option value="release">Release</option>
                     <option value="cover-overspend">Cover overspend</option>
@@ -700,7 +751,7 @@ export function NonLedgerMainPanels(props: NonLedgerMainPanelsProps) {
                 <input
                   value={envelopeAllocationForm.amount}
                   onChange={(event) =>
-                    setEnvelopeAllocationForm((current: any) => ({
+                    setEnvelopeAllocationForm((current) => ({
                       ...current,
                       amount: event.target.value,
                     }))
@@ -712,7 +763,7 @@ export function NonLedgerMainPanels(props: NonLedgerMainPanelsProps) {
                 <input
                   value={envelopeAllocationForm.note}
                   onChange={(event) =>
-                    setEnvelopeAllocationForm((current: any) => ({ ...current, note: event.target.value }))
+                    setEnvelopeAllocationForm((current) => ({ ...current, note: event.target.value }))
                   }
                 />
               </label>
@@ -753,7 +804,7 @@ export function NonLedgerMainPanels(props: NonLedgerMainPanelsProps) {
                 <input
                   value={csvForm.sourceLabel}
                   onChange={(event) =>
-                    setCsvForm((current: any) => ({ ...current, sourceLabel: event.target.value }))
+                    setCsvForm((current) => ({ ...current, sourceLabel: event.target.value }))
                   }
                 />
               </label>
@@ -763,7 +814,7 @@ export function NonLedgerMainPanels(props: NonLedgerMainPanelsProps) {
                   rows={6}
                   value={csvForm.csvText}
                   onChange={(event) =>
-                    setCsvForm((current: any) => ({ ...current, csvText: event.target.value }))
+                    setCsvForm((current) => ({ ...current, csvText: event.target.value }))
                   }
                 />
               </label>
@@ -814,7 +865,7 @@ export function NonLedgerMainPanels(props: NonLedgerMainPanelsProps) {
                 </tr>
               </thead>
               <tbody>
-                {nextScheduledTransactions.map((schedule: any) => {
+                {nextScheduledTransactions.map((schedule) => {
                   const scheduleAmount = Number(
                     schedule.templateTransaction?.postings?.[0]?.amount?.quantity ?? 0,
                   );
@@ -962,7 +1013,7 @@ export function NonLedgerMainPanels(props: NonLedgerMainPanelsProps) {
               <span className="muted">Materialization queue</span>
             </div>
             {dueTransactions.length > 0 ? (
-              dueTransactions.map((transaction: any) => (
+              dueTransactions.map((transaction) => (
                 <div key={transaction.id} className="metric-row">
                   <span>{transaction.description}</span>
                   <strong>{transaction.occurredOn}</strong>
@@ -1025,7 +1076,7 @@ export function NonLedgerMainPanels(props: NonLedgerMainPanelsProps) {
                 <input
                   value={scheduleForm.id}
                   onChange={(event) =>
-                    setScheduleForm((current: any) => ({ ...current, id: event.target.value }))
+                    setScheduleForm((current) => ({ ...current, id: event.target.value }))
                   }
                 />
               </label>
@@ -1034,7 +1085,7 @@ export function NonLedgerMainPanels(props: NonLedgerMainPanelsProps) {
                 <input
                   value={scheduleForm.name}
                   onChange={(event) =>
-                    setScheduleForm((current: any) => ({ ...current, name: event.target.value }))
+                    setScheduleForm((current) => ({ ...current, name: event.target.value }))
                   }
                 />
               </label>
@@ -1044,7 +1095,17 @@ export function NonLedgerMainPanels(props: NonLedgerMainPanelsProps) {
                   <select
                     value={scheduleForm.frequency}
                     onChange={(event) =>
-                      setScheduleForm((current: any) => ({ ...current, frequency: event.target.value }))
+                      setScheduleForm((current) => ({
+                        ...current,
+                        frequency:
+                          event.target.value as
+                            | "annually"
+                            | "biweekly"
+                            | "daily"
+                            | "monthly"
+                            | "quarterly"
+                            | "weekly",
+                      }))
                     }
                   >
                     <option value="monthly">Monthly</option>
@@ -1060,7 +1121,7 @@ export function NonLedgerMainPanels(props: NonLedgerMainPanelsProps) {
                   <input
                     value={scheduleForm.nextDueOn}
                     onChange={(event) =>
-                      setScheduleForm((current: any) => ({ ...current, nextDueOn: event.target.value }))
+                      setScheduleForm((current) => ({ ...current, nextDueOn: event.target.value }))
                     }
                   />
                 </label>
@@ -1070,7 +1131,7 @@ export function NonLedgerMainPanels(props: NonLedgerMainPanelsProps) {
                 <input
                   value={scheduleForm.description}
                   onChange={(event) =>
-                    setScheduleForm((current: any) => ({ ...current, description: event.target.value }))
+                    setScheduleForm((current) => ({ ...current, description: event.target.value }))
                   }
                 />
               </label>
@@ -1079,7 +1140,7 @@ export function NonLedgerMainPanels(props: NonLedgerMainPanelsProps) {
                 <input
                   value={scheduleForm.payee}
                   onChange={(event) =>
-                    setScheduleForm((current: any) => ({ ...current, payee: event.target.value }))
+                    setScheduleForm((current) => ({ ...current, payee: event.target.value }))
                   }
                 />
               </label>
@@ -1089,13 +1150,13 @@ export function NonLedgerMainPanels(props: NonLedgerMainPanelsProps) {
                   <select
                     value={scheduleForm.expenseAccountId}
                     onChange={(event) =>
-                      setScheduleForm((current: any) => ({
+                      setScheduleForm((current) => ({
                         ...current,
                         expenseAccountId: event.target.value,
                       }))
                     }
                   >
-                    {expenseAccounts.map((account: any) => (
+                    {expenseAccounts.map((account) => (
                       <option key={account.id} value={account.id}>
                         {account.name}
                       </option>
@@ -1107,13 +1168,13 @@ export function NonLedgerMainPanels(props: NonLedgerMainPanelsProps) {
                   <select
                     value={scheduleForm.fundingAccountId}
                     onChange={(event) =>
-                      setScheduleForm((current: any) => ({
+                      setScheduleForm((current) => ({
                         ...current,
                         fundingAccountId: event.target.value,
                       }))
                     }
                   >
-                    {fundingAccounts.map((account: any) => (
+                    {fundingAccounts.map((account) => (
                       <option key={account.id} value={account.id}>
                         {account.name}
                       </option>
@@ -1126,7 +1187,7 @@ export function NonLedgerMainPanels(props: NonLedgerMainPanelsProps) {
                 <input
                   value={scheduleForm.amount}
                   onChange={(event) =>
-                    setScheduleForm((current: any) => ({ ...current, amount: event.target.value }))
+                    setScheduleForm((current) => ({ ...current, amount: event.target.value }))
                   }
                 />
               </label>
@@ -1135,7 +1196,7 @@ export function NonLedgerMainPanels(props: NonLedgerMainPanelsProps) {
                   checked={scheduleForm.autoPost}
                   type="checkbox"
                   onChange={(event) =>
-                    setScheduleForm((current: any) => ({ ...current, autoPost: event.target.checked }))
+                    setScheduleForm((current) => ({ ...current, autoPost: event.target.checked }))
                   }
                 />
                 <span>Auto-post when due</span>
