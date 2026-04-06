@@ -15,6 +15,35 @@ interface UseLedgerFiltersAndSelectionInput {
   initialRange: LedgerRange;
 }
 
+export interface LedgerInlineRowEditDraft {
+  description: string;
+  occurredOn: string;
+  payee: string;
+}
+
+export function createLedgerInlineRowEditDraft(input: {
+  description: string;
+  occurredOn: string;
+  payee: string | null;
+}): LedgerInlineRowEditDraft {
+  return {
+    description: input.description,
+    occurredOn: input.occurredOn,
+    payee: input.payee ?? "",
+  };
+}
+
+export function updateLedgerInlineRowEditDraft(input: {
+  draft: LedgerInlineRowEditDraft;
+  field: keyof LedgerInlineRowEditDraft;
+  value: string;
+}): LedgerInlineRowEditDraft {
+  return {
+    ...input.draft,
+    [input.field]: input.value,
+  };
+}
+
 export function useLedgerFiltersAndSelection(input: UseLedgerFiltersAndSelectionInput) {
   const [ledgerSearchText, setLedgerSearchText] = useState("");
   const [ledgerRange, setLedgerRange] = useState(input.initialRange);
@@ -30,6 +59,54 @@ export function useLedgerFiltersAndSelection(input: UseLedgerFiltersAndSelection
     setLedgerSearchText,
     setSelectedLedgerAccountId,
     setSelectedLedgerTransactionId,
+  };
+}
+
+export function useLedgerInlineRowEditState() {
+  const [editingTransactionId, setEditingTransactionId] = useState<string | null>(null);
+  const [editingDraft, setEditingDraft] = useState<LedgerInlineRowEditDraft | null>(null);
+
+  function startInlineEdit(input: {
+    description: string;
+    occurredOn: string;
+    payee: string | null;
+    transactionId: string;
+  }) {
+    setEditingTransactionId(input.transactionId);
+    setEditingDraft(createLedgerInlineRowEditDraft(input));
+  }
+
+  function cancelInlineEdit() {
+    setEditingTransactionId(null);
+    setEditingDraft(null);
+  }
+
+  function finishInlineEdit() {
+    setEditingTransactionId(null);
+    setEditingDraft(null);
+  }
+
+  function setInlineDraftField(field: keyof LedgerInlineRowEditDraft, value: string) {
+    setEditingDraft((current) => {
+      if (!current) {
+        return current;
+      }
+
+      return updateLedgerInlineRowEditDraft({
+        draft: current,
+        field,
+        value,
+      });
+    });
+  }
+
+  return {
+    cancelInlineEdit,
+    editingDraft,
+    editingTransactionId,
+    finishInlineEdit,
+    setInlineDraftField,
+    startInlineEdit,
   };
 }
 

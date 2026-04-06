@@ -20,7 +20,11 @@ import {
   type WorkspaceView,
   workspaceViews
 } from "./shell";
-import { useLedgerFiltersAndSelection, useLedgerKeyboardAndSelectionSync } from "./ledger-state";
+import {
+  useLedgerFiltersAndSelection,
+  useLedgerInlineRowEditState,
+  useLedgerKeyboardAndSelectionSync,
+} from "./ledger-state";
 import { LedgerOperationsPanels } from "./LedgerOperationsPanels";
 import { LedgerRegisterPanel } from "./LedgerRegisterPanel";
 import { LedgerTransactionEditorPanel } from "./LedgerTransactionEditorPanel";
@@ -133,6 +137,14 @@ export function App() {
     setSelectedLedgerAccountId,
     setSelectedLedgerTransactionId,
   } = useLedgerFiltersAndSelection({ initialRange: APRIL_RANGE });
+  const {
+    cancelInlineEdit,
+    editingDraft: inlineEditDraft,
+    editingTransactionId: inlineEditingTransactionId,
+    finishInlineEdit,
+    setInlineDraftField,
+    startInlineEdit,
+  } = useLedgerInlineRowEditState();
   const { busy, dashboard, error, loading, runMutation, statusMessage, workspace } =
     useWorkspaceRuntime({
       range: APRIL_RANGE,
@@ -252,6 +264,20 @@ export function App() {
       return createTransactionEditorState(selectedTransactionRecord, workspaceAccounts);
     });
   }, [selectedTransactionRecord, workspaceAccounts]);
+
+  useEffect(() => {
+    if (!inlineEditingTransactionId) {
+      return;
+    }
+
+    const editedRowStillVisible = ledgerWorkspace.filteredTransactions.some(
+      (transaction) => transaction.id === inlineEditingTransactionId,
+    );
+
+    if (!editedRowStillVisible) {
+      cancelInlineEdit();
+    }
+  }, [cancelInlineEdit, inlineEditingTransactionId, ledgerWorkspace.filteredTransactions]);
 
   useEffect(() => {
     if (!pendingPostingFocusTarget) {
@@ -446,6 +472,42 @@ export function App() {
     });
   }
 
+  async function saveInlineLedgerRow(transactionId: string) {
+    if (!inlineEditDraft) {
+      return;
+    }
+
+    const sourceTransaction = workspaceTransactions.find((transaction) => transaction.id === transactionId);
+
+    if (!sourceTransaction) {
+      return;
+    }
+
+    await runMutation("Transaction update", async () => {
+      await putTransaction(WORKSPACE_ID, sourceTransaction.id, {
+        actor: "Primary",
+        transaction: {
+          description: inlineEditDraft.description.trim(),
+          id: sourceTransaction.id,
+          occurredOn: inlineEditDraft.occurredOn.trim(),
+          payee: inlineEditDraft.payee.trim() || undefined,
+          postings: sourceTransaction.postings.map((posting) => ({
+            accountId: posting.accountId.trim(),
+            amount: {
+              commodityCode: posting.amount.commodityCode,
+              quantity: posting.amount.quantity,
+            },
+            cleared: posting.cleared || undefined,
+            memo: posting.memo?.trim() || undefined,
+          })),
+          tags: sourceTransaction.tags ?? [],
+        },
+      });
+    });
+
+    finishInlineEdit();
+  }
+
   function renderTransactionEditorPanel() {
     return (
       <LedgerTransactionEditorPanel
@@ -481,11 +543,26 @@ export function App() {
             <LedgerRegisterPanel
               formatCurrency={formatCurrency}
               formatTransactionStatus={formatTransactionStatus}
+              inlineEditDraft={inlineEditDraft}
+              inlineEditingTransactionId={inlineEditingTransactionId}
               ledgerRange={ledgerRange}
               ledgerSearchInputRef={ledgerSearchInputRef}
               ledgerSearchText={ledgerSearchText}
               ledgerWorkspace={ledgerWorkspace}
               liquidAccounts={liquidAccounts}
+              onCancelInlineEdit={cancelInlineEdit}
+              onSaveInlineEdit={(transactionId) => {
+                void saveInlineLedgerRow(transactionId);
+              }}
+              onStartInlineEdit={(transaction) =>
+                startInlineEdit({
+                  description: transaction.description,
+                  occurredOn: transaction.occurredOn,
+                  payee: transaction.payee,
+                  transactionId: transaction.id,
+                })
+              }
+              onUpdateInlineEditField={setInlineDraftField}
               selectedLedgerAccountId={selectedLedgerAccountId}
               selectedLedgerTransactionId={selectedLedgerTransactionId}
               setLedgerRange={setLedgerRange}

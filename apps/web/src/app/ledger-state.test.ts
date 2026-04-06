@@ -1,6 +1,11 @@
 import { describe, expect, it } from "vitest";
 import type { LedgerTransactionDetail } from "./shell";
-import { getLedgerHotkeySelectionUpdate, getSyncedLedgerSelectionId } from "./ledger-state";
+import {
+  createLedgerInlineRowEditDraft,
+  getLedgerHotkeySelectionUpdate,
+  getSyncedLedgerSelectionId,
+  updateLedgerInlineRowEditDraft,
+} from "./ledger-state";
 
 function createTransaction(id: string): LedgerTransactionDetail {
   return {
@@ -102,5 +107,39 @@ describe("getSyncedLedgerSelectionId", () => {
         selectedLedgerTransactionId: "txn-2",
       }),
     ).toBe("txn-3");
+  });
+});
+
+describe("ledger inline row edit draft", () => {
+  it("creates a draft and normalizes null payee to empty string", () => {
+    expect(
+      createLedgerInlineRowEditDraft({
+        description: "Groceries",
+        occurredOn: "2026-04-01",
+        payee: null,
+      }),
+    ).toEqual({
+      description: "Groceries",
+      occurredOn: "2026-04-01",
+      payee: "",
+    });
+  });
+
+  it("updates a single field without mutating other draft fields", () => {
+    expect(
+      updateLedgerInlineRowEditDraft({
+        draft: {
+          description: "Groceries",
+          occurredOn: "2026-04-01",
+          payee: "",
+        },
+        field: "description",
+        value: "Market groceries",
+      }),
+    ).toEqual({
+      description: "Market groceries",
+      occurredOn: "2026-04-01",
+      payee: "",
+    });
   });
 });

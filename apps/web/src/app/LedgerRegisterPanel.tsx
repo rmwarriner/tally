@@ -1,5 +1,6 @@
 import type { Dispatch, RefObject, SetStateAction } from "react";
 import type { WorkspaceResponse } from "./api";
+import type { LedgerInlineRowEditDraft } from "./ledger-state";
 import { type createLedgerWorkspaceModel } from "./shell";
 
 interface LedgerRegisterPanelProps {
@@ -10,6 +11,12 @@ interface LedgerRegisterPanelProps {
   ledgerSearchText: string;
   ledgerWorkspace: ReturnType<typeof createLedgerWorkspaceModel>;
   liquidAccounts: WorkspaceResponse["workspace"]["accounts"];
+  onCancelInlineEdit: () => void;
+  onSaveInlineEdit: (transactionId: string) => void;
+  onStartInlineEdit: (transaction: ReturnType<typeof createLedgerWorkspaceModel>["filteredTransactions"][number]) => void;
+  onUpdateInlineEditField: (field: keyof LedgerInlineRowEditDraft, value: string) => void;
+  inlineEditDraft: LedgerInlineRowEditDraft | null;
+  inlineEditingTransactionId: string | null;
   selectedLedgerAccountId: string | null;
   selectedLedgerTransactionId: string | null;
   setLedgerRange: Dispatch<SetStateAction<{ from: string; to: string }>>;
@@ -95,35 +102,144 @@ export function LedgerRegisterPanel(props: LedgerRegisterPanelProps) {
               <th>Payee</th>
               <th>Accounts</th>
               <th>Tags</th>
+              <th>Actions</th>
             </tr>
           </thead>
           <tbody>
             {props.ledgerWorkspace.filteredTransactions.length > 0 ? (
-              props.ledgerWorkspace.filteredTransactions.map((transaction) => (
-                <tr
-                  key={transaction.id}
-                  className={
-                    props.selectedLedgerTransactionId === transaction.id
-                      ? "register-row selected"
-                      : "register-row"
-                  }
-                  onClick={() => props.setSelectedLedgerTransactionId(transaction.id)}
-                >
-                  <td>{transaction.occurredOn}</td>
-                  <td>
-                    <span className={`status-chip ${transaction.status}`}>
-                      {props.formatTransactionStatus(transaction.status)}
-                    </span>
-                  </td>
-                  <td>{transaction.description}</td>
-                  <td>{transaction.payee ?? "Unassigned"}</td>
-                  <td>{transaction.postings.map((posting) => posting.accountName).join(", ")}</td>
-                  <td>{transaction.tags.join(", ")}</td>
-                </tr>
-              ))
+              props.ledgerWorkspace.filteredTransactions.map((transaction) => {
+                const isEditingRow = props.inlineEditingTransactionId === transaction.id;
+                const rowDraft = isEditingRow && props.inlineEditDraft ? props.inlineEditDraft : null;
+
+                return (
+                  <tr
+                    key={transaction.id}
+                    className={
+                      props.selectedLedgerTransactionId === transaction.id
+                        ? "register-row selected"
+                        : "register-row"
+                    }
+                    onClick={() => props.setSelectedLedgerTransactionId(transaction.id)}
+                  >
+                    <td>
+                      {rowDraft ? (
+                        <input
+                          value={rowDraft.occurredOn}
+                          onClick={(event) => event.stopPropagation()}
+                          onChange={(event) =>
+                            props.onUpdateInlineEditField("occurredOn", event.target.value)
+                          }
+                          onKeyDown={(event) => {
+                            if (event.key === "Enter") {
+                              event.preventDefault();
+                              props.onSaveInlineEdit(transaction.id);
+                            }
+
+                            if (event.key === "Escape") {
+                              event.preventDefault();
+                              props.onCancelInlineEdit();
+                            }
+                          }}
+                        />
+                      ) : (
+                        transaction.occurredOn
+                      )}
+                    </td>
+                    <td>
+                      <span className={`status-chip ${transaction.status}`}>
+                        {props.formatTransactionStatus(transaction.status)}
+                      </span>
+                    </td>
+                    <td>
+                      {rowDraft ? (
+                        <input
+                          value={rowDraft.description}
+                          onClick={(event) => event.stopPropagation()}
+                          onChange={(event) =>
+                            props.onUpdateInlineEditField("description", event.target.value)
+                          }
+                          onKeyDown={(event) => {
+                            if (event.key === "Enter") {
+                              event.preventDefault();
+                              props.onSaveInlineEdit(transaction.id);
+                            }
+
+                            if (event.key === "Escape") {
+                              event.preventDefault();
+                              props.onCancelInlineEdit();
+                            }
+                          }}
+                        />
+                      ) : (
+                        transaction.description
+                      )}
+                    </td>
+                    <td>
+                      {rowDraft ? (
+                        <input
+                          value={rowDraft.payee}
+                          placeholder="Unassigned"
+                          onClick={(event) => event.stopPropagation()}
+                          onChange={(event) => props.onUpdateInlineEditField("payee", event.target.value)}
+                          onKeyDown={(event) => {
+                            if (event.key === "Enter") {
+                              event.preventDefault();
+                              props.onSaveInlineEdit(transaction.id);
+                            }
+
+                            if (event.key === "Escape") {
+                              event.preventDefault();
+                              props.onCancelInlineEdit();
+                            }
+                          }}
+                        />
+                      ) : (
+                        transaction.payee ?? "Unassigned"
+                      )}
+                    </td>
+                    <td>{transaction.postings.map((posting) => posting.accountName).join(", ")}</td>
+                    <td>{transaction.tags.join(", ")}</td>
+                    <td>
+                      {rowDraft ? (
+                        <div className="posting-editor-row">
+                          <button
+                            type="button"
+                            onClick={(event) => {
+                              event.stopPropagation();
+                              props.onSaveInlineEdit(transaction.id);
+                            }}
+                          >
+                            Save
+                          </button>
+                          <button
+                            type="button"
+                            onClick={(event) => {
+                              event.stopPropagation();
+                              props.onCancelInlineEdit();
+                            }}
+                          >
+                            Cancel
+                          </button>
+                        </div>
+                      ) : (
+                        <button
+                          type="button"
+                          onClick={(event) => {
+                            event.stopPropagation();
+                            props.setSelectedLedgerTransactionId(transaction.id);
+                            props.onStartInlineEdit(transaction);
+                          }}
+                        >
+                          Edit
+                        </button>
+                      )}
+                    </td>
+                  </tr>
+                );
+              })
             ) : (
               <tr>
-                <td colSpan={6}>
+                <td colSpan={7}>
                   <div className="table-empty-state">
                     No transactions match the current account filter, date range, and search text.
                   </div>
