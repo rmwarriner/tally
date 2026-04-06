@@ -543,6 +543,44 @@ export function App() {
     });
   }
 
+  async function saveInlineLedgerSplits(input: {
+    splits: Array<{
+      cleared: boolean;
+      memo: string;
+    }>;
+    transactionId: string;
+  }) {
+    const sourceTransaction = workspaceTransactions.find(
+      (transaction) => transaction.id === input.transactionId,
+    );
+
+    if (!sourceTransaction) {
+      return;
+    }
+
+    await runMutation("Transaction update", async () => {
+      await putTransaction(WORKSPACE_ID, sourceTransaction.id, {
+        actor: "Primary",
+        transaction: {
+          description: sourceTransaction.description,
+          id: sourceTransaction.id,
+          occurredOn: sourceTransaction.occurredOn,
+          payee: sourceTransaction.payee ?? undefined,
+          postings: sourceTransaction.postings.map((posting, postingIndex) => ({
+            accountId: posting.accountId.trim(),
+            amount: {
+              commodityCode: posting.amount.commodityCode,
+              quantity: posting.amount.quantity,
+            },
+            cleared: input.splits[postingIndex]?.cleared || undefined,
+            memo: input.splits[postingIndex]?.memo.trim() || undefined,
+          })),
+          tags: sourceTransaction.tags ?? [],
+        },
+      });
+    });
+  }
+
   function renderTransactionEditorPanel() {
     return (
       <LedgerTransactionEditorPanel
@@ -594,6 +632,9 @@ export function App() {
               onOpenAdvancedEditor={() => setIsLedgerDetailOpen(true)}
               onSaveInlineEdit={(transactionId) => {
                 void saveInlineLedgerRow(transactionId);
+              }}
+              onSaveInlineSplitEdit={(input) => {
+                void saveInlineLedgerSplits(input);
               }}
               onStartInlineEdit={(transaction) =>
                 startInlineEdit({

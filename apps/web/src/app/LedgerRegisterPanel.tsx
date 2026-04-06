@@ -11,6 +11,11 @@ interface InlineNewTransactionDraft {
   payee: string;
 }
 
+interface InlineSplitDraft {
+  cleared: boolean;
+  memo: string;
+}
+
 interface LedgerRegisterPanelProps {
   busy: string | null;
   expenseAccounts: WorkspaceResponse["workspace"]["accounts"];
@@ -25,6 +30,7 @@ interface LedgerRegisterPanelProps {
   onCreateInlineTransaction: (draft: InlineNewTransactionDraft) => void;
   onOpenAdvancedEditor: (transactionId: string) => void;
   onSaveInlineEdit: (transactionId: string) => void;
+  onSaveInlineSplitEdit: (input: { splits: InlineSplitDraft[]; transactionId: string }) => void;
   onStartInlineEdit: (transaction: ReturnType<typeof createLedgerWorkspaceModel>["filteredTransactions"][number]) => void;
   onUpdateInlineEditField: (field: keyof LedgerInlineRowEditDraft, value: string) => void;
   inlineEditDraft: LedgerInlineRowEditDraft | null;
@@ -39,6 +45,8 @@ interface LedgerRegisterPanelProps {
 
 export function LedgerRegisterPanel(props: LedgerRegisterPanelProps) {
   const [expandedTransactionId, setExpandedTransactionId] = useState<string | null>(null);
+  const [editingSplitTransactionId, setEditingSplitTransactionId] = useState<string | null>(null);
+  const [editingSplitDraft, setEditingSplitDraft] = useState<InlineSplitDraft[] | null>(null);
   const [newTransactionDraft, setNewTransactionDraft] = useState<InlineNewTransactionDraft>({
     amount: "0.00",
     date: "2026-04-03",
@@ -92,6 +100,21 @@ export function LedgerRegisterPanel(props: LedgerRegisterPanelProps) {
       setExpandedTransactionId(null);
     }
   }, [expandedTransactionId, props.ledgerWorkspace.filteredTransactions]);
+
+  useEffect(() => {
+    if (!editingSplitTransactionId) {
+      return;
+    }
+
+    const editedSplitRowStillVisible = props.ledgerWorkspace.filteredTransactions.some(
+      (transaction) => transaction.id === editingSplitTransactionId,
+    );
+
+    if (!editedSplitRowStillVisible) {
+      setEditingSplitTransactionId(null);
+      setEditingSplitDraft(null);
+    }
+  }, [editingSplitTransactionId, props.ledgerWorkspace.filteredTransactions]);
 
   return (
     <>
@@ -280,6 +303,8 @@ export function LedgerRegisterPanel(props: LedgerRegisterPanelProps) {
                 const isEditingRow = props.inlineEditingTransactionId === transaction.id;
                 const rowDraft = isEditingRow && props.inlineEditDraft ? props.inlineEditDraft : null;
                 const isExpandedRow = expandedTransactionId === transaction.id;
+                const isEditingSplitRow =
+                  editingSplitTransactionId === transaction.id ? editingSplitDraft : null;
 
                 return (
                   <>
@@ -428,6 +453,12 @@ export function LedgerRegisterPanel(props: LedgerRegisterPanelProps) {
                                 setExpandedTransactionId((current) =>
                                   current === transaction.id ? null : transaction.id,
                                 );
+                                setEditingSplitTransactionId((current) =>
+                                  current === transaction.id ? null : current,
+                                );
+                                if (editingSplitTransactionId === transaction.id) {
+                                  setEditingSplitDraft(null);
+                                }
                               }}
                             >
                               {isExpandedRow ? "Hide splits" : "Show splits"}
@@ -454,22 +485,108 @@ export function LedgerRegisterPanel(props: LedgerRegisterPanelProps) {
                               <span>Split preview</span>
                               <span className="muted">{transaction.id}</span>
                             </div>
-                            {transaction.postings.map((posting) => (
+                            {transaction.postings.map((posting, postingIndex) => (
                               <div
                                 key={`${transaction.id}:${posting.accountId}:${posting.amount}`}
                                 className="posting-summary-row"
                               >
                                 <div>
                                   <strong>{posting.accountName}</strong>
-                                  <div className="candidate-meta">
-                                    {posting.memo ?? "No memo"}
-                                    {posting.cleared ? " · cleared" : " · open"}
-                                  </div>
+                                  {isEditingSplitRow ? (
+                                    <div className="form-inline">
+                                      <input
+                                        value={isEditingSplitRow[postingIndex]?.memo ?? ""}
+                                        placeholder="Memo"
+                                        onChange={(event) => {
+                                          setEditingSplitDraft((current) =>
+                                            current
+                                              ? current.map((candidate, candidateIndex) =>
+                                                  candidateIndex === postingIndex
+                                                    ? { ...candidate, memo: event.target.value }
+                                                    : candidate,
+                                                )
+                                              : current,
+                                          );
+                                        }}
+                                      />
+                                      <label className="checkbox-row">
+                                        <input
+                                          checked={isEditingSplitRow[postingIndex]?.cleared ?? false}
+                                          type="checkbox"
+                                          onChange={(event) => {
+                                            setEditingSplitDraft((current) =>
+                                              current
+                                                ? current.map((candidate, candidateIndex) =>
+                                                    candidateIndex === postingIndex
+                                                      ? {
+                                                          ...candidate,
+                                                          cleared: event.target.checked,
+                                                        }
+                                                      : candidate,
+                                                  )
+                                                : current,
+                                            );
+                                          }}
+                                        />
+                                        <span>Cleared</span>
+                                      </label>
+                                    </div>
+                                  ) : (
+                                    <div className="candidate-meta">
+                                      {posting.memo ?? "No memo"}
+                                      {posting.cleared ? " · cleared" : " · open"}
+                                    </div>
+                                  )}
                                 </div>
                                 <strong>{posting.amount}</strong>
                               </div>
                             ))}
                             <div className="posting-editor-row">
+                              {isEditingSplitRow ? (
+                                <>
+                                  <button
+                                    disabled={props.busy !== null}
+                                    type="button"
+                                    onClick={(event) => {
+                                      event.stopPropagation();
+                                      props.onSaveInlineSplitEdit({
+                                        splits: isEditingSplitRow,
+                                        transactionId: transaction.id,
+                                      });
+                                      setEditingSplitTransactionId(null);
+                                      setEditingSplitDraft(null);
+                                    }}
+                                  >
+                                    {props.busy === "Transaction update" ? "Saving..." : "Save split changes"}
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={(event) => {
+                                      event.stopPropagation();
+                                      setEditingSplitTransactionId(null);
+                                      setEditingSplitDraft(null);
+                                    }}
+                                  >
+                                    Cancel split changes
+                                  </button>
+                                </>
+                              ) : (
+                                <button
+                                  type="button"
+                                  onClick={(event) => {
+                                    event.stopPropagation();
+                                    setEditingSplitTransactionId(transaction.id);
+                                    setEditingSplitDraft(
+                                      transaction.postings.map((posting) => ({
+                                        cleared: posting.cleared,
+                                        memo: posting.memo ?? "",
+                                      })),
+                                    );
+                                  }}
+                                >
+                                  Quick edit splits
+                                </button>
+                              )}
                               <button
                                 type="button"
                                 onClick={(event) => {
