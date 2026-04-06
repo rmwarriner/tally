@@ -25,6 +25,10 @@ export function createDemoWorkspace(): FinanceWorkspaceDocument {
     name: "Household Finance",
     baseCommodityCode: "USD",
     householdMembers: ["Primary", "Partner"],
+    householdMemberRoles: {
+      Partner: "member",
+      Primary: "guardian",
+    },
     commodities: defaultCommodities,
     accounts: starterChartOfAccounts,
     transactions: demoTransactions,

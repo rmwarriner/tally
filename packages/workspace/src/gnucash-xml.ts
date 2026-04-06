@@ -67,6 +67,22 @@ function renderStringList(tagName: string, values: string[]): string {
   ].join("");
 }
 
+function renderHouseholdMemberRoles(
+  roles: NonNullable<FinanceWorkspaceDocument["householdMemberRoles"]> | undefined,
+): string {
+  if (!roles || Object.keys(roles).length === 0) {
+    return "<ws:householdMemberRoles />";
+  }
+
+  return [
+    "<ws:householdMemberRoles>",
+    ...Object.entries(roles)
+      .sort(([left], [right]) => left.localeCompare(right))
+      .map(([actor, role]) => `<ws:memberRole actor="${escapeXml(actor)}" role="${escapeXml(role ?? "member")}" />`),
+    "</ws:householdMemberRoles>",
+  ].join("");
+}
+
 export function buildGnuCashXmlExport(params: {
   workspace: FinanceWorkspaceDocument;
 }): {
@@ -79,6 +95,7 @@ export function buildGnuCashXmlExport(params: {
     '<gnc-v2 xmlns:ws="https://gnucash-ng.dev/ns/workspace">',
     `<ws:workspace schemaVersion="${workspace.schemaVersion}" id="${escapeXml(workspace.id)}" name="${escapeXml(workspace.name)}" baseCommodityCode="${escapeXml(workspace.baseCommodityCode)}">`,
     renderStringList("ws:householdMembers", workspace.householdMembers),
+    renderHouseholdMemberRoles(workspace.householdMemberRoles),
     "<ws:commodities>",
     ...workspace.commodities.map(
       (commodity) =>
@@ -287,6 +304,23 @@ export function parseGnuCashXml(contents: string): {
 
   const householdMembers = extractBlocks(body, "ws:householdMembers").flatMap((block) =>
     extractBlocks(block, "item").map((item) => unescapeXml(item.trim())),
+  );
+  const householdMemberRoles = Object.fromEntries(
+    extractBlocks(body, "ws:householdMemberRoles")
+      .flatMap((section) => [...section.matchAll(/<ws:memberRole\b([^>]*)\/>/g)].map((match) => match[1] ?? ""))
+      .flatMap((attributes) => {
+        const actor = extractAttribute(attributes, "actor");
+        const role = extractAttribute(attributes, "role");
+
+        if (
+          !actor ||
+          (role !== "admin" && role !== "guardian" && role !== "member")
+        ) {
+          return [];
+        }
+
+        return [[actor, role] as const];
+      }),
   );
   const commodities = extractBlocks(body, "ws:commodities")
     .flatMap((section) => [...section.matchAll(/<ws:commodity\b([^>]*)\/>/g)].map((match) => match[1] ?? ""))
@@ -530,6 +564,7 @@ export function parseGnuCashXml(contents: string): {
       envelopeAllocations,
       envelopes,
       householdMembers,
+      ...(Object.keys(householdMemberRoles).length > 0 ? { householdMemberRoles } : {}),
       id,
       importBatches,
       name,

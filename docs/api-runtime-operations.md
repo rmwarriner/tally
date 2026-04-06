@@ -109,6 +109,13 @@ Administrative persistence migration and export commands are documented in `docs
 - startup must fail fast for unsupported persistence backend selections
 - runtime shutdown should close the HTTP server gracefully on `SIGINT` and `SIGTERM`
 - startup logs should confirm the selected runtime mode, persistence backend, data directory, rate limits, and auth source without logging secret material
+- workspace authorization is role-scoped per workspace membership:
+  - `member`: read and standard write mutations
+  - `guardian`: member access plus operate-level mutations (imports, backups, close-period operations)
+  - `admin`: guardian access plus destructive transaction destroy
+  - `local-admin`: runtime bootstrap/admin bypass for local operator contexts
+- workspace role bindings are stored in `householdMemberRoles` on each workspace document and enforced by the API service layer
+- mutation audit events include authorization context (`actorRole` and `authorization`) in event summaries
 
 ## Current Deployment Assumptions
 

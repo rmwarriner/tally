@@ -227,6 +227,12 @@ describe("workspace service", () => {
     expectWorkspaceBody(response.body);
     expect(response.body.workspace.transactions.some((item) => item.id === "txn-cell-1")).toBe(true);
     expect(response.body.workspace.auditEvents.at(-1)?.eventType).toBe("transaction.created");
+    expect(response.body.workspace.auditEvents.at(-1)?.summary.actorRole).toBe("guardian");
+    expect(response.body.workspace.auditEvents.at(-1)?.summary.authorization).toMatchObject({
+      access: "write",
+      effectiveRole: "guardian",
+      grantedBy: "workspace-role",
+    });
     expect(records.some((record) => record.message === "service command completed")).toBe(true);
 
     const refreshed = await service.getWorkspace({
@@ -636,6 +642,25 @@ describe("workspace service", () => {
     expect(restoreResponse.status).toBe(200);
     expectWorkspaceBody(restoreResponse.body);
     expect(restoreResponse.body.workspace.name).toBe("Household Finance");
+
+    await fixture.cleanup();
+  });
+
+  it("forbids operate-level mutations for workspace members without guardian or admin role", async () => {
+    const fixture = await createFixture();
+    const service = createWorkspaceService({
+      logger: createTestLogger([]),
+      repository: createFileSystemWorkspaceRepository({ rootDirectory: fixture.directory }),
+    });
+
+    const response = await service.postBackup({
+      auth: { actor: "Partner", kind: "token", role: "member", token: "token-2" },
+      workspaceId: fixture.workspace.id,
+    });
+
+    expect(response.status).toBe(403);
+    expectAnyErrorBody(response.body);
+    expect(response.body.error.code).toBe("auth.forbidden");
 
     await fixture.cleanup();
   });

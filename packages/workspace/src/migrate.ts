@@ -4,6 +4,32 @@ function asStringArray(value: unknown): string[] {
   return Array.isArray(value) ? value.filter((item): item is string => typeof item === "string") : [];
 }
 
+function asHouseholdMemberRoles(
+  value: unknown,
+): FinanceWorkspaceDocument["householdMemberRoles"] {
+  if (!value || typeof value !== "object" || Array.isArray(value)) {
+    return undefined;
+  }
+
+  const entries = Object.entries(value).flatMap(([actor, role]) => {
+    if (
+      typeof actor !== "string" ||
+      actor.length === 0 ||
+      (role !== "admin" && role !== "guardian" && role !== "member")
+    ) {
+      return [];
+    }
+
+    return [[actor, role] as const];
+  });
+
+  if (entries.length === 0) {
+    return undefined;
+  }
+
+  return Object.fromEntries(entries);
+}
+
 export function migrateWorkspaceDocument(input: unknown): FinanceWorkspaceDocument {
   if (!input || typeof input !== "object" || Array.isArray(input)) {
     throw new Error("Workspace document must be an object.");
@@ -23,12 +49,15 @@ export function migrateWorkspaceDocument(input: unknown): FinanceWorkspaceDocume
     throw new Error("Workspace document baseCommodityCode is required.");
   }
 
+  const householdMemberRoles = asHouseholdMemberRoles(document.householdMemberRoles);
+
   return {
     schemaVersion: 1,
     id: document.id,
     name: document.name,
     baseCommodityCode: document.baseCommodityCode,
     householdMembers: asStringArray(document.householdMembers),
+    ...(householdMemberRoles ? { householdMemberRoles } : {}),
     commodities: Array.isArray(document.commodities) ? document.commodities : [],
     accounts: Array.isArray(document.accounts) ? document.accounts : [],
     transactions: Array.isArray(document.transactions) ? document.transactions : [],

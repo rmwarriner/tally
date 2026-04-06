@@ -64,7 +64,7 @@ import type {
   ReportEnvelope,
   WorkspaceEnvelope,
 } from "./types";
-import { authorizeWorkspaceAccess } from "./auth";
+import { authorizeWorkspaceAccess, type AuthorizationResult } from "./auth";
 import { ApiError, toApiError, toErrorEnvelope } from "./errors";
 import type { WorkspaceRepository } from "./repository";
 
@@ -147,6 +147,35 @@ function success<TBody>(status: number, body: TBody): ServiceResponse<TBody> {
 
 function failure(error: ApiError): ServiceResponse<ErrorEnvelope> {
   return { body: toErrorEnvelope(error), status: error.status };
+}
+
+function buildAuthorizationAuditContext(
+  actor: string,
+  authorization: AuthorizationResult,
+): {
+  actor: string;
+  actorRole?: "admin" | "guardian" | "local-admin" | "member";
+  authorization?: {
+    access: string;
+    effectiveRole: string;
+    grantedBy: "local-admin" | "workspace-role";
+  };
+} {
+  const decision = authorization.decision;
+
+  if (!decision) {
+    return { actor };
+  }
+
+  return {
+    actor,
+    actorRole: decision.effectiveRole,
+    authorization: {
+      access: decision.access,
+      effectiveRole: decision.effectiveRole,
+      grantedBy: decision.grantedBy,
+    },
+  };
 }
 
 export function createWorkspaceService(params: {
@@ -337,7 +366,7 @@ export function createWorkspaceService(params: {
 
       try {
         const workspace = await loadWorkspace(request.workspaceId, requestLogger);
-        const authorization = authorizeWorkspaceAccess(workspace, request.auth, "write");
+        const authorization = authorizeWorkspaceAccess(workspace, request.auth, "operate");
 
         if (!authorization.ok) {
           requestLogger.warn("service command authorization failed", { errors: [authorization.error] });
@@ -357,9 +386,7 @@ export function createWorkspaceService(params: {
             closedBy: request.auth.actor,
           },
           {
-            audit: {
-              actor: request.auth.actor,
-            },
+            audit: buildAuthorizationAuditContext(request.auth.actor, authorization),
             logger: requestLogger,
           },
         );
@@ -398,7 +425,7 @@ export function createWorkspaceService(params: {
 
       try {
         const workspace = await loadWorkspace(request.workspaceId, requestLogger);
-        const authorization = authorizeWorkspaceAccess(workspace, request.auth, "write");
+        const authorization = authorizeWorkspaceAccess(workspace, request.auth, "operate");
 
         if (!authorization.ok) {
           requestLogger.warn("service command authorization failed", { errors: [authorization.error] });
@@ -434,7 +461,7 @@ export function createWorkspaceService(params: {
 
       try {
         const workspace = await loadWorkspace(request.workspaceId, requestLogger);
-        const authorization = authorizeWorkspaceAccess(workspace, request.auth, "write");
+        const authorization = authorizeWorkspaceAccess(workspace, request.auth, "operate");
 
         if (!authorization.ok) {
           requestLogger.warn("service command authorization failed", { errors: [authorization.error] });
@@ -681,9 +708,7 @@ export function createWorkspaceService(params: {
           );
         }
         const result = addTransaction(workspace, request.transaction, {
-          audit: {
-            actor: request.auth.actor,
-          },
+          audit: buildAuthorizationAuditContext(request.auth.actor, authorization),
           logger: requestLogger,
         });
 
@@ -722,7 +747,7 @@ export function createWorkspaceService(params: {
 
       try {
         const workspace = await loadWorkspace(request.workspaceId, requestLogger);
-        const authorization = authorizeWorkspaceAccess(workspace, request.auth, "write");
+        const authorization = authorizeWorkspaceAccess(workspace, request.auth, "operate");
 
         if (!authorization.ok) {
           requestLogger.warn("service command authorization failed", { errors: [authorization.error] });
@@ -736,9 +761,7 @@ export function createWorkspaceService(params: {
         }
 
         const result = importTransactionsFromQif(workspace, request.payload, {
-          audit: {
-            actor: request.auth.actor,
-          },
+          audit: buildAuthorizationAuditContext(request.auth.actor, authorization),
           logger: requestLogger,
         });
 
@@ -778,7 +801,7 @@ export function createWorkspaceService(params: {
 
       try {
         const workspace = await loadWorkspace(request.workspaceId, requestLogger);
-        const authorization = authorizeWorkspaceAccess(workspace, request.auth, "write");
+        const authorization = authorizeWorkspaceAccess(workspace, request.auth, "operate");
 
         if (!authorization.ok) {
           requestLogger.warn("service command authorization failed", { errors: [authorization.error] });
@@ -792,9 +815,7 @@ export function createWorkspaceService(params: {
         }
 
         const result = importTransactionsFromStatement(workspace, request.payload, {
-          audit: {
-            actor: request.auth.actor,
-          },
+          audit: buildAuthorizationAuditContext(request.auth.actor, authorization),
           logger: requestLogger,
         });
 
@@ -832,7 +853,7 @@ export function createWorkspaceService(params: {
 
       try {
         const workspace = await loadWorkspace(request.workspaceId, requestLogger);
-        const authorization = authorizeWorkspaceAccess(workspace, request.auth, "write");
+        const authorization = authorizeWorkspaceAccess(workspace, request.auth, "operate");
 
         if (!authorization.ok) {
           requestLogger.warn("service command authorization failed", { errors: [authorization.error] });
@@ -846,9 +867,7 @@ export function createWorkspaceService(params: {
         }
 
         const result = importWorkspaceFromGnuCashXml(workspace, request.payload, {
-          audit: {
-            actor: request.auth.actor,
-          },
+          audit: buildAuthorizationAuditContext(request.auth.actor, authorization),
           logger: requestLogger,
         });
 
@@ -901,9 +920,7 @@ export function createWorkspaceService(params: {
         }
 
         const result = updateTransaction(workspace, request.transactionId, request.transaction, {
-          audit: {
-            actor: request.auth.actor,
-          },
+          audit: buildAuthorizationAuditContext(request.auth.actor, authorization),
           logger: requestLogger,
         });
 
@@ -956,9 +973,7 @@ export function createWorkspaceService(params: {
         }
 
         const result = deleteTransaction(workspace, request.transactionId, {}, {
-          audit: {
-            actor: request.auth.actor,
-          },
+          audit: buildAuthorizationAuditContext(request.auth.actor, authorization),
           logger: requestLogger,
         });
 
@@ -1011,9 +1026,7 @@ export function createWorkspaceService(params: {
         }
 
         const result = destroyTransaction(workspace, request.transactionId, {
-          audit: {
-            actor: request.auth.actor,
-          },
+          audit: buildAuthorizationAuditContext(request.auth.actor, authorization),
           logger: requestLogger,
         });
 
@@ -1074,9 +1087,7 @@ export function createWorkspaceService(params: {
             transactionId: request.payload.transactionId,
           },
           {
-            audit: {
-              actor: request.auth.actor,
-            },
+            audit: buildAuthorizationAuditContext(request.auth.actor, authorization),
             logger: requestLogger,
           },
         );
@@ -1140,9 +1151,7 @@ export function createWorkspaceService(params: {
             scheduleId: request.scheduleId,
           },
           {
-            audit: {
-              actor: request.auth.actor,
-            },
+            audit: buildAuthorizationAuditContext(request.auth.actor, authorization),
             logger: requestLogger,
           },
         );
@@ -1195,9 +1204,7 @@ export function createWorkspaceService(params: {
           );
         }
         const result = reconcileAccount(workspace, request.payload, {
-          audit: {
-            actor: request.auth.actor,
-          },
+          audit: buildAuthorizationAuditContext(request.auth.actor, authorization),
           logger: requestLogger,
         });
 
@@ -1236,7 +1243,7 @@ export function createWorkspaceService(params: {
 
       try {
         const workspace = await loadWorkspace(request.workspaceId, requestLogger);
-        const authorization = authorizeWorkspaceAccess(workspace, request.auth, "write");
+        const authorization = authorizeWorkspaceAccess(workspace, request.auth, "operate");
 
         if (!authorization.ok) {
           requestLogger.warn("service command authorization failed", { errors: [authorization.error] });
@@ -1257,9 +1264,7 @@ export function createWorkspaceService(params: {
             sourceLabel: request.payload.sourceLabel,
           },
           {
-            audit: {
-              actor: request.auth.actor,
-            },
+            audit: buildAuthorizationAuditContext(request.auth.actor, authorization),
             logger: requestLogger,
           },
         );
@@ -1314,7 +1319,7 @@ export function createWorkspaceService(params: {
         }
 
         const result = upsertBaselineBudgetLine(workspace, request.line, {
-          audit: { actor: request.auth.actor },
+          audit: buildAuthorizationAuditContext(request.auth.actor, authorization),
           logger: requestLogger,
         });
 
@@ -1367,7 +1372,7 @@ export function createWorkspaceService(params: {
         }
 
         const result = upsertEnvelope(workspace, request.envelope, {
-          audit: { actor: request.auth.actor },
+          audit: buildAuthorizationAuditContext(request.auth.actor, authorization),
           logger: requestLogger,
         });
 
@@ -1421,7 +1426,7 @@ export function createWorkspaceService(params: {
         }
 
         const result = recordEnvelopeAllocation(workspace, request.allocation, {
-          audit: { actor: request.auth.actor },
+          audit: buildAuthorizationAuditContext(request.auth.actor, authorization),
           logger: requestLogger,
         });
 
@@ -1474,7 +1479,7 @@ export function createWorkspaceService(params: {
         }
 
         const result = upsertScheduledTransaction(workspace, request.schedule, {
-          audit: { actor: request.auth.actor },
+          audit: buildAuthorizationAuditContext(request.auth.actor, authorization),
           logger: requestLogger,
         });
 

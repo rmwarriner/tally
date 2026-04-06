@@ -103,7 +103,15 @@ describe("api auth", () => {
   });
 
   it("denies destroy access to non-privileged members and allows admins", () => {
-    const workspace = createDemoWorkspace();
+    const workspace = {
+      ...createDemoWorkspace(),
+      householdMemberRoles: {
+        Admin: "admin" as const,
+        Partner: "member" as const,
+        Primary: "guardian" as const,
+      },
+      householdMembers: ["Primary", "Partner", "Admin"],
+    };
     const memberAuthorization = authorizeWorkspaceAccess(
       workspace,
       { actor: "Primary", kind: "token", role: "member", token: "token-1" },
@@ -116,7 +124,32 @@ describe("api auth", () => {
     );
 
     expect(memberAuthorization.ok).toBe(false);
-    expect(memberAuthorization.error).toContain("Privileged authority");
+    expect(memberAuthorization.error).toContain("Admin authority");
     expect(adminAuthorization.ok).toBe(true);
+  });
+
+  it("requires guardian or admin authority for operate access", () => {
+    const workspace = {
+      ...createDemoWorkspace(),
+      householdMemberRoles: {
+        Partner: "member" as const,
+        Primary: "guardian" as const,
+      },
+    };
+
+    const memberAuthorization = authorizeWorkspaceAccess(
+      workspace,
+      { actor: "Partner", kind: "token", role: "member", token: "token-2" },
+      "operate",
+    );
+    const guardianAuthorization = authorizeWorkspaceAccess(
+      workspace,
+      { actor: "Primary", kind: "token", role: "member", token: "token-1" },
+      "operate",
+    );
+
+    expect(memberAuthorization.ok).toBe(false);
+    expect(memberAuthorization.error).toContain("Guardian or admin authority");
+    expect(guardianAuthorization.ok).toBe(true);
   });
 });

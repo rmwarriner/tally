@@ -14,6 +14,7 @@ describe("gnucash xml adapter", () => {
     expect(parsed.document?.id).toBe(workspace.id);
     expect(parsed.document?.transactions).toHaveLength(workspace.transactions.length);
     expect(parsed.document?.scheduledTransactions).toHaveLength(workspace.scheduledTransactions.length);
+    expect(parsed.document?.householdMemberRoles).toEqual(workspace.householdMemberRoles);
   });
 
   it("round-trips optional attributes and nested lists", () => {

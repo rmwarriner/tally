@@ -2,6 +2,12 @@ import type { FinanceWorkspaceDocument, AuditEvent, AuditEventType } from "./typ
 
 export interface AuditContext {
   actor?: string;
+  actorRole?: "admin" | "guardian" | "local-admin" | "member";
+  authorization?: {
+    access: string;
+    effectiveRole: string;
+    grantedBy: "local-admin" | "workspace-role";
+  };
   commandId?: string;
   disabled?: boolean;
   occurredAt?: string;
@@ -32,7 +38,11 @@ export function createAuditEvent(
     occurredAt,
     eventType: input.eventType,
     entityIds: normalizeEntityIds(input.entityIds),
-    summary: input.summary,
+    summary: {
+      ...input.summary,
+      ...(context.actorRole ? { actorRole: context.actorRole } : {}),
+      ...(context.authorization ? { authorization: context.authorization } : {}),
+    },
   };
 }
 

@@ -46,6 +46,35 @@ describe("workspace migration", () => {
     expect(migrated.householdMembers).toEqual(["Primary", "Partner"]);
   });
 
+  it("filters household member role bindings to known role values", () => {
+    const migrated = migrateWorkspaceDocument({
+      accounts: [],
+      auditEvents: [],
+      baseCommodityCode: "USD",
+      commodities: [],
+      envelopeAllocations: [],
+      envelopes: [],
+      householdMemberRoles: {
+        Ghost: "owner",
+        Partner: "member",
+        Primary: "guardian",
+      },
+      householdMembers: ["Primary", "Partner"],
+      id: "legacy-workspace",
+      importBatches: [],
+      name: "Legacy Workspace",
+      reconciliationSessions: [],
+      scheduledTransactions: [],
+      schemaVersion: 1,
+      transactions: [],
+    });
+
+    expect(migrated.householdMemberRoles).toEqual({
+      Partner: "member",
+      Primary: "guardian",
+    });
+  });
+
   it("rejects non-object documents", () => {
     expect(() => migrateWorkspaceDocument(null)).toThrow("Workspace document must be an object.");
     expect(() => migrateWorkspaceDocument([])).toThrow("Workspace document must be an object.");

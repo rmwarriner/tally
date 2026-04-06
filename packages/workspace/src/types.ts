@@ -73,6 +73,7 @@ export interface FinanceWorkspaceDocument {
   name: string;
   baseCommodityCode: string;
   householdMembers: string[];
+  householdMemberRoles?: Partial<Record<string, "admin" | "guardian" | "member">>;
   commodities: Commodity[];
   accounts: Account[];
   transactions: Transaction[];

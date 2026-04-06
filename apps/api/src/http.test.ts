@@ -23,6 +23,7 @@ describe("api http transport", () => {
       cleanup: async () => rm(directory, { recursive: true, force: true }),
       directory,
       workspace,
+      workspacePath,
     };
   }
 
@@ -648,6 +649,13 @@ Lacct-expense-utilities
 
   it("requires privileged authority to destroy transactions over HTTP", async () => {
     const fixture = await createFixture();
+    fixture.workspace.householdMembers = [...fixture.workspace.householdMembers, "Admin"];
+    fixture.workspace.householdMemberRoles = {
+      ...(fixture.workspace.householdMemberRoles ?? {}),
+      Admin: "admin",
+    };
+    await saveWorkspaceToFile(fixture.workspacePath, fixture.workspace);
+
     const service = createWorkspaceService({
       repository: createFileSystemWorkspaceRepository({ rootDirectory: fixture.directory }),
     });

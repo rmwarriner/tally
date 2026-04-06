@@ -1,6 +1,8 @@
 import type { FinanceWorkspaceDocument } from "@gnucash-ng/workspace";
 
 export type AuthRole = "admin" | "member" | "local-admin";
+export type WorkspaceRole = "admin" | "guardian" | "local-admin" | "member";
+export type WorkspaceAccess = "destroy" | "operate" | "read" | "write";
 
 export interface AuthIdentity {
   actor: string;
@@ -33,6 +35,11 @@ export interface AuthResolution {
 }
 
 export interface AuthorizationResult {
+  decision?: {
+    access: WorkspaceAccess;
+    effectiveRole: WorkspaceRole;
+    grantedBy: "local-admin" | "workspace-role";
+  };
   error?: string;
   ok: boolean;
 }
@@ -116,14 +123,13 @@ export function resolveAuthContext(params: {
 export function authorizeWorkspaceAccess(
   workspace: FinanceWorkspaceDocument,
   auth: AuthContext,
-  access: "destroy" | "read" | "write",
+  access: WorkspaceAccess,
 ): AuthorizationResult {
-  if (auth.role === "local-admin" || auth.role === "admin") {
-    return { ok: true };
-  }
-
-  if (access === "destroy") {
-    return { ok: false, error: "Privileged authority is required for destructive transaction removal." };
+  if (auth.role === "local-admin") {
+    return {
+      decision: { access, effectiveRole: "local-admin", grantedBy: "local-admin" },
+      ok: true,
+    };
   }
 
   if (!workspace.householdMembers.includes(auth.actor)) {
@@ -133,8 +139,39 @@ export function authorizeWorkspaceAccess(
     };
   }
 
+  const configuredRole = workspace.householdMemberRoles?.[auth.actor];
+  const effectiveRole: WorkspaceRole =
+    configuredRole === "admin" || configuredRole === "guardian" || configuredRole === "member"
+      ? configuredRole
+      : "member";
+
   if (access === "read" || access === "write") {
-    return { ok: true };
+    return {
+      decision: { access, effectiveRole, grantedBy: "workspace-role" },
+      ok: true,
+    };
+  }
+
+  if (access === "operate" && (effectiveRole === "guardian" || effectiveRole === "admin")) {
+    return {
+      decision: { access, effectiveRole, grantedBy: "workspace-role" },
+      ok: true,
+    };
+  }
+
+  if (access === "destroy" && effectiveRole === "admin") {
+    return {
+      decision: { access, effectiveRole, grantedBy: "workspace-role" },
+      ok: true,
+    };
+  }
+
+  if (access === "destroy") {
+    return { ok: false, error: "Admin authority is required for destructive transaction removal." };
+  }
+
+  if (access === "operate") {
+    return { ok: false, error: "Guardian or admin authority is required for this operation." };
   }
 
   return { ok: false, error: "Access denied." };
