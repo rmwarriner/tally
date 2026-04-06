@@ -4,10 +4,59 @@ updates:
     directory: "/"
     schedule:
       interval: "weekly"
-    open-pull-requests-limit: 10
+      day: "monday"
+      time: "08:00"
+      timezone: "America/Chicago"
+    open-pull-requests-limit: 5
+    groups:
+      type-system:
+        patterns:
+          - "typescript"
+          - "@types/*"
+      linting:
+        patterns:
+          - "eslint"
+          - "eslint-*"
+          - "@eslint/*"
+          - "@typescript-eslint/*"
+      testing:
+        patterns:
+          - "vitest"
+          - "vitest-*"
+          - "@vitest/*"
+          - "@testing-library/*"
+          - "c8"
+      tooling:
+        patterns:
+          - "vite"
+          - "vite-*"
+          - "@vitejs/*"
+          - "tsup"
+          - "tsx"
+          - "turbo"
+          - "pnpm"
+          - "pnpm-*"
+      react:
+        patterns:
+          - "react"
+          - "react-*"
+          - "@react-*/*"
+          - "@types/react"
+          - "@types/react-dom"
+    ignore:
+      - dependency-name: "*"
+        update-types:
+          - "version-update:semver-major"
 
   - package-ecosystem: "github-actions"
     directory: "/"
     schedule:
       interval: "weekly"
-    open-pull-requests-limit: 10
+      day: "monday"
+      time: "08:15"
+      timezone: "America/Chicago"
+    open-pull-requests-limit: 3
+    groups:
+      github-actions:
+        patterns:
+          - "*"

@@ -114,9 +114,13 @@ At least once a week:
 - review new `idea` issues and either keep parked, promote, or close them
 - re-rank open roadmap issues against current priorities
 - check the roadmap project for stale or missing items
+- review open Dependabot pull requests and ensure patch/minor updates are flowing through CI-based merge automation
+- convert major dependency updates into tracked upgrade issues when they are deferred
 - check CI status so repeated failures do not become background noise
 - close or relabel issues whose scope has changed
 
 ## Current Constraint
 
 Branch protection is not currently available for this private repository on the active GitHub plan, so the no-direct-push rule for `main` is a team process requirement rather than an enforced GitHub setting.
+
+Native GitHub auto-merge may also be unavailable on the active plan. Dependency update flow therefore uses a CI-driven merge workflow (`.github/workflows/dependabot-auto-merge.yml`) rather than relying on the repository auto-merge toggle.

@@ -1,0 +1,82 @@
+name: Dependabot Auto Merge
+
+on:
+  workflow_run:
+    workflows:
+      - Quality Gates
+    types:
+      - completed
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  merge-dependabot-pr:
+    if: github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.event == 'pull_request'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+
+    steps:
+      - name: Find eligible Dependabot PR
+        id: pr
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            const run = context.payload.workflow_run;
+            const prs = run.pull_requests || [];
+
+            const parseSemverCore = (value) => {
+              if (!value) return null;
+              const normalized = value.trim().replace(/^v/, "");
+              const core = normalized.split("-")[0].split("+")[0];
+              const parts = core.split(".");
+              if (parts.length !== 3) return null;
+              const nums = parts.map((part) => Number(part));
+              if (nums.some((n) => !Number.isInteger(n) || n < 0)) return null;
+              return { major: nums[0], minor: nums[1], patch: nums[2] };
+            };
+
+            const classifyTitleUpdateType = (title) => {
+              const match = title.match(/ from ([0-9A-Za-z.+-]+) to ([0-9A-Za-z.+-]+)$/);
+              if (!match) return "unknown";
+              const from = parseSemverCore(match[1]);
+              const to = parseSemverCore(match[2]);
+              if (!from || !to) return "unknown";
+              if (to.major > from.major) return "major";
+              if (to.major === from.major && to.minor > from.minor) return "minor";
+              if (to.major === from.major && to.minor === from.minor && to.patch > from.patch) return "patch";
+              return "unknown";
+            };
+
+            for (const prRef of prs) {
+              const { data: pull } = await github.rest.pulls.get({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                pull_number: prRef.number,
+              });
+
+              if (pull.user?.login !== "dependabot[bot]") continue;
+              if (pull.state !== "open" || pull.draft) continue;
+              if (pull.head?.sha !== run.head_sha) continue;
+
+              const updateType = classifyTitleUpdateType(pull.title);
+              if (updateType !== "patch" && updateType !== "minor") continue;
+
+              core.setOutput("number", String(pull.number));
+              core.setOutput("url", pull.html_url);
+              core.setOutput("update_type", updateType);
+              return;
+            }
+
+            core.setOutput("number", "");
+            core.setOutput("url", "");
+            core.setOutput("update_type", "");
+
+      - name: Merge eligible Dependabot PR
+        if: steps.pr.outputs.number != ''
+        run: gh pr merge "$PR_URL" --squash --delete-branch
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          PR_URL: ${{ steps.pr.outputs.url }}
