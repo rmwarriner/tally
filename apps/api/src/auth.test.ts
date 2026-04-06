@@ -43,6 +43,53 @@ describe("api auth", () => {
     expect(result.error).toBe("Authentication is required.");
   });
 
+  it("resolves trusted-header identities when proxy key and actor header are valid", () => {
+    const headers = new Headers();
+    headers.set("x-proxy-key", "proxy-secret");
+    headers.set("x-auth-actor", "alice@example.com");
+    headers.set("x-auth-role", "admin");
+
+    const result = resolveAuthContext({
+      authIdentities: [],
+      authRequired: true,
+      trustedHeaderAuth: {
+        actorHeader: "x-auth-actor",
+        proxyKey: "proxy-secret",
+        proxyKeyHeader: "x-proxy-key",
+        roleHeader: "x-auth-role",
+      },
+      trustedHeaders: headers,
+    });
+
+    expect(result.ok).toBe(true);
+    expect(result.context).toEqual({
+      actor: "alice@example.com",
+      kind: "trusted-header",
+      role: "admin",
+    });
+  });
+
+  it("rejects trusted-header identities when proxy key validation fails", () => {
+    const headers = new Headers();
+    headers.set("x-proxy-key", "wrong-key");
+    headers.set("x-auth-actor", "alice@example.com");
+
+    const result = resolveAuthContext({
+      authIdentities: [],
+      authRequired: true,
+      trustedHeaderAuth: {
+        actorHeader: "x-auth-actor",
+        proxyKey: "proxy-secret",
+        proxyKeyHeader: "x-proxy-key",
+        roleHeader: "x-auth-role",
+      },
+      trustedHeaders: headers,
+    });
+
+    expect(result.ok).toBe(false);
+    expect(result.error).toBe("Authentication is required.");
+  });
+
   it("denies workspace access to non-members", () => {
     const workspace = createDemoWorkspace();
     const authorization = authorizeWorkspaceAccess(

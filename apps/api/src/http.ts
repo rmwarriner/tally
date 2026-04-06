@@ -202,6 +202,7 @@ async function parseJsonBody(request: Request, maxBodyBytes: number): Promise<un
 }
 
 export function createHttpHandler(params: {
+  authRequired?: boolean;
   authIdentities?: AuthIdentity[];
   logger?: Logger;
   maxBodyBytes?: number;
@@ -214,11 +215,18 @@ export function createHttpHandler(params: {
     read: RateLimitPolicy;
   };
   service: WorkspaceService;
+  trustedHeaderAuth?: {
+    actorHeader: string;
+    proxyKey: string;
+    proxyKeyHeader: string;
+    roleHeader: string;
+  };
 }): HttpHandler {
   const logger = (params.logger ?? createNoopLogger()).child({ component: "httpHandler" });
   const authIdentities = params.authIdentities ?? [];
   const maxBodyBytes = params.maxBodyBytes ?? 1048576;
-  const authRequired = authIdentities.length > 0;
+  const authRequired =
+    params.authRequired ?? (authIdentities.length > 0 || params.trustedHeaderAuth !== undefined);
   const metrics = params.metrics ?? createInMemoryApiMetrics();
   const rateLimiter = params.rateLimiter ?? createInMemoryRateLimiter();
   const rateLimitPolicy = params.rateLimitPolicy ?? {
@@ -355,6 +363,8 @@ export function createHttpHandler(params: {
       authIdentities,
       authRequired,
       authorizationHeader: request.headers.get("authorization"),
+      trustedHeaderAuth: params.trustedHeaderAuth,
+      trustedHeaders: request.headers,
     });
 
     if (!auth.ok || !auth.context) {

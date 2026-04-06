@@ -4,7 +4,7 @@ import { ConfigValidationError } from "./errors";
 
 export type ApiRuntimeMode = "development" | "production" | "test";
 export type ApiAuthSource = "env" | "file" | "none";
-export type ApiAuthStrategy = "identities" | "none" | "token";
+export type ApiAuthStrategy = "identities" | "none" | "token" | "trusted-header";
 export type ApiPersistenceBackend = "json" | "postgres" | "sqlite";
 
 export interface ApiRuntimeConfig {
@@ -15,6 +15,12 @@ export interface ApiRuntimeConfig {
   }>;
   authSource: ApiAuthSource;
   authStrategy: ApiAuthStrategy;
+  trustedHeaderAuth?: {
+    actorHeader: string;
+    proxyKey: string;
+    proxyKeyHeader: string;
+    roleHeader: string;
+  };
   bodyLimitBytes: number;
   dataDirectory: string;
   host: string;
@@ -151,18 +157,83 @@ function parseAuthIdentitiesJson(raw: string): ApiRuntimeConfig["authIdentities"
   return identities;
 }
 
-function parseAuthConfig(env: NodeJS.ProcessEnv): Pick<ApiRuntimeConfig, "authIdentities" | "authSource" | "authStrategy"> {
+function parseAuthConfig(env: NodeJS.ProcessEnv): Pick<
+  ApiRuntimeConfig,
+  "authIdentities" | "authSource" | "authStrategy" | "trustedHeaderAuth"
+> {
+  const trustedHeaderRequested =
+    env.GNUCASH_NG_API_AUTH_TRUSTED_ACTOR_HEADER !== undefined ||
+    env.GNUCASH_NG_API_AUTH_TRUSTED_PROXY_KEY !== undefined ||
+    env.GNUCASH_NG_API_AUTH_TRUSTED_PROXY_KEY_FILE !== undefined ||
+    env.GNUCASH_NG_API_AUTH_TRUSTED_PROXY_KEY_HEADER !== undefined ||
+    env.GNUCASH_NG_API_AUTH_TRUSTED_ROLE_HEADER !== undefined;
+
   const configuredSources = [
     env.GNUCASH_NG_API_AUTH_TOKEN ? "GNUCASH_NG_API_AUTH_TOKEN" : null,
     env.GNUCASH_NG_API_AUTH_IDENTITIES ? "GNUCASH_NG_API_AUTH_IDENTITIES" : null,
     env.GNUCASH_NG_API_AUTH_TOKEN_FILE ? "GNUCASH_NG_API_AUTH_TOKEN_FILE" : null,
     env.GNUCASH_NG_API_AUTH_IDENTITIES_FILE ? "GNUCASH_NG_API_AUTH_IDENTITIES_FILE" : null,
+    trustedHeaderRequested ? "trusted-header" : null,
   ].filter((value): value is string => value !== null);
 
   if (configuredSources.length > 1) {
     throw new ConfigValidationError([
-      "Configure authentication with either GNUCASH_NG_API_AUTH_TOKEN, GNUCASH_NG_API_AUTH_IDENTITIES, GNUCASH_NG_API_AUTH_TOKEN_FILE, or GNUCASH_NG_API_AUTH_IDENTITIES_FILE, but not more than one.",
+      "Configure authentication with either GNUCASH_NG_API_AUTH_TOKEN, GNUCASH_NG_API_AUTH_IDENTITIES, GNUCASH_NG_API_AUTH_TOKEN_FILE, GNUCASH_NG_API_AUTH_IDENTITIES_FILE, or trusted-header auth settings, but not more than one.",
     ]);
+  }
+
+  if (trustedHeaderRequested) {
+    const actorHeader = env.GNUCASH_NG_API_AUTH_TRUSTED_ACTOR_HEADER?.trim();
+
+    if (!actorHeader) {
+      throw new ConfigValidationError([
+        "GNUCASH_NG_API_AUTH_TRUSTED_ACTOR_HEADER is required for trusted-header auth.",
+      ]);
+    }
+
+    const hasInlineProxyKey = Boolean(env.GNUCASH_NG_API_AUTH_TRUSTED_PROXY_KEY);
+    const hasProxyKeyFile = Boolean(env.GNUCASH_NG_API_AUTH_TRUSTED_PROXY_KEY_FILE);
+
+    if (hasInlineProxyKey && hasProxyKeyFile) {
+      throw new ConfigValidationError([
+        "Configure trusted-header proxy key with either GNUCASH_NG_API_AUTH_TRUSTED_PROXY_KEY or GNUCASH_NG_API_AUTH_TRUSTED_PROXY_KEY_FILE, but not both.",
+      ]);
+    }
+
+    if (!hasInlineProxyKey && !hasProxyKeyFile) {
+      throw new ConfigValidationError([
+        "Trusted-header auth requires GNUCASH_NG_API_AUTH_TRUSTED_PROXY_KEY or GNUCASH_NG_API_AUTH_TRUSTED_PROXY_KEY_FILE.",
+      ]);
+    }
+
+    const proxyKeyHeader =
+      env.GNUCASH_NG_API_AUTH_TRUSTED_PROXY_KEY_HEADER?.trim() ?? "x-gnucash-ng-auth-proxy-key";
+    const roleHeader = env.GNUCASH_NG_API_AUTH_TRUSTED_ROLE_HEADER?.trim() ?? "x-gnucash-ng-auth-role";
+
+    if (proxyKeyHeader.length === 0 || roleHeader.length === 0) {
+      throw new ConfigValidationError([
+        "Trusted-header auth header names must not be empty.",
+      ]);
+    }
+
+    const proxyKey = hasInlineProxyKey
+      ? env.GNUCASH_NG_API_AUTH_TRUSTED_PROXY_KEY ?? ""
+      : readSecretFile(
+          env.GNUCASH_NG_API_AUTH_TRUSTED_PROXY_KEY_FILE ?? "",
+          "GNUCASH_NG_API_AUTH_TRUSTED_PROXY_KEY_FILE",
+        );
+
+    return {
+      authIdentities: [],
+      authSource: hasInlineProxyKey ? "env" : "file",
+      authStrategy: "trusted-header",
+      trustedHeaderAuth: {
+        actorHeader,
+        proxyKey,
+        proxyKeyHeader,
+        roleHeader,
+      },
+    };
   }
 
   if (env.GNUCASH_NG_API_AUTH_IDENTITIES) {
@@ -170,6 +241,7 @@ function parseAuthConfig(env: NodeJS.ProcessEnv): Pick<ApiRuntimeConfig, "authId
       authIdentities: parseAuthIdentitiesJson(env.GNUCASH_NG_API_AUTH_IDENTITIES),
       authSource: "env",
       authStrategy: "identities",
+      trustedHeaderAuth: undefined,
     };
   }
 
@@ -180,6 +252,7 @@ function parseAuthConfig(env: NodeJS.ProcessEnv): Pick<ApiRuntimeConfig, "authId
       ),
       authSource: "file",
       authStrategy: "identities",
+      trustedHeaderAuth: undefined,
     };
   }
 
@@ -188,6 +261,7 @@ function parseAuthConfig(env: NodeJS.ProcessEnv): Pick<ApiRuntimeConfig, "authId
       authIdentities: [{ actor: "api-user", role: "admin" as const, token: env.GNUCASH_NG_API_AUTH_TOKEN }],
       authSource: "env",
       authStrategy: "token",
+      trustedHeaderAuth: undefined,
     };
   }
 
@@ -202,6 +276,7 @@ function parseAuthConfig(env: NodeJS.ProcessEnv): Pick<ApiRuntimeConfig, "authId
       ],
       authSource: "file",
       authStrategy: "token",
+      trustedHeaderAuth: undefined,
     };
   }
 
@@ -209,6 +284,7 @@ function parseAuthConfig(env: NodeJS.ProcessEnv): Pick<ApiRuntimeConfig, "authId
     authIdentities: [],
     authSource: "none",
     authStrategy: "none",
+    trustedHeaderAuth: undefined,
   };
 }
 
@@ -264,15 +340,15 @@ export function createApiRuntimeConfig(
     "GNUCASH_NG_API_SEED_DEMO_WORKSPACE",
   );
 
-  if (!isLoopbackHost(host) && authConfig.authIdentities.length === 0) {
+  if (!isLoopbackHost(host) && authConfig.authStrategy === "none") {
     throw new ConfigValidationError([
-      "Non-loopback API binding requires GNUCASH_NG_API_AUTH_TOKEN, GNUCASH_NG_API_AUTH_IDENTITIES, GNUCASH_NG_API_AUTH_TOKEN_FILE, or GNUCASH_NG_API_AUTH_IDENTITIES_FILE.",
+      "Non-loopback API binding requires explicit auth configuration (token, identities, or trusted-header auth).",
     ]);
   }
 
-  if (runtimeMode === "production" && authConfig.authIdentities.length === 0) {
+  if (runtimeMode === "production" && authConfig.authStrategy === "none") {
     throw new ConfigValidationError([
-      "Production runtime requires GNUCASH_NG_API_AUTH_TOKEN, GNUCASH_NG_API_AUTH_IDENTITIES, GNUCASH_NG_API_AUTH_TOKEN_FILE, or GNUCASH_NG_API_AUTH_IDENTITIES_FILE.",
+      "Production runtime requires explicit auth configuration (token, identities, or trusted-header auth).",
     ]);
   }
 
@@ -307,6 +383,7 @@ export function createApiRuntimeConfig(
       readLimit,
       windowMs: rateLimitWindowMs,
     },
+    trustedHeaderAuth: authConfig.trustedHeaderAuth,
     seedDemoWorkspace,
     shutdownTimeoutMs,
     sqlitePath: resolve(dataDirectory, env.GNUCASH_NG_API_SQLITE_PATH ?? "workspaces.sqlite"),

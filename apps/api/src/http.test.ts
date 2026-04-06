@@ -152,6 +152,43 @@ describe("api http transport", () => {
     await fixture.cleanup();
   });
 
+  it("authenticates requests using trusted-header auth when configured", async () => {
+    const fixture = await createFixture();
+    const service = createWorkspaceService({
+      repository: createFileSystemWorkspaceRepository({ rootDirectory: fixture.directory }),
+    });
+    const handler = createHttpHandler({
+      authRequired: true,
+      service,
+      trustedHeaderAuth: {
+        actorHeader: "x-authenticated-actor",
+        proxyKey: "proxy-secret",
+        proxyKeyHeader: "x-proxy-key",
+        roleHeader: "x-authenticated-role",
+      },
+    });
+
+    const unauthorized = await handler(
+      new Request(`http://localhost/api/workspaces/${fixture.workspace.id}`),
+    );
+
+    expect(unauthorized.status).toBe(401);
+
+    const authorized = await handler(
+      new Request(`http://localhost/api/workspaces/${fixture.workspace.id}`, {
+        headers: {
+          "x-authenticated-actor": "Primary",
+          "x-authenticated-role": "member",
+          "x-proxy-key": "proxy-secret",
+        },
+      }),
+    );
+
+    expect(authorized.status).toBe(200);
+
+    await fixture.cleanup();
+  });
+
   it("serves dashboard projections over HTTP", async () => {
     const fixture = await createFixture();
     const service = createWorkspaceService({

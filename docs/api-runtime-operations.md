@@ -65,6 +65,18 @@ Administrative persistence migration and export commands are documented in `docs
   - JSON array of explicit actor and token bindings
 - `GNUCASH_NG_API_AUTH_IDENTITIES_FILE`
   - path to a file containing the JSON array of explicit actor and token bindings
+- `GNUCASH_NG_API_AUTH_TRUSTED_ACTOR_HEADER`
+  - request header name used to read actor identity from a trusted upstream gateway
+- `GNUCASH_NG_API_AUTH_TRUSTED_ROLE_HEADER`
+  - optional request header name used to read role (`admin` or `member`) from a trusted upstream gateway
+  - defaults to `x-gnucash-ng-auth-role`
+- `GNUCASH_NG_API_AUTH_TRUSTED_PROXY_KEY`
+  - shared key expected in the trusted proxy key header when trusted-header auth is enabled
+- `GNUCASH_NG_API_AUTH_TRUSTED_PROXY_KEY_FILE`
+  - file containing the shared key expected in the trusted proxy key header
+- `GNUCASH_NG_API_AUTH_TRUSTED_PROXY_KEY_HEADER`
+  - optional request header name containing the proxy shared key
+  - defaults to `x-gnucash-ng-auth-proxy-key`
 - `GNUCASH_NG_API_BODY_LIMIT_BYTES`
   - max JSON request body size
 - `GNUCASH_NG_API_RATE_LIMIT_WINDOW_MS`
@@ -90,7 +102,8 @@ Administrative persistence migration and export commands are documented in `docs
 - production runtime requires explicit auth configuration
 - non-loopback binding requires explicit auth configuration
 - production runtime cannot auto-seed the demo workspace
-- choose exactly one auth source: inline token, inline identities JSON, token file, or identities file
+- choose exactly one auth source: inline token, inline identities JSON, token file, identities file, or trusted-header auth
+- trusted-header auth requires both a trusted actor header and a proxy shared key (inline or file)
 - auth secret files must exist, be readable by the API process, and contain non-empty values
 - startup must fail fast for invalid numeric, boolean, auth, or runtime-mode configuration
 - startup must fail fast for unsupported persistence backend selections

@@ -352,7 +352,7 @@ describe("api runtime", () => {
     ).rejects.toThrow("exit:1");
 
     expect(errorSpy).toHaveBeenCalledWith(
-      "Invalid API configuration: Production runtime requires GNUCASH_NG_API_AUTH_TOKEN, GNUCASH_NG_API_AUTH_IDENTITIES, GNUCASH_NG_API_AUTH_TOKEN_FILE, or GNUCASH_NG_API_AUTH_IDENTITIES_FILE.",
+      "Invalid API configuration: Production runtime requires explicit auth configuration (token, identities, or trusted-header auth).",
     );
     expect(exitSpy).toHaveBeenCalledWith(1);
   });

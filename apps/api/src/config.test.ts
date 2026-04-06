@@ -31,6 +31,7 @@ describe("api runtime config", () => {
       seedDemoWorkspace: true,
       shutdownTimeoutMs: 10000,
       sqlitePath: "/tmp/gnucash-ng/data/workspaces.sqlite",
+      trustedHeaderAuth: undefined,
     });
   });
 
@@ -74,6 +75,7 @@ describe("api runtime config", () => {
       seedDemoWorkspace: false,
       shutdownTimeoutMs: 15000,
       sqlitePath: "/tmp/gnucash-ng/var/workspaces/workspaces.sqlite",
+      trustedHeaderAuth: undefined,
     });
   });
 
@@ -86,13 +88,13 @@ describe("api runtime config", () => {
         "/tmp/gnucash-ng",
       ),
     ).toThrow(
-      "Non-loopback API binding requires GNUCASH_NG_API_AUTH_TOKEN, GNUCASH_NG_API_AUTH_IDENTITIES, GNUCASH_NG_API_AUTH_TOKEN_FILE, or GNUCASH_NG_API_AUTH_IDENTITIES_FILE.",
+      "Non-loopback API binding requires explicit auth configuration (token, identities, or trusted-header auth).",
     );
   });
 
   it("rejects production runtime without auth configuration", () => {
     expect(() => createApiRuntimeConfig({}, "/tmp/gnucash-ng")).toThrow(
-      "Production runtime requires GNUCASH_NG_API_AUTH_TOKEN, GNUCASH_NG_API_AUTH_IDENTITIES, GNUCASH_NG_API_AUTH_TOKEN_FILE, or GNUCASH_NG_API_AUTH_IDENTITIES_FILE.",
+      "Production runtime requires explicit auth configuration (token, identities, or trusted-header auth).",
     );
   });
 
@@ -239,7 +241,74 @@ describe("api runtime config", () => {
           GNUCASH_NG_API_RUNTIME_MODE: "production",
         }),
     ).toThrow(
-      "Configure authentication with either GNUCASH_NG_API_AUTH_TOKEN, GNUCASH_NG_API_AUTH_IDENTITIES, GNUCASH_NG_API_AUTH_TOKEN_FILE, or GNUCASH_NG_API_AUTH_IDENTITIES_FILE, but not more than one.",
+      "Configure authentication with either GNUCASH_NG_API_AUTH_TOKEN, GNUCASH_NG_API_AUTH_IDENTITIES, GNUCASH_NG_API_AUTH_TOKEN_FILE, GNUCASH_NG_API_AUTH_IDENTITIES_FILE, or trusted-header auth settings, but not more than one.",
+    );
+  });
+
+  it("supports trusted-header auth configuration with an inline proxy key", () => {
+    const config = createApiRuntimeConfig(
+      {
+        GNUCASH_NG_API_AUTH_TRUSTED_ACTOR_HEADER: "cf-access-authenticated-user-email",
+        GNUCASH_NG_API_AUTH_TRUSTED_PROXY_KEY: "proxy-secret",
+        GNUCASH_NG_API_AUTH_TRUSTED_PROXY_KEY_HEADER: "x-internal-proxy-key",
+        GNUCASH_NG_API_AUTH_TRUSTED_ROLE_HEADER: "x-gnucash-role",
+        GNUCASH_NG_API_RUNTIME_MODE: "production",
+      },
+      "/tmp/gnucash-ng",
+    );
+
+    expect(config.authIdentities).toEqual([]);
+    expect(config.authStrategy).toBe("trusted-header");
+    expect(config.authSource).toBe("env");
+    expect(config.trustedHeaderAuth).toEqual({
+      actorHeader: "cf-access-authenticated-user-email",
+      proxyKey: "proxy-secret",
+      proxyKeyHeader: "x-internal-proxy-key",
+      roleHeader: "x-gnucash-role",
+    });
+  });
+
+  it("supports trusted-header auth configuration with a proxy key file", () => {
+    const tempDirectory = mkdtempSync(join(tmpdir(), "gnucash-ng-config-"));
+    const keyFile = join(tempDirectory, "proxy-key.txt");
+    writeFileSync(keyFile, "proxy-file-secret\n", "utf8");
+
+    const config = createApiRuntimeConfig(
+      {
+        GNUCASH_NG_API_AUTH_TRUSTED_ACTOR_HEADER: "x-authenticated-actor",
+        GNUCASH_NG_API_AUTH_TRUSTED_PROXY_KEY_FILE: keyFile,
+        GNUCASH_NG_API_RUNTIME_MODE: "production",
+      },
+      "/tmp/gnucash-ng",
+    );
+
+    expect(config.authStrategy).toBe("trusted-header");
+    expect(config.authSource).toBe("file");
+    expect(config.trustedHeaderAuth).toEqual({
+      actorHeader: "x-authenticated-actor",
+      proxyKey: "proxy-file-secret",
+      proxyKeyHeader: "x-gnucash-ng-auth-proxy-key",
+      roleHeader: "x-gnucash-ng-auth-role",
+    });
+  });
+
+  it("requires trusted-header actor and proxy key configuration", () => {
+    expect(
+      () =>
+        createApiRuntimeConfig({
+          GNUCASH_NG_API_AUTH_TRUSTED_PROXY_KEY: "proxy-secret",
+          GNUCASH_NG_API_RUNTIME_MODE: "production",
+        }),
+    ).toThrow("GNUCASH_NG_API_AUTH_TRUSTED_ACTOR_HEADER is required for trusted-header auth.");
+
+    expect(
+      () =>
+        createApiRuntimeConfig({
+          GNUCASH_NG_API_AUTH_TRUSTED_ACTOR_HEADER: "x-authenticated-actor",
+          GNUCASH_NG_API_RUNTIME_MODE: "production",
+        }),
+    ).toThrow(
+      "Trusted-header auth requires GNUCASH_NG_API_AUTH_TRUSTED_PROXY_KEY or GNUCASH_NG_API_AUTH_TRUSTED_PROXY_KEY_FILE.",
     );
   });
 

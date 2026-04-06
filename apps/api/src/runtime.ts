@@ -37,7 +37,7 @@ function createRuntimeLogger(config: ApiRuntimeConfig, env: NodeJS.ProcessEnv): 
 
 function logRuntimeConfiguration(logger: Logger, config: ApiRuntimeConfig): void {
   logger.info("api runtime configured", {
-    authConfigured: config.authIdentities.length > 0,
+    authConfigured: config.authStrategy !== "none",
     authIdentityCount: config.authIdentities.length,
     authSource: config.authSource,
     authStrategy: config.authStrategy,
@@ -79,6 +79,7 @@ export function createApiRuntime(params: {
   });
   const service = createWorkspaceService({ logger, repository });
   const handler = createHttpHandler({
+    authRequired: params.config.authStrategy !== "none",
     authIdentities: params.config.authIdentities,
     logger,
     maxBodyBytes: params.config.bodyLimitBytes,
@@ -131,6 +132,7 @@ export function createApiRuntime(params: {
       },
     },
     service,
+    trustedHeaderAuth: params.config.trustedHeaderAuth,
   });
   const server = (params.createServer ?? createNodeHttpServer)({ handler, logger });
   const ensureSeed = params.ensureSeed ?? ensureDemoWorkspaceFile;

@@ -16,6 +16,11 @@ export type AuthContext =
     }
   | {
       actor: string;
+      kind: "trusted-header";
+      role: "admin" | "member";
+    }
+  | {
+      actor: string;
       kind: "token";
       role: AuthRole;
       token: string;
@@ -37,7 +42,40 @@ export function resolveAuthContext(params: {
   authRequired: boolean;
   authorizationHeader?: string | null;
   apiKeyHeader?: string | null;
+  trustedHeaderAuth?: {
+    actorHeader: string;
+    proxyKey: string;
+    proxyKeyHeader: string;
+    roleHeader: string;
+  };
+  trustedHeaders?: Headers;
 }): AuthResolution {
+  if (params.trustedHeaderAuth) {
+    const suppliedProxyKey = params.trustedHeaders?.get(params.trustedHeaderAuth.proxyKeyHeader)?.trim();
+
+    if (!suppliedProxyKey || suppliedProxyKey !== params.trustedHeaderAuth.proxyKey) {
+      return { error: "Authentication is required.", ok: false };
+    }
+
+    const actor = params.trustedHeaders?.get(params.trustedHeaderAuth.actorHeader)?.trim();
+
+    if (!actor) {
+      return { error: "Authentication is required.", ok: false };
+    }
+
+    const roleHeader = params.trustedHeaders?.get(params.trustedHeaderAuth.roleHeader)?.trim();
+    const role = roleHeader === "admin" ? "admin" : "member";
+
+    return {
+      context: {
+        actor,
+        kind: "trusted-header",
+        role,
+      },
+      ok: true,
+    };
+  }
+
   const token =
     params.authorizationHeader?.startsWith("Bearer ")
       ? params.authorizationHeader.slice("Bearer ".length)
