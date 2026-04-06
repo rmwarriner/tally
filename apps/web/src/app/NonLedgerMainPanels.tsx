@@ -1,3 +1,4 @@
+import { useState } from "react";
 import type { WorkspaceView } from "./shell";
 import { WORKSPACE_ID } from "./app-constants";
 
@@ -41,6 +42,39 @@ export function NonLedgerMainPanels(props: NonLedgerMainPanelsProps) {
     topBudgetVarianceRows,
     workspaceEnvelopes,
   } = props;
+  const [inlineBudgetDrafts, setInlineBudgetDrafts] = useState<
+    Record<
+      string,
+      {
+        budgetPeriod: "annually" | "monthly" | "quarterly";
+        period: string;
+        plannedAmount: string;
+      }
+    >
+  >({});
+  const [inlineEnvelopeDrafts, setInlineEnvelopeDrafts] = useState<
+    Record<
+      string,
+      {
+        availableAmount: string;
+        name: string;
+        rolloverEnabled: boolean;
+        targetAmount: string;
+      }
+    >
+  >({});
+  const [inlineScheduleDrafts, setInlineScheduleDrafts] = useState<
+    Record<
+      string,
+      {
+        amount: string;
+        autoPost: boolean;
+        frequency: "annually" | "biweekly" | "daily" | "monthly" | "quarterly" | "weekly";
+        name: string;
+        nextDueOn: string;
+      }
+    >
+  >({});
 
   switch (props.activeView) {
     case "overview":
@@ -142,14 +176,104 @@ export function NonLedgerMainPanels(props: NonLedgerMainPanelsProps) {
               <span>Baseline Budget</span>
               <span className="muted">Plan of record</span>
             </div>
-            {baselineSnapshot.map((row: any) => (
-              <div key={row.accountId} className="metric-row metric-grid">
-                <span>{row.accountName}</span>
-                <span className="muted">Plan {formatCurrency(row.planned.quantity)}</span>
-                <span className="muted">Actual {formatCurrency(row.actual.quantity)}</span>
-                <strong>{formatCurrency(row.variance.quantity)} left</strong>
-              </div>
-            ))}
+            <table>
+              <thead>
+                <tr>
+                  <th>Account</th>
+                  <th>Period</th>
+                  <th>Budget period</th>
+                  <th>Planned</th>
+                  <th>Actual</th>
+                  <th>Variance</th>
+                  <th>Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+                {baselineSnapshot.map((row: any) => {
+                  const draft = inlineBudgetDrafts[row.accountId] ?? {
+                    budgetPeriod: "monthly",
+                    period: budgetLineForm.period,
+                    plannedAmount: String(row.planned.quantity),
+                  };
+                  return (
+                    <tr key={row.accountId}>
+                      <td>{row.accountName}</td>
+                      <td>
+                        <input
+                          value={draft.period}
+                          onChange={(event) =>
+                            setInlineBudgetDrafts((current) => ({
+                              ...current,
+                              [row.accountId]: {
+                                ...draft,
+                                period: event.target.value,
+                              },
+                            }))
+                          }
+                        />
+                      </td>
+                      <td>
+                        <select
+                          value={draft.budgetPeriod}
+                          onChange={(event) =>
+                            setInlineBudgetDrafts((current) => ({
+                              ...current,
+                              [row.accountId]: {
+                                ...draft,
+                                budgetPeriod: event.target.value as "annually" | "monthly" | "quarterly",
+                              },
+                            }))
+                          }
+                        >
+                          <option value="monthly">Monthly</option>
+                          <option value="quarterly">Quarterly</option>
+                          <option value="annually">Annually</option>
+                        </select>
+                      </td>
+                      <td>
+                        <input
+                          value={draft.plannedAmount}
+                          onChange={(event) =>
+                            setInlineBudgetDrafts((current) => ({
+                              ...current,
+                              [row.accountId]: {
+                                ...draft,
+                                plannedAmount: event.target.value,
+                              },
+                            }))
+                          }
+                        />
+                      </td>
+                      <td>{formatCurrency(row.actual.quantity)}</td>
+                      <td>{formatCurrency(row.variance.quantity)}</td>
+                      <td>
+                        <button
+                          disabled={busy !== null}
+                          type="button"
+                          onClick={() => {
+                            void runMutation("Budget line save", async () => {
+                              await postBaselineBudgetLine(WORKSPACE_ID, {
+                                line: {
+                                  accountId: row.accountId,
+                                  budgetPeriod: draft.budgetPeriod,
+                                  period: draft.period,
+                                  plannedAmount: {
+                                    commodityCode: "USD",
+                                    quantity: Number.parseFloat(draft.plannedAmount),
+                                  },
+                                },
+                              });
+                            });
+                          }}
+                        >
+                          Save row
+                        </button>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
           </article>
 
           <article className="panel form-panel">
@@ -245,6 +369,127 @@ export function NonLedgerMainPanels(props: NonLedgerMainPanelsProps) {
                 <strong>{formatCurrency(envelope.available.quantity)} available</strong>
               </div>
             ))}
+          </article>
+
+          <article className="panel">
+            <div className="panel-header">
+              <span>Envelope quick edit</span>
+              <span className="muted">Inline-first adjustments</span>
+            </div>
+            <table>
+              <thead>
+                <tr>
+                  <th>Name</th>
+                  <th>Target</th>
+                  <th>Available</th>
+                  <th>Rollover</th>
+                  <th>Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+                {workspaceEnvelopes.map((envelope: any) => {
+                  const draft = inlineEnvelopeDrafts[envelope.id] ?? {
+                    availableAmount: String(envelope.availableAmount?.quantity ?? 0),
+                    name: envelope.name,
+                    rolloverEnabled: Boolean(envelope.rolloverEnabled),
+                    targetAmount: String(envelope.targetAmount?.quantity ?? 0),
+                  };
+                  return (
+                    <tr key={envelope.id}>
+                      <td>
+                        <input
+                          value={draft.name}
+                          onChange={(event) =>
+                            setInlineEnvelopeDrafts((current) => ({
+                              ...current,
+                              [envelope.id]: {
+                                ...draft,
+                                name: event.target.value,
+                              },
+                            }))
+                          }
+                        />
+                      </td>
+                      <td>
+                        <input
+                          value={draft.targetAmount}
+                          onChange={(event) =>
+                            setInlineEnvelopeDrafts((current) => ({
+                              ...current,
+                              [envelope.id]: {
+                                ...draft,
+                                targetAmount: event.target.value,
+                              },
+                            }))
+                          }
+                        />
+                      </td>
+                      <td>
+                        <input
+                          value={draft.availableAmount}
+                          onChange={(event) =>
+                            setInlineEnvelopeDrafts((current) => ({
+                              ...current,
+                              [envelope.id]: {
+                                ...draft,
+                                availableAmount: event.target.value,
+                              },
+                            }))
+                          }
+                        />
+                      </td>
+                      <td>
+                        <label className="checkbox-row">
+                          <input
+                            checked={draft.rolloverEnabled}
+                            type="checkbox"
+                            onChange={(event) =>
+                              setInlineEnvelopeDrafts((current) => ({
+                                ...current,
+                                [envelope.id]: {
+                                  ...draft,
+                                  rolloverEnabled: event.target.checked,
+                                },
+                              }))
+                            }
+                          />
+                          <span>Enabled</span>
+                        </label>
+                      </td>
+                      <td>
+                        <button
+                          disabled={busy !== null}
+                          type="button"
+                          onClick={() => {
+                            void runMutation("Envelope save", async () => {
+                              await postEnvelope(WORKSPACE_ID, {
+                                envelope: {
+                                  availableAmount: {
+                                    commodityCode: "USD",
+                                    quantity: Number.parseFloat(draft.availableAmount),
+                                  },
+                                  expenseAccountId: envelope.expenseAccountId,
+                                  fundingAccountId: envelope.fundingAccountId,
+                                  id: envelope.id,
+                                  name: draft.name,
+                                  rolloverEnabled: draft.rolloverEnabled,
+                                  targetAmount: {
+                                    commodityCode: "USD",
+                                    quantity: Number.parseFloat(draft.targetAmount),
+                                  },
+                                },
+                              });
+                            });
+                          }}
+                        >
+                          Save row
+                        </button>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
           </article>
 
           <article className="panel form-panel">
@@ -557,12 +802,158 @@ export function NonLedgerMainPanels(props: NonLedgerMainPanelsProps) {
               <span>Schedule queue</span>
               <span className="muted">Recurring templates</span>
             </div>
-            {nextScheduledTransactions.map((schedule: any) => (
-              <div key={schedule.id} className="metric-row">
-                <span>{schedule.name}</span>
-                <strong>{schedule.nextDueOn}</strong>
-              </div>
-            ))}
+            <table>
+              <thead>
+                <tr>
+                  <th>Name</th>
+                  <th>Frequency</th>
+                  <th>Next due</th>
+                  <th>Amount</th>
+                  <th>Auto-post</th>
+                  <th>Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+                {nextScheduledTransactions.map((schedule: any) => {
+                  const scheduleAmount = Number(
+                    schedule.templateTransaction?.postings?.[0]?.amount?.quantity ?? 0,
+                  );
+                  const draft = inlineScheduleDrafts[schedule.id] ?? {
+                    amount: String(scheduleAmount),
+                    autoPost: Boolean(schedule.autoPost),
+                    frequency: schedule.frequency,
+                    name: schedule.name,
+                    nextDueOn: schedule.nextDueOn,
+                  };
+                  return (
+                    <tr key={schedule.id}>
+                      <td>
+                        <input
+                          value={draft.name}
+                          onChange={(event) =>
+                            setInlineScheduleDrafts((current) => ({
+                              ...current,
+                              [schedule.id]: {
+                                ...draft,
+                                name: event.target.value,
+                              },
+                            }))
+                          }
+                        />
+                      </td>
+                      <td>
+                        <select
+                          value={draft.frequency}
+                          onChange={(event) =>
+                            setInlineScheduleDrafts((current) => ({
+                              ...current,
+                              [schedule.id]: {
+                                ...draft,
+                                frequency: event.target.value as
+                                  | "annually"
+                                  | "biweekly"
+                                  | "daily"
+                                  | "monthly"
+                                  | "quarterly"
+                                  | "weekly",
+                              },
+                            }))
+                          }
+                        >
+                          <option value="monthly">Monthly</option>
+                          <option value="weekly">Weekly</option>
+                          <option value="biweekly">Biweekly</option>
+                          <option value="quarterly">Quarterly</option>
+                          <option value="annually">Annually</option>
+                          <option value="daily">Daily</option>
+                        </select>
+                      </td>
+                      <td>
+                        <input
+                          value={draft.nextDueOn}
+                          onChange={(event) =>
+                            setInlineScheduleDrafts((current) => ({
+                              ...current,
+                              [schedule.id]: {
+                                ...draft,
+                                nextDueOn: event.target.value,
+                              },
+                            }))
+                          }
+                        />
+                      </td>
+                      <td>
+                        <input
+                          value={draft.amount}
+                          onChange={(event) =>
+                            setInlineScheduleDrafts((current) => ({
+                              ...current,
+                              [schedule.id]: {
+                                ...draft,
+                                amount: event.target.value,
+                              },
+                            }))
+                          }
+                        />
+                      </td>
+                      <td>
+                        <label className="checkbox-row">
+                          <input
+                            checked={draft.autoPost}
+                            type="checkbox"
+                            onChange={(event) =>
+                              setInlineScheduleDrafts((current) => ({
+                                ...current,
+                                [schedule.id]: {
+                                  ...draft,
+                                  autoPost: event.target.checked,
+                                },
+                              }))
+                            }
+                          />
+                          <span>Enabled</span>
+                        </label>
+                      </td>
+                      <td>
+                        <button
+                          disabled={busy !== null}
+                          type="button"
+                          onClick={() => {
+                            const amount = Number.parseFloat(draft.amount);
+                            void runMutation("Schedule save", async () => {
+                              await postScheduledTransaction(WORKSPACE_ID, {
+                                schedule: {
+                                  ...schedule,
+                                  autoPost: draft.autoPost,
+                                  frequency: draft.frequency,
+                                  name: draft.name,
+                                  nextDueOn: draft.nextDueOn,
+                                  templateTransaction: {
+                                    ...schedule.templateTransaction,
+                                    postings: [
+                                      {
+                                        ...schedule.templateTransaction.postings[0],
+                                        amount: { commodityCode: "USD", quantity: amount },
+                                      },
+                                      {
+                                        ...schedule.templateTransaction.postings[1],
+                                        amount: { commodityCode: "USD", quantity: -amount },
+                                      },
+                                    ],
+                                  },
+                                },
+                              });
+                            });
+                          }}
+                        >
+                          Save row
+                        </button>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
           </article>
 
           <article className="panel">
