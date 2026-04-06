@@ -545,8 +545,10 @@ export function App() {
 
   async function saveInlineLedgerSplits(input: {
     splits: Array<{
+      accountId: string;
       amount: string;
       cleared: boolean;
+      commodityCode: string;
       memo: string;
     }>;
     transactionId: string;
@@ -559,7 +561,12 @@ export function App() {
       return;
     }
 
-    if (input.splits.length !== sourceTransaction.postings.length) {
+    if (input.splits.length < 2) {
+      return;
+    }
+
+    const allAccountsValid = input.splits.every((split) => split.accountId.trim().length > 0);
+    if (!allAccountsValid) {
       return;
     }
 
@@ -582,14 +589,14 @@ export function App() {
           id: sourceTransaction.id,
           occurredOn: sourceTransaction.occurredOn,
           payee: sourceTransaction.payee ?? undefined,
-          postings: sourceTransaction.postings.map((posting, postingIndex) => ({
-            accountId: posting.accountId.trim(),
+          postings: input.splits.map((split, postingIndex) => ({
+            accountId: split.accountId.trim(),
             amount: {
-              commodityCode: posting.amount.commodityCode,
-              quantity: parsedAmounts[postingIndex] ?? posting.amount.quantity,
+              commodityCode: split.commodityCode,
+              quantity: parsedAmounts[postingIndex] ?? 0,
             },
-            cleared: input.splits[postingIndex]?.cleared || undefined,
-            memo: input.splits[postingIndex]?.memo.trim() || undefined,
+            cleared: split.cleared || undefined,
+            memo: split.memo.trim() || undefined,
           })),
           tags: sourceTransaction.tags ?? [],
         },

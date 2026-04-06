@@ -12,8 +12,10 @@ interface InlineNewTransactionDraft {
 }
 
 interface InlineSplitDraft {
+  accountId: string;
   amount: string;
   cleared: boolean;
+  commodityCode: string;
   memo: string;
 }
 
@@ -310,18 +312,48 @@ export function LedgerRegisterPanel(props: LedgerRegisterPanelProps) {
                 const isExpandedRow = expandedTransactionId === transaction.id;
                 const isEditingSplitRow =
                   editingSplitTransactionId === transaction.id ? editingSplitDraft : null;
+                const splitRowCount = isEditingSplitRow ? isEditingSplitRow.length : transaction.postings.length;
+                const postingRows = isEditingSplitRow
+                  ? isEditingSplitRow.map((split, postingIndex) => {
+                      const selectedAccount = props.ledgerWorkspace.availableAccounts.find(
+                        (account) => account.id === split.accountId,
+                      );
+                      return {
+                        accountName: selectedAccount?.name ?? "Select account",
+                        amount: split.amount,
+                        cleared: split.cleared,
+                        memo: split.memo,
+                        postingIndex,
+                      };
+                    })
+                  : transaction.postings.map((posting, postingIndex) => ({
+                      accountName: posting.accountName,
+                      amount: posting.amount,
+                      cleared: posting.cleared,
+                      memo: posting.memo ?? "",
+                      postingIndex,
+                    }));
                 const splitAmounts = isEditingSplitRow
                   ? isEditingSplitRow.map((split) => Number.parseFloat(split.amount))
                   : [];
                 const splitAmountsAreValid = isEditingSplitRow
                   ? splitAmounts.every((amount) => Number.isFinite(amount))
                   : true;
+                const splitAccountsAreValid = isEditingSplitRow
+                  ? isEditingSplitRow.every((split) => split.accountId.trim().length > 0)
+                  : true;
+                const splitHasMinimumRows = isEditingSplitRow ? isEditingSplitRow.length >= 2 : true;
                 const splitBalance = isEditingSplitRow
                   ? splitAmounts.reduce((sum, amount) => sum + amount, 0)
                   : 0;
                 const splitIsBalanced = Math.abs(splitBalance) <= 0.000001;
                 const splitSaveDisabled =
-                  props.busy !== null || !isEditingSplitRow || !splitAmountsAreValid || !splitIsBalanced;
+                  props.busy !== null ||
+                  !isEditingSplitRow ||
+                  !splitAmountsAreValid ||
+                  !splitAccountsAreValid ||
+                  !splitHasMinimumRows ||
+                  !splitIsBalanced;
 
                 return (
                   <>
@@ -502,27 +534,47 @@ export function LedgerRegisterPanel(props: LedgerRegisterPanelProps) {
                               <span>Split preview</span>
                               <span className="muted">{transaction.id}</span>
                             </div>
-                            {transaction.postings.map((posting, postingIndex) => (
+                            {postingRows.map((posting) => (
                               <div
-                                key={`${transaction.id}:${posting.accountId}:${posting.amount}`}
+                                key={`${transaction.id}:split:${posting.postingIndex}`}
                                 className="posting-summary-row"
                               >
                                 <div>
                                   <strong>{posting.accountName}</strong>
                                   {isEditingSplitRow ? (
                                     <div className="form-inline">
+                                      <select
+                                        value={isEditingSplitRow[posting.postingIndex]?.accountId ?? ""}
+                                        onChange={(event) => {
+                                          setEditingSplitDraft((current) =>
+                                            current
+                                              ? current.map((candidate, candidateIndex) =>
+                                                  candidateIndex === posting.postingIndex
+                                                    ? { ...candidate, accountId: event.target.value }
+                                                    : candidate,
+                                                )
+                                              : current,
+                                          );
+                                        }}
+                                      >
+                                        {props.ledgerWorkspace.availableAccounts.map((account) => (
+                                          <option key={account.id} value={account.id}>
+                                            {account.name}
+                                          </option>
+                                        ))}
+                                      </select>
                                       <input
                                         ref={(element) => {
-                                          splitMemoInputRefs.current[postingIndex] = element;
+                                          splitMemoInputRefs.current[posting.postingIndex] = element;
                                         }}
-                                        value={isEditingSplitRow[postingIndex]?.memo ?? ""}
+                                        value={isEditingSplitRow[posting.postingIndex]?.memo ?? ""}
                                         placeholder="Memo"
                                         onKeyDown={(event) => {
                                           const keyAction = getSplitQuickEditKeyAction({
                                             field: "memo",
                                             key: event.key,
-                                            splitCount: transaction.postings.length,
-                                            splitIndex: postingIndex,
+                                            splitCount: splitRowCount,
+                                            splitIndex: posting.postingIndex,
                                           });
 
                                           if (keyAction.type === "none") {
@@ -545,7 +597,7 @@ export function LedgerRegisterPanel(props: LedgerRegisterPanelProps) {
                                           setEditingSplitDraft((current) =>
                                             current
                                               ? current.map((candidate, candidateIndex) =>
-                                                  candidateIndex === postingIndex
+                                                  candidateIndex === posting.postingIndex
                                                     ? { ...candidate, memo: event.target.value }
                                                     : candidate,
                                                 )
@@ -555,16 +607,16 @@ export function LedgerRegisterPanel(props: LedgerRegisterPanelProps) {
                                       />
                                       <input
                                         ref={(element) => {
-                                          splitAmountInputRefs.current[postingIndex] = element;
+                                          splitAmountInputRefs.current[posting.postingIndex] = element;
                                         }}
-                                        value={isEditingSplitRow[postingIndex]?.amount ?? ""}
+                                        value={isEditingSplitRow[posting.postingIndex]?.amount ?? ""}
                                         placeholder="Amount"
                                         onKeyDown={(event) => {
                                           const keyAction = getSplitQuickEditKeyAction({
                                             field: "amount",
                                             key: event.key,
-                                            splitCount: transaction.postings.length,
-                                            splitIndex: postingIndex,
+                                            splitCount: splitRowCount,
+                                            splitIndex: posting.postingIndex,
                                           });
 
                                           if (keyAction.type === "none") {
@@ -587,7 +639,7 @@ export function LedgerRegisterPanel(props: LedgerRegisterPanelProps) {
                                           setEditingSplitDraft((current) =>
                                             current
                                               ? current.map((candidate, candidateIndex) =>
-                                                  candidateIndex === postingIndex
+                                                  candidateIndex === posting.postingIndex
                                                     ? { ...candidate, amount: event.target.value }
                                                     : candidate,
                                                 )
@@ -598,16 +650,16 @@ export function LedgerRegisterPanel(props: LedgerRegisterPanelProps) {
                                       <label className="checkbox-row">
                                         <input
                                           ref={(element) => {
-                                            splitClearedInputRefs.current[postingIndex] = element;
+                                            splitClearedInputRefs.current[posting.postingIndex] = element;
                                           }}
-                                          checked={isEditingSplitRow[postingIndex]?.cleared ?? false}
+                                          checked={isEditingSplitRow[posting.postingIndex]?.cleared ?? false}
                                           type="checkbox"
                                           onKeyDown={(event) => {
                                             const keyAction = getSplitQuickEditKeyAction({
                                               field: "cleared",
                                               key: event.key,
-                                              splitCount: transaction.postings.length,
-                                              splitIndex: postingIndex,
+                                              splitCount: splitRowCount,
+                                              splitIndex: posting.postingIndex,
                                             });
 
                                             if (keyAction.type === "none") {
@@ -635,7 +687,7 @@ export function LedgerRegisterPanel(props: LedgerRegisterPanelProps) {
                                             setEditingSplitDraft((current) =>
                                               current
                                                 ? current.map((candidate, candidateIndex) =>
-                                                    candidateIndex === postingIndex
+                                                    candidateIndex === posting.postingIndex
                                                       ? {
                                                           ...candidate,
                                                           cleared: event.target.checked,
@@ -648,6 +700,22 @@ export function LedgerRegisterPanel(props: LedgerRegisterPanelProps) {
                                         />
                                         <span>Cleared</span>
                                       </label>
+                                      <button
+                                        disabled={isEditingSplitRow.length <= 2}
+                                        type="button"
+                                        onClick={() => {
+                                          setEditingSplitDraft((current) =>
+                                            current
+                                              ? current.filter(
+                                                  (_, candidateIndex) =>
+                                                    candidateIndex !== posting.postingIndex,
+                                                )
+                                              : current,
+                                          );
+                                        }}
+                                      >
+                                        Remove
+                                      </button>
                                     </div>
                                   ) : (
                                     <div className="candidate-meta">
@@ -658,7 +726,7 @@ export function LedgerRegisterPanel(props: LedgerRegisterPanelProps) {
                                 </div>
                                 <strong>
                                   {isEditingSplitRow
-                                    ? isEditingSplitRow[postingIndex]?.amount ?? posting.amount
+                                    ? isEditingSplitRow[posting.postingIndex]?.amount ?? posting.amount
                                     : posting.amount}
                                 </strong>
                               </div>
@@ -666,6 +734,49 @@ export function LedgerRegisterPanel(props: LedgerRegisterPanelProps) {
                             <div className="posting-editor-row">
                               {isEditingSplitRow ? (
                                 <>
+                                  <button
+                                    type="button"
+                                    onClick={(event) => {
+                                      event.stopPropagation();
+                                      const fallbackAccountId =
+                                        props.selectedLedgerAccountId ??
+                                        props.ledgerWorkspace.availableAccounts[0]?.id ??
+                                        "";
+                                      if (!fallbackAccountId) {
+                                        return;
+                                      }
+
+                                      setEditingSplitDraft((current) =>
+                                        current
+                                          ? [
+                                              ...current,
+                                              {
+                                                accountId: fallbackAccountId,
+                                                amount: "0",
+                                                cleared: false,
+                                                commodityCode:
+                                                  current[0]?.commodityCode ??
+                                                  transaction.postings[0]?.commodityCode ??
+                                                  "USD",
+                                                memo: "",
+                                              },
+                                            ]
+                                          : current,
+                                      );
+                                    }}
+                                  >
+                                    Add split
+                                  </button>
+                                  {!splitHasMinimumRows ? (
+                                    <div className="form-hint error-text">
+                                      Split edits require at least two rows.
+                                    </div>
+                                  ) : null}
+                                  {!splitAccountsAreValid ? (
+                                    <div className="form-hint error-text">
+                                      Each split must reference an account.
+                                    </div>
+                                  ) : null}
                                   {!splitAmountsAreValid ? (
                                     <div className="form-hint error-text">
                                       Split amounts must be valid numbers.
@@ -713,8 +824,10 @@ export function LedgerRegisterPanel(props: LedgerRegisterPanelProps) {
                                     setEditingSplitTransactionId(transaction.id);
                                     setEditingSplitDraft(
                                       transaction.postings.map((posting) => ({
+                                        accountId: posting.accountId,
                                         amount: String(posting.amount),
                                         cleared: posting.cleared,
+                                        commodityCode: posting.commodityCode,
                                         memo: posting.memo ?? "",
                                       })),
                                     );
