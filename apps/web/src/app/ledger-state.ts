@@ -41,6 +41,90 @@ interface UseLedgerKeyboardAndSelectionSyncInput {
   setSelectedLedgerTransactionId: Dispatch<SetStateAction<string | null>>;
 }
 
+export function getLedgerHotkeySelectionUpdate(input: {
+  eventKey: string;
+  filteredTransactions: ReturnType<typeof createLedgerWorkspaceModel>["filteredTransactions"];
+  selectedLedgerTransactionId: string | null;
+  target: EventTarget | null;
+}): {
+  handled: boolean;
+  focusSearch: boolean;
+  nextSelectedLedgerTransactionId: string | null;
+} {
+  if (!shouldHandleLedgerHotkey(input.target)) {
+    return {
+      handled: false,
+      focusSearch: false,
+      nextSelectedLedgerTransactionId: input.selectedLedgerTransactionId,
+    };
+  }
+
+  if (input.eventKey === "/") {
+    return {
+      handled: true,
+      focusSearch: true,
+      nextSelectedLedgerTransactionId: input.selectedLedgerTransactionId,
+    };
+  }
+
+  if (input.eventKey === "Escape") {
+    return {
+      handled: true,
+      focusSearch: false,
+      nextSelectedLedgerTransactionId: null,
+    };
+  }
+
+  if (input.eventKey === "ArrowDown" || input.eventKey === "j") {
+    return {
+      handled: true,
+      focusSearch: false,
+      nextSelectedLedgerTransactionId: getNextLedgerTransactionId({
+        direction: "next",
+        selectedTransactionId: input.selectedLedgerTransactionId,
+        transactions: input.filteredTransactions,
+      }),
+    };
+  }
+
+  if (input.eventKey === "ArrowUp" || input.eventKey === "k") {
+    return {
+      handled: true,
+      focusSearch: false,
+      nextSelectedLedgerTransactionId: getNextLedgerTransactionId({
+        direction: "previous",
+        selectedTransactionId: input.selectedLedgerTransactionId,
+        transactions: input.filteredTransactions,
+      }),
+    };
+  }
+
+  return {
+    handled: false,
+    focusSearch: false,
+    nextSelectedLedgerTransactionId: input.selectedLedgerTransactionId,
+  };
+}
+
+export function getSyncedLedgerSelectionId(input: {
+  filteredTransactions: ReturnType<typeof createLedgerWorkspaceModel>["filteredTransactions"];
+  selectedLedgerTransactionId: string | null;
+}): string | null {
+  if (!input.selectedLedgerTransactionId) {
+    return input.selectedLedgerTransactionId;
+  }
+
+  const selectedStillVisible = input.filteredTransactions.some(
+    (transaction) => transaction.id === input.selectedLedgerTransactionId,
+  );
+
+  if (selectedStillVisible) {
+    return input.selectedLedgerTransactionId;
+  }
+
+  return input.filteredTransactions[0]?.id ?? null;
+}
+
 export function useLedgerKeyboardAndSelectionSync(input: UseLedgerKeyboardAndSelectionSyncInput) {
   useEffect(() => {
     if (input.activeView !== "ledger") {
@@ -48,44 +132,25 @@ export function useLedgerKeyboardAndSelectionSync(input: UseLedgerKeyboardAndSel
     }
 
     function handleKeydown(event: KeyboardEvent) {
-      if (!shouldHandleLedgerHotkey(event.target)) {
+      const hotkeyUpdate = getLedgerHotkeySelectionUpdate({
+        eventKey: event.key,
+        filteredTransactions: input.filteredTransactions,
+        selectedLedgerTransactionId: input.selectedLedgerTransactionId,
+        target: event.target,
+      });
+
+      if (!hotkeyUpdate.handled) {
         return;
       }
 
-      if (event.key === "/") {
-        event.preventDefault();
+      event.preventDefault();
+
+      if (hotkeyUpdate.focusSearch) {
         input.ledgerSearchInputRef.current?.focus();
         return;
       }
 
-      if (event.key === "Escape") {
-        event.preventDefault();
-        input.setSelectedLedgerTransactionId(null);
-        return;
-      }
-
-      if (event.key === "ArrowDown" || event.key === "j") {
-        event.preventDefault();
-        input.setSelectedLedgerTransactionId((current) =>
-          getNextLedgerTransactionId({
-            direction: "next",
-            selectedTransactionId: current,
-            transactions: input.filteredTransactions,
-          }),
-        );
-        return;
-      }
-
-      if (event.key === "ArrowUp" || event.key === "k") {
-        event.preventDefault();
-        input.setSelectedLedgerTransactionId((current) =>
-          getNextLedgerTransactionId({
-            direction: "previous",
-            selectedTransactionId: current,
-            transactions: input.filteredTransactions,
-          }),
-        );
-      }
+      input.setSelectedLedgerTransactionId(hotkeyUpdate.nextSelectedLedgerTransactionId);
     }
 
     window.addEventListener("keydown", handleKeydown);
@@ -96,11 +161,13 @@ export function useLedgerKeyboardAndSelectionSync(input: UseLedgerKeyboardAndSel
   }, [input.activeView, input.filteredTransactions, input.ledgerSearchInputRef, input.setSelectedLedgerTransactionId]);
 
   useEffect(() => {
-    if (
-      input.selectedLedgerTransactionId &&
-      !input.filteredTransactions.some((transaction) => transaction.id === input.selectedLedgerTransactionId)
-    ) {
-      input.setSelectedLedgerTransactionId(input.filteredTransactions[0]?.id ?? null);
+    const syncedSelectionId = getSyncedLedgerSelectionId({
+      filteredTransactions: input.filteredTransactions,
+      selectedLedgerTransactionId: input.selectedLedgerTransactionId,
+    });
+
+    if (syncedSelectionId !== input.selectedLedgerTransactionId) {
+      input.setSelectedLedgerTransactionId(syncedSelectionId);
     }
   }, [
     input.filteredTransactions,
