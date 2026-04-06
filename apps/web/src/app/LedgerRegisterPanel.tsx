@@ -1,4 +1,4 @@
-import { useEffect, useState, type Dispatch, type RefObject, type SetStateAction } from "react";
+import { useEffect, useRef, useState, type Dispatch, type RefObject, type SetStateAction } from "react";
 import type { WorkspaceResponse } from "./api";
 import type { LedgerInlineRowEditDraft } from "./ledger-state";
 import { type createLedgerWorkspaceModel } from "./shell";
@@ -47,6 +47,9 @@ export function LedgerRegisterPanel(props: LedgerRegisterPanelProps) {
   const [expandedTransactionId, setExpandedTransactionId] = useState<string | null>(null);
   const [editingSplitTransactionId, setEditingSplitTransactionId] = useState<string | null>(null);
   const [editingSplitDraft, setEditingSplitDraft] = useState<InlineSplitDraft[] | null>(null);
+  const splitMemoInputRefs = useRef<Array<HTMLInputElement | null>>([]);
+  const splitClearedInputRefs = useRef<Array<HTMLInputElement | null>>([]);
+  const splitSaveButtonRef = useRef<HTMLButtonElement | null>(null);
   const [newTransactionDraft, setNewTransactionDraft] = useState<InlineNewTransactionDraft>({
     amount: "0.00",
     date: "2026-04-03",
@@ -495,8 +498,29 @@ export function LedgerRegisterPanel(props: LedgerRegisterPanelProps) {
                                   {isEditingSplitRow ? (
                                     <div className="form-inline">
                                       <input
+                                        ref={(element) => {
+                                          splitMemoInputRefs.current[postingIndex] = element;
+                                        }}
                                         value={isEditingSplitRow[postingIndex]?.memo ?? ""}
                                         placeholder="Memo"
+                                        onKeyDown={(event) => {
+                                          if (event.key === "Escape") {
+                                            event.preventDefault();
+                                            setEditingSplitTransactionId(null);
+                                            setEditingSplitDraft(null);
+                                            return;
+                                          }
+
+                                          if (event.key !== "Enter") {
+                                            return;
+                                          }
+
+                                          event.preventDefault();
+                                          const nextClearedInput = splitClearedInputRefs.current[postingIndex];
+                                          if (nextClearedInput) {
+                                            nextClearedInput.focus();
+                                          }
+                                        }}
                                         onChange={(event) => {
                                           setEditingSplitDraft((current) =>
                                             current
@@ -511,8 +535,32 @@ export function LedgerRegisterPanel(props: LedgerRegisterPanelProps) {
                                       />
                                       <label className="checkbox-row">
                                         <input
+                                          ref={(element) => {
+                                            splitClearedInputRefs.current[postingIndex] = element;
+                                          }}
                                           checked={isEditingSplitRow[postingIndex]?.cleared ?? false}
                                           type="checkbox"
+                                          onKeyDown={(event) => {
+                                            if (event.key === "Escape") {
+                                              event.preventDefault();
+                                              setEditingSplitTransactionId(null);
+                                              setEditingSplitDraft(null);
+                                              return;
+                                            }
+
+                                            if (event.key !== "Enter") {
+                                              return;
+                                            }
+
+                                            event.preventDefault();
+                                            const nextMemoInput = splitMemoInputRefs.current[postingIndex + 1];
+                                            if (nextMemoInput) {
+                                              nextMemoInput.focus();
+                                              return;
+                                            }
+
+                                            splitSaveButtonRef.current?.focus();
+                                          }}
                                           onChange={(event) => {
                                             setEditingSplitDraft((current) =>
                                               current
@@ -545,6 +593,7 @@ export function LedgerRegisterPanel(props: LedgerRegisterPanelProps) {
                               {isEditingSplitRow ? (
                                 <>
                                   <button
+                                    ref={splitSaveButtonRef}
                                     disabled={props.busy !== null}
                                     type="button"
                                     onClick={(event) => {
