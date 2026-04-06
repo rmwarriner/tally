@@ -20,6 +20,22 @@ The ledger register should be the central desktop experience.
 
 Most desktop finance work should flow from the register, not from scattered forms or inspector-driven editing. The current inspector-heavy editing model is a transitional state, not the target end state.
 
+## Interaction Rule
+
+Adopt this product-wide interaction rule:
+
+- routine editing should happen in the primary working surface for the active mode
+- secondary panes should be used only for complex, exception, or review-specific tasks
+
+Applied by mode:
+
+- ledger: routine transaction editing belongs in the register
+- envelopes: routine envelope edits belong in envelope rows/lists, not detached forms
+- budget: routine budget edits belong in budget sheets/grids, not detached forms
+- automations/schedules: routine schedule edits belong in schedule rows/lists, with detail panes reserved for complex templates
+
+This rule is intended to keep the desktop shell understandable for household users while preserving advanced workflows through progressive disclosure.
+
 ## Target Shell Model
 
 ### Activity Bar
