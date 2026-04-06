@@ -70,6 +70,7 @@ interface LedgerRegisterTabState {
 export function App() {
   const [activeView, setActiveView] = useState<WorkspaceView>("overview");
   const [isLedgerDetailOpen, setIsLedgerDetailOpen] = useState(false);
+  const [isLedgerOperationsOpen, setIsLedgerOperationsOpen] = useState(false);
   const [transactionEditor, setTransactionEditor] = useState<TransactionEditorState | null>(null);
   const [activePostingAccountSearchIndex, setActivePostingAccountSearchIndex] = useState<number | null>(
     null,
@@ -960,15 +961,32 @@ export function App() {
                 </p>
               </article>
             )}
-            <LedgerOperationsPanels
-              busy={busy}
-              liquidAccounts={liquidAccounts}
-              reconciliationForm={reconciliationForm}
-              reconciliationWorkspace={reconciliationWorkspace}
-              runMutation={runMutation}
-              setReconciliationForm={setReconciliationForm}
-              setSelectedReconciliationTransactionIds={setSelectedReconciliationTransactionIds}
-            />
+            <article className="panel">
+              <div className="panel-header">
+                <span>Ledger operations</span>
+                <span className="muted">Reconciliation and statement matching</span>
+              </div>
+              <div className="posting-editor-row">
+                <button type="button" onClick={() => setIsLedgerOperationsOpen((current) => !current)}>
+                  {isLedgerOperationsOpen ? "Hide reconciliation workspace" : "Open reconciliation workspace"}
+                </button>
+              </div>
+              {isLedgerOperationsOpen ? (
+                <LedgerOperationsPanels
+                  busy={busy}
+                  liquidAccounts={liquidAccounts}
+                  reconciliationForm={reconciliationForm}
+                  reconciliationWorkspace={reconciliationWorkspace}
+                  runMutation={runMutation}
+                  setReconciliationForm={setReconciliationForm}
+                  setSelectedReconciliationTransactionIds={setSelectedReconciliationTransactionIds}
+                />
+              ) : (
+                <p className="form-hint">
+                  Reconciliation is available on demand so routine editing stays register-first.
+                </p>
+              )}
+            </article>
         </>
       );
     }
