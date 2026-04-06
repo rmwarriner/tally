@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import type { LedgerTransactionDetail } from "./shell";
 import {
   createLedgerInlineRowEditDraft,
+  getSplitQuickEditKeyAction,
   getLedgerHotkeySelectionUpdate,
   getSyncedLedgerSelectionId,
   updateLedgerInlineRowEditDraft,
@@ -141,5 +142,51 @@ describe("ledger inline row edit draft", () => {
       occurredOn: "2026-04-01",
       payee: "",
     });
+  });
+});
+
+describe("getSplitQuickEditKeyAction", () => {
+  it("returns cancel on escape from memo field", () => {
+    expect(
+      getSplitQuickEditKeyAction({
+        field: "memo",
+        key: "Escape",
+        splitCount: 3,
+        splitIndex: 0,
+      }),
+    ).toEqual({ type: "cancel" });
+  });
+
+  it("moves focus from memo to cleared on enter", () => {
+    expect(
+      getSplitQuickEditKeyAction({
+        field: "memo",
+        key: "Enter",
+        splitCount: 3,
+        splitIndex: 1,
+      }),
+    ).toEqual({ splitIndex: 1, type: "focus-cleared" });
+  });
+
+  it("moves focus from cleared to next memo when not on last split", () => {
+    expect(
+      getSplitQuickEditKeyAction({
+        field: "cleared",
+        key: "Enter",
+        splitCount: 3,
+        splitIndex: 1,
+      }),
+    ).toEqual({ splitIndex: 2, type: "focus-memo" });
+  });
+
+  it("moves focus from cleared to save when on last split", () => {
+    expect(
+      getSplitQuickEditKeyAction({
+        field: "cleared",
+        key: "Enter",
+        splitCount: 3,
+        splitIndex: 2,
+      }),
+    ).toEqual({ type: "focus-save" });
   });
 });

@@ -11,6 +11,39 @@ interface LedgerRange {
   to: string;
 }
 
+export type SplitQuickEditField = "memo" | "cleared";
+
+export function getSplitQuickEditKeyAction(input: {
+  field: SplitQuickEditField;
+  key: string;
+  splitCount: number;
+  splitIndex: number;
+}):
+  | { type: "none" }
+  | { type: "cancel" }
+  | { splitIndex: number; type: "focus-memo" }
+  | { splitIndex: number; type: "focus-cleared" }
+  | { type: "focus-save" } {
+  if (input.key === "Escape") {
+    return { type: "cancel" };
+  }
+
+  if (input.key !== "Enter") {
+    return { type: "none" };
+  }
+
+  if (input.field === "memo") {
+    return { splitIndex: input.splitIndex, type: "focus-cleared" };
+  }
+
+  const nextMemoSplitIndex = input.splitIndex + 1;
+  if (nextMemoSplitIndex < input.splitCount) {
+    return { splitIndex: nextMemoSplitIndex, type: "focus-memo" };
+  }
+
+  return { type: "focus-save" };
+}
+
 interface UseLedgerFiltersAndSelectionInput {
   initialRange: LedgerRange;
 }

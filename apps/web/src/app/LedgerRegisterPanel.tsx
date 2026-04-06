@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState, type Dispatch, type RefObject, type SetStateAction } from "react";
 import type { WorkspaceResponse } from "./api";
-import type { LedgerInlineRowEditDraft } from "./ledger-state";
+import { getSplitQuickEditKeyAction, type LedgerInlineRowEditDraft } from "./ledger-state";
 import { type createLedgerWorkspaceModel } from "./shell";
 
 interface InlineNewTransactionDraft {
@@ -504,21 +504,27 @@ export function LedgerRegisterPanel(props: LedgerRegisterPanelProps) {
                                         value={isEditingSplitRow[postingIndex]?.memo ?? ""}
                                         placeholder="Memo"
                                         onKeyDown={(event) => {
-                                          if (event.key === "Escape") {
-                                            event.preventDefault();
+                                          const keyAction = getSplitQuickEditKeyAction({
+                                            field: "memo",
+                                            key: event.key,
+                                            splitCount: transaction.postings.length,
+                                            splitIndex: postingIndex,
+                                          });
+
+                                          if (keyAction.type === "none") {
+                                            return;
+                                          }
+
+                                          event.preventDefault();
+
+                                          if (keyAction.type === "cancel") {
                                             setEditingSplitTransactionId(null);
                                             setEditingSplitDraft(null);
                                             return;
                                           }
 
-                                          if (event.key !== "Enter") {
-                                            return;
-                                          }
-
-                                          event.preventDefault();
-                                          const nextClearedInput = splitClearedInputRefs.current[postingIndex];
-                                          if (nextClearedInput) {
-                                            nextClearedInput.focus();
+                                          if (keyAction.type === "focus-cleared") {
+                                            splitClearedInputRefs.current[keyAction.splitIndex]?.focus();
                                           }
                                         }}
                                         onChange={(event) => {
@@ -541,25 +547,33 @@ export function LedgerRegisterPanel(props: LedgerRegisterPanelProps) {
                                           checked={isEditingSplitRow[postingIndex]?.cleared ?? false}
                                           type="checkbox"
                                           onKeyDown={(event) => {
-                                            if (event.key === "Escape") {
-                                              event.preventDefault();
+                                            const keyAction = getSplitQuickEditKeyAction({
+                                              field: "cleared",
+                                              key: event.key,
+                                              splitCount: transaction.postings.length,
+                                              splitIndex: postingIndex,
+                                            });
+
+                                            if (keyAction.type === "none") {
+                                              return;
+                                            }
+
+                                            event.preventDefault();
+
+                                            if (keyAction.type === "cancel") {
                                               setEditingSplitTransactionId(null);
                                               setEditingSplitDraft(null);
                                               return;
                                             }
 
-                                            if (event.key !== "Enter") {
+                                            if (keyAction.type === "focus-memo") {
+                                              splitMemoInputRefs.current[keyAction.splitIndex]?.focus();
                                               return;
                                             }
 
-                                            event.preventDefault();
-                                            const nextMemoInput = splitMemoInputRefs.current[postingIndex + 1];
-                                            if (nextMemoInput) {
-                                              nextMemoInput.focus();
-                                              return;
+                                            if (keyAction.type === "focus-save") {
+                                              splitSaveButtonRef.current?.focus();
                                             }
-
-                                            splitSaveButtonRef.current?.focus();
                                           }}
                                           onChange={(event) => {
                                             setEditingSplitDraft((current) =>
