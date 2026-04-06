@@ -477,6 +477,13 @@ export function App() {
       return;
     }
 
+    const trimmedDate = inlineEditDraft.occurredOn.trim();
+    const trimmedDescription = inlineEditDraft.description.trim();
+
+    if (!trimmedDescription || !/^\d{4}-\d{2}-\d{2}$/.test(trimmedDate)) {
+      return;
+    }
+
     const sourceTransaction = workspaceTransactions.find((transaction) => transaction.id === transactionId);
 
     if (!sourceTransaction) {
@@ -487,9 +494,9 @@ export function App() {
       await putTransaction(WORKSPACE_ID, sourceTransaction.id, {
         actor: "Primary",
         transaction: {
-          description: inlineEditDraft.description.trim(),
+          description: trimmedDescription,
           id: sourceTransaction.id,
-          occurredOn: inlineEditDraft.occurredOn.trim(),
+          occurredOn: trimmedDate,
           payee: inlineEditDraft.payee.trim() || undefined,
           postings: sourceTransaction.postings.map((posting) => ({
             accountId: posting.accountId.trim(),

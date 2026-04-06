@@ -26,6 +26,16 @@ interface LedgerRegisterPanelProps {
 }
 
 export function LedgerRegisterPanel(props: LedgerRegisterPanelProps) {
+  const inlineDateIsValid = props.inlineEditDraft
+    ? /^\d{4}-\d{2}-\d{2}$/.test(props.inlineEditDraft.occurredOn.trim())
+    : false;
+  const inlineDescriptionIsValid = props.inlineEditDraft
+    ? props.inlineEditDraft.description.trim().length > 0
+    : false;
+  const inlineSaveDisabled = props.inlineEditDraft
+    ? !inlineDateIsValid || !inlineDescriptionIsValid
+    : true;
+
   return (
     <>
       <article className="panel register-panel">
@@ -123,24 +133,31 @@ export function LedgerRegisterPanel(props: LedgerRegisterPanelProps) {
                   >
                     <td>
                       {rowDraft ? (
-                        <input
-                          value={rowDraft.occurredOn}
-                          onClick={(event) => event.stopPropagation()}
-                          onChange={(event) =>
-                            props.onUpdateInlineEditField("occurredOn", event.target.value)
-                          }
-                          onKeyDown={(event) => {
-                            if (event.key === "Enter") {
-                              event.preventDefault();
-                              props.onSaveInlineEdit(transaction.id);
+                        <>
+                          <input
+                            value={rowDraft.occurredOn}
+                            onClick={(event) => event.stopPropagation()}
+                            onChange={(event) =>
+                              props.onUpdateInlineEditField("occurredOn", event.target.value)
                             }
+                            onKeyDown={(event) => {
+                              if (event.key === "Enter") {
+                                event.preventDefault();
+                                if (!inlineSaveDisabled) {
+                                  props.onSaveInlineEdit(transaction.id);
+                                }
+                              }
 
-                            if (event.key === "Escape") {
-                              event.preventDefault();
-                              props.onCancelInlineEdit();
-                            }
-                          }}
-                        />
+                              if (event.key === "Escape") {
+                                event.preventDefault();
+                                props.onCancelInlineEdit();
+                              }
+                            }}
+                          />
+                          {!inlineDateIsValid ? (
+                            <div className="form-hint error-text">Date must use YYYY-MM-DD.</div>
+                          ) : null}
+                        </>
                       ) : (
                         transaction.occurredOn
                       )}
@@ -152,24 +169,31 @@ export function LedgerRegisterPanel(props: LedgerRegisterPanelProps) {
                     </td>
                     <td>
                       {rowDraft ? (
-                        <input
-                          value={rowDraft.description}
-                          onClick={(event) => event.stopPropagation()}
-                          onChange={(event) =>
-                            props.onUpdateInlineEditField("description", event.target.value)
-                          }
-                          onKeyDown={(event) => {
-                            if (event.key === "Enter") {
-                              event.preventDefault();
-                              props.onSaveInlineEdit(transaction.id);
+                        <>
+                          <input
+                            value={rowDraft.description}
+                            onClick={(event) => event.stopPropagation()}
+                            onChange={(event) =>
+                              props.onUpdateInlineEditField("description", event.target.value)
                             }
+                            onKeyDown={(event) => {
+                              if (event.key === "Enter") {
+                                event.preventDefault();
+                                if (!inlineSaveDisabled) {
+                                  props.onSaveInlineEdit(transaction.id);
+                                }
+                              }
 
-                            if (event.key === "Escape") {
-                              event.preventDefault();
-                              props.onCancelInlineEdit();
-                            }
-                          }}
-                        />
+                              if (event.key === "Escape") {
+                                event.preventDefault();
+                                props.onCancelInlineEdit();
+                              }
+                            }}
+                          />
+                          {!inlineDescriptionIsValid ? (
+                            <div className="form-hint error-text">Description is required.</div>
+                          ) : null}
+                        </>
                       ) : (
                         transaction.description
                       )}
@@ -203,10 +227,13 @@ export function LedgerRegisterPanel(props: LedgerRegisterPanelProps) {
                       {rowDraft ? (
                         <div className="posting-editor-row">
                           <button
+                            disabled={inlineSaveDisabled}
                             type="button"
                             onClick={(event) => {
                               event.stopPropagation();
-                              props.onSaveInlineEdit(transaction.id);
+                              if (!inlineSaveDisabled) {
+                                props.onSaveInlineEdit(transaction.id);
+                              }
                             }}
                           >
                             Save
