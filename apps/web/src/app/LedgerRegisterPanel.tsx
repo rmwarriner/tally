@@ -7,7 +7,12 @@ import {
   moveInlineSplitDraft,
   validateInlineLedgerSplitDrafts,
 } from "./ledger-state";
-import { type createLedgerWorkspaceModel } from "./shell";
+import {
+  findAccountSearchExactMatch,
+  getAccountSearchMatches,
+  getPreferredAccountTypesForPostingAmount,
+  type createLedgerWorkspaceModel,
+} from "./shell";
 
 interface InlineNewTransactionDraft {
   amount: string;
@@ -19,6 +24,7 @@ interface InlineNewTransactionDraft {
 
 interface InlineSplitDraft {
   accountId: string;
+  accountQuery: string;
   amount: string;
   cleared: boolean;
   commodityCode: string;
@@ -55,8 +61,10 @@ interface LedgerRegisterPanelProps {
 export function LedgerRegisterPanel(props: LedgerRegisterPanelProps) {
   const [expandedTransactionId, setExpandedTransactionId] = useState<string | null>(null);
   const [editingSplitTransactionId, setEditingSplitTransactionId] = useState<string | null>(null);
+  const [activeSplitAccountSearchIndex, setActiveSplitAccountSearchIndex] = useState<number | null>(null);
+  const [highlightedSplitAccountMatchIndex, setHighlightedSplitAccountMatchIndex] = useState(0);
   const [editingSplitDraft, setEditingSplitDraft] = useState<InlineSplitDraft[] | null>(null);
-  const splitAccountInputRefs = useRef<Array<HTMLSelectElement | null>>([]);
+  const splitAccountInputRefs = useRef<Array<HTMLInputElement | null>>([]);
   const splitMemoInputRefs = useRef<Array<HTMLInputElement | null>>([]);
   const splitAmountInputRefs = useRef<Array<HTMLInputElement | null>>([]);
   const splitClearedInputRefs = useRef<Array<HTMLInputElement | null>>([]);
@@ -127,8 +135,35 @@ export function LedgerRegisterPanel(props: LedgerRegisterPanelProps) {
     if (!editedSplitRowStillVisible) {
       setEditingSplitTransactionId(null);
       setEditingSplitDraft(null);
+      setActiveSplitAccountSearchIndex(null);
+      setHighlightedSplitAccountMatchIndex(0);
     }
   }, [editingSplitTransactionId, props.ledgerWorkspace.filteredTransactions]);
+
+  function formatSplitAccountLabel(account: WorkspaceResponse["workspace"]["accounts"][number]): string {
+    return account.code ? `${account.name} (${account.code})` : account.name;
+  }
+
+  function selectSplitAccount(splitIndex: number, accountId: string) {
+    const account = props.ledgerWorkspace.availableAccounts.find((candidate) => candidate.id === accountId);
+    if (!account) {
+      return;
+    }
+
+    setEditingSplitDraft((current) =>
+      current
+        ? current.map((candidate, candidateIndex) =>
+            candidateIndex === splitIndex
+              ? {
+                  ...candidate,
+                  accountId,
+                  accountQuery: formatSplitAccountLabel(account),
+                }
+              : candidate,
+          )
+        : current,
+    );
+  }
 
   function focusSplitField(input: {
     field: "account" | "amount" | "cleared" | "memo" | "save";
@@ -353,7 +388,8 @@ export function LedgerRegisterPanel(props: LedgerRegisterPanelProps) {
                         (account) => account.id === split.accountId,
                       );
                       return {
-                        accountName: selectedAccount?.name ?? "Select account",
+                        accountName:
+                          split.accountQuery || selectedAccount?.name || selectedAccount?.id || "Select account",
                         amount: split.amount,
                         cleared: split.cleared,
                         memo: split.memo,
@@ -558,67 +594,195 @@ export function LedgerRegisterPanel(props: LedgerRegisterPanelProps) {
                               <span>Split preview</span>
                               <span className="muted">{transaction.id}</span>
                             </div>
-                            {postingRows.map((posting) => (
-                              <div
-                                key={`${transaction.id}:split:${posting.postingIndex}`}
-                                className="posting-summary-row"
-                              >
+                            {postingRows.map((posting) => {
+                              const splitDraftRow = isEditingSplitRow?.[posting.postingIndex] ?? null;
+                              const splitAccountQuery = splitDraftRow?.accountQuery ?? "";
+                              const accountMatches =
+                                splitDraftRow !== null
+                                  ? getAccountSearchMatches({
+                                      accounts: props.ledgerWorkspace.availableAccounts,
+                                      preferredAccountTypes: getPreferredAccountTypesForPostingAmount(
+                                        splitDraftRow.amount,
+                                      ),
+                                      query: splitAccountQuery,
+                                      selectedAccountId: splitDraftRow.accountId,
+                                    })
+                                  : [];
+                              const highlightedAccountMatch =
+                                accountMatches[
+                                  Math.min(
+                                    highlightedSplitAccountMatchIndex,
+                                    Math.max(accountMatches.length - 1, 0),
+                                  )
+                                ] ?? null;
+
+                              return (
+                                <div
+                                  key={`${transaction.id}:split:${posting.postingIndex}`}
+                                  className="posting-summary-row"
+                                >
                                 <div>
                                   <strong>{posting.accountName}</strong>
                                   {isEditingSplitRow ? (
                                     <div className="form-inline">
-                                      <select
-                                        ref={(element) => {
-                                          splitAccountInputRefs.current[posting.postingIndex] = element;
-                                        }}
-                                        value={isEditingSplitRow[posting.postingIndex]?.accountId ?? ""}
-                                        onKeyDown={(event) => {
-                                          const reorderAction = getSplitReorderKeyAction({
-                                            altKey: event.altKey,
-                                            key: event.key,
-                                            splitCount: splitRowCount,
-                                            splitIndex: posting.postingIndex,
-                                          });
-                                          if (reorderAction.type === "none") {
+                                      <label className="account-search-field">
+                                        <input
+                                          ref={(element) => {
+                                            splitAccountInputRefs.current[posting.postingIndex] = element;
+                                          }}
+                                          value={splitAccountQuery}
+                                          placeholder="Search account"
+                                          role="combobox"
+                                          aria-autocomplete="list"
+                                          aria-expanded={activeSplitAccountSearchIndex === posting.postingIndex}
+                                          aria-controls={`split-account-options-${transaction.id}-${posting.postingIndex}`}
+                                          onFocus={() => {
+                                            setActiveSplitAccountSearchIndex(posting.postingIndex);
+                                            setHighlightedSplitAccountMatchIndex(0);
+                                          }}
+                                          onBlur={() => {
+                                            setActiveSplitAccountSearchIndex((current) =>
+                                              current === posting.postingIndex ? null : current,
+                                            );
+                                            if (splitDraftRow?.accountId) {
+                                              selectSplitAccount(posting.postingIndex, splitDraftRow.accountId);
+                                            }
+                                          }}
+                                          onKeyDown={(event) => {
+                                            const reorderAction = getSplitReorderKeyAction({
+                                              altKey: event.altKey,
+                                              key: event.key,
+                                              splitCount: splitRowCount,
+                                              splitIndex: posting.postingIndex,
+                                            });
+                                            if (reorderAction.type !== "none") {
+                                              event.preventDefault();
+                                              setEditingSplitDraft((current) =>
+                                                current
+                                                  ? moveInlineSplitDraft({
+                                                      direction:
+                                                        reorderAction.type === "move-up" ? "up" : "down",
+                                                      splitIndex: posting.postingIndex,
+                                                      splits: current,
+                                                    })
+                                                  : current,
+                                              );
+                                              window.setTimeout(() => {
+                                                focusSplitField({
+                                                  field: "account",
+                                                  splitIndex: reorderAction.nextIndex,
+                                                });
+                                              }, 0);
+                                              return;
+                                            }
+
+                                          if (event.key === "ArrowDown") {
+                                            event.preventDefault();
+                                            setActiveSplitAccountSearchIndex(posting.postingIndex);
+                                            setHighlightedSplitAccountMatchIndex((current) =>
+                                              Math.min(current + 1, Math.max(accountMatches.length - 1, 0)),
+                                            );
                                             return;
                                           }
 
-                                          event.preventDefault();
-                                          setEditingSplitDraft((current) =>
-                                            current
-                                              ? moveInlineSplitDraft({
-                                                  direction:
-                                                    reorderAction.type === "move-up" ? "up" : "down",
-                                                  splitIndex: posting.postingIndex,
-                                                  splits: current,
-                                                })
-                                              : current,
-                                          );
-                                          window.setTimeout(() => {
+                                          if (event.key === "ArrowUp") {
+                                            event.preventDefault();
+                                            setActiveSplitAccountSearchIndex(posting.postingIndex);
+                                            setHighlightedSplitAccountMatchIndex((current) =>
+                                              Math.max(current - 1, 0),
+                                            );
+                                            return;
+                                          }
+
+                                          if (event.key === "Escape") {
+                                            event.preventDefault();
+                                            setActiveSplitAccountSearchIndex(null);
+                                            return;
+                                          }
+
+                                          if (
+                                            event.key === "Enter" &&
+                                            !event.ctrlKey &&
+                                            !event.metaKey &&
+                                            !event.shiftKey
+                                          ) {
+                                            event.preventDefault();
+                                            if (highlightedAccountMatch) {
+                                              selectSplitAccount(
+                                                posting.postingIndex,
+                                                highlightedAccountMatch.account.id,
+                                              );
+                                            }
                                             focusSplitField({
-                                              field: "account",
-                                              splitIndex: reorderAction.nextIndex,
+                                              field: "memo",
+                                              splitIndex: posting.postingIndex,
                                             });
-                                          }, 0);
+                                          }
                                         }}
-                                        onChange={(event) => {
-                                          setEditingSplitDraft((current) =>
-                                            current
-                                              ? current.map((candidate, candidateIndex) =>
-                                                  candidateIndex === posting.postingIndex
-                                                    ? { ...candidate, accountId: event.target.value }
-                                                    : candidate,
-                                                )
-                                              : current,
-                                          );
-                                        }}
-                                      >
-                                        {props.ledgerWorkspace.availableAccounts.map((account) => (
-                                          <option key={account.id} value={account.id}>
-                                            {account.name}
-                                          </option>
-                                        ))}
-                                      </select>
+                                          onChange={(event) => {
+                                            const exactMatch = findAccountSearchExactMatch({
+                                              accounts: props.ledgerWorkspace.availableAccounts,
+                                              query: event.target.value,
+                                            });
+                                            setEditingSplitDraft((current) =>
+                                              current
+                                                ? current.map((candidate, candidateIndex) =>
+                                                    candidateIndex === posting.postingIndex
+                                                      ? {
+                                                          ...candidate,
+                                                          accountId: exactMatch?.id ?? "",
+                                                          accountQuery: event.target.value,
+                                                        }
+                                                      : candidate,
+                                                  )
+                                                : current,
+                                            );
+                                            setActiveSplitAccountSearchIndex(posting.postingIndex);
+                                            setHighlightedSplitAccountMatchIndex(0);
+                                          }}
+                                        />
+                                        {activeSplitAccountSearchIndex === posting.postingIndex ? (
+                                          <div
+                                            id={`split-account-options-${transaction.id}-${posting.postingIndex}`}
+                                            className="account-search-menu"
+                                            role="listbox"
+                                          >
+                                            {accountMatches.length > 0 ? (
+                                              accountMatches.map((match, matchIndex) => (
+                                                <button
+                                                  key={match.account.id}
+                                                  className={`account-search-option${
+                                                    matchIndex === highlightedSplitAccountMatchIndex
+                                                      ? " active"
+                                                      : ""
+                                                  }`}
+                                                  type="button"
+                                                  onMouseDown={(event) => {
+                                                    event.preventDefault();
+                                                    selectSplitAccount(posting.postingIndex, match.account.id);
+                                                    window.setTimeout(() => {
+                                                      focusSplitField({
+                                                        field: "memo",
+                                                        splitIndex: posting.postingIndex,
+                                                      });
+                                                    }, 0);
+                                                  }}
+                                                >
+                                                  <div className="account-search-option-row">
+                                                    <strong>{match.label}</strong>
+                                                    {match.recommended ? (
+                                                      <span className="account-search-badge">Suggested</span>
+                                                    ) : null}
+                                                  </div>
+                                                  <span>{match.meta}</span>
+                                                </button>
+                                              ))
+                                            ) : (
+                                              <div className="account-search-empty">No matching accounts.</div>
+                                            )}
+                                          </div>
+                                        ) : null}
+                                      </label>
                                       <input
                                         ref={(element) => {
                                           splitMemoInputRefs.current[posting.postingIndex] = element;
@@ -669,6 +833,8 @@ export function LedgerRegisterPanel(props: LedgerRegisterPanelProps) {
                                           if (keyAction.type === "cancel") {
                                             setEditingSplitTransactionId(null);
                                             setEditingSplitDraft(null);
+                                            setActiveSplitAccountSearchIndex(null);
+                                            setHighlightedSplitAccountMatchIndex(0);
                                             return;
                                           }
 
@@ -741,6 +907,8 @@ export function LedgerRegisterPanel(props: LedgerRegisterPanelProps) {
                                           if (keyAction.type === "cancel") {
                                             setEditingSplitTransactionId(null);
                                             setEditingSplitDraft(null);
+                                            setActiveSplitAccountSearchIndex(null);
+                                            setHighlightedSplitAccountMatchIndex(0);
                                             return;
                                           }
 
@@ -814,6 +982,8 @@ export function LedgerRegisterPanel(props: LedgerRegisterPanelProps) {
                                             if (keyAction.type === "cancel") {
                                               setEditingSplitTransactionId(null);
                                               setEditingSplitDraft(null);
+                                              setActiveSplitAccountSearchIndex(null);
+                                              setHighlightedSplitAccountMatchIndex(0);
                                               return;
                                             }
 
@@ -922,7 +1092,8 @@ export function LedgerRegisterPanel(props: LedgerRegisterPanelProps) {
                                     : posting.amount}
                                 </strong>
                               </div>
-                            ))}
+                              );
+                            })}
                             <div className="posting-editor-row">
                               {isEditingSplitRow ? (
                                 <>
@@ -938,6 +1109,12 @@ export function LedgerRegisterPanel(props: LedgerRegisterPanelProps) {
                                       if (!fallbackAccountId) {
                                         return;
                                       }
+                                      const fallbackAccount = props.ledgerWorkspace.availableAccounts.find(
+                                        (account) => account.id === fallbackAccountId,
+                                      );
+                                      const fallbackAccountQuery = fallbackAccount
+                                        ? formatSplitAccountLabel(fallbackAccount)
+                                        : fallbackAccountId;
 
                                       setEditingSplitDraft((current) =>
                                         current
@@ -945,6 +1122,7 @@ export function LedgerRegisterPanel(props: LedgerRegisterPanelProps) {
                                               ...current,
                                               {
                                                 accountId: fallbackAccountId,
+                                                accountQuery: fallbackAccountQuery,
                                                 amount: "0",
                                                 cleared: false,
                                                 commodityCode:
@@ -993,6 +1171,8 @@ export function LedgerRegisterPanel(props: LedgerRegisterPanelProps) {
                                         });
                                         setEditingSplitTransactionId(null);
                                         setEditingSplitDraft(null);
+                                        setActiveSplitAccountSearchIndex(null);
+                                        setHighlightedSplitAccountMatchIndex(0);
                                       }
                                     }}
                                   >
@@ -1004,6 +1184,8 @@ export function LedgerRegisterPanel(props: LedgerRegisterPanelProps) {
                                       event.stopPropagation();
                                       setEditingSplitTransactionId(null);
                                       setEditingSplitDraft(null);
+                                      setActiveSplitAccountSearchIndex(null);
+                                      setHighlightedSplitAccountMatchIndex(0);
                                     }}
                                   >
                                     Cancel split changes
@@ -1015,9 +1197,14 @@ export function LedgerRegisterPanel(props: LedgerRegisterPanelProps) {
                                   onClick={(event) => {
                                     event.stopPropagation();
                                     setEditingSplitTransactionId(transaction.id);
+                                    setActiveSplitAccountSearchIndex(null);
+                                    setHighlightedSplitAccountMatchIndex(0);
                                     setEditingSplitDraft(
                                       transaction.postings.map((posting) => ({
                                         accountId: posting.accountId,
+                                        accountQuery: posting.accountCode
+                                          ? `${posting.accountName} (${posting.accountCode})`
+                                          : posting.accountName,
                                         amount: String(posting.amount),
                                         cleared: posting.cleared,
                                         commodityCode: posting.commodityCode,

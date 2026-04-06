@@ -547,6 +547,7 @@ export function App() {
   async function saveInlineLedgerSplits(input: {
     splits: Array<{
       accountId: string;
+      accountQuery?: string;
       amount: string;
       cleared: boolean;
       commodityCode: string;
