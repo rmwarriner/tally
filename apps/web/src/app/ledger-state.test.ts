@@ -3,8 +3,10 @@ import type { LedgerTransactionDetail } from "./shell";
 import {
   createLedgerInlineRowEditDraft,
   getSplitQuickEditKeyAction,
+  getSplitReorderKeyAction,
   getLedgerHotkeySelectionUpdate,
   getSyncedLedgerSelectionId,
+  moveInlineSplitDraft,
   updateLedgerInlineRowEditDraft,
   validateInlineLedgerSplitDrafts,
 } from "./ledger-state";
@@ -260,5 +262,97 @@ describe("validateInlineLedgerSplitDrafts", () => {
       canSave: false,
       isBalanced: false,
     });
+  });
+});
+
+describe("moveInlineSplitDraft", () => {
+  it("moves a split up and preserves the other rows", () => {
+    expect(
+      moveInlineSplitDraft({
+        direction: "up",
+        splitIndex: 1,
+        splits: [
+          { accountId: "acct-a", amount: "1", memo: "a" },
+          { accountId: "acct-b", amount: "2", memo: "b" },
+          { accountId: "acct-c", amount: "3", memo: "c" },
+        ],
+      }),
+    ).toEqual([
+      { accountId: "acct-b", amount: "2", memo: "b" },
+      { accountId: "acct-a", amount: "1", memo: "a" },
+      { accountId: "acct-c", amount: "3", memo: "c" },
+    ]);
+  });
+
+  it("returns original order when move is out of bounds", () => {
+    const splits = [
+      { accountId: "acct-a", amount: "1" },
+      { accountId: "acct-b", amount: "2" },
+    ];
+    expect(
+      moveInlineSplitDraft({
+        direction: "up",
+        splitIndex: 0,
+        splits,
+      }),
+    ).toEqual(splits);
+    expect(
+      moveInlineSplitDraft({
+        direction: "down",
+        splitIndex: 1,
+        splits,
+      }),
+    ).toEqual(splits);
+  });
+});
+
+describe("getSplitReorderKeyAction", () => {
+  it("requires alt modifier for reorder actions", () => {
+    expect(
+      getSplitReorderKeyAction({
+        altKey: false,
+        key: "ArrowUp",
+        splitCount: 3,
+        splitIndex: 1,
+      }),
+    ).toEqual({ type: "none" });
+  });
+
+  it("returns move up and move down actions in bounds", () => {
+    expect(
+      getSplitReorderKeyAction({
+        altKey: true,
+        key: "ArrowUp",
+        splitCount: 3,
+        splitIndex: 1,
+      }),
+    ).toEqual({ nextIndex: 0, type: "move-up" });
+    expect(
+      getSplitReorderKeyAction({
+        altKey: true,
+        key: "ArrowDown",
+        splitCount: 3,
+        splitIndex: 1,
+      }),
+    ).toEqual({ nextIndex: 2, type: "move-down" });
+  });
+
+  it("returns none when attempted reorder is out of bounds", () => {
+    expect(
+      getSplitReorderKeyAction({
+        altKey: true,
+        key: "ArrowUp",
+        splitCount: 3,
+        splitIndex: 0,
+      }),
+    ).toEqual({ type: "none" });
+    expect(
+      getSplitReorderKeyAction({
+        altKey: true,
+        key: "ArrowDown",
+        splitCount: 3,
+        splitIndex: 2,
+      }),
+    ).toEqual({ type: "none" });
   });
 });

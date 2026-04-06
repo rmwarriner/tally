@@ -13,6 +13,51 @@ interface LedgerRange {
 
 export type SplitQuickEditField = "memo" | "amount" | "cleared";
 
+export function moveInlineSplitDraft<T>(input: {
+  direction: "up" | "down";
+  splitIndex: number;
+  splits: T[];
+}): T[] {
+  if (input.splits.length < 2) {
+    return input.splits;
+  }
+
+  const nextIndex = input.direction === "up" ? input.splitIndex - 1 : input.splitIndex + 1;
+  if (nextIndex < 0 || nextIndex >= input.splits.length) {
+    return input.splits;
+  }
+
+  const nextSplits = [...input.splits];
+  const candidate = nextSplits[input.splitIndex];
+  nextSplits[input.splitIndex] = nextSplits[nextIndex];
+  nextSplits[nextIndex] = candidate;
+  return nextSplits;
+}
+
+export function getSplitReorderKeyAction(input: {
+  altKey: boolean;
+  key: string;
+  splitCount: number;
+  splitIndex: number;
+}):
+  | { type: "none" }
+  | { nextIndex: number; type: "move-up" }
+  | { nextIndex: number; type: "move-down" } {
+  if (!input.altKey) {
+    return { type: "none" };
+  }
+
+  if (input.key === "ArrowUp" && input.splitIndex > 0) {
+    return { nextIndex: input.splitIndex - 1, type: "move-up" };
+  }
+
+  if (input.key === "ArrowDown" && input.splitIndex + 1 < input.splitCount) {
+    return { nextIndex: input.splitIndex + 1, type: "move-down" };
+  }
+
+  return { type: "none" };
+}
+
 export interface InlineLedgerSplitDraft {
   accountId: string;
   amount: string;

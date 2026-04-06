@@ -1,8 +1,10 @@
 import { useEffect, useRef, useState, type Dispatch, type RefObject, type SetStateAction } from "react";
 import type { WorkspaceResponse } from "./api";
 import {
+  getSplitReorderKeyAction,
   getSplitQuickEditKeyAction,
   type LedgerInlineRowEditDraft,
+  moveInlineSplitDraft,
   validateInlineLedgerSplitDrafts,
 } from "./ledger-state";
 import { type createLedgerWorkspaceModel } from "./shell";
@@ -54,6 +56,7 @@ export function LedgerRegisterPanel(props: LedgerRegisterPanelProps) {
   const [expandedTransactionId, setExpandedTransactionId] = useState<string | null>(null);
   const [editingSplitTransactionId, setEditingSplitTransactionId] = useState<string | null>(null);
   const [editingSplitDraft, setEditingSplitDraft] = useState<InlineSplitDraft[] | null>(null);
+  const splitAccountInputRefs = useRef<Array<HTMLSelectElement | null>>([]);
   const splitMemoInputRefs = useRef<Array<HTMLInputElement | null>>([]);
   const splitAmountInputRefs = useRef<Array<HTMLInputElement | null>>([]);
   const splitClearedInputRefs = useRef<Array<HTMLInputElement | null>>([]);
@@ -126,6 +129,33 @@ export function LedgerRegisterPanel(props: LedgerRegisterPanelProps) {
       setEditingSplitDraft(null);
     }
   }, [editingSplitTransactionId, props.ledgerWorkspace.filteredTransactions]);
+
+  function focusSplitField(input: {
+    field: "account" | "amount" | "cleared" | "memo" | "save";
+    splitIndex: number;
+  }) {
+    if (input.field === "account") {
+      splitAccountInputRefs.current[input.splitIndex]?.focus();
+      return;
+    }
+
+    if (input.field === "memo") {
+      splitMemoInputRefs.current[input.splitIndex]?.focus();
+      return;
+    }
+
+    if (input.field === "amount") {
+      splitAmountInputRefs.current[input.splitIndex]?.focus();
+      return;
+    }
+
+    if (input.field === "cleared") {
+      splitClearedInputRefs.current[input.splitIndex]?.focus();
+      return;
+    }
+
+    splitSaveButtonRef.current?.focus();
+  }
 
   return (
     <>
@@ -538,7 +568,39 @@ export function LedgerRegisterPanel(props: LedgerRegisterPanelProps) {
                                   {isEditingSplitRow ? (
                                     <div className="form-inline">
                                       <select
+                                        ref={(element) => {
+                                          splitAccountInputRefs.current[posting.postingIndex] = element;
+                                        }}
                                         value={isEditingSplitRow[posting.postingIndex]?.accountId ?? ""}
+                                        onKeyDown={(event) => {
+                                          const reorderAction = getSplitReorderKeyAction({
+                                            altKey: event.altKey,
+                                            key: event.key,
+                                            splitCount: splitRowCount,
+                                            splitIndex: posting.postingIndex,
+                                          });
+                                          if (reorderAction.type === "none") {
+                                            return;
+                                          }
+
+                                          event.preventDefault();
+                                          setEditingSplitDraft((current) =>
+                                            current
+                                              ? moveInlineSplitDraft({
+                                                  direction:
+                                                    reorderAction.type === "move-up" ? "up" : "down",
+                                                  splitIndex: posting.postingIndex,
+                                                  splits: current,
+                                                })
+                                              : current,
+                                          );
+                                          window.setTimeout(() => {
+                                            focusSplitField({
+                                              field: "account",
+                                              splitIndex: reorderAction.nextIndex,
+                                            });
+                                          }, 0);
+                                        }}
                                         onChange={(event) => {
                                           setEditingSplitDraft((current) =>
                                             current
@@ -564,6 +626,33 @@ export function LedgerRegisterPanel(props: LedgerRegisterPanelProps) {
                                         value={isEditingSplitRow[posting.postingIndex]?.memo ?? ""}
                                         placeholder="Memo"
                                         onKeyDown={(event) => {
+                                          const reorderAction = getSplitReorderKeyAction({
+                                            altKey: event.altKey,
+                                            key: event.key,
+                                            splitCount: splitRowCount,
+                                            splitIndex: posting.postingIndex,
+                                          });
+                                          if (reorderAction.type !== "none") {
+                                            event.preventDefault();
+                                            setEditingSplitDraft((current) =>
+                                              current
+                                                ? moveInlineSplitDraft({
+                                                    direction:
+                                                      reorderAction.type === "move-up" ? "up" : "down",
+                                                    splitIndex: posting.postingIndex,
+                                                    splits: current,
+                                                  })
+                                                : current,
+                                            );
+                                            window.setTimeout(() => {
+                                              focusSplitField({
+                                                field: "memo",
+                                                splitIndex: reorderAction.nextIndex,
+                                              });
+                                            }, 0);
+                                            return;
+                                          }
+
                                           const keyAction = getSplitQuickEditKeyAction({
                                             field: "memo",
                                             key: event.key,
@@ -584,7 +673,10 @@ export function LedgerRegisterPanel(props: LedgerRegisterPanelProps) {
                                           }
 
                                           if (keyAction.type === "focus-amount") {
-                                            splitAmountInputRefs.current[keyAction.splitIndex]?.focus();
+                                            focusSplitField({
+                                              field: "amount",
+                                              splitIndex: keyAction.splitIndex,
+                                            });
                                           }
                                         }}
                                         onChange={(event) => {
@@ -606,6 +698,33 @@ export function LedgerRegisterPanel(props: LedgerRegisterPanelProps) {
                                         value={isEditingSplitRow[posting.postingIndex]?.amount ?? ""}
                                         placeholder="Amount"
                                         onKeyDown={(event) => {
+                                          const reorderAction = getSplitReorderKeyAction({
+                                            altKey: event.altKey,
+                                            key: event.key,
+                                            splitCount: splitRowCount,
+                                            splitIndex: posting.postingIndex,
+                                          });
+                                          if (reorderAction.type !== "none") {
+                                            event.preventDefault();
+                                            setEditingSplitDraft((current) =>
+                                              current
+                                                ? moveInlineSplitDraft({
+                                                    direction:
+                                                      reorderAction.type === "move-up" ? "up" : "down",
+                                                    splitIndex: posting.postingIndex,
+                                                    splits: current,
+                                                  })
+                                                : current,
+                                            );
+                                            window.setTimeout(() => {
+                                              focusSplitField({
+                                                field: "amount",
+                                                splitIndex: reorderAction.nextIndex,
+                                              });
+                                            }, 0);
+                                            return;
+                                          }
+
                                           const keyAction = getSplitQuickEditKeyAction({
                                             field: "amount",
                                             key: event.key,
@@ -626,7 +745,10 @@ export function LedgerRegisterPanel(props: LedgerRegisterPanelProps) {
                                           }
 
                                           if (keyAction.type === "focus-cleared") {
-                                            splitClearedInputRefs.current[keyAction.splitIndex]?.focus();
+                                            focusSplitField({
+                                              field: "cleared",
+                                              splitIndex: keyAction.splitIndex,
+                                            });
                                           }
                                         }}
                                         onChange={(event) => {
@@ -649,6 +771,33 @@ export function LedgerRegisterPanel(props: LedgerRegisterPanelProps) {
                                           checked={isEditingSplitRow[posting.postingIndex]?.cleared ?? false}
                                           type="checkbox"
                                           onKeyDown={(event) => {
+                                            const reorderAction = getSplitReorderKeyAction({
+                                              altKey: event.altKey,
+                                              key: event.key,
+                                              splitCount: splitRowCount,
+                                              splitIndex: posting.postingIndex,
+                                            });
+                                            if (reorderAction.type !== "none") {
+                                              event.preventDefault();
+                                              setEditingSplitDraft((current) =>
+                                                current
+                                                  ? moveInlineSplitDraft({
+                                                      direction:
+                                                        reorderAction.type === "move-up" ? "up" : "down",
+                                                      splitIndex: posting.postingIndex,
+                                                      splits: current,
+                                                    })
+                                                  : current,
+                                              );
+                                              window.setTimeout(() => {
+                                                focusSplitField({
+                                                  field: "cleared",
+                                                  splitIndex: reorderAction.nextIndex,
+                                                });
+                                              }, 0);
+                                              return;
+                                            }
+
                                             const keyAction = getSplitQuickEditKeyAction({
                                               field: "cleared",
                                               key: event.key,
@@ -669,12 +818,15 @@ export function LedgerRegisterPanel(props: LedgerRegisterPanelProps) {
                                             }
 
                                             if (keyAction.type === "focus-memo") {
-                                              splitMemoInputRefs.current[keyAction.splitIndex]?.focus();
+                                              focusSplitField({
+                                                field: "memo",
+                                                splitIndex: keyAction.splitIndex,
+                                              });
                                               return;
                                             }
 
                                             if (keyAction.type === "focus-save") {
-                                              splitSaveButtonRef.current?.focus();
+                                              focusSplitField({ field: "save", splitIndex: posting.postingIndex });
                                             }
                                           }}
                                           onChange={(event) => {
@@ -694,6 +846,52 @@ export function LedgerRegisterPanel(props: LedgerRegisterPanelProps) {
                                         />
                                         <span>Cleared</span>
                                       </label>
+                                      <button
+                                        disabled={posting.postingIndex === 0}
+                                        type="button"
+                                        onClick={() => {
+                                          setEditingSplitDraft((current) =>
+                                            current
+                                              ? moveInlineSplitDraft({
+                                                  direction: "up",
+                                                  splitIndex: posting.postingIndex,
+                                                  splits: current,
+                                                })
+                                              : current,
+                                          );
+                                          window.setTimeout(() => {
+                                            focusSplitField({
+                                              field: "memo",
+                                              splitIndex: Math.max(0, posting.postingIndex - 1),
+                                            });
+                                          }, 0);
+                                        }}
+                                      >
+                                        Up
+                                      </button>
+                                      <button
+                                        disabled={posting.postingIndex + 1 >= splitRowCount}
+                                        type="button"
+                                        onClick={() => {
+                                          setEditingSplitDraft((current) =>
+                                            current
+                                              ? moveInlineSplitDraft({
+                                                  direction: "down",
+                                                  splitIndex: posting.postingIndex,
+                                                  splits: current,
+                                                })
+                                              : current,
+                                          );
+                                          window.setTimeout(() => {
+                                            focusSplitField({
+                                              field: "memo",
+                                              splitIndex: Math.min(splitRowCount - 1, posting.postingIndex + 1),
+                                            });
+                                          }, 0);
+                                        }}
+                                      >
+                                        Down
+                                      </button>
                                       <button
                                         disabled={isEditingSplitRow.length <= 2}
                                         type="button"
@@ -728,6 +926,7 @@ export function LedgerRegisterPanel(props: LedgerRegisterPanelProps) {
                             <div className="posting-editor-row">
                               {isEditingSplitRow ? (
                                 <>
+                                  <div className="form-hint">Tip: `Alt` + `Up/Down` reorders the focused split row.</div>
                                   <button
                                     type="button"
                                     onClick={(event) => {
