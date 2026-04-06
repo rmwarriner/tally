@@ -651,6 +651,11 @@ th {
   color: #2f6f37;
 }
 
+.status-chip.warning {
+  background: #fff1cf;
+  color: #8b5c12;
+}
+
 .status-list {
   display: grid;
   gap: 10px;

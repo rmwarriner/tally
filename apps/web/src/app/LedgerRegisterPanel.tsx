@@ -597,6 +597,10 @@ export function LedgerRegisterPanel(props: LedgerRegisterPanelProps) {
                             {postingRows.map((posting) => {
                               const splitDraftRow = isEditingSplitRow?.[posting.postingIndex] ?? null;
                               const splitAccountQuery = splitDraftRow?.accountQuery ?? "";
+                              const splitHasUnresolvedAccountQuery =
+                                splitDraftRow !== null &&
+                                splitDraftRow.accountQuery.trim().length > 0 &&
+                                splitDraftRow.accountId.trim().length === 0;
                               const accountMatches =
                                 splitDraftRow !== null
                                   ? getAccountSearchMatches({
@@ -644,7 +648,20 @@ export function LedgerRegisterPanel(props: LedgerRegisterPanelProps) {
                                             setActiveSplitAccountSearchIndex((current) =>
                                               current === posting.postingIndex ? null : current,
                                             );
-                                            if (splitDraftRow?.accountId) {
+                                            if (!splitDraftRow) {
+                                              return;
+                                            }
+
+                                            const exactMatch = findAccountSearchExactMatch({
+                                              accounts: props.ledgerWorkspace.availableAccounts,
+                                              query: splitDraftRow.accountQuery,
+                                            });
+                                            if (exactMatch) {
+                                              selectSplitAccount(posting.postingIndex, exactMatch.id);
+                                              return;
+                                            }
+
+                                            if (splitDraftRow.accountId) {
                                               selectSplitAccount(posting.postingIndex, splitDraftRow.accountId);
                                             }
                                           }}
@@ -781,6 +798,9 @@ export function LedgerRegisterPanel(props: LedgerRegisterPanelProps) {
                                               <div className="account-search-empty">No matching accounts.</div>
                                             )}
                                           </div>
+                                        ) : null}
+                                        {splitHasUnresolvedAccountQuery ? (
+                                          <span className="status-chip warning">Unresolved account</span>
                                         ) : null}
                                       </label>
                                       <input
