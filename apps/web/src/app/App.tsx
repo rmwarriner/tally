@@ -21,17 +21,17 @@ import {
   createLedgerWorkspaceModel,
   createOverviewCards,
   getNextPostingFocusTarget,
-  getNextLedgerTransactionId,
   getPostingBalanceSummary,
   getPreferredAccountTypesForPostingAmount,
   getTransactionEditorHotkeyAction,
   getWorkspaceViewDefinition,
   movePostingIndex,
   type PostingFocusField,
-  shouldHandleLedgerHotkey,
   type WorkspaceView,
-  workspaceViews,
+  workspaceViews
 } from "./shell";
+import { useLedgerFiltersAndSelection, useLedgerKeyboardAndSelectionSync } from "./ledger-state";
+import { LedgerRegisterPanel } from "./LedgerRegisterPanel";
 import "../app/styles.css";
 
 const aprilRange = { from: "2026-04-01", to: "2026-04-30" };
@@ -191,10 +191,6 @@ function ShellState(props: { message: string; title: string }) {
 
 export function App() {
   const [activeView, setActiveView] = useState<WorkspaceView>("overview");
-  const [ledgerSearchText, setLedgerSearchText] = useState("");
-  const [ledgerRange, setLedgerRange] = useState(aprilRange);
-  const [selectedLedgerAccountId, setSelectedLedgerAccountId] = useState<string | null>(null);
-  const [selectedLedgerTransactionId, setSelectedLedgerTransactionId] = useState<string | null>(null);
   const [transactionEditor, setTransactionEditor] = useState<TransactionEditorState | null>(null);
   const [activePostingAccountSearchIndex, setActivePostingAccountSearchIndex] = useState<number | null>(
     null,
@@ -271,6 +267,16 @@ export function App() {
     nextDueOn: "2026-05-15",
     payee: "City Utilities",
   });
+  const {
+    ledgerRange,
+    ledgerSearchText,
+    selectedLedgerAccountId,
+    selectedLedgerTransactionId,
+    setLedgerRange,
+    setLedgerSearchText,
+    setSelectedLedgerAccountId,
+    setSelectedLedgerTransactionId,
+  } = useLedgerFiltersAndSelection({ initialRange: aprilRange });
 
   async function loadWorkspaceData() {
     setLoading(true);
@@ -381,70 +387,13 @@ export function App() {
         defaultAmount: "0",
         isBalanced: false,
       };
-
-  useEffect(() => {
-    if (activeView !== "ledger") {
-      return;
-    }
-
-    function handleKeydown(event: KeyboardEvent) {
-      if (!shouldHandleLedgerHotkey(event.target)) {
-        return;
-      }
-
-      if (event.key === "/") {
-        event.preventDefault();
-        ledgerSearchInputRef.current?.focus();
-        return;
-      }
-
-      if (event.key === "Escape") {
-        event.preventDefault();
-        setSelectedLedgerTransactionId(null);
-        return;
-      }
-
-      if (event.key === "ArrowDown" || event.key === "j") {
-        event.preventDefault();
-        setSelectedLedgerTransactionId((current) =>
-          getNextLedgerTransactionId({
-            direction: "next",
-            selectedTransactionId: current,
-            transactions: ledgerWorkspace.filteredTransactions,
-          }),
-        );
-        return;
-      }
-
-      if (event.key === "ArrowUp" || event.key === "k") {
-        event.preventDefault();
-        setSelectedLedgerTransactionId((current) =>
-          getNextLedgerTransactionId({
-            direction: "previous",
-            selectedTransactionId: current,
-            transactions: ledgerWorkspace.filteredTransactions,
-          }),
-        );
-      }
-    }
-
-    window.addEventListener("keydown", handleKeydown);
-
-    return () => {
-      window.removeEventListener("keydown", handleKeydown);
-    };
-  }, [activeView, ledgerWorkspace.filteredTransactions]);
-
-  useEffect(() => {
-    if (
-      selectedLedgerTransactionId &&
-      !ledgerWorkspace.filteredTransactions.some(
-        (transaction) => transaction.id === selectedLedgerTransactionId,
-      )
-    ) {
-      setSelectedLedgerTransactionId(ledgerWorkspace.filteredTransactions[0]?.id ?? null);
-    }
-  }, [ledgerWorkspace.filteredTransactions, selectedLedgerTransactionId]);
+  useLedgerKeyboardAndSelectionSync({
+    activeView,
+    filteredTransactions: ledgerWorkspace.filteredTransactions,
+    ledgerSearchInputRef,
+    selectedLedgerTransactionId,
+    setSelectedLedgerTransactionId,
+  });
 
   useEffect(() => {
     if (!loadedWorkspace) {
@@ -1280,140 +1229,23 @@ export function App() {
       case "ledger":
         return (
           <>
-            <article className="panel register-panel">
-              <div className="panel-header">
-                <span>Register</span>
-                <span className="muted">Double-entry ledger</span>
-              </div>
-              <div className="ledger-toolbar">
-                <label className="ledger-filter">
-                  <span className="muted">Search register</span>
-                  <input
-                    ref={ledgerSearchInputRef}
-                    value={ledgerSearchText}
-                    placeholder="description, payee, account, tag, status"
-                    onChange={(event) => setLedgerSearchText(event.target.value)}
-                  />
-                </label>
-                <div className="ledger-range-row">
-                  <label className="ledger-filter">
-                    <span className="muted">From</span>
-                    <input
-                      value={ledgerRange.from}
-                      onChange={(event) =>
-                        setLedgerRange((current) => ({ ...current, from: event.target.value }))
-                      }
-                    />
-                  </label>
-                  <label className="ledger-filter">
-                    <span className="muted">To</span>
-                    <input
-                      value={ledgerRange.to}
-                      onChange={(event) =>
-                        setLedgerRange((current) => ({ ...current, to: event.target.value }))
-                      }
-                    />
-                  </label>
-                  {ledgerWorkspace.selectedAccountBalance ? (
-                    <div className="ledger-balance-chip">
-                      <span>Active balance</span>
-                      <strong>{formatCurrency(ledgerWorkspace.selectedAccountBalance.balance)}</strong>
-                    </div>
-                  ) : null}
-                </div>
-                <div className="ledger-chip-row">
-                  <button
-                    className={`ledger-chip${selectedLedgerAccountId === null ? " active" : ""}`}
-                    type="button"
-                    onClick={() => setSelectedLedgerAccountId(null)}
-                  >
-                    All accounts
-                  </button>
-                  {liquidAccounts.slice(0, 4).map((account) => (
-                    <button
-                      key={account.id}
-                      className={`ledger-chip${selectedLedgerAccountId === account.id ? " active" : ""}`}
-                      type="button"
-                      onClick={() => setSelectedLedgerAccountId(account.id)}
-                    >
-                      {account.name}
-                    </button>
-                  ))}
-                </div>
-                <p className="form-hint">
-                  Hotkeys: `/` search, `j` or down move later, `k` or up move earlier, `Esc` clear
-                  selection. Search supports tags, account code/name, and status tokens.
-                </p>
-              </div>
-              <table>
-                <thead>
-                  <tr>
-                    <th>Date</th>
-                    <th>Status</th>
-                    <th>Description</th>
-                    <th>Payee</th>
-                    <th>Accounts</th>
-                    <th>Tags</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {ledgerWorkspace.filteredTransactions.length > 0 ? (
-                    ledgerWorkspace.filteredTransactions.map((transaction) => (
-                      <tr
-                        key={transaction.id}
-                        className={
-                          selectedLedgerTransactionId === transaction.id ? "register-row selected" : "register-row"
-                        }
-                        onClick={() => setSelectedLedgerTransactionId(transaction.id)}
-                      >
-                        <td>{transaction.occurredOn}</td>
-                        <td>
-                          <span className={`status-chip ${transaction.status}`}>
-                            {formatTransactionStatus(transaction.status)}
-                          </span>
-                        </td>
-                        <td>{transaction.description}</td>
-                        <td>{transaction.payee ?? "Unassigned"}</td>
-                        <td>{transaction.postings.map((posting) => posting.accountName).join(", ")}</td>
-                        <td>{transaction.tags.join(", ")}</td>
-                      </tr>
-                    ))
-                  ) : (
-                    <tr>
-                      <td colSpan={6}>
-                        <div className="table-empty-state">
-                          No transactions match the current account filter, date range, and search text.
-                        </div>
-                      </td>
-                    </tr>
-                  )}
-                </tbody>
-              </table>
-            </article>
+            <LedgerRegisterPanel
+              formatCurrency={formatCurrency}
+              formatTransactionStatus={formatTransactionStatus}
+              ledgerRange={ledgerRange}
+              ledgerSearchInputRef={ledgerSearchInputRef}
+              ledgerSearchText={ledgerSearchText}
+              ledgerWorkspace={ledgerWorkspace}
+              liquidAccounts={liquidAccounts}
+              selectedLedgerAccountId={selectedLedgerAccountId}
+              selectedLedgerTransactionId={selectedLedgerTransactionId}
+              setLedgerRange={setLedgerRange}
+              setLedgerSearchText={setLedgerSearchText}
+              setSelectedLedgerAccountId={setSelectedLedgerAccountId}
+              setSelectedLedgerTransactionId={setSelectedLedgerTransactionId}
+            />
 
             {renderTransactionEditorPanel()}
-
-            <article className="panel">
-              <div className="panel-header">
-                <span>Balances</span>
-                <span className="muted">As of 2026-04-30</span>
-              </div>
-              {ledgerWorkspace.filteredBalances.map((balance) => (
-                <button
-                  key={`${balance.accountId}:${balance.commodityCode}`}
-                  className={`metric-button${selectedLedgerAccountId === balance.accountId ? " active" : ""}`}
-                  type="button"
-                  onClick={() =>
-                    setSelectedLedgerAccountId((current) =>
-                      current === balance.accountId ? null : balance.accountId,
-                    )
-                  }
-                >
-                  <span>{balance.accountName}</span>
-                  <strong>{formatCurrency(balance.balance)}</strong>
-                </button>
-              ))}
-            </article>
 
             <article className="panel form-panel">
               <div className="panel-header">
