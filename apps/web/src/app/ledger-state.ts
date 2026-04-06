@@ -13,6 +13,40 @@ interface LedgerRange {
 
 export type SplitQuickEditField = "memo" | "amount" | "cleared";
 
+export interface InlineLedgerSplitDraft {
+  accountId: string;
+  amount: string;
+}
+
+export interface InlineLedgerSplitValidation {
+  allAccountsValid: boolean;
+  allAmountsValid: boolean;
+  canSave: boolean;
+  hasMinimumRows: boolean;
+  isBalanced: boolean;
+  parsedAmounts: number[];
+}
+
+export function validateInlineLedgerSplitDrafts(input: {
+  splits: InlineLedgerSplitDraft[];
+}): InlineLedgerSplitValidation {
+  const hasMinimumRows = input.splits.length >= 2;
+  const allAccountsValid = input.splits.every((split) => split.accountId.trim().length > 0);
+  const parsedAmounts = input.splits.map((split) => Number.parseFloat(split.amount));
+  const allAmountsValid = parsedAmounts.every((amount) => Number.isFinite(amount));
+  const splitBalance = allAmountsValid ? parsedAmounts.reduce((sum, amount) => sum + amount, 0) : NaN;
+  const isBalanced = allAmountsValid && Math.abs(splitBalance) <= 0.000001;
+
+  return {
+    allAccountsValid,
+    allAmountsValid,
+    canSave: hasMinimumRows && allAccountsValid && allAmountsValid && isBalanced,
+    hasMinimumRows,
+    isBalanced,
+    parsedAmounts,
+  };
+}
+
 export function getSplitQuickEditKeyAction(input: {
   field: SplitQuickEditField;
   key: string;

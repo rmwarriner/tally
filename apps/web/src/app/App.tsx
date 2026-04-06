@@ -25,6 +25,7 @@ import {
   useLedgerFiltersAndSelection,
   useLedgerInlineRowEditState,
   useLedgerKeyboardAndSelectionSync,
+  validateInlineLedgerSplitDrafts,
 } from "./ledger-state";
 import { LedgerOperationsPanels } from "./LedgerOperationsPanels";
 import { LedgerRegisterPanel } from "./LedgerRegisterPanel";
@@ -561,23 +562,10 @@ export function App() {
       return;
     }
 
-    if (input.splits.length < 2) {
-      return;
-    }
-
-    const allAccountsValid = input.splits.every((split) => split.accountId.trim().length > 0);
-    if (!allAccountsValid) {
-      return;
-    }
-
-    const parsedAmounts = input.splits.map((split) => Number.parseFloat(split.amount));
-    const allAmountsValid = parsedAmounts.every((amount) => Number.isFinite(amount));
-    if (!allAmountsValid) {
-      return;
-    }
-
-    const splitBalance = parsedAmounts.reduce((sum, amount) => sum + amount, 0);
-    if (Math.abs(splitBalance) > 0.000001) {
+    const splitValidation = validateInlineLedgerSplitDrafts({
+      splits: input.splits,
+    });
+    if (!splitValidation.canSave) {
       return;
     }
 
@@ -593,7 +581,7 @@ export function App() {
             accountId: split.accountId.trim(),
             amount: {
               commodityCode: split.commodityCode,
-              quantity: parsedAmounts[postingIndex] ?? 0,
+              quantity: splitValidation.parsedAmounts[postingIndex] ?? 0,
             },
             cleared: split.cleared || undefined,
             memo: split.memo.trim() || undefined,

@@ -1,6 +1,10 @@
 import { useEffect, useRef, useState, type Dispatch, type RefObject, type SetStateAction } from "react";
 import type { WorkspaceResponse } from "./api";
-import { getSplitQuickEditKeyAction, type LedgerInlineRowEditDraft } from "./ledger-state";
+import {
+  getSplitQuickEditKeyAction,
+  type LedgerInlineRowEditDraft,
+  validateInlineLedgerSplitDrafts,
+} from "./ledger-state";
 import { type createLedgerWorkspaceModel } from "./shell";
 
 interface InlineNewTransactionDraft {
@@ -333,27 +337,17 @@ export function LedgerRegisterPanel(props: LedgerRegisterPanelProps) {
                       memo: posting.memo ?? "",
                       postingIndex,
                     }));
-                const splitAmounts = isEditingSplitRow
-                  ? isEditingSplitRow.map((split) => Number.parseFloat(split.amount))
-                  : [];
-                const splitAmountsAreValid = isEditingSplitRow
-                  ? splitAmounts.every((amount) => Number.isFinite(amount))
-                  : true;
-                const splitAccountsAreValid = isEditingSplitRow
-                  ? isEditingSplitRow.every((split) => split.accountId.trim().length > 0)
-                  : true;
-                const splitHasMinimumRows = isEditingSplitRow ? isEditingSplitRow.length >= 2 : true;
-                const splitBalance = isEditingSplitRow
-                  ? splitAmounts.reduce((sum, amount) => sum + amount, 0)
-                  : 0;
-                const splitIsBalanced = Math.abs(splitBalance) <= 0.000001;
+                const splitValidation = isEditingSplitRow
+                  ? validateInlineLedgerSplitDrafts({ splits: isEditingSplitRow })
+                  : null;
+                const splitAmountsAreValid = splitValidation?.allAmountsValid ?? true;
+                const splitAccountsAreValid = splitValidation?.allAccountsValid ?? true;
+                const splitHasMinimumRows = splitValidation?.hasMinimumRows ?? true;
+                const splitIsBalanced = splitValidation?.isBalanced ?? true;
                 const splitSaveDisabled =
                   props.busy !== null ||
                   !isEditingSplitRow ||
-                  !splitAmountsAreValid ||
-                  !splitAccountsAreValid ||
-                  !splitHasMinimumRows ||
-                  !splitIsBalanced;
+                  !(splitValidation?.canSave ?? false);
 
                 return (
                   <>

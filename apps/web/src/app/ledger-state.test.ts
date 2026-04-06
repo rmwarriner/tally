@@ -6,6 +6,7 @@ import {
   getLedgerHotkeySelectionUpdate,
   getSyncedLedgerSelectionId,
   updateLedgerInlineRowEditDraft,
+  validateInlineLedgerSplitDrafts,
 } from "./ledger-state";
 
 function createTransaction(id: string): LedgerTransactionDetail {
@@ -199,5 +200,65 @@ describe("getSplitQuickEditKeyAction", () => {
         splitIndex: 2,
       }),
     ).toEqual({ type: "focus-save" });
+  });
+});
+
+describe("validateInlineLedgerSplitDrafts", () => {
+  it("returns a save-ready result for balanced splits with accounts", () => {
+    expect(
+      validateInlineLedgerSplitDrafts({
+        splits: [
+          { accountId: "acct-checking", amount: "-25.50" },
+          { accountId: "acct-expense-food", amount: "25.50" },
+        ],
+      }),
+    ).toMatchObject({
+      allAccountsValid: true,
+      allAmountsValid: true,
+      canSave: true,
+      hasMinimumRows: true,
+      isBalanced: true,
+      parsedAmounts: [-25.5, 25.5],
+    });
+  });
+
+  it("blocks save when splits are missing account ids or minimum rows", () => {
+    expect(
+      validateInlineLedgerSplitDrafts({
+        splits: [{ accountId: " ", amount: "10" }],
+      }),
+    ).toMatchObject({
+      allAccountsValid: false,
+      canSave: false,
+      hasMinimumRows: false,
+    });
+  });
+
+  it("blocks save when amounts are invalid or out of balance", () => {
+    expect(
+      validateInlineLedgerSplitDrafts({
+        splits: [
+          { accountId: "acct-checking", amount: "x" },
+          { accountId: "acct-expense-food", amount: "12.34" },
+        ],
+      }),
+    ).toMatchObject({
+      allAmountsValid: false,
+      canSave: false,
+      isBalanced: false,
+    });
+
+    expect(
+      validateInlineLedgerSplitDrafts({
+        splits: [
+          { accountId: "acct-checking", amount: "-10" },
+          { accountId: "acct-expense-food", amount: "9.99" },
+        ],
+      }),
+    ).toMatchObject({
+      allAmountsValid: true,
+      canSave: false,
+      isBalanced: false,
+    });
   });
 });
