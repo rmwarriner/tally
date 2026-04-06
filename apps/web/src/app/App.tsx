@@ -59,6 +59,7 @@ function ShellState(props: { message: string; title: string }) {
 
 export function App() {
   const [activeView, setActiveView] = useState<WorkspaceView>("overview");
+  const [isLedgerDetailOpen, setIsLedgerDetailOpen] = useState(false);
   const [transactionEditor, setTransactionEditor] = useState<TransactionEditorState | null>(null);
   const [activePostingAccountSearchIndex, setActivePostingAccountSearchIndex] = useState<number | null>(
     null,
@@ -590,6 +591,7 @@ export function App() {
               onCreateInlineTransaction={(draft) => {
                 void postInlineLedgerTransaction(draft);
               }}
+              onOpenAdvancedEditor={() => setIsLedgerDetailOpen(true)}
               onSaveInlineEdit={(transactionId) => {
                 void saveInlineLedgerRow(transactionId);
               }}
@@ -610,7 +612,27 @@ export function App() {
               setSelectedLedgerTransactionId={setSelectedLedgerTransactionId}
             />
 
-            {renderTransactionEditorPanel()}
+            {isLedgerDetailOpen ? (
+              <>
+                <div className="posting-editor-row">
+                  <button type="button" onClick={() => setIsLedgerDetailOpen(false)}>
+                    Hide advanced editor
+                  </button>
+                </div>
+                {renderTransactionEditorPanel()}
+              </>
+            ) : (
+              <article className="panel">
+                <div className="panel-header">
+                  <span>Advanced editor</span>
+                  <span className="muted">Optional</span>
+                </div>
+                <p className="form-hint">
+                  Inline row editing is the default. Use the row-level Advanced action only when you need
+                  split-level editing details.
+                </p>
+              </article>
+            )}
             <LedgerOperationsPanels
               busy={busy}
               liquidAccounts={liquidAccounts}

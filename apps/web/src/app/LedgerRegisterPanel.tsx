@@ -23,6 +23,7 @@ interface LedgerRegisterPanelProps {
   liquidAccounts: WorkspaceResponse["workspace"]["accounts"];
   onCancelInlineEdit: () => void;
   onCreateInlineTransaction: (draft: InlineNewTransactionDraft) => void;
+  onOpenAdvancedEditor: (transactionId: string) => void;
   onSaveInlineEdit: (transactionId: string) => void;
   onStartInlineEdit: (transaction: ReturnType<typeof createLedgerWorkspaceModel>["filteredTransactions"][number]) => void;
   onUpdateInlineEditField: (field: keyof LedgerInlineRowEditDraft, value: string) => void;
@@ -392,16 +393,28 @@ export function LedgerRegisterPanel(props: LedgerRegisterPanelProps) {
                           </button>
                         </div>
                       ) : (
-                        <button
-                          type="button"
-                          onClick={(event) => {
-                            event.stopPropagation();
-                            props.setSelectedLedgerTransactionId(transaction.id);
-                            props.onStartInlineEdit(transaction);
-                          }}
-                        >
-                          Edit
-                        </button>
+                        <div className="posting-editor-row">
+                          <button
+                            type="button"
+                            onClick={(event) => {
+                              event.stopPropagation();
+                              props.setSelectedLedgerTransactionId(transaction.id);
+                              props.onStartInlineEdit(transaction);
+                            }}
+                          >
+                            Edit
+                          </button>
+                          <button
+                            type="button"
+                            onClick={(event) => {
+                              event.stopPropagation();
+                              props.setSelectedLedgerTransactionId(transaction.id);
+                              props.onOpenAdvancedEditor(transaction.id);
+                            }}
+                          >
+                            Advanced
+                          </button>
+                        </div>
                       )}
                     </td>
                   </tr>
