@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useReducer, useState } from "react";
 import type { ScheduleFrequency, Transaction } from "@gnucash-ng/domain";
 import { createMobileApiClient, type DashboardResponse, type WorkspaceResponse } from "./api";
 import { createScheduleForm, type ScheduleFormState } from "./schedule-form";
@@ -15,6 +15,71 @@ export const scheduleFrequencies: ScheduleFrequency[] = [
   "quarterly",
   "annually",
 ];
+
+interface AppStatusState {
+  busy: string | null;
+  error: string | null;
+  loading: boolean;
+  statusMessage: string | null;
+}
+
+type AppStatusAction =
+  | { type: "load_start" }
+  | { type: "load_finish" }
+  | { type: "load_error"; message: string }
+  | { type: "mutation_start"; label: string }
+  | { type: "mutation_success"; label: string }
+  | { type: "mutation_error"; message: string };
+
+const initialAppStatusState: AppStatusState = {
+  busy: null,
+  error: null,
+  loading: true,
+  statusMessage: null,
+};
+
+function appStatusReducer(state: AppStatusState, action: AppStatusAction): AppStatusState {
+  switch (action.type) {
+    case "load_start":
+      return {
+        ...state,
+        error: null,
+        loading: true,
+      };
+    case "load_finish":
+      return {
+        ...state,
+        loading: false,
+      };
+    case "load_error":
+      return {
+        ...state,
+        error: action.message,
+        loading: false,
+      };
+    case "mutation_start":
+      return {
+        ...state,
+        busy: action.label,
+        error: null,
+        statusMessage: null,
+      };
+    case "mutation_success":
+      return {
+        ...state,
+        busy: null,
+        statusMessage: `${action.label} completed.`,
+      };
+    case "mutation_error":
+      return {
+        ...state,
+        busy: null,
+        error: action.message,
+      };
+    default:
+      return state;
+  }
+}
 
 function createReconciliationForm(accountId = "acct-checking"): ReconciliationFormValue {
   return {
@@ -45,10 +110,7 @@ export function useMobileAppController() {
   const [workspaceId, setWorkspaceId] = useState(defaultWorkspaceId);
   const [workspace, setWorkspace] = useState<WorkspaceResponse["workspace"] | null>(null);
   const [dashboard, setDashboard] = useState<DashboardResponse["dashboard"] | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [busy, setBusy] = useState<string | null>(null);
-  const [error, setError] = useState<string | null>(null);
-  const [statusMessage, setStatusMessage] = useState<string | null>(null);
+  const [appStatus, dispatchAppStatus] = useReducer(appStatusReducer, initialAppStatusState);
   const [selectedScheduleId, setSelectedScheduleId] = useState("sched-rent");
   const [transactionForm, setTransactionForm] = useState({
     amount: "14.25",
@@ -77,8 +139,7 @@ export function useMobileAppController() {
   >({});
 
   async function loadWorkspaceData() {
-    setLoading(true);
-    setError(null);
+    dispatchAppStatus({ type: "load_start" });
 
     try {
       const client = createMobileApiClient({
@@ -126,24 +187,26 @@ export function useMobileAppController() {
         createReconciliationTransactionMap(activeReconciliationTransactions, activeReconciliationAccountId),
       );
     } catch (loadError) {
-      setError(loadError instanceof Error ? loadError.message : "Failed to load mobile workspace.");
+      dispatchAppStatus({
+        message: loadError instanceof Error ? loadError.message : "Failed to load mobile workspace.",
+        type: "load_error",
+      });
     } finally {
-      setLoading(false);
+      dispatchAppStatus({ type: "load_finish" });
     }
   }
 
   async function runMutation(label: string, operation: () => Promise<void>) {
     try {
-      setBusy(label);
-      setStatusMessage(null);
-      setError(null);
+      dispatchAppStatus({ label, type: "mutation_start" });
       await operation();
       await loadWorkspaceData();
-      setStatusMessage(`${label} completed.`);
+      dispatchAppStatus({ label, type: "mutation_success" });
     } catch (mutationError) {
-      setError(mutationError instanceof Error ? mutationError.message : `${label} failed.`);
-    } finally {
-      setBusy(null);
+      dispatchAppStatus({
+        message: mutationError instanceof Error ? mutationError.message : `${label} failed.`,
+        type: "mutation_error",
+      });
     }
   }
 
@@ -151,11 +214,11 @@ export function useMobileAppController() {
     allocationForm,
     apiBaseUrl,
     apiKey,
-    busy,
+    busy: appStatus.busy,
     dashboard,
-    error,
+    error: appStatus.error,
     loadWorkspaceData,
-    loading,
+    loading: appStatus.loading,
     reconciliationForm,
     runMutation,
     scheduleExceptionForm,
@@ -172,7 +235,7 @@ export function useMobileAppController() {
     setSelectedScheduleId,
     setTransactionForm,
     setWorkspaceId,
-    statusMessage,
+    statusMessage: appStatus.statusMessage,
     transactionForm,
     workspace,
     workspaceId,
