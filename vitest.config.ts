@@ -12,13 +12,17 @@ export default defineConfig({
       provider: "v8",
       reporter: ["text", "html"],
       include: [
-        "apps/api/src/**/*.ts",
-        "packages/domain/src/**/*.ts",
-        "packages/logging/src/**/*.ts",
-        "packages/workspace/src/**/*.ts",
+        "tally-core/apps/api/src/**/*.ts",
+        "tally-core/packages/domain/src/**/*.ts",
+        "tally-core/packages/logging/src/**/*.ts",
+        "tally-core/packages/workspace/src/**/*.ts",
       ],
     },
     environment: "node",
-    include: ["apps/**/*.test.ts", "packages/**/*.test.ts"],
+    include: [
+      "tally-core/**/*.test.ts",
+      "tally-portal/**/*.test.ts",
+      "tally-go/**/*.test.ts",
+    ],
   },
 });

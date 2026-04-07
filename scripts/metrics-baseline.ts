@@ -6,13 +6,13 @@ import { tmpdir } from "node:os";
 import process from "node:process";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
-import { createDemoWorkspace } from "@tally/workspace/src/factory";
-import { loadWorkspaceFromFile, saveWorkspaceToFile } from "@tally/workspace/src/storage-node";
+import { createDemoWorkspace } from "@tally-core/workspace/src/factory";
+import { loadWorkspaceFromFile, saveWorkspaceToFile } from "@tally-core/workspace/src/storage-node";
 import {
   createFileSystemWorkspaceRepository,
   createHttpHandler,
   createWorkspaceService,
-} from "../apps/api/src/index.ts";
+} from "../tally-core/apps/api/src/index.ts";
 
 interface ApiLatencySummary {
   endpoint: string;
@@ -111,9 +111,9 @@ async function runApiLatencyBaseline(rootDirectory: string): Promise<ApiLatencyS
   const readSamples: number[] = [];
   const writeSamples: number[] = [];
 
-  const makeReadRequest = () => new Request(`http://localhost/api/workspaces/${workspace.id}`);
+  const makeReadRequest = () => new Request(`http://localhost-core/api-core/workspaces/${workspace.id}`);
   const makeWriteRequest = (txnId: string) =>
-    new Request(`http://localhost/api/workspaces/${workspace.id}/transactions`, {
+    new Request(`http://localhost-core/api-core/workspaces/${workspace.id}/transactions`, {
       body: JSON.stringify({
         actor: "Primary",
         transaction: {
@@ -151,7 +151,7 @@ async function runApiLatencyBaseline(rootDirectory: string): Promise<ApiLatencyS
 
   return [
     {
-      endpoint: "/api/workspaces/:workspaceId",
+      endpoint: "-core/api-core/workspaces/:workspaceId",
       method: "GET",
       p50Ms: roundMs(median(readSamples)),
       p95Ms: roundMs(percentile(readSamples, 95)),
@@ -159,7 +159,7 @@ async function runApiLatencyBaseline(rootDirectory: string): Promise<ApiLatencyS
       warmup,
     },
     {
-      endpoint: "/api/workspaces/:workspaceId/transactions",
+      endpoint: "-core/api-core/workspaces/:workspaceId/transactions",
       method: "POST",
       p50Ms: roundMs(median(writeSamples)),
       p95Ms: roundMs(percentile(writeSamples, 95)),

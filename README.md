@@ -18,12 +18,12 @@ The product target is a VS Code-inspired workspace flow on desktop and web, with
 ## Monorepo Layout
 
 - `docs/`: product and architecture decisions
-- `apps/api/`: application service layer for persistence and command orchestration
-- `apps/web/`: desktop/web workspace shell
-- `apps/mobile/`: mobile companion shell
-- `packages/domain/`: shared accounting and budgeting domain model
-- `packages/workspace/`: application state, persistence, reconciliation, and import commands
-- `packages/ui/`: shared UI tokens and view model helpers
+- `tally-core/apps/api/`: application service layer for persistence and command orchestration
+- `tally-portal/apps/web/`: desktop/web workspace shell
+- `tally-go/apps/mobile/`: mobile companion shell
+- `tally-core/packages/domain/`: shared accounting and budgeting domain model
+- `tally-core/packages/workspace/`: application state, persistence, reconciliation, and import commands
+- `tally-portal/packages/ui/`: shared UI tokens and view model helpers
 
 ## Initial Direction
 
@@ -63,7 +63,7 @@ See [docs/service-layer.md](/Users/robert/Projects/tally/docs/service-layer.md) 
 
 TDD workflow and testing expectations are documented in [docs/testing-and-tdd.md](/Users/robert/Projects/tally/docs/testing-and-tdd.md).
 UI review workflows are documented in [docs/ui-review-checklist.md](/Users/robert/Projects/tally/docs/ui-review-checklist.md).
-`pnpm dev:api` now seeds the local demo workspace automatically if `apps/api/data/workspace-household-demo.json` is missing, so the desktop and mobile shells have reviewable data on first run.
+`pnpm dev:api` now seeds the local demo workspace automatically if `tally-core/apps/api/data/workspace-household-demo.json` is missing, so the desktop and mobile shells have reviewable data on first run.
 CI and security merge gates are documented in [docs/ci-and-security-gates.md](/Users/robert/Projects/tally/docs/ci-and-security-gates.md).
 Git branch and pull request workflow is documented in [docs/git-workflow.md](/Users/robert/Projects/tally/docs/git-workflow.md).
 

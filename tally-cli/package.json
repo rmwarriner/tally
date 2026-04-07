@@ -1,0 +1,9 @@
+{
+  "name": "@tally-cli/app",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "typecheck": "echo 'tally-cli placeholder: no typecheck target yet'"
+  }
+}
