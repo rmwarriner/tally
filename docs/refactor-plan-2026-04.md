@@ -74,6 +74,7 @@ Scope:
 Deliverables:
 
 - baseline metrics artifact in `docs/`
+- initial baseline artifact: `docs/refactor-baseline-metrics-2026-04.md`
 - explicit thresholds and run instructions recorded with the artifact
 - architecture guardrail section linked from `docs/engineering-roadmap.md`
 

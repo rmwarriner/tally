@@ -17,6 +17,7 @@
     "dev:api": "pnpm --filter @gnucash-ng/api dev",
     "dev:mobile": "pnpm --filter @gnucash-ng/mobile dev",
     "dev:web": "pnpm --filter @gnucash-ng/web dev",
+    "metrics:baseline": "pnpm --filter @gnucash-ng/api exec tsx ../../scripts/metrics-baseline.ts",
     "security:check": "pnpm security:secrets",
     "security:secrets": "node ./scripts/check-secrets.mjs",
     "test": "vitest run",

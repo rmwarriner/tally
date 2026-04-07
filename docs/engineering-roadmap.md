@@ -1,6 +1,6 @@
 # Engineering Roadmap
 
-Last reviewed: 2026-04-06
+Last reviewed: 2026-04-07
 
 ## Roadmap Structure
 
@@ -110,6 +110,19 @@ The implementation sequencing and acceptance gates for the April 2026 refactor e
 - `docs/refactor-plan-2026-04.md`
 
 Use that plan as the per-PR execution reference (scope, done criteria, measurement protocol, and rollout notes), while this roadmap remains the theme and prioritization source.
+
+## Architecture Guardrails (PR-0)
+
+These guardrails define expected dependency direction and operational boundaries during the April 2026 refactor sequence.
+
+1. Directional dependency rule: `apps/*` may depend on `packages/*`, but `packages/*` must not depend on `apps/*`.
+2. Boundary validation rule: all external input validation stays at API or UI boundaries; core domain/workspace modules consume validated data.
+3. Domain/workspace purity rule: `packages/domain` and `packages/workspace` remain side-effect free except for explicit storage/import-export boundaries already designated in those packages.
+4. Operational observability rule: structured logging, rate limits, and metrics capture are applied at operational boundaries (`apps/api`, persistence adapters), not inside core accounting rules.
+5. Audit integrity rule: financial mutations must preserve audit event emission and actor attribution behavior.
+6. Contract stability rule: refactor slices do not change endpoint contracts or workspace document contracts unless explicitly scoped and documented.
+
+PR checklist mapping: each refactor PR should include a `structural impact` note that names which guardrail(s) were affected and confirms whether behavior/contract impact is unchanged.
 
 ## Next Suggested Move
 
