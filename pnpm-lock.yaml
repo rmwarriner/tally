@@ -11,18 +11,18 @@ importers:
       '@playwright/test':
         specifier: ^1.59.1
         version: 1.59.1
-      '@tally-core/domain':
+      '@tally/domain':
         specifier: workspace:*
-        version: link:tally-core/packages/domain
-      '@tally-core/logging':
+        version: link:packages/domain
+      '@tally/logging':
         specifier: workspace:*
-        version: link:tally-core/packages/logging
-      '@tally-core/workspace':
+        version: link:packages/logging
+      '@tally/ui':
         specifier: workspace:*
-        version: link:tally-core/packages/workspace
-      '@tally-portal/ui':
+        version: link:packages/ui
+      '@tally/workspace':
         specifier: workspace:*
-        version: link:tally-portal/packages/ui
+        version: link:packages/workspace
       '@vitest/coverage-v8':
         specifier: ^3.2.4
         version: 3.2.4(vitest@3.2.4(@types/node@25.5.2)(lightningcss@1.27.0)(terser@5.46.1)(tsx@4.21.0)(yaml@2.8.3))
@@ -30,17 +30,15 @@ importers:
         specifier: ^3.2.4
         version: 3.2.4(@types/node@25.5.2)(lightningcss@1.27.0)(terser@5.46.1)(tsx@4.21.0)(yaml@2.8.3)
 
-  tally-cli: {}
-
-  tally-core/apps/api:
+  apps/api:
     dependencies:
-      '@tally-core/domain':
+      '@tally/domain':
         specifier: workspace:*
         version: link:../../packages/domain
-      '@tally-core/logging':
+      '@tally/logging':
         specifier: workspace:*
         version: link:../../packages/logging
-      '@tally-core/workspace':
+      '@tally/workspace':
         specifier: workspace:*
         version: link:../../packages/workspace
       pg:
@@ -57,36 +55,17 @@ importers:
         specifier: ^4.19.3
         version: 4.21.0
 
-  tally-core/packages/domain: {}
-
-  tally-core/packages/logging: {}
-
-  tally-core/packages/workspace:
+  apps/mobile:
     dependencies:
-      '@tally-core/domain':
+      '@tally/domain':
         specifier: workspace:*
-        version: link:../domain
-      '@tally-core/logging':
+        version: link:../../packages/domain
+      '@tally/ui':
         specifier: workspace:*
-        version: link:../logging
-    devDependencies:
-      '@types/node':
-        specifier: ^24.0.0
-        version: 24.12.2
-
-  tally-desktop: {}
-
-  tally-go/apps/mobile:
-    dependencies:
-      '@tally-core/domain':
+        version: link:../../packages/ui
+      '@tally/workspace':
         specifier: workspace:*
-        version: link:../../../tally-core/packages/domain
-      '@tally-core/workspace':
-        specifier: workspace:*
-        version: link:../../../tally-core/packages/workspace
-      '@tally-portal/ui':
-        specifier: workspace:*
-        version: link:../../../tally-portal/packages/ui
+        version: link:../../packages/workspace
       expo:
         specifier: ^53.0.0
         version: 53.0.27(@babel/core@7.29.0)(react-native@0.84.1(@babel/core@7.29.0)(@types/react@19.2.14)(react@19.2.4))(react@19.2.4)
@@ -104,17 +83,17 @@ importers:
         specifier: ^5.8.0
         version: 5.9.3
 
-  tally-portal/apps/web:
+  apps/web:
     dependencies:
-      '@tally-core/domain':
+      '@tally/domain':
         specifier: workspace:*
-        version: link:../../../tally-core/packages/domain
-      '@tally-core/workspace':
-        specifier: workspace:*
-        version: link:../../../tally-core/packages/workspace
-      '@tally-portal/ui':
+        version: link:../../packages/domain
+      '@tally/ui':
         specifier: workspace:*
         version: link:../../packages/ui
+      '@tally/workspace':
+        specifier: workspace:*
+        version: link:../../packages/workspace
       react:
         specifier: ^19.0.0
         version: 19.2.4
@@ -135,7 +114,28 @@ importers:
         specifier: ^6.2.0
         version: 6.4.1(@types/node@25.5.2)(lightningcss@1.27.0)(terser@5.46.1)(tsx@4.21.0)(yaml@2.8.3)
 
-  tally-portal/packages/ui: {}
+  packages/domain: {}
+
+  packages/logging: {}
+
+  packages/ui: {}
+
+  packages/workspace:
+    dependencies:
+      '@tally/domain':
+        specifier: workspace:*
+        version: link:../domain
+      '@tally/logging':
+        specifier: workspace:*
+        version: link:../logging
+    devDependencies:
+      '@types/node':
+        specifier: ^24.0.0
+        version: 24.12.2
+
+  tally-cli: {}
+
+  tally-desktop: {}
 
 packages:
 

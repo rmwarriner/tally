@@ -1,8 +1,5 @@
 packages:
-  - tally-core/apps/*
-  - tally-core/packages/*
-  - tally-portal/apps/*
-  - tally-portal/packages/*
-  - tally-go/apps/*
+  - apps/*
+  - packages/*
   - tally-cli
   - tally-desktop

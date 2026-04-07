@@ -6,13 +6,13 @@ import { tmpdir } from "node:os";
 import process from "node:process";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
-import { createDemoWorkspace } from "@tally-core/workspace/src/factory";
-import { loadWorkspaceFromFile, saveWorkspaceToFile } from "@tally-core/workspace/src/storage-node";
+import { createDemoWorkspace } from "@tally/workspace/src/factory";
+import { loadWorkspaceFromFile, saveWorkspaceToFile } from "@tally/workspace/src/storage-node";
 import {
   createFileSystemWorkspaceRepository,
   createHttpHandler,
   createWorkspaceService,
-} from "../tally-core/apps/api/src/index.ts";
+} from "../apps/api/src/index.ts";
 
 interface ApiLatencySummary {
   endpoint: string;
