@@ -3,6 +3,16 @@ import { createServer, type IncomingMessage, type ServerResponse } from "node:ht
 import { createNoopLogger, type Logger } from "@gnucash-ng/logging";
 import { resolveAuthContext, type AuthIdentity } from "./auth";
 import { ApiError, toErrorEnvelope } from "./errors";
+import {
+  isLivenessRoute,
+  isMetricsRoute,
+  isReadinessRoute,
+  matchHttpDeleteRoutes,
+  matchHttpPostRoutes,
+  matchHttpPutTransactionRoute,
+  matchHttpReadRoutes,
+  normalizeRouteLabel,
+} from "./http-routes";
 import { createInMemoryApiMetrics, type ApiMetrics } from "./metrics";
 import { createInMemoryRateLimiter, type RateLimiter, type RateLimitPolicy } from "./rate-limit";
 import type { WorkspaceService } from "./service";
@@ -65,126 +75,6 @@ function textResponse(
     },
     status,
   });
-}
-
-function normalizeRouteLabel(method: string, path: string): string {
-  if (method === "GET" && (path === "/healthz" || path === "/health/live")) {
-    return "/healthz";
-  }
-
-  if (method === "GET" && (path === "/readyz" || path === "/health/ready")) {
-    return "/readyz";
-  }
-
-  if (method === "GET" && path === "/metrics") {
-    return "/metrics";
-  }
-
-  if (/^\/api\/workspaces\/[^/]+$/.test(path)) {
-    return "/api/workspaces/:workspaceId";
-  }
-
-  if (/^\/api\/workspaces\/[^/]+\/dashboard$/.test(path)) {
-    return "/api/workspaces/:workspaceId/dashboard";
-  }
-
-  if (/^\/api\/workspaces\/[^/]+\/reports\/[^/]+$/.test(path)) {
-    return "/api/workspaces/:workspaceId/reports/:kind";
-  }
-
-  if (/^\/api\/workspaces\/[^/]+\/close-summary$/.test(path)) {
-    return "/api/workspaces/:workspaceId/close-summary";
-  }
-
-  if (/^\/api\/workspaces\/[^/]+\/close-periods$/.test(path)) {
-    return "/api/workspaces/:workspaceId/close-periods";
-  }
-
-  if (/^\/api\/workspaces\/[^/]+\/backups$/.test(path)) {
-    return "/api/workspaces/:workspaceId/backups";
-  }
-
-  if (/^\/api\/workspaces\/[^/]+\/backups\/[^/]+\/restore$/.test(path)) {
-    return "/api/workspaces/:workspaceId/backups/:backupId/restore";
-  }
-
-  if (/^\/api\/workspaces\/[^/]+\/transactions$/.test(path)) {
-    return "/api/workspaces/:workspaceId/transactions";
-  }
-
-  if (/^\/api\/workspaces\/[^/]+\/transactions\/[^/]+\/destroy$/.test(path)) {
-    return "/api/workspaces/:workspaceId/transactions/:transactionId/destroy";
-  }
-
-  if (/^\/api\/workspaces\/[^/]+\/transactions\/[^/]+$/.test(path)) {
-    return "/api/workspaces/:workspaceId/transactions/:transactionId";
-  }
-
-  if (/^\/api\/workspaces\/[^/]+\/budget-lines$/.test(path)) {
-    return "/api/workspaces/:workspaceId/budget-lines";
-  }
-
-  if (/^\/api\/workspaces\/[^/]+\/envelopes$/.test(path)) {
-    return "/api/workspaces/:workspaceId/envelopes";
-  }
-
-  if (/^\/api\/workspaces\/[^/]+\/envelope-allocations$/.test(path)) {
-    return "/api/workspaces/:workspaceId/envelope-allocations";
-  }
-
-  if (/^\/api\/workspaces\/[^/]+\/reconciliations$/.test(path)) {
-    return "/api/workspaces/:workspaceId/reconciliations";
-  }
-
-  if (/^\/api\/workspaces\/[^/]+\/schedules$/.test(path)) {
-    return "/api/workspaces/:workspaceId/schedules";
-  }
-
-  if (/^\/api\/workspaces\/[^/]+\/schedules\/[^/]+\/execute$/.test(path)) {
-    return "/api/workspaces/:workspaceId/schedules/:scheduleId/execute";
-  }
-
-  if (/^\/api\/workspaces\/[^/]+\/schedules\/[^/]+\/exceptions$/.test(path)) {
-    return "/api/workspaces/:workspaceId/schedules/:scheduleId/exceptions";
-  }
-
-  if (/^\/api\/workspaces\/[^/]+\/imports\/csv$/.test(path)) {
-    return "/api/workspaces/:workspaceId/imports/csv";
-  }
-
-  if (/^\/api\/workspaces\/[^/]+\/imports\/qif$/.test(path)) {
-    return "/api/workspaces/:workspaceId/imports/qif";
-  }
-
-  if (/^\/api\/workspaces\/[^/]+\/imports\/ofx$/.test(path)) {
-    return "/api/workspaces/:workspaceId/imports/ofx";
-  }
-
-  if (/^\/api\/workspaces\/[^/]+\/imports\/qfx$/.test(path)) {
-    return "/api/workspaces/:workspaceId/imports/qfx";
-  }
-
-  if (/^\/api\/workspaces\/[^/]+\/imports\/gnucash-xml$/.test(path)) {
-    return "/api/workspaces/:workspaceId/imports/gnucash-xml";
-  }
-
-  if (/^\/api\/workspaces\/[^/]+\/exports\/qif$/.test(path)) {
-    return "/api/workspaces/:workspaceId/exports/qif";
-  }
-
-  if (/^\/api\/workspaces\/[^/]+\/exports\/ofx$/.test(path)) {
-    return "/api/workspaces/:workspaceId/exports/ofx";
-  }
-
-  if (/^\/api\/workspaces\/[^/]+\/exports\/qfx$/.test(path)) {
-    return "/api/workspaces/:workspaceId/exports/qfx";
-  }
-
-  if (/^\/api\/workspaces\/[^/]+\/exports\/gnucash-xml$/.test(path)) {
-    return "/api/workspaces/:workspaceId/exports/gnucash-xml";
-  }
-
-  return path;
 }
 
 async function parseJsonBody(request: Request, maxBodyBytes: number): Promise<unknown> {
@@ -325,14 +215,14 @@ export function createHttpHandler(params: {
       });
     }
 
-    if (request.method === "GET" && (path === "/healthz" || path === "/health/live")) {
+    if (isLivenessRoute(request.method, path)) {
       return completeJsonResponse(200, {
         service: "api",
         status: "ok",
       });
     }
 
-    if (request.method === "GET" && (path === "/readyz" || path === "/health/ready")) {
+    if (isReadinessRoute(request.method, path)) {
       const probeResult = await readinessProbe({
         logger: requestLogger.child({
           probe: "readiness",
@@ -354,7 +244,7 @@ export function createHttpHandler(params: {
       });
     }
 
-    if (request.method === "GET" && path === "/metrics") {
+    if (isMetricsRoute(request.method, path)) {
       return completeTextResponse(200, metrics.renderPrometheus());
     }
 
@@ -384,15 +274,17 @@ export function createHttpHandler(params: {
     const requestKey = auth.context.actor;
 
     if (request.method === "GET") {
-      const workspaceMatch = path.match(/^\/api\/workspaces\/([^/]+)$/);
-      const dashboardMatch = path.match(/^\/api\/workspaces\/([^/]+)\/dashboard$/);
-      const reportMatch = path.match(/^\/api\/workspaces\/([^/]+)\/reports\/([^/]+)$/);
-      const closeSummaryMatch = path.match(/^\/api\/workspaces\/([^/]+)\/close-summary$/);
-      const closePeriodsMatch = path.match(/^\/api\/workspaces\/([^/]+)\/close-periods$/);
-      const qifExportMatch = path.match(/^\/api\/workspaces\/([^/]+)\/exports\/qif$/);
-      const statementExportMatch = path.match(/^\/api\/workspaces\/([^/]+)\/exports\/(ofx|qfx)$/);
-      const gnucashXmlExportMatch = path.match(/^\/api\/workspaces\/([^/]+)\/exports\/gnucash-xml$/);
-      const backupsMatch = path.match(/^\/api\/workspaces\/([^/]+)\/backups$/);
+      const {
+        backupsMatch,
+        closePeriodsMatch,
+        closeSummaryMatch,
+        dashboardMatch,
+        gnucashXmlExportMatch,
+        qifExportMatch,
+        reportMatch,
+        statementExportMatch,
+        workspaceMatch,
+      } = matchHttpReadRoutes(path);
 
       if (workspaceMatch) {
         const rateLimited = enforceRateLimit(requestKey, rateLimitPolicy.read, requestLogger);
@@ -818,22 +710,24 @@ export function createHttpHandler(params: {
     }
 
     if (request.method === "POST") {
-      const budgetLineMatch = path.match(/^\/api\/workspaces\/([^/]+)\/budget-lines$/);
-      const envelopeMatch = path.match(/^\/api\/workspaces\/([^/]+)\/envelopes$/);
-      const envelopeAllocationMatch = path.match(/^\/api\/workspaces\/([^/]+)\/envelope-allocations$/);
-      const scheduleMatch = path.match(/^\/api\/workspaces\/([^/]+)\/schedules$/);
-      const executeScheduleMatch = path.match(/^\/api\/workspaces\/([^/]+)\/schedules\/([^/]+)\/execute$/);
-      const exceptionScheduleMatch = path.match(/^\/api\/workspaces\/([^/]+)\/schedules\/([^/]+)\/exceptions$/);
-      const transactionMatch = path.match(/^\/api\/workspaces\/([^/]+)\/transactions$/);
-      const reconciliationMatch = path.match(/^\/api\/workspaces\/([^/]+)\/reconciliations$/);
-      const csvImportMatch = path.match(/^\/api\/workspaces\/([^/]+)\/imports\/csv$/);
-      const qifImportMatch = path.match(/^\/api\/workspaces\/([^/]+)\/imports\/qif$/);
-      const statementImportMatch = path.match(/^\/api\/workspaces\/([^/]+)\/imports\/(ofx|qfx)$/);
-      const gnucashXmlImportMatch = path.match(/^\/api\/workspaces\/([^/]+)\/imports\/gnucash-xml$/);
-      const closePeriodMatch = path.match(/^\/api\/workspaces\/([^/]+)\/close-periods$/);
-      const backupsCreateMatch = path.match(/^\/api\/workspaces\/([^/]+)\/backups$/);
-      const backupRestoreMatch = path.match(/^\/api\/workspaces\/([^/]+)\/backups\/([^/]+)\/restore$/);
-      const bodylessPostRoute = Boolean(backupsCreateMatch || backupRestoreMatch);
+      const {
+        backupRestoreMatch,
+        backupsCreateMatch,
+        bodylessPostRoute,
+        budgetLineMatch,
+        closePeriodMatch,
+        csvImportMatch,
+        envelopeAllocationMatch,
+        envelopeMatch,
+        exceptionScheduleMatch,
+        executeScheduleMatch,
+        gnucashXmlImportMatch,
+        qifImportMatch,
+        reconciliationMatch,
+        scheduleMatch,
+        statementImportMatch,
+        transactionMatch,
+      } = matchHttpPostRoutes(path);
 
       if (!bodylessPostRoute && !request.headers.get("content-type")?.includes("application/json")) {
         requestLogger.warn("http request validation failed", {
@@ -1638,7 +1532,7 @@ export function createHttpHandler(params: {
     }
 
     if (request.method === "PUT") {
-      const transactionMatch = path.match(/^\/api\/workspaces\/([^/]+)\/transactions\/([^/]+)$/);
+      const transactionMatch = matchHttpPutTransactionRoute(path);
 
       if (!request.headers.get("content-type")?.includes("application/json")) {
         requestLogger.warn("http request validation failed", {
@@ -1744,8 +1638,7 @@ export function createHttpHandler(params: {
     }
 
     if (request.method === "DELETE") {
-      const destroyTransactionMatch = path.match(/^\/api\/workspaces\/([^/]+)\/transactions\/([^/]+)\/destroy$/);
-      const deleteTransactionMatch = path.match(/^\/api\/workspaces\/([^/]+)\/transactions\/([^/]+)$/);
+      const { deleteTransactionMatch, destroyTransactionMatch } = matchHttpDeleteRoutes(path);
 
       if (destroyTransactionMatch || deleteTransactionMatch) {
         const rateLimited = enforceRateLimit(requestKey, rateLimitPolicy.mutation, requestLogger);
