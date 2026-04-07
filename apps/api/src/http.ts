@@ -1,8 +1,9 @@
 import { randomUUID } from "node:crypto";
 import { createServer, type IncomingMessage, type ServerResponse } from "node:http";
 import { createNoopLogger, type Logger } from "@gnucash-ng/logging";
-import { resolveAuthContext, type AuthIdentity } from "./auth";
+import { type AuthIdentity } from "./auth";
 import { ApiError, toErrorEnvelope } from "./errors";
+import { evaluateHttpRateLimit, recordHttpCompletion, resolveHttpAuthentication } from "./http-middleware";
 import { parsePostRequestBody, parsePutRequestBody } from "./http-request-parsing";
 import {
   isLivenessRoute,
@@ -121,39 +122,6 @@ export function createHttpHandler(params: {
     return /^[a-zA-Z0-9_-]+$/.test(workspaceId);
   }
 
-  function enforceRateLimit(requestKey: string, policy: RateLimitPolicy, requestLogger: Logger): Response | null {
-    const decision = rateLimiter.consume(requestKey, policy);
-
-    if (decision.allowed) {
-      return null;
-    }
-
-    requestLogger.warn("http request rate limited", {
-      rateLimitKey: requestKey,
-      rateLimitLimit: decision.limit,
-      rateLimitRemaining: decision.remaining,
-      rateLimitResetAt: new Date(decision.resetAt).toISOString(),
-    });
-
-    return jsonResponse(
-      429,
-      toErrorEnvelope(
-        new ApiError({
-          code: "security.rate_limited",
-          details: { retryAfterSeconds: decision.retryAfterSeconds },
-          message: "Rate limit exceeded. Retry later.",
-          status: 429,
-        }),
-      ),
-      {
-        "retry-after": String(decision.retryAfterSeconds),
-        "x-ratelimit-limit": String(decision.limit),
-        "x-ratelimit-remaining": String(decision.remaining),
-        "x-ratelimit-reset": String(Math.floor(decision.resetAt / 1000)),
-      },
-    );
-  }
-
   return async function handle(request: Request): Promise<Response> {
     const url = new URL(request.url);
     const path = url.pathname.replace(/\/+$/, "");
@@ -168,24 +136,15 @@ export function createHttpHandler(params: {
     });
     requestLogger.info("http request started");
 
-    function complete(status: number): void {
-      const durationMs = Date.now() - startedAt;
-
-      metrics.recordRequest({
-        durationMs,
-        method: request.method,
-        route,
-        status,
-      });
-
-      requestLogger.info("http request completed", {
-        durationMs,
-        status,
-      });
-    }
-
     function completeJsonResponse(status: number, body: unknown, extraHeaders: Record<string, string> = {}): Response {
-      complete(status);
+      recordHttpCompletion({
+        method: request.method,
+        metrics,
+        requestLogger,
+        route,
+        startedAt,
+        status,
+      });
 
       return jsonResponse(status, body, {
         "x-request-id": requestId,
@@ -194,7 +153,14 @@ export function createHttpHandler(params: {
     }
 
     function completeTextResponse(status: number, body: string, extraHeaders: Record<string, string> = {}): Response {
-      complete(status);
+      recordHttpCompletion({
+        method: request.method,
+        metrics,
+        requestLogger,
+        route,
+        startedAt,
+        status,
+      });
 
       return textResponse(status, body, {
         "x-request-id": requestId,
@@ -235,30 +201,38 @@ export function createHttpHandler(params: {
       return completeTextResponse(200, metrics.renderPrometheus());
     }
 
-    const auth = resolveAuthContext({
-      apiKeyHeader: request.headers.get("x-gnucash-ng-api-key"),
+    const auth = resolveHttpAuthentication({
       authIdentities,
       authRequired,
-      authorizationHeader: request.headers.get("authorization"),
+      request,
+      requestLogger,
       trustedHeaderAuth: params.trustedHeaderAuth,
-      trustedHeaders: request.headers,
     });
 
-    if (!auth.ok || !auth.context) {
-      requestLogger.warn("http request authentication failed");
-      return completeJsonResponse(
-        401,
-        toErrorEnvelope(
-          new ApiError({
-            code: "auth.required",
-            message: auth.error ?? "Authentication is required.",
-            status: 401,
-          }),
-        ),
-      );
+    if (!auth.context || auth.status || auth.errorBody) {
+      return completeJsonResponse(auth.status ?? 401, auth.errorBody ?? toErrorEnvelope(new ApiError({
+        code: "auth.required",
+        message: "Authentication is required.",
+        status: 401,
+      })));
     }
 
     const requestKey = auth.context.actor;
+
+    function enforceRateLimit(policy: RateLimitPolicy): Response | null {
+      const rateLimit = evaluateHttpRateLimit({
+        policy,
+        rateLimiter,
+        requestKey,
+        requestLogger,
+      });
+
+      if (!rateLimit.status || !rateLimit.body) {
+        return null;
+      }
+
+      return completeJsonResponse(rateLimit.status, rateLimit.body, rateLimit.headers ?? {});
+    }
 
     if (request.method === "GET") {
       const {
@@ -274,7 +248,7 @@ export function createHttpHandler(params: {
       } = matchHttpReadRoutes(path);
 
       if (workspaceMatch) {
-        const rateLimited = enforceRateLimit(requestKey, rateLimitPolicy.read, requestLogger);
+        const rateLimited = enforceRateLimit(rateLimitPolicy.read);
 
         if (rateLimited) {
           return completeJsonResponse(
@@ -308,7 +282,7 @@ export function createHttpHandler(params: {
       }
 
       if (dashboardMatch) {
-        const rateLimited = enforceRateLimit(requestKey, rateLimitPolicy.read, requestLogger);
+        const rateLimited = enforceRateLimit(rateLimitPolicy.read);
 
         if (rateLimited) {
           return completeJsonResponse(
@@ -362,7 +336,7 @@ export function createHttpHandler(params: {
       }
 
       if (reportMatch) {
-        const rateLimited = enforceRateLimit(requestKey, rateLimitPolicy.read, requestLogger);
+        const rateLimited = enforceRateLimit(rateLimitPolicy.read);
 
         if (rateLimited) {
           return completeJsonResponse(
@@ -420,7 +394,7 @@ export function createHttpHandler(params: {
       }
 
       if (closeSummaryMatch) {
-        const rateLimited = enforceRateLimit(requestKey, rateLimitPolicy.read, requestLogger);
+        const rateLimited = enforceRateLimit(rateLimitPolicy.read);
 
         if (rateLimited) {
           return completeJsonResponse(
@@ -476,7 +450,7 @@ export function createHttpHandler(params: {
       }
 
       if (closePeriodsMatch) {
-        const rateLimited = enforceRateLimit(requestKey, rateLimitPolicy.read, requestLogger);
+        const rateLimited = enforceRateLimit(rateLimitPolicy.read);
 
         if (rateLimited) {
           return completeJsonResponse(
@@ -510,7 +484,7 @@ export function createHttpHandler(params: {
       }
 
       if (qifExportMatch) {
-        const rateLimited = enforceRateLimit(requestKey, rateLimitPolicy.read, requestLogger);
+        const rateLimited = enforceRateLimit(rateLimitPolicy.read);
 
         if (rateLimited) {
           return completeJsonResponse(
@@ -568,7 +542,7 @@ export function createHttpHandler(params: {
       }
 
       if (statementExportMatch) {
-        const rateLimited = enforceRateLimit(requestKey, rateLimitPolicy.read, requestLogger);
+        const rateLimited = enforceRateLimit(rateLimitPolicy.read);
 
         if (rateLimited) {
           return completeJsonResponse(
@@ -628,7 +602,7 @@ export function createHttpHandler(params: {
       }
 
       if (gnucashXmlExportMatch) {
-        const rateLimited = enforceRateLimit(requestKey, rateLimitPolicy.read, requestLogger);
+        const rateLimited = enforceRateLimit(rateLimitPolicy.read);
 
         if (rateLimited) {
           return completeJsonResponse(
@@ -662,7 +636,7 @@ export function createHttpHandler(params: {
       }
 
       if (backupsMatch) {
-        const rateLimited = enforceRateLimit(requestKey, rateLimitPolicy.read, requestLogger);
+        const rateLimited = enforceRateLimit(rateLimitPolicy.read);
 
         if (rateLimited) {
           return completeJsonResponse(
@@ -738,7 +712,7 @@ export function createHttpHandler(params: {
       }
 
       if (transactionMatch) {
-        const rateLimited = enforceRateLimit(requestKey, rateLimitPolicy.mutation, requestLogger);
+        const rateLimited = enforceRateLimit(rateLimitPolicy.mutation);
 
         if (rateLimited) {
           return completeJsonResponse(
@@ -790,7 +764,7 @@ export function createHttpHandler(params: {
       }
 
       if (backupsCreateMatch) {
-        const rateLimited = enforceRateLimit(requestKey, rateLimitPolicy.mutation, requestLogger);
+        const rateLimited = enforceRateLimit(rateLimitPolicy.mutation);
 
         if (rateLimited) {
           return completeJsonResponse(
@@ -824,7 +798,7 @@ export function createHttpHandler(params: {
       }
 
       if (backupRestoreMatch) {
-        const rateLimited = enforceRateLimit(requestKey, rateLimitPolicy.mutation, requestLogger);
+        const rateLimited = enforceRateLimit(rateLimitPolicy.mutation);
 
         if (rateLimited) {
           return completeJsonResponse(
@@ -860,7 +834,7 @@ export function createHttpHandler(params: {
       }
 
       if (closePeriodMatch) {
-        const rateLimited = enforceRateLimit(requestKey, rateLimitPolicy.mutation, requestLogger);
+        const rateLimited = enforceRateLimit(rateLimitPolicy.mutation);
 
         if (rateLimited) {
           return completeJsonResponse(
@@ -912,7 +886,7 @@ export function createHttpHandler(params: {
       }
 
       if (budgetLineMatch) {
-        const rateLimited = enforceRateLimit(requestKey, rateLimitPolicy.mutation, requestLogger);
+        const rateLimited = enforceRateLimit(rateLimitPolicy.mutation);
 
         if (rateLimited) {
           return completeJsonResponse(
@@ -964,7 +938,7 @@ export function createHttpHandler(params: {
       }
 
       if (envelopeMatch) {
-        const rateLimited = enforceRateLimit(requestKey, rateLimitPolicy.mutation, requestLogger);
+        const rateLimited = enforceRateLimit(rateLimitPolicy.mutation);
 
         if (rateLimited) {
           return completeJsonResponse(
@@ -1016,7 +990,7 @@ export function createHttpHandler(params: {
       }
 
       if (statementImportMatch) {
-        const rateLimited = enforceRateLimit(requestKey, rateLimitPolicy.import, requestLogger);
+        const rateLimited = enforceRateLimit(rateLimitPolicy.import);
 
         if (rateLimited) {
           return completeJsonResponse(
@@ -1071,7 +1045,7 @@ export function createHttpHandler(params: {
       }
 
       if (gnucashXmlImportMatch) {
-        const rateLimited = enforceRateLimit(requestKey, rateLimitPolicy.import, requestLogger);
+        const rateLimited = enforceRateLimit(rateLimitPolicy.import);
 
         if (rateLimited) {
           return completeJsonResponse(
@@ -1123,7 +1097,7 @@ export function createHttpHandler(params: {
       }
 
       if (envelopeAllocationMatch) {
-        const rateLimited = enforceRateLimit(requestKey, rateLimitPolicy.mutation, requestLogger);
+        const rateLimited = enforceRateLimit(rateLimitPolicy.mutation);
 
         if (rateLimited) {
           return completeJsonResponse(
@@ -1175,7 +1149,7 @@ export function createHttpHandler(params: {
       }
 
       if (reconciliationMatch) {
-        const rateLimited = enforceRateLimit(requestKey, rateLimitPolicy.mutation, requestLogger);
+        const rateLimited = enforceRateLimit(rateLimitPolicy.mutation);
 
         if (rateLimited) {
           return completeJsonResponse(
@@ -1227,7 +1201,7 @@ export function createHttpHandler(params: {
       }
 
       if (scheduleMatch) {
-        const rateLimited = enforceRateLimit(requestKey, rateLimitPolicy.mutation, requestLogger);
+        const rateLimited = enforceRateLimit(rateLimitPolicy.mutation);
 
         if (rateLimited) {
           return completeJsonResponse(
@@ -1279,7 +1253,7 @@ export function createHttpHandler(params: {
       }
 
       if (executeScheduleMatch) {
-        const rateLimited = enforceRateLimit(requestKey, rateLimitPolicy.mutation, requestLogger);
+        const rateLimited = enforceRateLimit(rateLimitPolicy.mutation);
 
         if (rateLimited) {
           return completeJsonResponse(
@@ -1333,7 +1307,7 @@ export function createHttpHandler(params: {
       }
 
       if (exceptionScheduleMatch) {
-        const rateLimited = enforceRateLimit(requestKey, rateLimitPolicy.mutation, requestLogger);
+        const rateLimited = enforceRateLimit(rateLimitPolicy.mutation);
 
         if (rateLimited) {
           return completeJsonResponse(
@@ -1387,7 +1361,7 @@ export function createHttpHandler(params: {
       }
 
       if (csvImportMatch) {
-        const rateLimited = enforceRateLimit(requestKey, rateLimitPolicy.import, requestLogger);
+        const rateLimited = enforceRateLimit(rateLimitPolicy.import);
 
         if (rateLimited) {
           return completeJsonResponse(
@@ -1439,7 +1413,7 @@ export function createHttpHandler(params: {
       }
 
       if (qifImportMatch) {
-        const rateLimited = enforceRateLimit(requestKey, rateLimitPolicy.import, requestLogger);
+        const rateLimited = enforceRateLimit(rateLimitPolicy.import);
 
         if (rateLimited) {
           return completeJsonResponse(
@@ -1515,7 +1489,7 @@ export function createHttpHandler(params: {
       }
 
       if (transactionMatch) {
-        const rateLimited = enforceRateLimit(requestKey, rateLimitPolicy.mutation, requestLogger);
+        const rateLimited = enforceRateLimit(rateLimitPolicy.mutation);
 
         if (rateLimited) {
           return completeJsonResponse(
@@ -1573,7 +1547,7 @@ export function createHttpHandler(params: {
       const { deleteTransactionMatch, destroyTransactionMatch } = matchHttpDeleteRoutes(path);
 
       if (destroyTransactionMatch || deleteTransactionMatch) {
-        const rateLimited = enforceRateLimit(requestKey, rateLimitPolicy.mutation, requestLogger);
+        const rateLimited = enforceRateLimit(rateLimitPolicy.mutation);
 
         if (rateLimited) {
           return completeJsonResponse(
