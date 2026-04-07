@@ -103,6 +103,14 @@ These are the next candidates for promotion into active delivery work.
 4. Transaction review and import-automation foundation
 5. External observability sinks and production security guidance beyond the single-node default
 
+## Refactor Plan Alignment
+
+The implementation sequencing and acceptance gates for the April 2026 refactor effort are tracked in:
+
+- `docs/refactor-plan-2026-04.md`
+
+Use that plan as the per-PR execution reference (scope, done criteria, measurement protocol, and rollout notes), while this roadmap remains the theme and prioritization source.
+
 ## Next Suggested Move
 
 The next recommended Phase 2 execution slice is:
