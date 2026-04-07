@@ -51,7 +51,7 @@ TDD is the default workflow: write a failing test first, implement the smallest 
 - coverage thresholds: 70% statements, 75% branches, 85% functions, 70% lines
 
 Focus tests on domain rules, workspace commands, API handlers, and critical client API flows.
-For user-facing web and mobile changes, also run focused manual review using [docs/ui-review-checklist.md](/Users/robert/Projects/gnucash-ng/docs/ui-review-checklist.md) and treat repeat regressions as candidates for higher-level automated workflow coverage.
+For user-facing web and mobile changes, also run focused manual review using [docs/ui-review-checklist.md](/Users/robert/Projects/tally/docs/ui-review-checklist.md) and treat repeat regressions as candidates for higher-level automated workflow coverage.
 
 ## Commit & Pull Request Guidelines
 
@@ -76,12 +76,12 @@ Branch workflow for this repository:
 - prefer squash merges and avoid direct pushes to `main`
 - verify Git state sequentially after push operations to avoid misleading stale status output
 
-See [docs/git-workflow.md](/Users/robert/Projects/gnucash-ng/docs/git-workflow.md) for the full workflow.
+See [docs/git-workflow.md](/Users/robert/Projects/tally/docs/git-workflow.md) for the full workflow.
 
 Active roadmap tracking also lives on GitHub:
 
-- repository: `rmwarriner/gnucash-ng`
-- roadmap project: `GnuCash NG Roadmap`
+- repository: `rmwarriner/tally`
+- roadmap project: `Tally Roadmap`
 - current roadmap issues cover operations, import/export, mobile cleanup, reporting, and resilience work
 - ideas that are not ready for execution should stay as GitHub issues labeled `idea` until they are ready to be promoted to the roadmap
 - GitHub issue templates exist for ideas, roadmap items, bugs, and refactors, and pull requests should use the repository PR template

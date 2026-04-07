@@ -6,7 +6,7 @@ import { ensureDemoWorkspaceFile } from "./dev-seed";
 
 describe("demo workspace seeding", () => {
   it("creates the demo workspace file when it is missing", async () => {
-    const directory = await mkdtemp(join(tmpdir(), "gnucash-ng-seed-"));
+    const directory = await mkdtemp(join(tmpdir(), "tally-seed-"));
 
     await ensureDemoWorkspaceFile({ dataDirectory: directory });
 
@@ -22,7 +22,7 @@ describe("demo workspace seeding", () => {
   });
 
   it("does not overwrite an existing workspace file", async () => {
-    const directory = await mkdtemp(join(tmpdir(), "gnucash-ng-seed-"));
+    const directory = await mkdtemp(join(tmpdir(), "tally-seed-"));
     const workspacePath = join(directory, "workspace-household-demo.json");
 
     await ensureDemoWorkspaceFile({ dataDirectory: directory });

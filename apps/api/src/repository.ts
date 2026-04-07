@@ -1,5 +1,5 @@
-import { createNoopLogger, type Logger } from "@gnucash-ng/logging";
-import type { FinanceWorkspaceDocument } from "@gnucash-ng/workspace";
+import { createNoopLogger, type Logger } from "@tally/logging";
+import type { FinanceWorkspaceDocument } from "@tally/workspace";
 import {
   createFileSystemWorkspacePersistenceBackend,
   type WorkspaceBackup,

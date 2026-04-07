@@ -1,12 +1,12 @@
 {
-  "name": "@gnucash-ng/mobile",
+  "name": "@tally/mobile",
   "version": "0.1.0",
   "private": true,
   "type": "module",
   "dependencies": {
-    "@gnucash-ng/domain": "workspace:*",
-    "@gnucash-ng/workspace": "workspace:*",
-    "@gnucash-ng/ui": "workspace:*",
+    "@tally/domain": "workspace:*",
+    "@tally/workspace": "workspace:*",
+    "@tally/ui": "workspace:*",
     "expo": "^53.0.0",
     "react": "^19.0.0",
     "react-native": "^0.84.1"

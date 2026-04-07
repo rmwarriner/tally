@@ -19,7 +19,7 @@ The API now supports explicit runtime modes:
   - demo workspace seeding is disabled
   - explicit auth configuration is required
 - `test`
-  - available through `GNUCASH_NG_API_RUNTIME_MODE=test`
+  - available through `TALLY_API_RUNTIME_MODE=test`
   - demo workspace seeding is disabled unless explicitly enabled
 
 ## Commands
@@ -27,7 +27,7 @@ The API now supports explicit runtime modes:
 - local development:
   - `pnpm dev:api`
 - production-oriented startup from the repo:
-  - `pnpm --filter @gnucash-ng/api start`
+  - `pnpm --filter @tally/api start`
 
 The production-oriented startup path now uses the same runtime assembly as development, but with production defaults for auth and seeding behavior.
 
@@ -35,73 +35,86 @@ Administrative persistence migration and export commands are documented in `docs
 
 ## Environment Variables
 
-- `GNUCASH_NG_API_RUNTIME_MODE`
+- `TALLY_API_RUNTIME_MODE`
   - `development`, `production`, or `test`
   - optional in the entrypoints because the mode is implied by the launcher
-- `GNUCASH_NG_API_HOST`
+- `TALLY_API_HOST`
   - bind host
   - defaults to `127.0.0.1`
-- `GNUCASH_NG_API_PORT`
+- `TALLY_API_PORT`
   - bind port
   - defaults to `4000`
-- `GNUCASH_NG_API_PERSISTENCE_BACKEND`
+- `TALLY_API_PERSISTENCE_BACKEND`
   - persistence backend selector
   - `json`, `sqlite`, or `postgres`
   - defaults to `json`
-- `GNUCASH_NG_API_SQLITE_PATH`
+- `TALLY_API_SQLITE_PATH`
   - sqlite database file path
-  - only used when `GNUCASH_NG_API_PERSISTENCE_BACKEND=sqlite`
+  - only used when `TALLY_API_PERSISTENCE_BACKEND=sqlite`
   - defaults to `workspaces.sqlite` under the configured data directory
-- `GNUCASH_NG_API_POSTGRES_URL`
+- `TALLY_API_POSTGRES_URL`
   - postgres connection string
-  - required when `GNUCASH_NG_API_PERSISTENCE_BACKEND=postgres`
+  - required when `TALLY_API_PERSISTENCE_BACKEND=postgres`
   - should be supplied through environment or secret injection, not logged
-- `GNUCASH_NG_DATA_DIR`
+- `TALLY_DATA_DIR`
   - workspace data directory
   - defaults to `data` relative to the API process working directory
-- `GNUCASH_NG_API_AUTH_TOKEN`
+- `TALLY_API_AUTH_TOKEN`
   - simple single-admin auth token
-- `GNUCASH_NG_API_AUTH_TOKEN_FILE`
+- `TALLY_API_AUTH_TOKEN_FILE`
   - path to a file containing the simple single-admin auth token
-- `GNUCASH_NG_API_AUTH_IDENTITIES`
+- `TALLY_API_AUTH_IDENTITIES`
   - JSON array of explicit actor and token bindings
-- `GNUCASH_NG_API_AUTH_IDENTITIES_FILE`
+- `TALLY_API_AUTH_IDENTITIES_FILE`
   - path to a file containing the JSON array of explicit actor and token bindings
-- `GNUCASH_NG_API_AUTH_TRUSTED_ACTOR_HEADER`
+- `TALLY_API_AUTH_TRUSTED_ACTOR_HEADER`
   - request header name used to read actor identity from a trusted upstream gateway
-- `GNUCASH_NG_API_AUTH_TRUSTED_ROLE_HEADER`
+- `TALLY_API_AUTH_TRUSTED_ROLE_HEADER`
   - optional request header name used to read role (`admin` or `member`) from a trusted upstream gateway
-  - defaults to `x-gnucash-ng-auth-role`
-- `GNUCASH_NG_API_AUTH_TRUSTED_PROXY_KEY`
+  - defaults to `x-tally-auth-role`
+- `TALLY_API_AUTH_TRUSTED_PROXY_KEY`
   - shared key expected in the trusted proxy key header when trusted-header auth is enabled
-- `GNUCASH_NG_API_AUTH_TRUSTED_PROXY_KEY_FILE`
+- `TALLY_API_AUTH_TRUSTED_PROXY_KEY_FILE`
   - file containing the shared key expected in the trusted proxy key header
-- `GNUCASH_NG_API_AUTH_TRUSTED_PROXY_KEY_HEADER`
+- `TALLY_API_AUTH_TRUSTED_PROXY_KEY_HEADER`
   - optional request header name containing the proxy shared key
-  - defaults to `x-gnucash-ng-auth-proxy-key`
-- `GNUCASH_NG_API_BODY_LIMIT_BYTES`
+  - defaults to `x-tally-auth-proxy-key`
+- `TALLY_API_BODY_LIMIT_BYTES`
   - max JSON request body size
-- `GNUCASH_NG_API_RATE_LIMIT_WINDOW_MS`
+- `TALLY_API_RATE_LIMIT_WINDOW_MS`
   - shared rate-limit window
-- `GNUCASH_NG_API_RATE_LIMIT_READS`
+- `TALLY_API_RATE_LIMIT_READS`
   - per-window read limit
-- `GNUCASH_NG_API_RATE_LIMIT_MUTATIONS`
+- `TALLY_API_RATE_LIMIT_MUTATIONS`
   - per-window mutation limit
-- `GNUCASH_NG_API_RATE_LIMIT_IMPORTS`
+- `TALLY_API_RATE_LIMIT_IMPORTS`
   - per-window import limit
-- `GNUCASH_NG_API_SEED_DEMO_WORKSPACE`
+- `TALLY_API_SEED_DEMO_WORKSPACE`
   - `true` or `false`
   - defaults to `true` only in development mode
   - invalid in production mode
-- `GNUCASH_NG_API_SHUTDOWN_TIMEOUT_MS`
+- `TALLY_API_SHUTDOWN_TIMEOUT_MS`
   - graceful shutdown timeout before shutdown is treated as failed
   - defaults to `10000`
-- `GNUCASH_NG_LOG_LEVEL`
+- `TALLY_LOG_LEVEL`
   - `debug`, `info`, `warn`, or `error`
-- `GNUCASH_NG_LOG_FORMAT`
+- `TALLY_LOG_FORMAT`
   - `auto`, `pretty`, or `json`
   - defaults to `auto`
   - `auto` uses `pretty` when stdout is an interactive terminal and `json` otherwise
+
+## Rename Transition Compatibility
+
+During the rename transition, the API runtime accepts both new and legacy keys.
+When both are present, canonical `TALLY_*` values win.
+
+- canonical: `TALLY_API_*`, `TALLY_LOG_*`
+- legacy fallback: `GNUCASH_NG_API_*`, `GNUCASH_NG_LOG_*`
+
+Header compatibility during transition:
+
+- canonical api key header: `x-tally-api-key`
+- legacy api key header accepted: `x-gnucash-ng-api-key`
 
 ## Operational Rules
 

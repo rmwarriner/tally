@@ -1,8 +1,8 @@
 import {
   validateBudgetConfiguration,
   validateTransactionForLedger,
-} from "@gnucash-ng/domain";
-import type { FinanceWorkspaceDocument } from "@gnucash-ng/workspace";
+} from "@tally/domain";
+import type { FinanceWorkspaceDocument } from "@tally/workspace";
 
 export interface WorkspaceValidationReport {
   ok: boolean;

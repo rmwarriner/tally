@@ -8,7 +8,7 @@ import type {
   MoneyAmount,
   ScheduledTransaction,
   Transaction,
-} from "@gnucash-ng/domain";
+} from "@tally/domain";
 
 export interface ImportBatch {
   id: string;

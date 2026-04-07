@@ -6,7 +6,7 @@ import {
   materializeDueTransactions,
   validateBudgetConfiguration,
   validateTransactionForLedger,
-} from "@gnucash-ng/domain";
+} from "@tally/domain";
 import { listActiveTransactions } from "./transaction-lifecycle";
 import type { FinanceWorkspaceDocument } from "./types";
 

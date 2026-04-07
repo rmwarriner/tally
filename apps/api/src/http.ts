@@ -1,6 +1,6 @@
 import { randomUUID } from "node:crypto";
 import { createServer, type IncomingMessage, type ServerResponse } from "node:http";
-import { createNoopLogger, type Logger } from "@gnucash-ng/logging";
+import { createNoopLogger, type Logger } from "@tally/logging";
 import { type AuthIdentity } from "./auth";
 import { ApiError, toErrorEnvelope } from "./errors";
 import { evaluateHttpRateLimit, recordHttpCompletion, resolveHttpAuthentication } from "./http-middleware";

@@ -1,4 +1,4 @@
-import type { Transaction } from "@gnucash-ng/domain";
+import type { Transaction } from "@tally/domain";
 import type { FinanceWorkspaceDocument } from "./types";
 
 function compareTransactions(left: Transaction, right: Transaction): number {

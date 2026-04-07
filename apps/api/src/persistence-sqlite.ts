@@ -1,8 +1,8 @@
 import { mkdir } from "node:fs/promises";
 import { dirname, resolve } from "node:path";
 import { DatabaseSync } from "node:sqlite";
-import { createNoopLogger, type Logger } from "@gnucash-ng/logging";
-import { migrateWorkspaceDocument, type FinanceWorkspaceDocument } from "@gnucash-ng/workspace";
+import { createNoopLogger, type Logger } from "@tally/logging";
+import { migrateWorkspaceDocument, type FinanceWorkspaceDocument } from "@tally/workspace";
 import { ApiError } from "./errors";
 import type { WorkspaceBackup, WorkspacePersistenceBackend } from "./persistence";
 

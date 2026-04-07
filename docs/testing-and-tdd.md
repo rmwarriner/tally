@@ -36,7 +36,7 @@ Bug fixes follow the same rule:
 
 Manual functional review is now an explicit part of the project workflow for web and mobile UI work.
 
-Use [docs/ui-review-checklist.md](/Users/robert/Projects/gnucash-ng/docs/ui-review-checklist.md) when reviewing:
+Use [docs/ui-review-checklist.md](/Users/robert/Projects/tally/docs/ui-review-checklist.md) when reviewing:
 
 - new desktop shell workflows
 - mobile workflow changes

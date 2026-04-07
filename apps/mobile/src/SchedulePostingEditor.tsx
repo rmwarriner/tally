@@ -1,5 +1,5 @@
 import { Pressable, StyleSheet, Text, TextInput, View } from "react-native";
-import type { Account } from "@gnucash-ng/domain";
+import type { Account } from "@tally/domain";
 
 interface SchedulePostingFormValue {
   accountId: string;

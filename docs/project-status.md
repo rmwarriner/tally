@@ -141,7 +141,7 @@ The goal of that pass is to turn the current single-runtime auth setup into an e
 
 ## Deferred Follow-Up
 
-- keep GitHub roadmap issues, milestones, and the `GnuCash NG Roadmap` project board aligned as execution moves forward
+- keep GitHub roadmap issues, milestones, and the `Tally Roadmap` project board aligned as execution moves forward
 - keep native desktop wrapper work in idea/discovery state until a bounded wrapper spike is ready to prove local launch, file access, and local API coordination
 - track deferred web shell cleanup and ledger rebuild sequencing in `docs/ledger-ui-rebuild-plan.md`
 

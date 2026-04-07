@@ -1,7 +1,7 @@
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { dirname, resolve } from "node:path";
-import { createLogger, type Logger } from "@gnucash-ng/logging";
-import { migrateWorkspaceDocument, type FinanceWorkspaceDocument } from "@gnucash-ng/workspace";
+import { createLogger, type Logger } from "@tally/logging";
+import { migrateWorkspaceDocument, type FinanceWorkspaceDocument } from "@tally/workspace";
 import { ConfigValidationError } from "./errors";
 import {
   copyAllWorkspacesBetweenBackends,
@@ -312,7 +312,7 @@ export async function runPersistenceAdminCommand(params: {
     params.logger ??
     createLogger({
       minLevel: "info",
-      service: "gnucash-ng-persistence-admin",
+      service: "tally-persistence-admin",
     });
 
   if (

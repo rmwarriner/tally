@@ -9,7 +9,7 @@ import {
   type BaselineBudgetSnapshotLine,
   type EnvelopeBudgetSnapshotLine,
   type MoneyAmount,
-} from "@gnucash-ng/domain";
+} from "@tally/domain";
 import { buildDashboardSnapshot } from "./selectors";
 import { listActiveTransactions } from "./transaction-lifecycle";
 import type { FinanceWorkspaceDocument, WorkspaceClosePeriod } from "./types";

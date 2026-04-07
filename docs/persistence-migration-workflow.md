@@ -18,7 +18,7 @@ The workflow is intentionally offline/admin-oriented for now. It is not exposed 
 
 Run:
 
-- `pnpm --filter @gnucash-ng/api persistence:admin -- <command> ...flags`
+- `pnpm --filter @tally/api persistence:admin -- <command> ...flags`
 
 Supported commands:
 
@@ -56,7 +56,7 @@ Write-safety flags for `copy` and `import`:
 Copy from JSON storage into SQLite:
 
 ```bash
-pnpm --filter @gnucash-ng/api persistence:admin -- \
+pnpm --filter @tally/api persistence:admin -- \
   copy \
   --workspace-id workspace-household-demo \
   --source-backend json \
@@ -68,7 +68,7 @@ pnpm --filter @gnucash-ng/api persistence:admin -- \
 Copy from SQLite into Postgres:
 
 ```bash
-pnpm --filter @gnucash-ng/api persistence:admin -- \
+pnpm --filter @tally/api persistence:admin -- \
   copy \
   --workspace-id workspace-household-demo \
   --source-backend sqlite \
@@ -80,7 +80,7 @@ pnpm --filter @gnucash-ng/api persistence:admin -- \
 Copy into a different workspace id on the target backend:
 
 ```bash
-pnpm --filter @gnucash-ng/api persistence:admin -- \
+pnpm --filter @tally/api persistence:admin -- \
   copy \
   --workspace-id workspace-household-demo \
   --source-backend json \
@@ -93,7 +93,7 @@ pnpm --filter @gnucash-ng/api persistence:admin -- \
 Dry-run a migration and emit a JSON validation report:
 
 ```bash
-pnpm --filter @gnucash-ng/api persistence:admin -- \
+pnpm --filter @tally/api persistence:admin -- \
   copy \
   --workspace-id workspace-household-demo \
   --dry-run \
@@ -107,7 +107,7 @@ pnpm --filter @gnucash-ng/api persistence:admin -- \
 Copy every workspace from JSON storage into SQLite:
 
 ```bash
-pnpm --filter @gnucash-ng/api persistence:admin -- \
+pnpm --filter @tally/api persistence:admin -- \
   copy-all \
   --report-path ./tmp/persistence-copy-all-report.json \
   --source-backend json \
@@ -119,7 +119,7 @@ pnpm --filter @gnucash-ng/api persistence:admin -- \
 Continue `copy-all` after individual workspace failures while still emitting a non-zero result and JSON report:
 
 ```bash
-pnpm --filter @gnucash-ng/api persistence:admin -- \
+pnpm --filter @tally/api persistence:admin -- \
   copy-all \
   --report-path ./tmp/persistence-copy-all-report.json \
   --backup-target \
@@ -134,7 +134,7 @@ pnpm --filter @gnucash-ng/api persistence:admin -- \
 Retry only the failed workspaces from a prior `copy-all` report:
 
 ```bash
-pnpm --filter @gnucash-ng/api persistence:admin -- \
+pnpm --filter @tally/api persistence:admin -- \
   retry-failures \
   --retry-report ./tmp/persistence-copy-all-report.json \
   --report-path ./tmp/persistence-retry-report.json \
@@ -149,7 +149,7 @@ pnpm --filter @gnucash-ng/api persistence:admin -- \
 Export a workspace from Postgres to a JSON snapshot file:
 
 ```bash
-pnpm --filter @gnucash-ng/api persistence:admin -- \
+pnpm --filter @tally/api persistence:admin -- \
   export \
   --workspace-id workspace-household-demo \
   --backend postgres \
@@ -162,7 +162,7 @@ pnpm --filter @gnucash-ng/api persistence:admin -- \
 Import a JSON workspace snapshot into SQLite:
 
 ```bash
-pnpm --filter @gnucash-ng/api persistence:admin -- \
+pnpm --filter @tally/api persistence:admin -- \
   import \
   --workspace-id workspace-household-demo \
   --backend sqlite \
@@ -173,7 +173,7 @@ pnpm --filter @gnucash-ng/api persistence:admin -- \
 Import over an existing target with backup-and-rollback safety:
 
 ```bash
-pnpm --filter @gnucash-ng/api persistence:admin -- \
+pnpm --filter @tally/api persistence:admin -- \
   import \
   --workspace-id workspace-household-demo \
   --backend sqlite \

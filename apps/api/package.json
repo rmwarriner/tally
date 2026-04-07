@@ -1,12 +1,12 @@
 {
-  "name": "@gnucash-ng/api",
+  "name": "@tally/api",
   "version": "0.1.0",
   "private": true,
   "type": "module",
   "dependencies": {
-    "@gnucash-ng/domain": "workspace:*",
-    "@gnucash-ng/logging": "workspace:*",
-    "@gnucash-ng/workspace": "workspace:*",
+    "@tally/domain": "workspace:*",
+    "@tally/logging": "workspace:*",
+    "@tally/workspace": "workspace:*",
     "pg": "^8.20.0"
   },
   "devDependencies": {

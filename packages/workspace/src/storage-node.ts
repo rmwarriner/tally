@@ -1,5 +1,5 @@
 import { readFile, writeFile } from "node:fs/promises";
-import { createNoopLogger, type Logger } from "@gnucash-ng/logging";
+import { createNoopLogger, type Logger } from "@tally/logging";
 import { migrateWorkspaceDocument } from "./migrate";
 import type { FinanceWorkspaceDocument } from "./types";
 

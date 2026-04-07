@@ -17,49 +17,68 @@ This is intentionally conservative. The current API runtime, workspace persisten
 
 Recommended layout on the host:
 
-- application checkout: `/srv/gnucash-ng`
-- runtime env file: `/etc/gnucash-ng/api.env`
-- auth token file: `/etc/gnucash-ng/api-token`
-- data directory: `/var/lib/gnucash-ng/api`
+- application checkout: `/srv/tally`
+- runtime env file: `/etc/tally/api.env`
+- auth token file: `/etc/tally/api-token`
+- data directory: `/var/lib/tally/api`
 - backup directory:
-  `/var/lib/gnucash-ng/api/_backups`
+  `/var/lib/tally/api/_backups`
 - service user:
-  `gnucash-ng`
+  `tally`
 
 Recommended ownership and permissions:
 
-- `/etc/gnucash-ng/api.env`: readable by root and the `gnucash-ng` service user
-- `/etc/gnucash-ng/api-token`: `0600`, owned by root or the service user
-- `/var/lib/gnucash-ng/api`: writable only by the service user
+- `/etc/tally/api.env`: readable by root and the `tally` service user
+- `/etc/tally/api-token`: `0600`, owned by root or the service user
+- `/var/lib/tally/api`: writable only by the service user
 - `_backups` kept on the same durable volume as the workspace data unless a separate backup copy job is configured
 
 ## Runtime Configuration
 
 Use file-backed auth secrets instead of inline token env vars.
 
-Example `/etc/gnucash-ng/api.env`:
+Example `/etc/tally/api.env`:
 
 ```dotenv
-GNUCASH_NG_API_RUNTIME_MODE=production
-GNUCASH_NG_API_HOST=127.0.0.1
-GNUCASH_NG_API_PORT=4000
-GNUCASH_NG_DATA_DIR=/var/lib/gnucash-ng/api
-GNUCASH_NG_API_AUTH_TOKEN_FILE=/etc/gnucash-ng/api-token
-GNUCASH_NG_API_BODY_LIMIT_BYTES=1048576
-GNUCASH_NG_API_RATE_LIMIT_WINDOW_MS=60000
-GNUCASH_NG_API_RATE_LIMIT_READS=120
-GNUCASH_NG_API_RATE_LIMIT_MUTATIONS=30
-GNUCASH_NG_API_RATE_LIMIT_IMPORTS=10
-GNUCASH_NG_API_SHUTDOWN_TIMEOUT_MS=10000
-GNUCASH_NG_LOG_LEVEL=info
-GNUCASH_NG_LOG_FORMAT=json
+TALLY_API_RUNTIME_MODE=production
+TALLY_API_HOST=127.0.0.1
+TALLY_API_PORT=4000
+TALLY_DATA_DIR=/var/lib/tally/api
+TALLY_API_AUTH_TOKEN_FILE=/etc/tally/api-token
+TALLY_API_BODY_LIMIT_BYTES=1048576
+TALLY_API_RATE_LIMIT_WINDOW_MS=60000
+TALLY_API_RATE_LIMIT_READS=120
+TALLY_API_RATE_LIMIT_MUTATIONS=30
+TALLY_API_RATE_LIMIT_IMPORTS=10
+TALLY_API_SHUTDOWN_TIMEOUT_MS=10000
+TALLY_LOG_LEVEL=info
+TALLY_LOG_FORMAT=json
 ```
 
 Do not set:
 
-- `GNUCASH_NG_API_SEED_DEMO_WORKSPACE`
+- `TALLY_API_SEED_DEMO_WORKSPACE`
   production mode rejects it
 - inline auth tokens if a file-backed secret is available
+
+## Rename Migration Appendix (Old -> New)
+
+Transition mapping:
+
+- env prefix: `GNUCASH_NG_*` -> `TALLY_*`
+- api key header: `x-gnucash-ng-api-key` -> `x-tally-api-key`
+- service name: `gnucash-ng-api` -> `tally-api`
+- service user/group: `gnucash-ng` -> `tally`
+- default paths:
+  - `/srv/gnucash-ng` -> `/srv/tally`
+  - `/etc/gnucash-ng` -> `/etc/tally`
+  - `/var/lib/gnucash-ng` -> `/var/lib/tally`
+
+Compatibility behavior:
+
+- runtime accepts legacy `GNUCASH_NG_*` env keys during transition
+- runtime accepts legacy `x-gnucash-ng-api-key` during transition
+- if both legacy and canonical values are set, canonical `TALLY_*` values win
 
 ## Systemd Service
 
@@ -67,16 +86,16 @@ Example unit:
 
 ```ini
 [Unit]
-Description=GnuCash NG API
+Description=Tally API
 After=network.target
 
 [Service]
 Type=simple
-User=gnucash-ng
-Group=gnucash-ng
-WorkingDirectory=/srv/gnucash-ng
-EnvironmentFile=/etc/gnucash-ng/api.env
-ExecStart=/usr/bin/pnpm --filter @gnucash-ng/api start
+User=tally
+Group=tally
+WorkingDirectory=/srv/tally
+EnvironmentFile=/etc/tally/api.env
+ExecStart=/usr/bin/pnpm --filter @tally/api start
 Restart=on-failure
 RestartSec=5
 KillSignal=SIGTERM
@@ -89,8 +108,8 @@ WantedBy=multi-user.target
 After changing runtime config:
 
 1. `sudo systemctl daemon-reload`
-2. `sudo systemctl restart gnucash-ng-api`
-3. `sudo systemctl status gnucash-ng-api`
+2. `sudo systemctl restart tally-api`
+3. `sudo systemctl status tally-api`
 
 ## Reverse Proxy Expectations
 
@@ -104,11 +123,11 @@ If a reverse proxy is used:
 
 ## Deployment Procedure
 
-1. Pull the target revision into `/srv/gnucash-ng`.
+1. Pull the target revision into `/srv/tally`.
 2. Run `pnpm install --frozen-lockfile`.
 3. Run `pnpm ci:verify`.
-4. Confirm `/etc/gnucash-ng/api.env` and the auth token file exist.
-5. Confirm `/var/lib/gnucash-ng/api` exists and is writable by the service user.
+4. Confirm `/etc/tally/api.env` and the auth token file exist.
+5. Confirm `/var/lib/tally/api` exists and is writable by the service user.
 6. Restart the service with `systemctl`.
 7. Run the smoke checks below.
 
@@ -119,9 +138,9 @@ Run after each deployment:
 1. `curl -sf http://127.0.0.1:4000/healthz`
 2. `curl -sf http://127.0.0.1:4000/readyz`
 3. `curl -sf http://127.0.0.1:4000/metrics | head`
-4. `curl -sf -H "Authorization: Bearer $(cat /etc/gnucash-ng/api-token)" http://127.0.0.1:4000/api/workspaces/workspace-household-demo`
+4. `curl -sf -H "Authorization: Bearer $(cat /etc/tally/api-token)" http://127.0.0.1:4000/api/workspaces/workspace-household-demo`
    Only if the deployment intentionally carries the demo workspace or another known workspace id.
-5. `journalctl -u gnucash-ng-api -n 50 --no-pager`
+5. `journalctl -u tally-api -n 50 --no-pager`
 
 Success criteria:
 
@@ -148,8 +167,8 @@ Operational guidance:
 
 ### Case 1: Service Fails To Start
 
-1. `systemctl status gnucash-ng-api`
-2. `journalctl -u gnucash-ng-api -n 100 --no-pager`
+1. `systemctl status tally-api`
+2. `journalctl -u tally-api -n 100 --no-pager`
 3. Check the env file and token file paths.
 4. Confirm the data directory exists and is writable.
 5. Fix config, then restart the service.
@@ -163,7 +182,7 @@ Most likely causes:
 
 ### Case 2: Workspace Data Suspected Corrupt
 
-1. Stop the API: `sudo systemctl stop gnucash-ng-api`
+1. Stop the API: `sudo systemctl stop tally-api`
 2. Copy the current workspace JSON and `_backups` directory to a dated incident folder.
 3. Inspect available backups through the filesystem or the API once it is safe to start read-only checks.
 4. Restore the selected backup either:
@@ -177,8 +196,8 @@ Most likely causes:
 
 1. Provision a replacement Linux host.
 2. Restore the application checkout or redeploy from source control.
-3. Restore `/etc/gnucash-ng/api.env` and the auth token file from secure configuration storage.
-4. Restore `/var/lib/gnucash-ng/api` from the latest durable backup copy.
+3. Restore `/etc/tally/api.env` and the auth token file from secure configuration storage.
+4. Restore `/var/lib/tally/api` from the latest durable backup copy.
 5. Start the service.
 6. Run smoke checks.
 

@@ -6,7 +6,7 @@ import {
   demoTransactions,
   starterChartOfAccounts,
   type Commodity,
-} from "@gnucash-ng/domain";
+} from "@tally/domain";
 import type { FinanceWorkspaceDocument } from "./types";
 
 const defaultCommodities: Commodity[] = [

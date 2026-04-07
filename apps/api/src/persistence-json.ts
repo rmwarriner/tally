@@ -1,8 +1,8 @@
 import { mkdir, readdir, stat } from "node:fs/promises";
 import { join, resolve } from "node:path";
-import { createNoopLogger, type Logger } from "@gnucash-ng/logging";
-import type { FinanceWorkspaceDocument } from "@gnucash-ng/workspace";
-import { loadWorkspaceFromFile, saveWorkspaceToFile } from "@gnucash-ng/workspace/src/node";
+import { createNoopLogger, type Logger } from "@tally/logging";
+import type { FinanceWorkspaceDocument } from "@tally/workspace";
+import { loadWorkspaceFromFile, saveWorkspaceToFile } from "@tally/workspace/src/node";
 import { ApiError } from "./errors";
 import type { WorkspaceBackup, WorkspacePersistenceBackend } from "./persistence";
 

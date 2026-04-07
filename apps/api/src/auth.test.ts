@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { createDemoWorkspace } from "@gnucash-ng/workspace";
+import { createDemoWorkspace } from "@tally/workspace";
 import { authorizeWorkspaceAccess, resolveAuthContext } from "./auth";
 
 describe("api auth", () => {
@@ -88,6 +88,32 @@ describe("api auth", () => {
 
     expect(result.ok).toBe(false);
     expect(result.error).toBe("Authentication is required.");
+  });
+
+  it("accepts legacy trusted-header names when default Tally header names are configured", () => {
+    const headers = new Headers();
+    headers.set("x-gnucash-ng-auth-proxy-key", "proxy-secret");
+    headers.set("x-auth-actor", "legacy@example.com");
+    headers.set("x-gnucash-ng-auth-role", "admin");
+
+    const result = resolveAuthContext({
+      authIdentities: [],
+      authRequired: true,
+      trustedHeaderAuth: {
+        actorHeader: "x-auth-actor",
+        proxyKey: "proxy-secret",
+        proxyKeyHeader: "x-tally-auth-proxy-key",
+        roleHeader: "x-tally-auth-role",
+      },
+      trustedHeaders: headers,
+    });
+
+    expect(result.ok).toBe(true);
+    expect(result.context).toEqual({
+      actor: "legacy@example.com",
+      kind: "trusted-header",
+      role: "admin",
+    });
   });
 
   it("denies workspace access to non-members", () => {

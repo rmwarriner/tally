@@ -1,6 +1,6 @@
-# GnuCash NG
+# Tally
 
-GnuCash NG is a greenfield personal finance system for households, families, and individuals. It combines strict double-entry accounting with two complementary budgeting modes:
+Tally is a greenfield personal finance system for households, families, and individuals. It combines strict double-entry accounting with two complementary budgeting modes:
 
 - Traditional budget tracking establishes the plan-of-record baseline.
 - Envelope budgeting is the operational cash-allocation layer used day to day.
@@ -49,7 +49,7 @@ This repository currently bootstraps:
 
 Deferred UI cleanup: extract the mobile quick-transaction and quick-envelope cards into dedicated components after the GitHub handoff work.
 
-See [docs/service-layer.md](/Users/robert/Projects/gnucash-ng/docs/service-layer.md) and [docs/next-move-service-layer.md](/Users/robert/Projects/gnucash-ng/docs/next-move-service-layer.md).
+See [docs/service-layer.md](/Users/robert/Projects/tally/docs/service-layer.md) and [docs/next-move-service-layer.md](/Users/robert/Projects/tally/docs/next-move-service-layer.md).
 
 ## Testing
 
@@ -61,45 +61,45 @@ See [docs/service-layer.md](/Users/robert/Projects/gnucash-ng/docs/service-layer
 - `pnpm dev:web`
 - `pnpm dev:mobile`
 
-TDD workflow and testing expectations are documented in [docs/testing-and-tdd.md](/Users/robert/Projects/gnucash-ng/docs/testing-and-tdd.md).
-UI review workflows are documented in [docs/ui-review-checklist.md](/Users/robert/Projects/gnucash-ng/docs/ui-review-checklist.md).
+TDD workflow and testing expectations are documented in [docs/testing-and-tdd.md](/Users/robert/Projects/tally/docs/testing-and-tdd.md).
+UI review workflows are documented in [docs/ui-review-checklist.md](/Users/robert/Projects/tally/docs/ui-review-checklist.md).
 `pnpm dev:api` now seeds the local demo workspace automatically if `apps/api/data/workspace-household-demo.json` is missing, so the desktop and mobile shells have reviewable data on first run.
-CI and security merge gates are documented in [docs/ci-and-security-gates.md](/Users/robert/Projects/gnucash-ng/docs/ci-and-security-gates.md).
-Git branch and pull request workflow is documented in [docs/git-workflow.md](/Users/robert/Projects/gnucash-ng/docs/git-workflow.md).
+CI and security merge gates are documented in [docs/ci-and-security-gates.md](/Users/robert/Projects/tally/docs/ci-and-security-gates.md).
+Git branch and pull request workflow is documented in [docs/git-workflow.md](/Users/robert/Projects/tally/docs/git-workflow.md).
 
 ## Logging
 
-Structured logging standards and expectations are documented in [docs/logging-standards.md](/Users/robert/Projects/gnucash-ng/docs/logging-standards.md).
+Structured logging standards and expectations are documented in [docs/logging-standards.md](/Users/robert/Projects/tally/docs/logging-standards.md).
 
 ## Audit
 
-Formal audit-event behavior and event structure are documented in [docs/audit-events.md](/Users/robert/Projects/gnucash-ng/docs/audit-events.md).
+Formal audit-event behavior and event structure are documented in [docs/audit-events.md](/Users/robert/Projects/tally/docs/audit-events.md).
 
 ## Security
 
-Security standards are documented in [docs/security-standards.md](/Users/robert/Projects/gnucash-ng/docs/security-standards.md).
-The latest audit is documented in [docs/security-audit-2026-04-03.md](/Users/robert/Projects/gnucash-ng/docs/security-audit-2026-04-03.md).
+Security standards are documented in [docs/security-standards.md](/Users/robert/Projects/tally/docs/security-standards.md).
+The latest audit is documented in [docs/security-audit-2026-04-03.md](/Users/robert/Projects/tally/docs/security-audit-2026-04-03.md).
 
 ## Configuration And Errors
 
-Typed configuration and API error-handling standards are documented in [docs/config-and-error-handling.md](/Users/robert/Projects/gnucash-ng/docs/config-and-error-handling.md).
+Typed configuration and API error-handling standards are documented in [docs/config-and-error-handling.md](/Users/robert/Projects/tally/docs/config-and-error-handling.md).
 
 ## Tracking
 
-- Current project status: [docs/project-status.md](/Users/robert/Projects/gnucash-ng/docs/project-status.md)
-- Engineering standards roadmap: [docs/engineering-roadmap.md](/Users/robert/Projects/gnucash-ng/docs/engineering-roadmap.md)
-- Git workflow: [docs/git-workflow.md](/Users/robert/Projects/gnucash-ng/docs/git-workflow.md)
-- Native desktop wrapper assessment: [docs/native-desktop-assessment.md](/Users/robert/Projects/gnucash-ng/docs/native-desktop-assessment.md)
-- Desktop UI direction: [docs/desktop-ui-direction.md](/Users/robert/Projects/gnucash-ng/docs/desktop-ui-direction.md)
+- Current project status: [docs/project-status.md](/Users/robert/Projects/tally/docs/project-status.md)
+- Engineering standards roadmap: [docs/engineering-roadmap.md](/Users/robert/Projects/tally/docs/engineering-roadmap.md)
+- Git workflow: [docs/git-workflow.md](/Users/robert/Projects/tally/docs/git-workflow.md)
+- Native desktop wrapper assessment: [docs/native-desktop-assessment.md](/Users/robert/Projects/tally/docs/native-desktop-assessment.md)
+- Desktop UI direction: [docs/desktop-ui-direction.md](/Users/robert/Projects/tally/docs/desktop-ui-direction.md)
 - GitHub roadmap project: `https://github.com/users/rmwarriner/projects/1`
 
-Ideas that are not ready for roadmap execution should stay in a separate GitHub issue inbox with the `idea` label until they are clear enough to prioritize. The promotion rule is documented in [docs/git-workflow.md](/Users/robert/Projects/gnucash-ng/docs/git-workflow.md).
-GitHub issue templates now cover ideas, roadmap-ready execution work, bugs, and refactors, and pull requests use the repo-level template in [.github/PULL_REQUEST_TEMPLATE.md](/Users/robert/Projects/gnucash-ng/.github/PULL_REQUEST_TEMPLATE.md).
-Small admin or documentation-only changes may go directly to `main`, but docs/admin work that supports a major feature should stay on that feature branch. The weekly review cadence is documented in [docs/git-workflow.md](/Users/robert/Projects/gnucash-ng/docs/git-workflow.md).
+Ideas that are not ready for roadmap execution should stay in a separate GitHub issue inbox with the `idea` label until they are clear enough to prioritize. The promotion rule is documented in [docs/git-workflow.md](/Users/robert/Projects/tally/docs/git-workflow.md).
+GitHub issue templates now cover ideas, roadmap-ready execution work, bugs, and refactors, and pull requests use the repo-level template in [.github/PULL_REQUEST_TEMPLATE.md](/Users/robert/Projects/tally/.github/PULL_REQUEST_TEMPLATE.md).
+Small admin or documentation-only changes may go directly to `main`, but docs/admin work that supports a major feature should stay on that feature branch. The weekly review cadence is documented in [docs/git-workflow.md](/Users/robert/Projects/tally/docs/git-workflow.md).
 
 ## Local Plugins
 
-Repo-local Codex plugin scaffolds live under `plugins/` and are registered in [.agents/plugins/marketplace.json](/Users/robert/Projects/gnucash-ng/.agents/plugins/marketplace.json):
+Repo-local Codex plugin scaffolds live under `plugins/` and are registered in [.agents/plugins/marketplace.json](/Users/robert/Projects/tally/.agents/plugins/marketplace.json):
 
 - `github-roadmap`
 - `workspace-health`

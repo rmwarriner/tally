@@ -92,7 +92,7 @@ export function buildGnuCashXmlExport(params: {
   const workspace = params.workspace;
   const contents = [
     '<?xml version="1.0" encoding="utf-8"?>',
-    '<gnc-v2 xmlns:ws="https://gnucash-ng.dev/ns/workspace">',
+    '<gnc-v2 xmlns:ws="https://tally.dev/ns/workspace">',
     `<ws:workspace schemaVersion="${workspace.schemaVersion}" id="${escapeXml(workspace.id)}" name="${escapeXml(workspace.name)}" baseCommodityCode="${escapeXml(workspace.baseCommodityCode)}">`,
     renderStringList("ws:householdMembers", workspace.householdMembers),
     renderHouseholdMemberRoles(workspace.householdMemberRoles),

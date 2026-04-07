@@ -20,13 +20,13 @@ importers:
 
   apps/api:
     dependencies:
-      '@gnucash-ng/domain':
+      '@tally/domain':
         specifier: workspace:*
         version: link:../../packages/domain
-      '@gnucash-ng/logging':
+      '@tally/logging':
         specifier: workspace:*
         version: link:../../packages/logging
-      '@gnucash-ng/workspace':
+      '@tally/workspace':
         specifier: workspace:*
         version: link:../../packages/workspace
       pg:
@@ -45,13 +45,13 @@ importers:
 
   apps/mobile:
     dependencies:
-      '@gnucash-ng/domain':
+      '@tally/domain':
         specifier: workspace:*
         version: link:../../packages/domain
-      '@gnucash-ng/ui':
+      '@tally/ui':
         specifier: workspace:*
         version: link:../../packages/ui
-      '@gnucash-ng/workspace':
+      '@tally/workspace':
         specifier: workspace:*
         version: link:../../packages/workspace
       expo:
@@ -73,13 +73,13 @@ importers:
 
   apps/web:
     dependencies:
-      '@gnucash-ng/domain':
+      '@tally/domain':
         specifier: workspace:*
         version: link:../../packages/domain
-      '@gnucash-ng/ui':
+      '@tally/ui':
         specifier: workspace:*
         version: link:../../packages/ui
-      '@gnucash-ng/workspace':
+      '@tally/workspace':
         specifier: workspace:*
         version: link:../../packages/workspace
       react:
@@ -110,10 +110,10 @@ importers:
 
   packages/workspace:
     dependencies:
-      '@gnucash-ng/domain':
+      '@tally/domain':
         specifier: workspace:*
         version: link:../domain
-      '@gnucash-ng/logging':
+      '@tally/logging':
         specifier: workspace:*
         version: link:../logging
     devDependencies:

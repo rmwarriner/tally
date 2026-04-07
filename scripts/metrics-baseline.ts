@@ -6,8 +6,8 @@ import { tmpdir } from "node:os";
 import process from "node:process";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
-import { createDemoWorkspace } from "@gnucash-ng/workspace/src/factory";
-import { loadWorkspaceFromFile, saveWorkspaceToFile } from "@gnucash-ng/workspace/src/storage-node";
+import { createDemoWorkspace } from "@tally/workspace/src/factory";
+import { loadWorkspaceFromFile, saveWorkspaceToFile } from "@tally/workspace/src/storage-node";
 import {
   createFileSystemWorkspaceRepository,
   createHttpHandler,
@@ -240,7 +240,7 @@ async function runTestRuntimeBaseline(): Promise<{ runs: number; medianMs: numbe
 }
 
 async function main(): Promise<void> {
-  const tempDirectory = await mkdtemp(join(tmpdir(), "gnucash-ng-baseline-"));
+  const tempDirectory = await mkdtemp(join(tmpdir(), "tally-baseline-"));
   const startedAt = new Date().toISOString();
 
   try {

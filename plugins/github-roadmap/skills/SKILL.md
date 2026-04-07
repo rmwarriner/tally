@@ -26,7 +26,7 @@ Default routing:
 ## Repo-Specific Rules
 
 - `idea` issues should not get a milestone yet
-- `idea` issues should not be added to the `GnuCash NG Roadmap` project yet
+- `idea` issues should not be added to the `Tally Roadmap` project yet
 - roadmap work should use the roadmap issue template
 - roadmap child issues should be added to the roadmap project and assigned to the correct phase milestone
 - parent issues should explicitly point to child execution issues

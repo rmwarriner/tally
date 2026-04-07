@@ -1,5 +1,5 @@
 import type { Server } from "node:http";
-import { createConsoleSink, createLogger, type ConsoleLogFormat, type Logger } from "@gnucash-ng/logging";
+import { createConsoleSink, createLogger, type ConsoleLogFormat, type Logger } from "@tally/logging";
 import { createApiRuntimeConfig, type ApiRuntimeConfig, type ApiRuntimeMode } from "./config";
 import { ConfigValidationError } from "./errors";
 import { createHttpHandler, createNodeHttpServer } from "./http";
@@ -29,10 +29,18 @@ function resolveConsoleLogFormat(config: ApiRuntimeConfig): ConsoleLogFormat {
 }
 
 function createRuntimeLogger(config: ApiRuntimeConfig, env: NodeJS.ProcessEnv): Logger {
+  const minLevel =
+    (env.TALLY_LOG_LEVEL ?? env.GNUCASH_NG_LOG_LEVEL) as
+      | "debug"
+      | "info"
+      | "warn"
+      | "error"
+      | undefined;
+
   return createLogger({
-    minLevel: env.GNUCASH_NG_LOG_LEVEL as "debug" | "info" | "warn" | "error" | undefined,
+    minLevel,
     sink: createConsoleSink({ format: resolveConsoleLogFormat(config) }),
-    service: "gnucash-ng-api",
+    service: "tally-api",
   }).child({
     dataDirectory: config.dataDirectory,
     host: config.host,

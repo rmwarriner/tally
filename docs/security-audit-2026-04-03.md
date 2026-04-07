@@ -40,7 +40,7 @@ Risk:
 
 Fix:
 
-- runtime config now rejects non-loopback binding unless `GNUCASH_NG_API_AUTH_TOKEN` is configured
+- runtime config now rejects non-loopback binding unless `TALLY_API_AUTH_TOKEN` is configured
 
 Relevant files:
 

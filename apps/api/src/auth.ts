@@ -1,4 +1,4 @@
-import type { FinanceWorkspaceDocument } from "@gnucash-ng/workspace";
+import type { FinanceWorkspaceDocument } from "@tally/workspace";
 
 export type AuthRole = "admin" | "member" | "local-admin";
 export type WorkspaceRole = "admin" | "guardian" | "local-admin" | "member";
@@ -58,7 +58,11 @@ export function resolveAuthContext(params: {
   trustedHeaders?: Headers;
 }): AuthResolution {
   if (params.trustedHeaderAuth) {
-    const suppliedProxyKey = params.trustedHeaders?.get(params.trustedHeaderAuth.proxyKeyHeader)?.trim();
+    const suppliedProxyKey =
+      params.trustedHeaders?.get(params.trustedHeaderAuth.proxyKeyHeader)?.trim() ??
+      (params.trustedHeaderAuth.proxyKeyHeader === "x-tally-auth-proxy-key"
+        ? params.trustedHeaders?.get("x-gnucash-ng-auth-proxy-key")?.trim()
+        : undefined);
 
     if (!suppliedProxyKey || suppliedProxyKey !== params.trustedHeaderAuth.proxyKey) {
       return { error: "Authentication is required.", ok: false };
@@ -70,7 +74,11 @@ export function resolveAuthContext(params: {
       return { error: "Authentication is required.", ok: false };
     }
 
-    const roleHeader = params.trustedHeaders?.get(params.trustedHeaderAuth.roleHeader)?.trim();
+    const roleHeader =
+      params.trustedHeaders?.get(params.trustedHeaderAuth.roleHeader)?.trim() ??
+      (params.trustedHeaderAuth.roleHeader === "x-tally-auth-role"
+        ? params.trustedHeaders?.get("x-gnucash-ng-auth-role")?.trim()
+        : undefined);
     const role = roleHeader === "admin" ? "admin" : "member";
 
     return {

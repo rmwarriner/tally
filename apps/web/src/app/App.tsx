@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { colors, typography } from "@gnucash-ng/ui";
+import { colors, typography } from "@tally/ui";
 import {
   deleteTransaction,
   postBaselineBudgetLine,

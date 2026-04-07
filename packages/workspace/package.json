@@ -1,13 +1,13 @@
 {
-  "name": "@gnucash-ng/workspace",
+  "name": "@tally/workspace",
   "version": "0.1.0",
   "private": true,
   "type": "module",
   "main": "src/index.ts",
   "types": "src/index.ts",
   "dependencies": {
-    "@gnucash-ng/domain": "workspace:*",
-    "@gnucash-ng/logging": "workspace:*"
+    "@tally/domain": "workspace:*",
+    "@tally/logging": "workspace:*"
   },
   "devDependencies": {
     "@types/node": "^24.0.0"

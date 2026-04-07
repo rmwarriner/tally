@@ -1,6 +1,6 @@
 import { Pressable, StyleSheet, Text, TextInput, View } from "react-native";
-import type { Account, Transaction } from "@gnucash-ng/domain";
-import type { ReconciliationSession } from "@gnucash-ng/workspace";
+import type { Account, Transaction } from "@tally/domain";
+import type { ReconciliationSession } from "@tally/workspace";
 
 export interface ReconciliationFormValue {
   accountId: string;

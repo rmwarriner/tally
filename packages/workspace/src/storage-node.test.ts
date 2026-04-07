@@ -8,7 +8,7 @@ import { loadWorkspaceFromFile, saveWorkspaceToFile } from "./storage-node";
 const temporaryDirectories: string[] = [];
 
 async function createTempDirectory(): Promise<string> {
-  const directory = await mkdtemp(join(tmpdir(), "gnucash-ng-storage-"));
+  const directory = await mkdtemp(join(tmpdir(), "tally-storage-"));
   temporaryDirectories.push(directory);
   return directory;
 }

@@ -1,4 +1,4 @@
-import type { Logger } from "@gnucash-ng/logging";
+import type { Logger } from "@tally/logging";
 
 export interface ParsedRequestBodyResult {
   body?: unknown;

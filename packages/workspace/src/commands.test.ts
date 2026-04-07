@@ -2,8 +2,8 @@ import { mkdtemp, rm } from "node:fs/promises";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
 import { describe, expect, it } from "vitest";
-import { createMoney } from "@gnucash-ng/domain";
-import { createLogger, type LogRecord } from "@gnucash-ng/logging";
+import { createMoney } from "@tally/domain";
+import { createLogger, type LogRecord } from "@tally/logging";
 import {
   addTransaction,
   applyScheduledTransactionException,
@@ -835,7 +835,7 @@ LSalary
   });
 
   it("saves and loads workspace documents through the file adapter", async () => {
-    const dir = await mkdtemp(join(tmpdir(), "gnucash-ng-"));
+    const dir = await mkdtemp(join(tmpdir(), "tally-"));
     const path = join(dir, "workspace.json");
     const workspace = createDemoWorkspace();
     const records: LogRecord[] = [];

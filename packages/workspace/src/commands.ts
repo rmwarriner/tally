@@ -13,8 +13,8 @@ import {
   type EnvelopeAllocation,
   type ScheduledTransaction,
   type Transaction,
-} from "@gnucash-ng/domain";
-import { createNoopLogger, type Logger } from "@gnucash-ng/logging";
+} from "@tally/domain";
+import { createNoopLogger, type Logger } from "@tally/logging";
 import { appendAuditEvent, type AuditContext } from "./audit";
 import { parseGnuCashXml } from "./gnucash-xml";
 import { parseOfxStatement } from "./ofx";

@@ -1,5 +1,5 @@
 blank_issues_enabled: true
 contact_links:
   - name: Git Workflow
-    url: https://github.com/rmwarriner/gnucash-ng/blob/main/docs/git-workflow.md
+    url: https://github.com/rmwarriner/tally/blob/main/docs/git-workflow.md
     about: Read the repo workflow for idea intake, roadmap promotion, branches, and pull requests.

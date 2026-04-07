@@ -1,5 +1,5 @@
 {
-  "name": "@gnucash-ng/logging",
+  "name": "@tally/logging",
   "version": "0.1.0",
   "private": true,
   "type": "module",

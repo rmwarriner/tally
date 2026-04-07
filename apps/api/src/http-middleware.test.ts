@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { createNoopLogger } from "@gnucash-ng/logging";
+import { createNoopLogger } from "@tally/logging";
 import { createInMemoryApiMetrics } from "./metrics";
 import { resolveHttpAuthentication, evaluateHttpRateLimit, recordHttpCompletion } from "./http-middleware";
 import { createInMemoryRateLimiter } from "./rate-limit";
@@ -33,6 +33,21 @@ describe("http middleware", () => {
         message: "Authentication is required.",
       },
     });
+  });
+
+  it("accepts legacy api key header during transition", () => {
+    const headers = new Headers();
+    headers.set("x-gnucash-ng-api-key", "legacy-token");
+
+    const result = resolveHttpAuthentication({
+      authIdentities: [{ actor: "legacy", role: "admin", token: "legacy-token" }],
+      authRequired: true,
+      request: new Request("http://localhost/api/workspaces/demo", { headers }),
+      requestLogger: createNoopLogger(),
+    });
+
+    expect(result.context?.actor).toBe("legacy");
+    expect(result.status).toBeUndefined();
   });
 
   it("returns rate limit decision details when limit is exceeded", () => {

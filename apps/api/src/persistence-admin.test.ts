@@ -2,7 +2,7 @@ import { mkdtemp, readFile, rm } from "node:fs/promises";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
 import { afterEach, describe, expect, it } from "vitest";
-import { createDemoWorkspace } from "@gnucash-ng/workspace";
+import { createDemoWorkspace } from "@tally/workspace";
 import {
   createFileSystemWorkspacePersistenceBackend,
   copyWorkspaceBetweenBackends,
@@ -128,8 +128,8 @@ describe("persistence admin", () => {
   });
 
   it("copies a workspace between json and sqlite backends", async () => {
-    const sourceDirectory = await mkdtemp(join(tmpdir(), "gnucash-ng-copy-source-"));
-    const targetDirectory = await mkdtemp(join(tmpdir(), "gnucash-ng-copy-target-"));
+    const sourceDirectory = await mkdtemp(join(tmpdir(), "tally-copy-source-"));
+    const targetDirectory = await mkdtemp(join(tmpdir(), "tally-copy-target-"));
     cleanupPaths.push(sourceDirectory, targetDirectory);
 
     const source = createFileSystemWorkspacePersistenceBackend({
@@ -154,8 +154,8 @@ describe("persistence admin", () => {
   });
 
   it("exports from json and imports into sqlite through the admin runner", async () => {
-    const sourceDirectory = await mkdtemp(join(tmpdir(), "gnucash-ng-export-source-"));
-    const targetDirectory = await mkdtemp(join(tmpdir(), "gnucash-ng-export-target-"));
+    const sourceDirectory = await mkdtemp(join(tmpdir(), "tally-export-source-"));
+    const targetDirectory = await mkdtemp(join(tmpdir(), "tally-export-target-"));
     cleanupPaths.push(sourceDirectory, targetDirectory);
     const outputPath = join(targetDirectory, "workspace-export.json");
     const source = createFileSystemWorkspacePersistenceBackend({
@@ -205,8 +205,8 @@ describe("persistence admin", () => {
   });
 
   it("supports dry-run copy reports without writing the target workspace", async () => {
-    const sourceDirectory = await mkdtemp(join(tmpdir(), "gnucash-ng-copy-report-source-"));
-    const targetDirectory = await mkdtemp(join(tmpdir(), "gnucash-ng-copy-report-target-"));
+    const sourceDirectory = await mkdtemp(join(tmpdir(), "tally-copy-report-source-"));
+    const targetDirectory = await mkdtemp(join(tmpdir(), "tally-copy-report-target-"));
     cleanupPaths.push(sourceDirectory, targetDirectory);
     const reportPath = join(targetDirectory, "copy-report.json");
 
@@ -257,8 +257,8 @@ describe("persistence admin", () => {
   });
 
   it("copies all workspaces between backends through the admin runner", async () => {
-    const sourceDirectory = await mkdtemp(join(tmpdir(), "gnucash-ng-copy-all-source-"));
-    const targetDirectory = await mkdtemp(join(tmpdir(), "gnucash-ng-copy-all-target-"));
+    const sourceDirectory = await mkdtemp(join(tmpdir(), "tally-copy-all-source-"));
+    const targetDirectory = await mkdtemp(join(tmpdir(), "tally-copy-all-target-"));
     cleanupPaths.push(sourceDirectory, targetDirectory);
     const reportPath = join(targetDirectory, "copy-all-report.json");
 
@@ -308,8 +308,8 @@ describe("persistence admin", () => {
   });
 
   it("halts copy-all on the first failure by default and preserves the report", async () => {
-    const sourceDirectory = await mkdtemp(join(tmpdir(), "gnucash-ng-copy-all-fail-source-"));
-    const targetDirectory = await mkdtemp(join(tmpdir(), "gnucash-ng-copy-all-fail-target-"));
+    const sourceDirectory = await mkdtemp(join(tmpdir(), "tally-copy-all-fail-source-"));
+    const targetDirectory = await mkdtemp(join(tmpdir(), "tally-copy-all-fail-target-"));
     cleanupPaths.push(sourceDirectory, targetDirectory);
     const reportPath = join(targetDirectory, "copy-all-fail-report.json");
 
@@ -395,8 +395,8 @@ describe("persistence admin", () => {
   });
 
   it("can continue copy-all after failures when explicitly requested", async () => {
-    const sourceDirectory = await mkdtemp(join(tmpdir(), "gnucash-ng-copy-all-continue-source-"));
-    const targetDirectory = await mkdtemp(join(tmpdir(), "gnucash-ng-copy-all-continue-target-"));
+    const sourceDirectory = await mkdtemp(join(tmpdir(), "tally-copy-all-continue-source-"));
+    const targetDirectory = await mkdtemp(join(tmpdir(), "tally-copy-all-continue-target-"));
     cleanupPaths.push(sourceDirectory, targetDirectory);
     const reportPath = join(targetDirectory, "copy-all-continue-report.json");
 
@@ -482,8 +482,8 @@ describe("persistence admin", () => {
   });
 
   it("retries only failed workspaces from a prior copy-all report", async () => {
-    const sourceDirectory = await mkdtemp(join(tmpdir(), "gnucash-ng-retry-source-"));
-    const targetDirectory = await mkdtemp(join(tmpdir(), "gnucash-ng-retry-target-"));
+    const sourceDirectory = await mkdtemp(join(tmpdir(), "tally-retry-source-"));
+    const targetDirectory = await mkdtemp(join(tmpdir(), "tally-retry-target-"));
     cleanupPaths.push(sourceDirectory, targetDirectory);
     const failureReportPath = join(targetDirectory, "copy-all-failure-report.json");
     const retryReportPath = join(targetDirectory, "retry-report.json");

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { createMoney } from "@gnucash-ng/domain";
+import { createMoney } from "@tally/domain";
 import {
   addTransaction,
   createAuditEvent,

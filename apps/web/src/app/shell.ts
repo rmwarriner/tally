@@ -1,4 +1,4 @@
-import type { FinanceWorkspaceDocument, ReconciliationSession } from "@gnucash-ng/workspace";
+import type { FinanceWorkspaceDocument, ReconciliationSession } from "@tally/workspace";
 
 export type WorkspaceView =
   | "overview"

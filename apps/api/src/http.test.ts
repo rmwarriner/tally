@@ -2,8 +2,8 @@ import { mkdtemp, rm } from "node:fs/promises";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
 import { describe, expect, it } from "vitest";
-import { buildGnuCashXmlExport, createDemoWorkspace } from "@gnucash-ng/workspace";
-import { saveWorkspaceToFile } from "@gnucash-ng/workspace/src/node";
+import { buildGnuCashXmlExport, createDemoWorkspace } from "@tally/workspace";
+import { saveWorkspaceToFile } from "@tally/workspace/src/node";
 import {
   createInMemoryRateLimiter,
   createFileSystemWorkspaceRepository,
@@ -13,7 +13,7 @@ import {
 
 describe("api http transport", () => {
   async function createFixture() {
-    const directory = await mkdtemp(join(tmpdir(), "gnucash-ng-http-"));
+    const directory = await mkdtemp(join(tmpdir(), "tally-http-"));
     const workspace = createDemoWorkspace();
     const workspacePath = join(directory, `${workspace.id}.json`);
 

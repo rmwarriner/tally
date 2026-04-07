@@ -2,8 +2,8 @@ import { mkdir, mkdtemp, rm } from "node:fs/promises";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
 import { describe, expect, it } from "vitest";
-import { createDemoWorkspace } from "@gnucash-ng/workspace";
-import { saveWorkspaceToFile } from "@gnucash-ng/workspace/src/node";
+import { createDemoWorkspace } from "@tally/workspace";
+import { saveWorkspaceToFile } from "@tally/workspace/src/node";
 import type { WorkspacePersistenceBackend } from "./persistence";
 import { createFileSystemWorkspaceRepository, createWorkspaceRepository } from "./repository";
 
@@ -63,7 +63,7 @@ describe("workspace repository abstraction", () => {
 
 describe("workspace repository security", () => {
   it("rejects unsafe workspace identifiers", async () => {
-    const directory = await mkdtemp(join(tmpdir(), "gnucash-ng-repo-"));
+    const directory = await mkdtemp(join(tmpdir(), "tally-repo-"));
     const repository = createFileSystemWorkspaceRepository({ rootDirectory: directory });
 
     await expect(repository.load("../secrets")).rejects.toMatchObject({
@@ -75,7 +75,7 @@ describe("workspace repository security", () => {
   });
 
   it("loads safe workspace identifiers from the configured root", async () => {
-    const directory = await mkdtemp(join(tmpdir(), "gnucash-ng-repo-"));
+    const directory = await mkdtemp(join(tmpdir(), "tally-repo-"));
     const workspace = createDemoWorkspace();
     await saveWorkspaceToFile(join(directory, `${workspace.id}.json`), workspace);
     const repository = createFileSystemWorkspaceRepository({ rootDirectory: directory });
@@ -88,7 +88,7 @@ describe("workspace repository security", () => {
   });
 
   it("returns a typed not found error for missing workspaces", async () => {
-    const directory = await mkdtemp(join(tmpdir(), "gnucash-ng-repo-"));
+    const directory = await mkdtemp(join(tmpdir(), "tally-repo-"));
     const repository = createFileSystemWorkspaceRepository({ rootDirectory: directory });
 
     await expect(repository.load("missing-workspace")).rejects.toMatchObject({
@@ -100,7 +100,7 @@ describe("workspace repository security", () => {
   });
 
   it("creates, lists, and restores backups", async () => {
-    const directory = await mkdtemp(join(tmpdir(), "gnucash-ng-repo-"));
+    const directory = await mkdtemp(join(tmpdir(), "tally-repo-"));
     const workspace = createDemoWorkspace();
     await saveWorkspaceToFile(join(directory, `${workspace.id}.json`), workspace);
     const repository = createFileSystemWorkspaceRepository({ rootDirectory: directory });
@@ -123,7 +123,7 @@ describe("workspace repository security", () => {
   });
 
   it("rejects invalid and missing backup identifiers", async () => {
-    const directory = await mkdtemp(join(tmpdir(), "gnucash-ng-repo-"));
+    const directory = await mkdtemp(join(tmpdir(), "tally-repo-"));
     const workspace = createDemoWorkspace();
     await saveWorkspaceToFile(join(directory, `${workspace.id}.json`), workspace);
     const repository = createFileSystemWorkspaceRepository({ rootDirectory: directory });
@@ -142,7 +142,7 @@ describe("workspace repository security", () => {
   });
 
   it("rejects restoring a backup whose workspace id does not match", async () => {
-    const directory = await mkdtemp(join(tmpdir(), "gnucash-ng-repo-"));
+    const directory = await mkdtemp(join(tmpdir(), "tally-repo-"));
     const workspace = createDemoWorkspace();
     await saveWorkspaceToFile(join(directory, `${workspace.id}.json`), workspace);
     const repository = createFileSystemWorkspaceRepository({ rootDirectory: directory });

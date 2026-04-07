@@ -1,4 +1,4 @@
-import { createNoopLogger, type Logger } from "@gnucash-ng/logging";
+import { createNoopLogger, type Logger } from "@tally/logging";
 import {
   addTransaction,
   buildOperationalWorkspaceView,
@@ -24,7 +24,7 @@ import {
   upsertScheduledTransaction,
   updateTransaction,
   type FinanceWorkspaceDocument,
-} from "@gnucash-ng/workspace";
+} from "@tally/workspace";
 import type {
   BackupEnvelope,
   BackupsEnvelope,

@@ -9,7 +9,7 @@ import {
   TextInput,
   View,
 } from "react-native";
-import type { ScheduleFrequency, Transaction } from "@gnucash-ng/domain";
+import type { ScheduleFrequency, Transaction } from "@tally/domain";
 import { createMobileApiClient } from "./api";
 import { EnvelopeActionCard } from "./EnvelopeActionCard";
 import {

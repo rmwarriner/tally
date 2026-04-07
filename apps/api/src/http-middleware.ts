@@ -1,4 +1,4 @@
-import type { Logger } from "@gnucash-ng/logging";
+import type { Logger } from "@tally/logging";
 import { resolveAuthContext, type AuthContext, type AuthIdentity } from "./auth";
 import { ApiError, toErrorEnvelope } from "./errors";
 import type { ApiMetrics } from "./metrics";
@@ -28,8 +28,12 @@ export function resolveHttpAuthentication(params: {
     roleHeader: string;
   };
 }): AuthResolutionResult {
+  const apiKeyHeader =
+    params.request.headers.get("x-tally-api-key") ??
+    params.request.headers.get("x-gnucash-ng-api-key");
+
   const auth = resolveAuthContext({
-    apiKeyHeader: params.request.headers.get("x-gnucash-ng-api-key"),
+    apiKeyHeader,
     authIdentities: params.authIdentities,
     authRequired: params.authRequired,
     authorizationHeader: params.request.headers.get("authorization"),

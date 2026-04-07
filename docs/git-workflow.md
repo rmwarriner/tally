@@ -15,7 +15,7 @@ Exception:
 - small administrative or documentation-only changes may go directly to `main`
 - documentation or admin changes that are part of a significant feature should stay on that feature branch and land with the feature work
 
-This repository's CI and security gates are defined in [docs/ci-and-security-gates.md](/Users/robert/Projects/gnucash-ng/docs/ci-and-security-gates.md) and [docs/security-standards.md](/Users/robert/Projects/gnucash-ng/docs/security-standards.md).
+This repository's CI and security gates are defined in [docs/ci-and-security-gates.md](/Users/robert/Projects/tally/docs/ci-and-security-gates.md) and [docs/security-standards.md](/Users/robert/Projects/tally/docs/security-standards.md).
 
 ## Branch Strategy
 
@@ -52,7 +52,7 @@ Use a separate idea inbox for work that is still exploratory, underspecified, or
 - create a GitHub issue
 - label it `idea`
 - do not assign a milestone yet
-- do not add it to the `GnuCash NG Roadmap` project yet
+- do not add it to the `Tally Roadmap` project yet
 - prefer the `Idea` GitHub issue template for consistent capture
 
 Idea issues should capture:
@@ -126,3 +126,15 @@ At least once a week:
 Branch protection is not currently available for this private repository on the active GitHub plan, so the no-direct-push rule for `main` is a team process requirement rather than an enforced GitHub setting.
 
 Native GitHub auto-merge may also be unavailable on the active plan. Dependency update flow therefore uses a CI-driven merge workflow (`.github/workflows/dependabot-auto-merge.yml`) rather than relying on the repository auto-merge toggle.
+
+## GitHub Rename Checklist (External Steps)
+
+When executing the repository rename to `rmwarriner/tally`, complete this checklist in GitHub UI/admin settings:
+
+1. Rename repository from `rmwarriner/gnucash-ng` to `rmwarriner/tally`.
+2. Rename the roadmap project title from `Tally Roadmap` to the finalized title if needed.
+3. Verify branch protection and required status checks still target the same workflows.
+4. Verify GitHub Actions, Dependabot, and any webhook/app integrations still run against the renamed repository.
+5. Update local clones:
+   - `git remote set-url origin https://github.com/rmwarriner/tally.git`
+6. Verify CI on a fresh PR after rename to confirm no hidden repository-name coupling.

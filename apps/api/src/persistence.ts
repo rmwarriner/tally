@@ -1,5 +1,5 @@
-import type { Logger } from "@gnucash-ng/logging";
-import type { FinanceWorkspaceDocument } from "@gnucash-ng/workspace";
+import type { Logger } from "@tally/logging";
+import type { FinanceWorkspaceDocument } from "@tally/workspace";
 import type { ApiPersistenceBackend, ApiRuntimeConfig } from "./config";
 import { ApiError } from "./errors";
 import { createFileSystemWorkspacePersistenceBackend } from "./persistence-json";

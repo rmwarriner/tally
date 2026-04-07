@@ -1,8 +1,8 @@
 import { access, mkdir } from "node:fs/promises";
 import { join } from "node:path";
-import { createNoopLogger, type Logger } from "@gnucash-ng/logging";
-import { createDemoWorkspace } from "@gnucash-ng/workspace";
-import { saveWorkspaceToFile } from "@gnucash-ng/workspace/src/node";
+import { createNoopLogger, type Logger } from "@tally/logging";
+import { createDemoWorkspace } from "@tally/workspace";
+import { saveWorkspaceToFile } from "@tally/workspace/src/node";
 
 export async function ensureDemoWorkspaceFile(params: {
   dataDirectory: string;

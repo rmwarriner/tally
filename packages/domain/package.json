@@ -1,5 +1,5 @@
 {
-  "name": "@gnucash-ng/domain",
+  "name": "@tally/domain",
   "version": "0.1.0",
   "private": true,
   "type": "module",

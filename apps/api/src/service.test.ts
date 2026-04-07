@@ -2,10 +2,10 @@ import { mkdtemp, rm } from "node:fs/promises";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
 import { describe, expect, it } from "vitest";
-import { createMoney } from "@gnucash-ng/domain";
-import { createLogger, type LogRecord } from "@gnucash-ng/logging";
-import { buildGnuCashXmlExport, createDemoWorkspace } from "@gnucash-ng/workspace";
-import { saveWorkspaceToFile } from "@gnucash-ng/workspace/src/node";
+import { createMoney } from "@tally/domain";
+import { createLogger, type LogRecord } from "@tally/logging";
+import { buildGnuCashXmlExport, createDemoWorkspace } from "@tally/workspace";
+import { saveWorkspaceToFile } from "@tally/workspace/src/node";
 import { ApiError } from "./errors";
 import {
   createFileSystemWorkspaceRepository,
@@ -39,7 +39,7 @@ describe("workspace service", () => {
   }
 
   async function createFixture() {
-    const directory = await mkdtemp(join(tmpdir(), "gnucash-ng-api-"));
+    const directory = await mkdtemp(join(tmpdir(), "tally-api-"));
     const workspace = createDemoWorkspace();
     const workspacePath = join(directory, `${workspace.id}.json`);
 
@@ -1103,7 +1103,7 @@ describe("workspace service", () => {
   it("returns typed not found errors for missing workspaces", async () => {
     const service = createWorkspaceService({
       logger: createTestLogger([]),
-      repository: createFileSystemWorkspaceRepository({ rootDirectory: "/tmp/gnucash-ng-missing" }),
+      repository: createFileSystemWorkspaceRepository({ rootDirectory: "/tmp/tally-missing" }),
     });
 
     const response = await service.getWorkspace({

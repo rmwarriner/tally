@@ -1,5 +1,5 @@
 import { useReducer, useState } from "react";
-import type { ScheduleFrequency, Transaction } from "@gnucash-ng/domain";
+import type { ScheduleFrequency, Transaction } from "@tally/domain";
 import { createMobileApiClient, type DashboardResponse, type WorkspaceResponse } from "./api";
 import { createScheduleForm, type ScheduleFormState } from "./schedule-form";
 import type { ReconciliationFormValue } from "./ReconciliationCapture";

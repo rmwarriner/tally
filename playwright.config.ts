@@ -10,13 +10,13 @@ export default defineConfig({
   },
   webServer: [
     {
-      command: "GNUCASH_NG_API_RUNTIME_MODE=development pnpm --filter @gnucash-ng/api start",
+      command: "TALLY_API_RUNTIME_MODE=development pnpm --filter @tally/api start",
       reuseExistingServer: true,
       timeout: 120_000,
       url: "http://127.0.0.1:4000/healthz",
     },
     {
-      command: "pnpm --filter @gnucash-ng/web dev --host 127.0.0.1 --port 4173",
+      command: "pnpm --filter @tally/web dev --host 127.0.0.1 --port 4173",
       reuseExistingServer: true,
       timeout: 120_000,
       url: "http://127.0.0.1:4173",

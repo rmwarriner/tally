@@ -1,5 +1,5 @@
 import { useState, type Dispatch, type SetStateAction } from "react";
-import type { CsvImportRow } from "@gnucash-ng/workspace";
+import type { CsvImportRow } from "@tally/workspace";
 import type {
   DashboardResponse,
   WorkspaceResponse,

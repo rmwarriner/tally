@@ -124,7 +124,7 @@ Primary files:
 
 Each slice should meet all of the following before merge:
 
-1. `pnpm --filter @gnucash-ng/web typecheck` passes.
+1. `pnpm --filter @tally/web typecheck` passes.
 2. Focused ledger tests pass (`shell`, `ledger-state`, and relevant new tests).
 3. Manual UI review checklist items for ledger are run (`docs/ui-review-checklist.md`).
 4. No regression in service-backed write flows for transactions/reconciliation.

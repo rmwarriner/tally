@@ -74,7 +74,7 @@ describe("mobile api client", () => {
       }),
     );
     expect(headers.get("content-type")).toBe("application/json");
-    expect(headers.get("x-gnucash-ng-api-key")).toBe("mobile-token");
+    expect(headers.get("x-tally-api-key")).toBe("mobile-token");
   });
 
   it("posts mobile transactions and executes schedules through service routes", async () => {

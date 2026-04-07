@@ -4,9 +4,9 @@ import type {
   EnvelopeAllocation,
   ScheduledTransaction,
   Transaction,
-} from "@gnucash-ng/domain";
-import type { CsvImportRow, FinanceWorkspaceDocument } from "@gnucash-ng/workspace";
-import type { Logger } from "@gnucash-ng/logging";
+} from "@tally/domain";
+import type { CsvImportRow, FinanceWorkspaceDocument } from "@tally/workspace";
+import type { Logger } from "@tally/logging";
 import type { AuthContext } from "./auth";
 import type { ErrorEnvelope } from "./errors";
 
@@ -97,7 +97,7 @@ export interface GetGnuCashXmlExportRequest {
 export interface GetReportRequest {
   auth: AuthContext;
   from: string;
-  kind: import("@gnucash-ng/workspace").WorkspaceReportKind;
+  kind: import("@tally/workspace").WorkspaceReportKind;
   logger?: Logger;
   to: string;
   workspaceId: string;
@@ -256,7 +256,7 @@ export interface WorkspaceEnvelope {
 }
 
 export interface DashboardEnvelope {
-  dashboard: ReturnType<typeof import("@gnucash-ng/workspace").buildDashboardSnapshot>;
+  dashboard: ReturnType<typeof import("@tally/workspace").buildDashboardSnapshot>;
 }
 
 export interface BackupsEnvelope {
@@ -268,7 +268,7 @@ export interface BackupEnvelope {
 }
 
 export interface CloseSummaryEnvelope {
-  closeSummary: import("@gnucash-ng/workspace").CloseSummary;
+  closeSummary: import("@tally/workspace").CloseSummary;
 }
 
 export interface QifExportEnvelope {
@@ -298,7 +298,7 @@ export interface GnuCashXmlExportEnvelope {
 }
 
 export interface ReportEnvelope {
-  report: import("@gnucash-ng/workspace").WorkspaceReport;
+  report: import("@tally/workspace").WorkspaceReport;
 }
 
 export type { ErrorEnvelope };

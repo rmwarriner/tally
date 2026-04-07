@@ -1,5 +1,5 @@
 {
-  "name": "gnucash-ng",
+  "name": "tally",
   "private": true,
   "version": "0.1.0",
   "packageManager": "pnpm@10.0.0",
@@ -15,10 +15,10 @@
   "scripts": {
     "ci:verify": "pnpm typecheck && pnpm test && pnpm coverage && pnpm security:secrets",
     "coverage": "vitest run --coverage",
-    "dev:api": "pnpm --filter @gnucash-ng/api dev",
-    "dev:mobile": "pnpm --filter @gnucash-ng/mobile dev",
-    "dev:web": "pnpm --filter @gnucash-ng/web dev",
-    "metrics:baseline": "pnpm --filter @gnucash-ng/api exec tsx ../../scripts/metrics-baseline.ts",
+    "dev:api": "pnpm --filter @tally/api dev",
+    "dev:mobile": "pnpm --filter @tally/mobile dev",
+    "dev:web": "pnpm --filter @tally/web dev",
+    "metrics:baseline": "pnpm --filter @tally/api exec tsx ../../scripts/metrics-baseline.ts",
     "security:check": "pnpm security:secrets",
     "security:secrets": "node ./scripts/check-secrets.mjs",
     "test": "vitest run",

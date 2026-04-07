@@ -1,5 +1,5 @@
-import type { EnvelopeAllocation, ScheduledTransaction } from "@gnucash-ng/domain";
-import type { FinanceWorkspaceDocument } from "@gnucash-ng/workspace";
+import type { EnvelopeAllocation, ScheduledTransaction } from "@tally/domain";
+import type { FinanceWorkspaceDocument } from "@tally/workspace";
 
 export interface DashboardResponse {
   dashboard: {
@@ -158,7 +158,7 @@ export function createMobileApiClient(config: MobileApiClientConfig): MobileApiC
     const headers = new Headers(init?.headers);
 
     if (config.apiKey) {
-      headers.set("x-gnucash-ng-api-key", config.apiKey);
+      headers.set("x-tally-api-key", config.apiKey);
     }
 
     return fetch(`${apiBaseUrl}${path}`, {

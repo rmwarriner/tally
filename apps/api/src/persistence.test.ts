@@ -2,7 +2,7 @@ import { mkdtemp, rm } from "node:fs/promises";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
 import { afterEach, describe, expect, it } from "vitest";
-import { createDemoWorkspace } from "@gnucash-ng/workspace";
+import { createDemoWorkspace } from "@tally/workspace";
 import { createApiRuntimeConfig } from "./config";
 import {
   createWorkspacePersistenceBackend,
@@ -110,12 +110,12 @@ describe("workspace persistence backends", () => {
   });
 
   it("selects the sqlite backend from runtime config", async () => {
-    const directory = await mkdtemp(join(tmpdir(), "gnucash-ng-sqlite-config-"));
+    const directory = await mkdtemp(join(tmpdir(), "tally-sqlite-config-"));
     cleanupPaths.push(directory);
     const config = createApiRuntimeConfig(
       {
-        GNUCASH_NG_API_RUNTIME_MODE: "development",
-        GNUCASH_NG_API_PERSISTENCE_BACKEND: "sqlite",
+        TALLY_API_RUNTIME_MODE: "development",
+        TALLY_API_PERSISTENCE_BACKEND: "sqlite",
       },
       directory,
     );
@@ -127,13 +127,13 @@ describe("workspace persistence backends", () => {
   });
 
   it("selects the postgres backend from runtime config", async () => {
-    const directory = await mkdtemp(join(tmpdir(), "gnucash-ng-postgres-config-"));
+    const directory = await mkdtemp(join(tmpdir(), "tally-postgres-config-"));
     cleanupPaths.push(directory);
     const config = createApiRuntimeConfig(
       {
-        GNUCASH_NG_API_RUNTIME_MODE: "development",
-        GNUCASH_NG_API_PERSISTENCE_BACKEND: "postgres",
-        GNUCASH_NG_API_POSTGRES_URL: "postgres://ledger:test@localhost:5432/ledger",
+        TALLY_API_RUNTIME_MODE: "development",
+        TALLY_API_PERSISTENCE_BACKEND: "postgres",
+        TALLY_API_POSTGRES_URL: "postgres://ledger:test@localhost:5432/ledger",
       },
       directory,
     );
@@ -145,7 +145,7 @@ describe("workspace persistence backends", () => {
   });
 
   it("loads, saves, backs up, restores, and migrates workspaces in sqlite", async () => {
-    const directory = await mkdtemp(join(tmpdir(), "gnucash-ng-sqlite-"));
+    const directory = await mkdtemp(join(tmpdir(), "tally-sqlite-"));
     cleanupPaths.push(directory);
     const backend = createSqliteWorkspacePersistenceBackend({
       databasePath: join(directory, "workspaces.sqlite"),
@@ -174,7 +174,7 @@ describe("workspace persistence backends", () => {
   });
 
   it("loads legacy workspace documents through sqlite migration", async () => {
-    const directory = await mkdtemp(join(tmpdir(), "gnucash-ng-sqlite-legacy-"));
+    const directory = await mkdtemp(join(tmpdir(), "tally-sqlite-legacy-"));
     cleanupPaths.push(directory);
     const backend = createSqliteWorkspacePersistenceBackend({
       databasePath: join(directory, "workspaces.sqlite"),
@@ -255,7 +255,7 @@ describe("workspace persistence backends", () => {
   });
 
   it("backs up and rolls back target workspaces when verified imports fail", async () => {
-    const directory = await mkdtemp(join(tmpdir(), "gnucash-ng-sqlite-import-rollback-"));
+    const directory = await mkdtemp(join(tmpdir(), "tally-sqlite-import-rollback-"));
     cleanupPaths.push(directory);
     const backend = createSqliteWorkspacePersistenceBackend({
       databasePath: join(directory, "workspaces.sqlite"),

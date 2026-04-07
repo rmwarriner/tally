@@ -7,7 +7,7 @@ import { ConfigValidationError } from "./errors";
 
 describe("api runtime config", () => {
   it("provides stable defaults for local development", () => {
-    const config = createApiRuntimeConfig({}, "/tmp/gnucash-ng", {
+    const config = createApiRuntimeConfig({}, "/tmp/tally", {
       defaultRuntimeMode: "development",
     });
 
@@ -16,7 +16,7 @@ describe("api runtime config", () => {
       authSource: "none",
       authStrategy: "none",
       bodyLimitBytes: 1048576,
-      dataDirectory: "/tmp/gnucash-ng/data",
+      dataDirectory: "/tmp/tally/data",
       host: "127.0.0.1",
       persistenceBackend: "json",
       port: 4000,
@@ -31,7 +31,7 @@ describe("api runtime config", () => {
       },
       seedDemoWorkspace: true,
       shutdownTimeoutMs: 10000,
-      sqlitePath: "/tmp/gnucash-ng/data/workspaces.sqlite",
+      sqlitePath: "/tmp/tally/data/workspaces.sqlite",
       trustedHeaderAuth: undefined,
     });
   });
@@ -39,21 +39,21 @@ describe("api runtime config", () => {
   it("accepts explicit host, port, and data directory overrides", () => {
     const config = createApiRuntimeConfig(
       {
-        GNUCASH_NG_API_AUTH_TOKEN: "top-secret",
-        GNUCASH_NG_API_HOST: "0.0.0.0",
-        GNUCASH_NG_API_PORT: "4100",
-        GNUCASH_NG_API_PERSISTENCE_BACKEND: "postgres",
-        GNUCASH_NG_API_POSTGRES_URL: "postgres://ledger:test@localhost:5432/ledger",
-        GNUCASH_NG_API_RUNTIME_MODE: "production",
-        GNUCASH_NG_API_SEED_DEMO_WORKSPACE: "false",
-        GNUCASH_NG_API_SHUTDOWN_TIMEOUT_MS: "15000",
-        GNUCASH_NG_DATA_DIR: "var/workspaces",
-        GNUCASH_NG_API_RATE_LIMIT_IMPORTS: "4",
-        GNUCASH_NG_API_RATE_LIMIT_MUTATIONS: "12",
-        GNUCASH_NG_API_RATE_LIMIT_READS: "75",
-        GNUCASH_NG_API_RATE_LIMIT_WINDOW_MS: "30000",
+        TALLY_API_AUTH_TOKEN: "top-secret",
+        TALLY_API_HOST: "0.0.0.0",
+        TALLY_API_PORT: "4100",
+        TALLY_API_PERSISTENCE_BACKEND: "postgres",
+        TALLY_API_POSTGRES_URL: "postgres://ledger:test@localhost:5432/ledger",
+        TALLY_API_RUNTIME_MODE: "production",
+        TALLY_API_SEED_DEMO_WORKSPACE: "false",
+        TALLY_API_SHUTDOWN_TIMEOUT_MS: "15000",
+        TALLY_DATA_DIR: "var/workspaces",
+        TALLY_API_RATE_LIMIT_IMPORTS: "4",
+        TALLY_API_RATE_LIMIT_MUTATIONS: "12",
+        TALLY_API_RATE_LIMIT_READS: "75",
+        TALLY_API_RATE_LIMIT_WINDOW_MS: "30000",
       },
-      "/tmp/gnucash-ng",
+      "/tmp/tally",
     );
 
     expect(config).toEqual({
@@ -61,7 +61,7 @@ describe("api runtime config", () => {
       authSource: "env",
       authStrategy: "token",
       bodyLimitBytes: 1048576,
-      dataDirectory: "/tmp/gnucash-ng/var/workspaces",
+      dataDirectory: "/tmp/tally/var/workspaces",
       host: "0.0.0.0",
       persistenceBackend: "postgres",
       port: 4100,
@@ -76,7 +76,7 @@ describe("api runtime config", () => {
       },
       seedDemoWorkspace: false,
       shutdownTimeoutMs: 15000,
-      sqlitePath: "/tmp/gnucash-ng/var/workspaces/workspaces.sqlite",
+      sqlitePath: "/tmp/tally/var/workspaces/workspaces.sqlite",
       trustedHeaderAuth: undefined,
     });
   });
@@ -85,9 +85,9 @@ describe("api runtime config", () => {
     expect(() =>
       createApiRuntimeConfig(
         {
-          GNUCASH_NG_API_HOST: "0.0.0.0",
+          TALLY_API_HOST: "0.0.0.0",
         },
-        "/tmp/gnucash-ng",
+        "/tmp/tally",
       ),
     ).toThrow(
       "Non-loopback API binding requires explicit auth configuration (token, identities, or trusted-header auth).",
@@ -95,7 +95,7 @@ describe("api runtime config", () => {
   });
 
   it("rejects production runtime without auth configuration", () => {
-    expect(() => createApiRuntimeConfig({}, "/tmp/gnucash-ng")).toThrow(
+    expect(() => createApiRuntimeConfig({}, "/tmp/tally")).toThrow(
       "Production runtime requires explicit auth configuration (token, identities, or trusted-header auth).",
     );
   });
@@ -103,17 +103,17 @@ describe("api runtime config", () => {
   it("rejects demo seeding in production runtime", () => {
     expect(() =>
       createApiRuntimeConfig({
-        GNUCASH_NG_API_AUTH_TOKEN: "top-secret",
-        GNUCASH_NG_API_SEED_DEMO_WORKSPACE: "true",
+        TALLY_API_AUTH_TOKEN: "top-secret",
+        TALLY_API_SEED_DEMO_WORKSPACE: "true",
       }),
-    ).toThrow("Production runtime cannot enable GNUCASH_NG_API_SEED_DEMO_WORKSPACE.");
+    ).toThrow("Production runtime cannot enable TALLY_API_SEED_DEMO_WORKSPACE.");
   });
 
   it("rejects invalid numeric configuration values", () => {
     expect(
       () =>
         createApiRuntimeConfig({
-          GNUCASH_NG_API_BODY_LIMIT_BYTES: "0",
+          TALLY_API_BODY_LIMIT_BYTES: "0",
         }),
     ).toThrow(ConfigValidationError);
   });
@@ -123,58 +123,58 @@ describe("api runtime config", () => {
       () =>
         createApiRuntimeConfig(
           {
-            GNUCASH_NG_API_RUNTIME_MODE: "staging",
-            GNUCASH_NG_API_AUTH_TOKEN: "top-secret",
+            TALLY_API_RUNTIME_MODE: "staging",
+            TALLY_API_AUTH_TOKEN: "top-secret",
           },
-          "/tmp/gnucash-ng",
+          "/tmp/tally",
         ),
-    ).toThrow("GNUCASH_NG_API_RUNTIME_MODE must be development, production, or test.");
+    ).toThrow("TALLY_API_RUNTIME_MODE must be development, production, or test.");
 
     expect(
       () =>
         createApiRuntimeConfig(
           {
-            GNUCASH_NG_API_RUNTIME_MODE: "development",
-            GNUCASH_NG_API_SEED_DEMO_WORKSPACE: "maybe",
+            TALLY_API_RUNTIME_MODE: "development",
+            TALLY_API_SEED_DEMO_WORKSPACE: "maybe",
           },
-          "/tmp/gnucash-ng",
+          "/tmp/tally",
         ),
-    ).toThrow("GNUCASH_NG_API_SEED_DEMO_WORKSPACE must be true or false.");
+    ).toThrow("TALLY_API_SEED_DEMO_WORKSPACE must be true or false.");
 
     expect(
       () =>
         createApiRuntimeConfig(
           {
-            GNUCASH_NG_API_RUNTIME_MODE: "development",
-            GNUCASH_NG_API_PERSISTENCE_BACKEND: "mysql",
+            TALLY_API_RUNTIME_MODE: "development",
+            TALLY_API_PERSISTENCE_BACKEND: "mysql",
           },
-          "/tmp/gnucash-ng",
+          "/tmp/tally",
         ),
-    ).toThrow("GNUCASH_NG_API_PERSISTENCE_BACKEND must be json, sqlite, or postgres.");
+    ).toThrow("TALLY_API_PERSISTENCE_BACKEND must be json, sqlite, or postgres.");
 
     expect(
       () =>
         createApiRuntimeConfig(
           {
-            GNUCASH_NG_API_RUNTIME_MODE: "development",
-            GNUCASH_NG_LOG_FORMAT: "text",
+            TALLY_API_RUNTIME_MODE: "development",
+            TALLY_LOG_FORMAT: "text",
           },
-          "/tmp/gnucash-ng",
+          "/tmp/tally",
         ),
-    ).toThrow("GNUCASH_NG_LOG_FORMAT must be auto, json, or pretty.");
+    ).toThrow("TALLY_LOG_FORMAT must be auto, json, or pretty.");
   });
 
   it("accepts an explicit sqlite path override", () => {
     const config = createApiRuntimeConfig(
       {
-        GNUCASH_NG_API_RUNTIME_MODE: "development",
-        GNUCASH_NG_API_PERSISTENCE_BACKEND: "sqlite",
-        GNUCASH_NG_API_SQLITE_PATH: "../runtime/api.sqlite",
+        TALLY_API_RUNTIME_MODE: "development",
+        TALLY_API_PERSISTENCE_BACKEND: "sqlite",
+        TALLY_API_SQLITE_PATH: "../runtime/api.sqlite",
       },
-      "/tmp/gnucash-ng",
+      "/tmp/tally",
     );
 
-    expect(config.sqlitePath).toBe("/tmp/gnucash-ng/runtime/api.sqlite");
+    expect(config.sqlitePath).toBe("/tmp/tally/runtime/api.sqlite");
   });
 
   it("requires a postgres url when the postgres backend is selected", () => {
@@ -182,13 +182,13 @@ describe("api runtime config", () => {
       () =>
         createApiRuntimeConfig(
           {
-            GNUCASH_NG_API_RUNTIME_MODE: "development",
-            GNUCASH_NG_API_PERSISTENCE_BACKEND: "postgres",
+            TALLY_API_RUNTIME_MODE: "development",
+            TALLY_API_PERSISTENCE_BACKEND: "postgres",
           },
-          "/tmp/gnucash-ng",
+          "/tmp/tally",
         ),
     ).toThrow(
-      "GNUCASH_NG_API_POSTGRES_URL is required when GNUCASH_NG_API_PERSISTENCE_BACKEND=postgres.",
+      "TALLY_API_POSTGRES_URL is required when TALLY_API_PERSISTENCE_BACKEND=postgres.",
     );
   });
 
@@ -196,22 +196,22 @@ describe("api runtime config", () => {
     expect(
       () =>
         createApiRuntimeConfig({
-          GNUCASH_NG_API_AUTH_IDENTITIES: '{"bad":true}',
+          TALLY_API_AUTH_IDENTITIES: '{"bad":true}',
         }),
-    ).toThrow("GNUCASH_NG_API_AUTH_IDENTITIES must be an array.");
+    ).toThrow("TALLY_API_AUTH_IDENTITIES must be an array.");
   });
 
   it("loads auth token configuration from a file", () => {
-    const tempDirectory = mkdtempSync(join(tmpdir(), "gnucash-ng-config-"));
+    const tempDirectory = mkdtempSync(join(tmpdir(), "tally-config-"));
     const tokenFile = join(tempDirectory, "api-token.txt");
     writeFileSync(tokenFile, "file-secret\n", "utf8");
 
     const config = createApiRuntimeConfig(
       {
-        GNUCASH_NG_API_AUTH_TOKEN_FILE: tokenFile,
-        GNUCASH_NG_API_RUNTIME_MODE: "production",
+        TALLY_API_AUTH_TOKEN_FILE: tokenFile,
+        TALLY_API_RUNTIME_MODE: "production",
       },
-      "/tmp/gnucash-ng",
+      "/tmp/tally",
     );
 
     expect(config.authIdentities).toEqual([
@@ -222,7 +222,7 @@ describe("api runtime config", () => {
   });
 
   it("loads auth identities configuration from a file", () => {
-    const tempDirectory = mkdtempSync(join(tmpdir(), "gnucash-ng-config-"));
+    const tempDirectory = mkdtempSync(join(tmpdir(), "tally-config-"));
     const identitiesFile = join(tempDirectory, "auth-identities.json");
     writeFileSync(
       identitiesFile,
@@ -232,10 +232,10 @@ describe("api runtime config", () => {
 
     const config = createApiRuntimeConfig(
       {
-        GNUCASH_NG_API_AUTH_IDENTITIES_FILE: identitiesFile,
-        GNUCASH_NG_API_RUNTIME_MODE: "production",
+        TALLY_API_AUTH_IDENTITIES_FILE: identitiesFile,
+        TALLY_API_RUNTIME_MODE: "production",
       },
-      "/tmp/gnucash-ng",
+      "/tmp/tally",
     );
 
     expect(config.authIdentities).toEqual([
@@ -249,25 +249,25 @@ describe("api runtime config", () => {
     expect(
       () =>
         createApiRuntimeConfig({
-          GNUCASH_NG_API_AUTH_TOKEN: "inline",
-          GNUCASH_NG_API_AUTH_TOKEN_FILE: "/tmp/token.txt",
-          GNUCASH_NG_API_RUNTIME_MODE: "production",
+          TALLY_API_AUTH_TOKEN: "inline",
+          TALLY_API_AUTH_TOKEN_FILE: "/tmp/token.txt",
+          TALLY_API_RUNTIME_MODE: "production",
         }),
     ).toThrow(
-      "Configure authentication with either GNUCASH_NG_API_AUTH_TOKEN, GNUCASH_NG_API_AUTH_IDENTITIES, GNUCASH_NG_API_AUTH_TOKEN_FILE, GNUCASH_NG_API_AUTH_IDENTITIES_FILE, or trusted-header auth settings, but not more than one.",
+      "Configure authentication with either TALLY_API_AUTH_TOKEN, TALLY_API_AUTH_IDENTITIES, TALLY_API_AUTH_TOKEN_FILE, TALLY_API_AUTH_IDENTITIES_FILE, or trusted-header auth settings, but not more than one.",
     );
   });
 
   it("supports trusted-header auth configuration with an inline proxy key", () => {
     const config = createApiRuntimeConfig(
       {
-        GNUCASH_NG_API_AUTH_TRUSTED_ACTOR_HEADER: "cf-access-authenticated-user-email",
-        GNUCASH_NG_API_AUTH_TRUSTED_PROXY_KEY: "proxy-secret",
-        GNUCASH_NG_API_AUTH_TRUSTED_PROXY_KEY_HEADER: "x-internal-proxy-key",
-        GNUCASH_NG_API_AUTH_TRUSTED_ROLE_HEADER: "x-gnucash-role",
-        GNUCASH_NG_API_RUNTIME_MODE: "production",
+        TALLY_API_AUTH_TRUSTED_ACTOR_HEADER: "cf-access-authenticated-user-email",
+        TALLY_API_AUTH_TRUSTED_PROXY_KEY: "proxy-secret",
+        TALLY_API_AUTH_TRUSTED_PROXY_KEY_HEADER: "x-internal-proxy-key",
+        TALLY_API_AUTH_TRUSTED_ROLE_HEADER: "x-gnucash-role",
+        TALLY_API_RUNTIME_MODE: "production",
       },
-      "/tmp/gnucash-ng",
+      "/tmp/tally",
     );
 
     expect(config.authIdentities).toEqual([]);
@@ -282,17 +282,17 @@ describe("api runtime config", () => {
   });
 
   it("supports trusted-header auth configuration with a proxy key file", () => {
-    const tempDirectory = mkdtempSync(join(tmpdir(), "gnucash-ng-config-"));
+    const tempDirectory = mkdtempSync(join(tmpdir(), "tally-config-"));
     const keyFile = join(tempDirectory, "proxy-key.txt");
     writeFileSync(keyFile, "proxy-file-secret\n", "utf8");
 
     const config = createApiRuntimeConfig(
       {
-        GNUCASH_NG_API_AUTH_TRUSTED_ACTOR_HEADER: "x-authenticated-actor",
-        GNUCASH_NG_API_AUTH_TRUSTED_PROXY_KEY_FILE: keyFile,
-        GNUCASH_NG_API_RUNTIME_MODE: "production",
+        TALLY_API_AUTH_TRUSTED_ACTOR_HEADER: "x-authenticated-actor",
+        TALLY_API_AUTH_TRUSTED_PROXY_KEY_FILE: keyFile,
+        TALLY_API_RUNTIME_MODE: "production",
       },
-      "/tmp/gnucash-ng",
+      "/tmp/tally",
     );
 
     expect(config.authStrategy).toBe("trusted-header");
@@ -300,8 +300,8 @@ describe("api runtime config", () => {
     expect(config.trustedHeaderAuth).toEqual({
       actorHeader: "x-authenticated-actor",
       proxyKey: "proxy-file-secret",
-      proxyKeyHeader: "x-gnucash-ng-auth-proxy-key",
-      roleHeader: "x-gnucash-ng-auth-role",
+      proxyKeyHeader: "x-tally-auth-proxy-key",
+      roleHeader: "x-tally-auth-role",
     });
   });
 
@@ -309,33 +309,66 @@ describe("api runtime config", () => {
     expect(
       () =>
         createApiRuntimeConfig({
-          GNUCASH_NG_API_AUTH_TRUSTED_PROXY_KEY: "proxy-secret",
-          GNUCASH_NG_API_RUNTIME_MODE: "production",
+          TALLY_API_AUTH_TRUSTED_PROXY_KEY: "proxy-secret",
+          TALLY_API_RUNTIME_MODE: "production",
         }),
-    ).toThrow("GNUCASH_NG_API_AUTH_TRUSTED_ACTOR_HEADER is required for trusted-header auth.");
+    ).toThrow("TALLY_API_AUTH_TRUSTED_ACTOR_HEADER is required for trusted-header auth.");
 
     expect(
       () =>
         createApiRuntimeConfig({
-          GNUCASH_NG_API_AUTH_TRUSTED_ACTOR_HEADER: "x-authenticated-actor",
-          GNUCASH_NG_API_RUNTIME_MODE: "production",
+          TALLY_API_AUTH_TRUSTED_ACTOR_HEADER: "x-authenticated-actor",
+          TALLY_API_RUNTIME_MODE: "production",
         }),
     ).toThrow(
-      "Trusted-header auth requires GNUCASH_NG_API_AUTH_TRUSTED_PROXY_KEY or GNUCASH_NG_API_AUTH_TRUSTED_PROXY_KEY_FILE.",
+      "Trusted-header auth requires TALLY_API_AUTH_TRUSTED_PROXY_KEY or TALLY_API_AUTH_TRUSTED_PROXY_KEY_FILE.",
     );
   });
 
   it("rejects empty auth secret files", () => {
-    const tempDirectory = mkdtempSync(join(tmpdir(), "gnucash-ng-config-"));
+    const tempDirectory = mkdtempSync(join(tmpdir(), "tally-config-"));
     const tokenFile = join(tempDirectory, "api-token.txt");
     writeFileSync(tokenFile, "\n", "utf8");
 
     expect(
       () =>
         createApiRuntimeConfig({
-          GNUCASH_NG_API_AUTH_TOKEN_FILE: tokenFile,
-          GNUCASH_NG_API_RUNTIME_MODE: "production",
+          TALLY_API_AUTH_TOKEN_FILE: tokenFile,
+          TALLY_API_RUNTIME_MODE: "production",
         }),
-    ).toThrow("GNUCASH_NG_API_AUTH_TOKEN_FILE must not be empty.");
+    ).toThrow("TALLY_API_AUTH_TOKEN_FILE must not be empty.");
+  });
+
+  it("accepts legacy GNUCASH_NG env keys during transition", () => {
+    const config = createApiRuntimeConfig(
+      {
+        GNUCASH_NG_API_AUTH_TOKEN: "legacy-token",
+        GNUCASH_NG_API_RUNTIME_MODE: "development",
+      },
+      "/tmp/tally",
+    );
+
+    expect(config.authStrategy).toBe("token");
+    expect(config.authSource).toBe("env");
+    expect(config.authIdentities).toEqual([
+      { actor: "api-user", role: "admin", token: "legacy-token" },
+    ]);
+  });
+
+  it("prefers TALLY_* env keys over legacy GNUCASH_NG_* keys when both are present", () => {
+    const config = createApiRuntimeConfig(
+      {
+        GNUCASH_NG_API_AUTH_TOKEN: "legacy-token",
+        TALLY_API_AUTH_TOKEN: "new-token",
+        GNUCASH_NG_API_RUNTIME_MODE: "production",
+        TALLY_API_RUNTIME_MODE: "development",
+      },
+      "/tmp/tally",
+    );
+
+    expect(config.runtimeMode).toBe("development");
+    expect(config.authIdentities).toEqual([
+      { actor: "api-user", role: "admin", token: "new-token" },
+    ]);
   });
 });

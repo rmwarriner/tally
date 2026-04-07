@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { createLogger, type LogRecord } from "@gnucash-ng/logging";
+import { createLogger, type LogRecord } from "@tally/logging";
 import { createApiRuntime, runApiRuntimeFromCli } from "./runtime";
 import type { ApiRuntimeConfig } from "./config";
 
@@ -9,7 +9,7 @@ function createConfig(overrides: Partial<ApiRuntimeConfig> = {}): ApiRuntimeConf
     authSource: "none",
     authStrategy: "none",
     bodyLimitBytes: 1048576,
-    dataDirectory: "/tmp/gnucash-ng-runtime",
+    dataDirectory: "/tmp/tally-runtime",
     host: "127.0.0.1",
     persistenceBackend: "json",
     port: 4000,
@@ -24,7 +24,7 @@ function createConfig(overrides: Partial<ApiRuntimeConfig> = {}): ApiRuntimeConf
     runtimeMode: "development",
     seedDemoWorkspace: true,
     shutdownTimeoutMs: 10000,
-    sqlitePath: "/tmp/gnucash-ng-runtime/workspaces.sqlite",
+    sqlitePath: "/tmp/tally-runtime/workspaces.sqlite",
     ...overrides,
   };
 }
@@ -70,7 +70,7 @@ describe("api runtime", () => {
 
     expect(events).toEqual(["seed", "listen"]);
     expect(ensureSeed).toHaveBeenCalledWith({
-      dataDirectory: "/tmp/gnucash-ng-runtime",
+      dataDirectory: "/tmp/tally-runtime",
       logger: expect.any(Object),
     });
   });
@@ -132,7 +132,7 @@ describe("api runtime", () => {
     const runtime = createApiRuntime({
       config: createConfig({
         persistenceBackend: "sqlite",
-        sqlitePath: "/tmp/gnucash-ng-runtime/custom.sqlite",
+        sqlitePath: "/tmp/tally-runtime/custom.sqlite",
       }),
       createServer() {
         return {
@@ -157,7 +157,7 @@ describe("api runtime", () => {
         message: "api runtime configured",
         fields: expect.objectContaining({
           persistenceBackend: "sqlite",
-          sqlitePath: "/tmp/gnucash-ng-runtime/custom.sqlite",
+          sqlitePath: "/tmp/tally-runtime/custom.sqlite",
         }),
       }),
     );
@@ -358,7 +358,7 @@ describe("api runtime", () => {
     expect(exitSpy).toHaveBeenCalledWith(1);
   });
 
-  it("emits pretty console logs when GNUCASH_NG_LOG_FORMAT=pretty", async () => {
+  it("emits pretty console logs when TALLY_LOG_FORMAT=pretty", async () => {
     const output: string[] = [];
     const consoleSpy = vi.spyOn(console, "log").mockImplementation((value: unknown) => {
       output.push(String(value));
@@ -378,19 +378,19 @@ describe("api runtime", () => {
       },
       ensureSeed: vi.fn(async () => {}),
       env: {
-        GNUCASH_NG_LOG_LEVEL: "debug",
+        TALLY_LOG_LEVEL: "debug",
       },
     });
 
     await runtime.start();
 
-    expect(output.some((line) => line.includes("INFO gnucash-ng-api: api runtime configured"))).toBe(true);
+    expect(output.some((line) => line.includes("INFO tally-api: api runtime configured"))).toBe(true);
     expect(output.some((line) => line.includes("runtimeMode: development"))).toBe(true);
 
     consoleSpy.mockRestore();
   });
 
-  it("emits json console logs when GNUCASH_NG_LOG_FORMAT=json", async () => {
+  it("emits json console logs when TALLY_LOG_FORMAT=json", async () => {
     const output: string[] = [];
     const consoleSpy = vi.spyOn(console, "log").mockImplementation((value: unknown) => {
       output.push(String(value));
@@ -410,14 +410,14 @@ describe("api runtime", () => {
       },
       ensureSeed: vi.fn(async () => {}),
       env: {
-        GNUCASH_NG_LOG_LEVEL: "debug",
+        TALLY_LOG_LEVEL: "debug",
       },
     });
 
     await runtime.start();
 
     expect(output[0]).toContain('"message":"api runtime configured"');
-    expect(output[0]).toContain('"service":"gnucash-ng-api"');
+    expect(output[0]).toContain('"service":"tally-api"');
 
     consoleSpy.mockRestore();
   });

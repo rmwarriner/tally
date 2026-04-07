@@ -1,4 +1,4 @@
-import type { ScheduleFrequency, ScheduledTransaction } from "@gnucash-ng/domain";
+import type { ScheduleFrequency, ScheduledTransaction } from "@tally/domain";
 
 export interface SchedulePostingFormState {
   accountId: string;

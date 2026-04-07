@@ -26,7 +26,7 @@ This note captures recommended beginner resources and a practical fast-start seq
 1. Complete the Figma Design for Beginners (2025) course.
 2. Focus next on `Auto layout`, `Components`, and `Variants`.
 3. Build the ledger mockup using naming and export rules in:
-   - [docs/ui-mockups/ledger/README.md](/Users/robert/Projects/gnucash-ng/docs/ui-mockups/ledger/README.md)
+   - [docs/ui-mockups/ledger/README.md](/Users/robert/Projects/tally/docs/ui-mockups/ledger/README.md)
 4. Export required PNG frames into `docs/ui-mockups/ledger/`.
 5. Fill in behavioral sections in the ledger handoff README:
    - keyboard map

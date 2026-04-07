@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { createNoopLogger } from "@gnucash-ng/logging";
+import { createNoopLogger } from "@tally/logging";
 import { parsePostRequestBody, parsePutRequestBody } from "./http-request-parsing";
 
 describe("http request parsing", () => {
