@@ -11,6 +11,7 @@ import {
 } from "react-native";
 import type { ScheduleFrequency, Transaction } from "@gnucash-ng/domain";
 import { createMobileApiClient } from "./api";
+import { EnvelopeActionCard } from "./EnvelopeActionCard";
 import {
   aprilRange,
   createReconciliationTransactionMap,
@@ -20,6 +21,7 @@ import {
 } from "./mobile-app-controller";
 import { ReconciliationCapture, type ReconciliationFormValue } from "./ReconciliationCapture";
 import { SchedulePostingEditor } from "./SchedulePostingEditor";
+import { TransactionCaptureCard } from "./TransactionCaptureCard";
 import {
   addSchedulePosting,
   createScheduleForm,
@@ -201,103 +203,42 @@ export function App() {
                   </View>
                 </View>
 
-                <View style={styles.card}>
-                  <Text style={styles.sectionTitle}>Quick transaction</Text>
-                  <View style={styles.field}>
-                    <Text style={styles.label}>Description</Text>
-                    <TextInput
-                      onChangeText={(value) => setTransactionForm((current) => ({ ...current, description: value }))}
-                      placeholder="Coffee and snacks"
-                      placeholderTextColor="#7b7c73"
-                      style={styles.input}
-                      value={transactionForm.description}
-                    />
-                  </View>
-                  <View style={styles.field}>
-                    <Text style={styles.label}>Payee</Text>
-                    <TextInput
-                      onChangeText={(value) => setTransactionForm((current) => ({ ...current, payee: value }))}
-                      placeholder="Corner Market"
-                      placeholderTextColor="#7b7c73"
-                      style={styles.input}
-                      value={transactionForm.payee}
-                    />
-                  </View>
-                  <View style={styles.field}>
-                    <Text style={styles.label}>Date</Text>
-                    <TextInput
-                      autoCapitalize="none"
-                      autoCorrect={false}
-                      onChangeText={(value) => setTransactionForm((current) => ({ ...current, date: value }))}
-                      placeholder="2026-04-03"
-                      placeholderTextColor="#7b7c73"
-                      style={styles.input}
-                      value={transactionForm.date}
-                    />
-                  </View>
-                  <View style={styles.field}>
-                    <Text style={styles.label}>Expense account</Text>
-                    <TextInput
-                      autoCapitalize="none"
-                      autoCorrect={false}
-                      onChangeText={(value) =>
-                        setTransactionForm((current) => ({ ...current, expenseAccountId: value }))
-                      }
-                      placeholder={expenseAccounts[0]?.id ?? "acct-expense-groceries"}
-                      placeholderTextColor="#7b7c73"
-                      style={styles.input}
-                      value={transactionForm.expenseAccountId}
-                    />
-                  </View>
-                  <View style={styles.field}>
-                    <Text style={styles.label}>Amount</Text>
-                    <TextInput
-                      keyboardType="decimal-pad"
-                      onChangeText={(value) => setTransactionForm((current) => ({ ...current, amount: value }))}
-                      placeholder="14.25"
-                      placeholderTextColor="#7b7c73"
-                      style={styles.input}
-                      value={transactionForm.amount}
-                    />
-                  </View>
-                  <Pressable
-                    disabled={busy !== null}
-                    onPress={() => {
-                      void runMutation("Transaction capture", async () => {
-                        const client = createMobileApiClient({
-                          apiBaseUrl,
-                          apiKey: apiKey.trim() || undefined,
-                        });
-
-                        const amount = Number.parseFloat(transactionForm.amount);
-                        await client.postTransaction(workspaceId.trim(), {
-                          transaction: {
-                            description: transactionForm.description.trim(),
-                            id: createEntityId("txn-mobile"),
-                            occurredOn: transactionForm.date.trim(),
-                            payee: transactionForm.payee.trim() || undefined,
-                            postings: [
-                              {
-                                accountId: transactionForm.expenseAccountId.trim(),
-                                amount: { commodityCode: "USD", quantity: amount },
-                              },
-                              {
-                                accountId: "acct-checking",
-                                amount: { commodityCode: "USD", quantity: -amount },
-                                cleared: true,
-                              },
-                            ],
-                          },
-                        });
+                <TransactionCaptureCard
+                  busy={busy}
+                  expenseAccountPlaceholder={expenseAccounts[0]?.id ?? "acct-expense-groceries"}
+                  form={transactionForm}
+                  onFormChange={(patch) => setTransactionForm((current) => ({ ...current, ...patch }))}
+                  onSubmit={() => {
+                    void runMutation("Transaction capture", async () => {
+                      const client = createMobileApiClient({
+                        apiBaseUrl,
+                        apiKey: apiKey.trim() || undefined,
                       });
-                    }}
-                    style={[styles.primaryButton, busy !== null && styles.buttonDisabled]}
-                  >
-                    <Text style={styles.primaryButtonLabel}>
-                      {busy === "Transaction capture" ? "Saving..." : "Post transaction"}
-                    </Text>
-                  </Pressable>
-                </View>
+
+                      const amount = Number.parseFloat(transactionForm.amount);
+                      await client.postTransaction(workspaceId.trim(), {
+                        transaction: {
+                          description: transactionForm.description.trim(),
+                          id: createEntityId("txn-mobile"),
+                          occurredOn: transactionForm.date.trim(),
+                          payee: transactionForm.payee.trim() || undefined,
+                          postings: [
+                            {
+                              accountId: transactionForm.expenseAccountId.trim(),
+                              amount: { commodityCode: "USD", quantity: amount },
+                            },
+                            {
+                              accountId: "acct-checking",
+                              amount: { commodityCode: "USD", quantity: -amount },
+                              cleared: true,
+                            },
+                          ],
+                        },
+                      });
+                    });
+                  }}
+                  styles={styles}
+                />
 
                 <ReconciliationCapture
                   accounts={workspace.accounts}
@@ -715,105 +656,34 @@ export function App() {
                   ))}
                 </View>
 
-                <View style={styles.card}>
-                  <Text style={styles.sectionTitle}>Quick envelope action</Text>
-                  <View style={styles.field}>
-                    <Text style={styles.label}>Envelope ID</Text>
-                    <TextInput
-                      autoCapitalize="none"
-                      autoCorrect={false}
-                      onChangeText={(value) => setAllocationForm((current) => ({ ...current, envelopeId: value }))}
-                      placeholder="env-groceries"
-                      placeholderTextColor="#7b7c73"
-                      style={styles.input}
-                      value={allocationForm.envelopeId}
-                    />
-                  </View>
-                  <View style={styles.field}>
-                    <Text style={styles.label}>Amount</Text>
-                    <TextInput
-                      keyboardType="decimal-pad"
-                      onChangeText={(value) => setAllocationForm((current) => ({ ...current, amount: value }))}
-                      placeholder="75"
-                      placeholderTextColor="#7b7c73"
-                      style={styles.input}
-                      value={allocationForm.amount}
-                    />
-                  </View>
-                  <View style={styles.field}>
-                    <Text style={styles.label}>Date</Text>
-                    <TextInput
-                      autoCapitalize="none"
-                      autoCorrect={false}
-                      onChangeText={(value) => setAllocationForm((current) => ({ ...current, occurredOn: value }))}
-                      placeholder="2026-04-03"
-                      placeholderTextColor="#7b7c73"
-                      style={styles.input}
-                      value={allocationForm.occurredOn}
-                    />
-                  </View>
-                  <View style={styles.field}>
-                    <Text style={styles.label}>Note</Text>
-                    <TextInput
-                      onChangeText={(value) => setAllocationForm((current) => ({ ...current, note: value }))}
-                      placeholder="Optional note"
-                      placeholderTextColor="#7b7c73"
-                      style={styles.input}
-                      value={allocationForm.note}
-                    />
-                  </View>
-                  <View style={styles.switchRow}>
-                    <View>
-                      <Text style={styles.label}>Action</Text>
-                      <Text style={styles.note}>
-                        {allocationForm.type === "fund"
-                          ? "Funding increases available cash."
-                          : "Release moves cash back out of the envelope."}
-                      </Text>
-                    </View>
-                    <View style={styles.switchControl}>
-                      <Text style={styles.switchLabel}>Release</Text>
-                      <Switch
-                        onValueChange={(value) =>
-                          setAllocationForm((current) => ({ ...current, type: value ? "release" : "fund" }))
-                        }
-                        thumbColor="#fffaf1"
-                        trackColor={{ false: "#006b5f", true: "#c0624b" }}
-                        value={allocationForm.type === "release"}
-                      />
-                    </View>
-                  </View>
-                  <Pressable
-                    disabled={busy !== null}
-                    onPress={() => {
-                      void runMutation("Envelope update", async () => {
-                        const client = createMobileApiClient({
-                          apiBaseUrl,
-                          apiKey: apiKey.trim() || undefined,
-                        });
-
-                        await client.postEnvelopeAllocation(workspaceId.trim(), {
-                          allocation: {
-                            amount: {
-                              commodityCode: "USD",
-                              quantity: Number.parseFloat(allocationForm.amount),
-                            },
-                            envelopeId: allocationForm.envelopeId.trim(),
-                            id: createEntityId("alloc-mobile"),
-                            note: allocationForm.note.trim() || undefined,
-                            occurredOn: allocationForm.occurredOn.trim(),
-                            type: allocationForm.type,
-                          },
-                        });
+                <EnvelopeActionCard
+                  busy={busy}
+                  form={allocationForm}
+                  onFormChange={(patch) => setAllocationForm((current) => ({ ...current, ...patch }))}
+                  onSubmit={() => {
+                    void runMutation("Envelope update", async () => {
+                      const client = createMobileApiClient({
+                        apiBaseUrl,
+                        apiKey: apiKey.trim() || undefined,
                       });
-                    }}
-                    style={[styles.primaryButton, busy !== null && styles.buttonDisabled]}
-                  >
-                    <Text style={styles.primaryButtonLabel}>
-                      {busy === "Envelope update" ? "Saving..." : "Post envelope action"}
-                    </Text>
-                  </Pressable>
-                </View>
+
+                      await client.postEnvelopeAllocation(workspaceId.trim(), {
+                        allocation: {
+                          amount: {
+                            commodityCode: "USD",
+                            quantity: Number.parseFloat(allocationForm.amount),
+                          },
+                          envelopeId: allocationForm.envelopeId.trim(),
+                          id: createEntityId("alloc-mobile"),
+                          note: allocationForm.note.trim() || undefined,
+                          occurredOn: allocationForm.occurredOn.trim(),
+                          type: allocationForm.type,
+                        },
+                      });
+                    });
+                  }}
+                  styles={styles}
+                />
 
                 <View style={styles.card}>
                   <Text style={styles.sectionTitle}>Due schedule approvals</Text>
