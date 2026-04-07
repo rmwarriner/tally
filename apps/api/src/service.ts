@@ -23,8 +23,14 @@ import {
   upsertEnvelope,
   upsertScheduledTransaction,
   updateTransaction,
-  type FinanceWorkspaceDocument,
 } from "@tally/workspace";
+import {
+  buildAuthorizationAuditContext,
+  failure,
+  success,
+  withMutation,
+  withWorkspace,
+} from "./service-helpers";
 import type {
   BackupEnvelope,
   BackupsEnvelope,
@@ -64,8 +70,7 @@ import type {
   ReportEnvelope,
   WorkspaceEnvelope,
 } from "./types";
-import { authorizeWorkspaceAccess, type AuthorizationResult } from "./auth";
-import { ApiError, toApiError, toErrorEnvelope } from "./errors";
+import { ApiError, toApiError } from "./errors";
 import type { WorkspaceRepository } from "./repository";
 
 export interface WorkspaceService {
@@ -141,43 +146,6 @@ export interface WorkspaceService {
   ): Promise<ServiceResponse<WorkspaceEnvelope | ErrorEnvelope>>;
 }
 
-function success<TBody>(status: number, body: TBody): ServiceResponse<TBody> {
-  return { body, status };
-}
-
-function failure(error: ApiError): ServiceResponse<ErrorEnvelope> {
-  return { body: toErrorEnvelope(error), status: error.status };
-}
-
-function buildAuthorizationAuditContext(
-  actor: string,
-  authorization: AuthorizationResult,
-): {
-  actor: string;
-  actorRole?: "admin" | "guardian" | "local-admin" | "member";
-  authorization?: {
-    access: string;
-    effectiveRole: string;
-    grantedBy: "local-admin" | "workspace-role";
-  };
-} {
-  const decision = authorization.decision;
-
-  if (!decision) {
-    return { actor };
-  }
-
-  return {
-    actor,
-    actorRole: decision.effectiveRole,
-    authorization: {
-      access: decision.access,
-      effectiveRole: decision.effectiveRole,
-      grantedBy: decision.grantedBy,
-    },
-  };
-}
-
 export function createWorkspaceService(params: {
   logger?: Logger;
   repository: WorkspaceRepository;
@@ -188,51 +156,30 @@ export function createWorkspaceService(params: {
     return requestLogger ?? logger;
   }
 
-  async function loadWorkspace(workspaceId: string, requestLogger?: Logger): Promise<FinanceWorkspaceDocument> {
-    return params.repository.load(workspaceId, { logger: getRequestLogger(requestLogger) });
-  }
-
-  async function saveWorkspace(document: FinanceWorkspaceDocument, requestLogger?: Logger): Promise<void> {
-    await params.repository.save(document, { logger: getRequestLogger(requestLogger) });
-  }
-
-  function presentWorkspace(document: FinanceWorkspaceDocument): FinanceWorkspaceDocument {
+  function presentWorkspace(document: ReturnType<typeof buildOperationalWorkspaceView>) {
     return buildOperationalWorkspaceView(document);
   }
 
+  function serviceParams(access: "destroy" | "operate" | "read" | "write", auth: Parameters<WorkspaceService["getWorkspace"]>[0]["auth"], requestLogger: Logger, workspaceId: string) {
+    return { access, auth, logger: requestLogger, repository: params.repository, workspaceId };
+  }
+
   return {
+    // --- Read operations ---
+
     async getWorkspace(request) {
       const requestLogger = getRequestLogger(request.logger).child({
         operation: "getWorkspace",
         workspaceId: request.workspaceId,
       });
       requestLogger.info("service command started");
-
-      try {
-        const workspace = await loadWorkspace(request.workspaceId, requestLogger);
-        const authorization = authorizeWorkspaceAccess(workspace, request.auth, "read");
-
-        if (!authorization.ok) {
-          requestLogger.warn("service command authorization failed", { errors: [authorization.error] });
-          return failure(
-            new ApiError({
-              code: "auth.forbidden",
-              message: authorization.error ?? "Forbidden.",
-              status: 403,
-            }),
-          );
-        }
-        requestLogger.info("service command completed");
-
-        return success(200, { workspace: presentWorkspace(workspace) });
-      } catch (error) {
-        const apiError = toApiError(error);
-        requestLogger.error("service command failed", {
-          error: apiError.message,
-          errorCode: apiError.code,
-        });
-        return failure(apiError);
-      }
+      return withWorkspace(
+        serviceParams("read", request.auth, requestLogger, request.workspaceId),
+        async (workspace) => {
+          requestLogger.info("service command completed");
+          return success(200, { workspace: presentWorkspace(workspace) });
+        },
+      );
     },
 
     async getDashboard(request) {
@@ -243,36 +190,14 @@ export function createWorkspaceService(params: {
         workspaceId: request.workspaceId,
       });
       requestLogger.info("service command started");
-
-      try {
-        const workspace = await loadWorkspace(request.workspaceId, requestLogger);
-        const authorization = authorizeWorkspaceAccess(workspace, request.auth, "read");
-
-        if (!authorization.ok) {
-          requestLogger.warn("service command authorization failed", { errors: [authorization.error] });
-          return failure(
-            new ApiError({
-              code: "auth.forbidden",
-              message: authorization.error ?? "Forbidden.",
-              status: 403,
-            }),
-          );
-        }
-        const dashboard = buildDashboardSnapshot(workspace, {
-          from: request.from,
-          to: request.to,
-        });
-
-        requestLogger.info("service command completed");
-        return success(200, { dashboard });
-      } catch (error) {
-        const apiError = toApiError(error);
-        requestLogger.error("service command failed", {
-          error: apiError.message,
-          errorCode: apiError.code,
-        });
-        return failure(apiError);
-      }
+      return withWorkspace(
+        serviceParams("read", request.auth, requestLogger, request.workspaceId),
+        async (workspace) => {
+          const dashboard = buildDashboardSnapshot(workspace, { from: request.from, to: request.to });
+          requestLogger.info("service command completed");
+          return success(200, { dashboard });
+        },
+      );
     },
 
     async getBackups(request) {
@@ -281,35 +206,14 @@ export function createWorkspaceService(params: {
         workspaceId: request.workspaceId,
       });
       requestLogger.info("service command started");
-
-      try {
-        const workspace = await loadWorkspace(request.workspaceId, requestLogger);
-        const authorization = authorizeWorkspaceAccess(workspace, request.auth, "read");
-
-        if (!authorization.ok) {
-          requestLogger.warn("service command authorization failed", { errors: [authorization.error] });
-          return failure(
-            new ApiError({
-              code: "auth.forbidden",
-              message: authorization.error ?? "Forbidden.",
-              status: 403,
-            }),
-          );
-        }
-
-        const backups = await params.repository.listBackups(request.workspaceId, { logger: requestLogger });
-        requestLogger.info("service command completed", {
-          backupCount: backups.length,
-        });
-        return success(200, { backups });
-      } catch (error) {
-        const apiError = toApiError(error);
-        requestLogger.error("service command failed", {
-          error: apiError.message,
-          errorCode: apiError.code,
-        });
-        return failure(apiError);
-      }
+      return withWorkspace(
+        serviceParams("read", request.auth, requestLogger, request.workspaceId),
+        async () => {
+          const backups = await params.repository.listBackups(request.workspaceId, { logger: requestLogger });
+          requestLogger.info("service command completed", { backupCount: backups.length });
+          return success(200, { backups });
+        },
+      );
     },
 
     async getCloseSummary(request) {
@@ -320,175 +224,14 @@ export function createWorkspaceService(params: {
         workspaceId: request.workspaceId,
       });
       requestLogger.info("service command started");
-
-      try {
-        const workspace = await loadWorkspace(request.workspaceId, requestLogger);
-        const authorization = authorizeWorkspaceAccess(workspace, request.auth, "read");
-
-        if (!authorization.ok) {
-          requestLogger.warn("service command authorization failed", { errors: [authorization.error] });
-          return failure(
-            new ApiError({
-              code: "auth.forbidden",
-              message: authorization.error ?? "Forbidden.",
-              status: 403,
-            }),
-          );
-        }
-
-        const closeSummary = buildCloseSummary(workspace, {
-          from: request.from,
-          to: request.to,
-        });
-
-        requestLogger.info("service command completed", {
-          readyToClose: closeSummary.readyToClose,
-        });
-        return success(200, { closeSummary });
-      } catch (error) {
-        const apiError = toApiError(error);
-        requestLogger.error("service command failed", {
-          error: apiError.message,
-          errorCode: apiError.code,
-        });
-        return failure(apiError);
-      }
-    },
-
-    async postClosePeriod(request) {
-      const requestLogger = getRequestLogger(request.logger).child({
-        from: request.payload.from,
-        operation: "postClosePeriod",
-        to: request.payload.to,
-        workspaceId: request.workspaceId,
-      });
-      requestLogger.info("service command started");
-
-      try {
-        const workspace = await loadWorkspace(request.workspaceId, requestLogger);
-        const authorization = authorizeWorkspaceAccess(workspace, request.auth, "operate");
-
-        if (!authorization.ok) {
-          requestLogger.warn("service command authorization failed", { errors: [authorization.error] });
-          return failure(
-            new ApiError({
-              code: "auth.forbidden",
-              message: authorization.error ?? "Forbidden.",
-              status: 403,
-            }),
-          );
-        }
-
-        const result = closeWorkspacePeriod(
-          workspace,
-          {
-            ...request.payload,
-            closedBy: request.auth.actor,
-          },
-          {
-            audit: buildAuthorizationAuditContext(request.auth.actor, authorization),
-            logger: requestLogger,
-          },
-        );
-
-        if (!result.ok) {
-          requestLogger.warn("service command validation failed", { errors: result.errors });
-          return failure(
-            new ApiError({
-              code: "validation.failed",
-              details: { issues: result.errors },
-              message: result.errors[0] ?? "Request validation failed.",
-              status: 422,
-            }),
-          );
-        }
-
-        await saveWorkspace(result.document, requestLogger);
-        requestLogger.info("service command completed");
-        return success(201, { workspace: presentWorkspace(result.document) });
-      } catch (error) {
-        const apiError = toApiError(error);
-        requestLogger.error("service command failed", {
-          error: apiError.message,
-          errorCode: apiError.code,
-        });
-        return failure(apiError);
-      }
-    },
-
-    async postBackup(request) {
-      const requestLogger = getRequestLogger(request.logger).child({
-        operation: "postBackup",
-        workspaceId: request.workspaceId,
-      });
-      requestLogger.info("service command started");
-
-      try {
-        const workspace = await loadWorkspace(request.workspaceId, requestLogger);
-        const authorization = authorizeWorkspaceAccess(workspace, request.auth, "operate");
-
-        if (!authorization.ok) {
-          requestLogger.warn("service command authorization failed", { errors: [authorization.error] });
-          return failure(
-            new ApiError({
-              code: "auth.forbidden",
-              message: authorization.error ?? "Forbidden.",
-              status: 403,
-            }),
-          );
-        }
-
-        const backup = await params.repository.createBackup(request.workspaceId, { logger: requestLogger });
-        requestLogger.info("service command completed", { backupId: backup.id });
-        return success(201, { backup });
-      } catch (error) {
-        const apiError = toApiError(error);
-        requestLogger.error("service command failed", {
-          error: apiError.message,
-          errorCode: apiError.code,
-        });
-        return failure(apiError);
-      }
-    },
-
-    async postBackupRestore(request) {
-      const requestLogger = getRequestLogger(request.logger).child({
-        backupId: request.backupId,
-        operation: "postBackupRestore",
-        workspaceId: request.workspaceId,
-      });
-      requestLogger.info("service command started");
-
-      try {
-        const workspace = await loadWorkspace(request.workspaceId, requestLogger);
-        const authorization = authorizeWorkspaceAccess(workspace, request.auth, "operate");
-
-        if (!authorization.ok) {
-          requestLogger.warn("service command authorization failed", { errors: [authorization.error] });
-          return failure(
-            new ApiError({
-              code: "auth.forbidden",
-              message: authorization.error ?? "Forbidden.",
-              status: 403,
-            }),
-          );
-        }
-
-        const restored = await params.repository.restoreBackup(request.workspaceId, request.backupId, {
-          logger: requestLogger,
-        });
-        requestLogger.info("service command completed", {
-          backupId: request.backupId,
-        });
-        return success(200, { workspace: presentWorkspace(restored) });
-      } catch (error) {
-        const apiError = toApiError(error);
-        requestLogger.error("service command failed", {
-          error: apiError.message,
-          errorCode: apiError.code,
-        });
-        return failure(apiError);
-      }
+      return withWorkspace(
+        serviceParams("read", request.auth, requestLogger, request.workspaceId),
+        async (workspace) => {
+          const closeSummary = buildCloseSummary(workspace, { from: request.from, to: request.to });
+          requestLogger.info("service command completed", { readyToClose: closeSummary.readyToClose });
+          return success(200, { closeSummary });
+        },
+      );
     },
 
     async getReport(request) {
@@ -500,38 +243,14 @@ export function createWorkspaceService(params: {
         workspaceId: request.workspaceId,
       });
       requestLogger.info("service command started");
-
-      try {
-        const workspace = await loadWorkspace(request.workspaceId, requestLogger);
-        const authorization = authorizeWorkspaceAccess(workspace, request.auth, "read");
-
-        if (!authorization.ok) {
-          requestLogger.warn("service command authorization failed", { errors: [authorization.error] });
-          return failure(
-            new ApiError({
-              code: "auth.forbidden",
-              message: authorization.error ?? "Forbidden.",
-              status: 403,
-            }),
-          );
-        }
-
-        const report = buildWorkspaceReport(workspace, {
-          from: request.from,
-          kind: request.kind,
-          to: request.to,
-        });
-
-        requestLogger.info("service command completed");
-        return success(200, { report });
-      } catch (error) {
-        const apiError = toApiError(error);
-        requestLogger.error("service command failed", {
-          error: apiError.message,
-          errorCode: apiError.code,
-        });
-        return failure(apiError);
-      }
+      return withWorkspace(
+        serviceParams("read", request.auth, requestLogger, request.workspaceId),
+        async (workspace) => {
+          const report = buildWorkspaceReport(workspace, { from: request.from, kind: request.kind, to: request.to });
+          requestLogger.info("service command completed");
+          return success(200, { report });
+        },
+      );
     },
 
     async getQifExport(request) {
@@ -543,48 +262,21 @@ export function createWorkspaceService(params: {
         workspaceId: request.workspaceId,
       });
       requestLogger.info("service command started");
-
-      try {
-        const workspace = await loadWorkspace(request.workspaceId, requestLogger);
-        const authorization = authorizeWorkspaceAccess(workspace, request.auth, "read");
-
-        if (!authorization.ok) {
-          requestLogger.warn("service command authorization failed", { errors: [authorization.error] });
-          return failure(
-            new ApiError({
-              code: "auth.forbidden",
-              message: authorization.error ?? "Forbidden.",
-              status: 403,
-            }),
-          );
-        }
-
-        const exportResult = buildQifExport({
-          accountId: request.accountId,
-          from: request.from,
-          to: request.to,
-          workspace,
-        });
-
-        requestLogger.info("service command completed", {
-          transactionCount: exportResult.transactionCount,
-        });
-        return success(200, {
-          export: {
-            contents: exportResult.contents,
-            fileName: exportResult.fileName,
-            format: "qif",
-            transactionCount: exportResult.transactionCount,
-          },
-        });
-      } catch (error) {
-        const apiError = toApiError(error);
-        requestLogger.error("service command failed", {
-          error: apiError.message,
-          errorCode: apiError.code,
-        });
-        return failure(apiError);
-      }
+      return withWorkspace(
+        serviceParams("read", request.auth, requestLogger, request.workspaceId),
+        async (workspace) => {
+          const exportResult = buildQifExport({ accountId: request.accountId, from: request.from, to: request.to, workspace });
+          requestLogger.info("service command completed", { transactionCount: exportResult.transactionCount });
+          return success(200, {
+            export: {
+              contents: exportResult.contents,
+              fileName: exportResult.fileName,
+              format: "qif",
+              transactionCount: exportResult.transactionCount,
+            },
+          });
+        },
+      );
     },
 
     async getStatementExport(request) {
@@ -597,50 +289,21 @@ export function createWorkspaceService(params: {
         workspaceId: request.workspaceId,
       });
       requestLogger.info("service command started");
-
-      try {
-        const workspace = await loadWorkspace(request.workspaceId, requestLogger);
-        const authorization = authorizeWorkspaceAccess(workspace, request.auth, "read");
-
-        if (!authorization.ok) {
-          requestLogger.warn("service command authorization failed", { errors: [authorization.error] });
-          return failure(
-            new ApiError({
-              code: "auth.forbidden",
-              message: authorization.error ?? "Forbidden.",
-              status: 403,
-            }),
-          );
-        }
-
-        const exportResult = buildOfxExport({
-          accountId: request.accountId,
-          format: request.format,
-          from: request.from,
-          to: request.to,
-          workspace,
-        });
-
-        requestLogger.info("service command completed", {
-          format: request.format,
-          transactionCount: exportResult.transactionCount,
-        });
-        return success(200, {
-          export: {
-            contents: exportResult.contents,
-            fileName: exportResult.fileName,
-            format: request.format,
-            transactionCount: exportResult.transactionCount,
-          },
-        });
-      } catch (error) {
-        const apiError = toApiError(error);
-        requestLogger.error("service command failed", {
-          error: apiError.message,
-          errorCode: apiError.code,
-        });
-        return failure(apiError);
-      }
+      return withWorkspace(
+        serviceParams("read", request.auth, requestLogger, request.workspaceId),
+        async (workspace) => {
+          const exportResult = buildOfxExport({ accountId: request.accountId, format: request.format, from: request.from, to: request.to, workspace });
+          requestLogger.info("service command completed", { format: request.format, transactionCount: exportResult.transactionCount });
+          return success(200, {
+            export: {
+              contents: exportResult.contents,
+              fileName: exportResult.fileName,
+              format: request.format,
+              transactionCount: exportResult.transactionCount,
+            },
+          });
+        },
+      );
     },
 
     async getGnuCashXmlExport(request) {
@@ -649,41 +312,58 @@ export function createWorkspaceService(params: {
         workspaceId: request.workspaceId,
       });
       requestLogger.info("service command started");
-
-      try {
-        const workspace = await loadWorkspace(request.workspaceId, requestLogger);
-        const authorization = authorizeWorkspaceAccess(workspace, request.auth, "read");
-
-        if (!authorization.ok) {
-          requestLogger.warn("service command authorization failed", { errors: [authorization.error] });
-          return failure(
-            new ApiError({
-              code: "auth.forbidden",
-              message: authorization.error ?? "Forbidden.",
-              status: 403,
-            }),
-          );
-        }
-
-        const exportResult = buildGnuCashXmlExport({ workspace: presentWorkspace(workspace) });
-
-        requestLogger.info("service command completed");
-        return success(200, {
-          export: {
-            contents: exportResult.contents,
-            fileName: exportResult.fileName,
-            format: "gnucash-xml",
-          },
-        });
-      } catch (error) {
-        const apiError = toApiError(error);
-        requestLogger.error("service command failed", {
-          error: apiError.message,
-          errorCode: apiError.code,
-        });
-        return failure(apiError);
-      }
+      return withWorkspace(
+        serviceParams("read", request.auth, requestLogger, request.workspaceId),
+        async (workspace) => {
+          const exportResult = buildGnuCashXmlExport({ workspace: presentWorkspace(workspace) });
+          requestLogger.info("service command completed");
+          return success(200, {
+            export: {
+              contents: exportResult.contents,
+              fileName: exportResult.fileName,
+              format: "gnucash-xml",
+            },
+          });
+        },
+      );
     },
+
+    // --- Backup operations (repository-level, not domain operations) ---
+
+    async postBackup(request) {
+      const requestLogger = getRequestLogger(request.logger).child({
+        operation: "postBackup",
+        workspaceId: request.workspaceId,
+      });
+      requestLogger.info("service command started");
+      return withWorkspace(
+        serviceParams("operate", request.auth, requestLogger, request.workspaceId),
+        async () => {
+          const backup = await params.repository.createBackup(request.workspaceId, { logger: requestLogger });
+          requestLogger.info("service command completed", { backupId: backup.id });
+          return success(201, { backup });
+        },
+      );
+    },
+
+    async postBackupRestore(request) {
+      const requestLogger = getRequestLogger(request.logger).child({
+        backupId: request.backupId,
+        operation: "postBackupRestore",
+        workspaceId: request.workspaceId,
+      });
+      requestLogger.info("service command started");
+      return withWorkspace(
+        serviceParams("operate", request.auth, requestLogger, request.workspaceId),
+        async () => {
+          const restored = await params.repository.restoreBackup(request.workspaceId, request.backupId, { logger: requestLogger });
+          requestLogger.info("service command completed", { backupId: request.backupId });
+          return success(200, { workspace: presentWorkspace(restored) });
+        },
+      );
+    },
+
+    // --- Mutation operations ---
 
     async postTransaction(request) {
       const requestLogger = getRequestLogger(request.logger).child({
@@ -692,208 +372,10 @@ export function createWorkspaceService(params: {
         workspaceId: request.workspaceId,
       });
       requestLogger.info("service command started");
-
-      try {
-        const workspace = await loadWorkspace(request.workspaceId, requestLogger);
-        const authorization = authorizeWorkspaceAccess(workspace, request.auth, "write");
-
-        if (!authorization.ok) {
-          requestLogger.warn("service command authorization failed", { errors: [authorization.error] });
-          return failure(
-            new ApiError({
-              code: "auth.forbidden",
-              message: authorization.error ?? "Forbidden.",
-              status: 403,
-            }),
-          );
-        }
-        const result = addTransaction(workspace, request.transaction, {
-          audit: buildAuthorizationAuditContext(request.auth.actor, authorization),
-          logger: requestLogger,
-        });
-
-        if (!result.ok) {
-          requestLogger.warn("service command validation failed", { errors: result.errors });
-          return failure(
-            new ApiError({
-              code: "validation.failed",
-              details: { issues: result.errors },
-              message: result.errors[0] ?? "Request validation failed.",
-              status: 422,
-            }),
-          );
-        }
-
-        await saveWorkspace(result.document, requestLogger);
-        requestLogger.info("service command completed");
-        return success(201, { workspace: presentWorkspace(result.document) });
-      } catch (error) {
-        const apiError = toApiError(error);
-        requestLogger.error("service command failed", {
-          error: apiError.message,
-          errorCode: apiError.code,
-        });
-        return failure(apiError);
-      }
-    },
-
-    async postQifImport(request) {
-      const requestLogger = getRequestLogger(request.logger).child({
-        batchId: request.payload.batchId,
-        operation: "postQifImport",
-        workspaceId: request.workspaceId,
-      });
-      requestLogger.info("service command started");
-
-      try {
-        const workspace = await loadWorkspace(request.workspaceId, requestLogger);
-        const authorization = authorizeWorkspaceAccess(workspace, request.auth, "operate");
-
-        if (!authorization.ok) {
-          requestLogger.warn("service command authorization failed", { errors: [authorization.error] });
-          return failure(
-            new ApiError({
-              code: "auth.forbidden",
-              message: authorization.error ?? "Forbidden.",
-              status: 403,
-            }),
-          );
-        }
-
-        const result = importTransactionsFromQif(workspace, request.payload, {
-          audit: buildAuthorizationAuditContext(request.auth.actor, authorization),
-          logger: requestLogger,
-        });
-
-        if (!result.ok) {
-          requestLogger.warn("service command validation failed", { errors: result.errors });
-          return failure(
-            new ApiError({
-              code: "validation.failed",
-              details: { issues: result.errors },
-              message: result.errors[0] ?? "Request validation failed.",
-              status: 422,
-            }),
-          );
-        }
-
-        await saveWorkspace(result.document, requestLogger);
-        requestLogger.info("service command completed");
-        return success(201, { workspace: presentWorkspace(result.document) });
-      } catch (error) {
-        const apiError = toApiError(error);
-        requestLogger.error("service command failed", {
-          error: apiError.message,
-          errorCode: apiError.code,
-        });
-        return failure(apiError);
-      }
-    },
-
-    async postStatementImport(request) {
-      const requestLogger = getRequestLogger(request.logger).child({
-        batchId: request.payload.batchId,
-        format: request.payload.format,
-        operation: "postStatementImport",
-        workspaceId: request.workspaceId,
-      });
-      requestLogger.info("service command started");
-
-      try {
-        const workspace = await loadWorkspace(request.workspaceId, requestLogger);
-        const authorization = authorizeWorkspaceAccess(workspace, request.auth, "operate");
-
-        if (!authorization.ok) {
-          requestLogger.warn("service command authorization failed", { errors: [authorization.error] });
-          return failure(
-            new ApiError({
-              code: "auth.forbidden",
-              message: authorization.error ?? "Forbidden.",
-              status: 403,
-            }),
-          );
-        }
-
-        const result = importTransactionsFromStatement(workspace, request.payload, {
-          audit: buildAuthorizationAuditContext(request.auth.actor, authorization),
-          logger: requestLogger,
-        });
-
-        if (!result.ok) {
-          requestLogger.warn("service command validation failed", { errors: result.errors });
-          return failure(
-            new ApiError({
-              code: "validation.failed",
-              details: { issues: result.errors },
-              message: result.errors[0] ?? "Request validation failed.",
-              status: 422,
-            }),
-          );
-        }
-
-        await saveWorkspace(result.document, requestLogger);
-        requestLogger.info("service command completed");
-        return success(201, { workspace: presentWorkspace(result.document) });
-      } catch (error) {
-        const apiError = toApiError(error);
-        requestLogger.error("service command failed", {
-          error: apiError.message,
-          errorCode: apiError.code,
-        });
-        return failure(apiError);
-      }
-    },
-
-    async postGnuCashXmlImport(request) {
-      const requestLogger = getRequestLogger(request.logger).child({
-        operation: "postGnuCashXmlImport",
-        workspaceId: request.workspaceId,
-      });
-      requestLogger.info("service command started");
-
-      try {
-        const workspace = await loadWorkspace(request.workspaceId, requestLogger);
-        const authorization = authorizeWorkspaceAccess(workspace, request.auth, "operate");
-
-        if (!authorization.ok) {
-          requestLogger.warn("service command authorization failed", { errors: [authorization.error] });
-          return failure(
-            new ApiError({
-              code: "auth.forbidden",
-              message: authorization.error ?? "Forbidden.",
-              status: 403,
-            }),
-          );
-        }
-
-        const result = importWorkspaceFromGnuCashXml(workspace, request.payload, {
-          audit: buildAuthorizationAuditContext(request.auth.actor, authorization),
-          logger: requestLogger,
-        });
-
-        if (!result.ok) {
-          requestLogger.warn("service command validation failed", { errors: result.errors });
-          return failure(
-            new ApiError({
-              code: "validation.failed",
-              details: { issues: result.errors },
-              message: result.errors[0] ?? "Request validation failed.",
-              status: 422,
-            }),
-          );
-        }
-
-        await saveWorkspace(result.document, requestLogger);
-        requestLogger.info("service command completed");
-        return success(200, { workspace: presentWorkspace(result.document) });
-      } catch (error) {
-        const apiError = toApiError(error);
-        requestLogger.error("service command failed", {
-          error: apiError.message,
-          errorCode: apiError.code,
-        });
-        return failure(apiError);
-      }
+      return withMutation(
+        { ...serviceParams("write", request.auth, requestLogger, request.workspaceId), successStatus: 201 },
+        (workspace, audit) => addTransaction(workspace, request.transaction, { audit, logger: requestLogger }),
+      );
     },
 
     async updateTransaction(request) {
@@ -903,50 +385,10 @@ export function createWorkspaceService(params: {
         workspaceId: request.workspaceId,
       });
       requestLogger.info("service command started");
-
-      try {
-        const workspace = await loadWorkspace(request.workspaceId, requestLogger);
-        const authorization = authorizeWorkspaceAccess(workspace, request.auth, "write");
-
-        if (!authorization.ok) {
-          requestLogger.warn("service command authorization failed", { errors: [authorization.error] });
-          return failure(
-            new ApiError({
-              code: "auth.forbidden",
-              message: authorization.error ?? "Forbidden.",
-              status: 403,
-            }),
-          );
-        }
-
-        const result = updateTransaction(workspace, request.transactionId, request.transaction, {
-          audit: buildAuthorizationAuditContext(request.auth.actor, authorization),
-          logger: requestLogger,
-        });
-
-        if (!result.ok) {
-          requestLogger.warn("service command validation failed", { errors: result.errors });
-          return failure(
-            new ApiError({
-              code: "validation.failed",
-              details: { issues: result.errors },
-              message: result.errors[0] ?? "Request validation failed.",
-              status: 422,
-            }),
-          );
-        }
-
-        await saveWorkspace(result.document, requestLogger);
-        requestLogger.info("service command completed");
-        return success(200, { workspace: presentWorkspace(result.document) });
-      } catch (error) {
-        const apiError = toApiError(error);
-        requestLogger.error("service command failed", {
-          error: apiError.message,
-          errorCode: apiError.code,
-        });
-        return failure(apiError);
-      }
+      return withMutation(
+        { ...serviceParams("write", request.auth, requestLogger, request.workspaceId), successStatus: 200 },
+        (workspace, audit) => updateTransaction(workspace, request.transactionId, request.transaction, { audit, logger: requestLogger }),
+      );
     },
 
     async deleteTransaction(request) {
@@ -956,50 +398,10 @@ export function createWorkspaceService(params: {
         workspaceId: request.workspaceId,
       });
       requestLogger.info("service command started");
-
-      try {
-        const workspace = await loadWorkspace(request.workspaceId, requestLogger);
-        const authorization = authorizeWorkspaceAccess(workspace, request.auth, "write");
-
-        if (!authorization.ok) {
-          requestLogger.warn("service command authorization failed", { errors: [authorization.error] });
-          return failure(
-            new ApiError({
-              code: "auth.forbidden",
-              message: authorization.error ?? "Forbidden.",
-              status: 403,
-            }),
-          );
-        }
-
-        const result = deleteTransaction(workspace, request.transactionId, {}, {
-          audit: buildAuthorizationAuditContext(request.auth.actor, authorization),
-          logger: requestLogger,
-        });
-
-        if (!result.ok) {
-          requestLogger.warn("service command validation failed", { errors: result.errors });
-          return failure(
-            new ApiError({
-              code: "validation.failed",
-              details: { issues: result.errors },
-              message: result.errors[0] ?? "Request validation failed.",
-              status: 422,
-            }),
-          );
-        }
-
-        await saveWorkspace(result.document, requestLogger);
-        requestLogger.info("service command completed");
-        return success(200, { workspace: presentWorkspace(result.document) });
-      } catch (error) {
-        const apiError = toApiError(error);
-        requestLogger.error("service command failed", {
-          error: apiError.message,
-          errorCode: apiError.code,
-        });
-        return failure(apiError);
-      }
+      return withMutation(
+        { ...serviceParams("write", request.auth, requestLogger, request.workspaceId), successStatus: 200 },
+        (workspace, audit) => deleteTransaction(workspace, request.transactionId, {}, { audit, logger: requestLogger }),
+      );
     },
 
     async destroyTransaction(request) {
@@ -1009,50 +411,10 @@ export function createWorkspaceService(params: {
         workspaceId: request.workspaceId,
       });
       requestLogger.info("service command started");
-
-      try {
-        const workspace = await loadWorkspace(request.workspaceId, requestLogger);
-        const authorization = authorizeWorkspaceAccess(workspace, request.auth, "destroy");
-
-        if (!authorization.ok) {
-          requestLogger.warn("service command authorization failed", { errors: [authorization.error] });
-          return failure(
-            new ApiError({
-              code: "auth.forbidden",
-              message: authorization.error ?? "Forbidden.",
-              status: 403,
-            }),
-          );
-        }
-
-        const result = destroyTransaction(workspace, request.transactionId, {
-          audit: buildAuthorizationAuditContext(request.auth.actor, authorization),
-          logger: requestLogger,
-        });
-
-        if (!result.ok) {
-          requestLogger.warn("service command validation failed", { errors: result.errors });
-          return failure(
-            new ApiError({
-              code: "validation.failed",
-              details: { issues: result.errors },
-              message: result.errors[0] ?? "Request validation failed.",
-              status: 422,
-            }),
-          );
-        }
-
-        await saveWorkspace(result.document, requestLogger);
-        requestLogger.info("service command completed");
-        return success(200, { workspace: presentWorkspace(result.document) });
-      } catch (error) {
-        const apiError = toApiError(error);
-        requestLogger.error("service command failed", {
-          error: apiError.message,
-          errorCode: apiError.code,
-        });
-        return failure(apiError);
-      }
+      return withMutation(
+        { ...serviceParams("destroy", request.auth, requestLogger, request.workspaceId), successStatus: 200 },
+        (workspace, audit) => destroyTransaction(workspace, request.transactionId, { audit, logger: requestLogger }),
+      );
     },
 
     async executeScheduledTransaction(request) {
@@ -1063,58 +425,15 @@ export function createWorkspaceService(params: {
         workspaceId: request.workspaceId,
       });
       requestLogger.info("service command started");
-
-      try {
-        const workspace = await loadWorkspace(request.workspaceId, requestLogger);
-        const authorization = authorizeWorkspaceAccess(workspace, request.auth, "write");
-
-        if (!authorization.ok) {
-          requestLogger.warn("service command authorization failed", { errors: [authorization.error] });
-          return failure(
-            new ApiError({
-              code: "auth.forbidden",
-              message: authorization.error ?? "Forbidden.",
-              status: 403,
-            }),
-          );
-        }
-
-        const result = executeScheduledTransaction(
-          workspace,
-          {
-            occurredOn: request.payload.occurredOn,
-            scheduleId: request.scheduleId,
-            transactionId: request.payload.transactionId,
-          },
-          {
-            audit: buildAuthorizationAuditContext(request.auth.actor, authorization),
-            logger: requestLogger,
-          },
-        );
-
-        if (!result.ok) {
-          requestLogger.warn("service command validation failed", { errors: result.errors });
-          return failure(
-            new ApiError({
-              code: "validation.failed",
-              details: { issues: result.errors },
-              message: result.errors[0] ?? "Request validation failed.",
-              status: 422,
-            }),
-          );
-        }
-
-        await saveWorkspace(result.document, requestLogger);
-        requestLogger.info("service command completed");
-        return success(201, { workspace: presentWorkspace(result.document) });
-      } catch (error) {
-        const apiError = toApiError(error);
-        requestLogger.error("service command failed", {
-          error: apiError.message,
-          errorCode: apiError.code,
-        });
-        return failure(apiError);
-      }
+      return withMutation(
+        { ...serviceParams("write", request.auth, requestLogger, request.workspaceId), successStatus: 201 },
+        (workspace, audit) =>
+          executeScheduledTransaction(
+            workspace,
+            { occurredOn: request.payload.occurredOn, scheduleId: request.scheduleId, transactionId: request.payload.transactionId },
+            { audit, logger: requestLogger },
+          ),
+      );
     },
 
     async applyScheduledTransactionException(request) {
@@ -1125,227 +444,28 @@ export function createWorkspaceService(params: {
         workspaceId: request.workspaceId,
       });
       requestLogger.info("service command started");
-
-      try {
-        const workspace = await loadWorkspace(request.workspaceId, requestLogger);
-        const authorization = authorizeWorkspaceAccess(workspace, request.auth, "write");
-
-        if (!authorization.ok) {
-          requestLogger.warn("service command authorization failed", { errors: [authorization.error] });
-          return failure(
-            new ApiError({
-              code: "auth.forbidden",
-              message: authorization.error ?? "Forbidden.",
-              status: 403,
-            }),
-          );
-        }
-
-        const result = applyScheduledTransactionException(
-          workspace,
-          {
-            action: request.payload.action,
-            effectiveOn: request.payload.effectiveOn,
-            nextDueOn: request.payload.nextDueOn,
-            note: request.payload.note,
-            scheduleId: request.scheduleId,
-          },
-          {
-            audit: buildAuthorizationAuditContext(request.auth.actor, authorization),
-            logger: requestLogger,
-          },
-        );
-
-        if (!result.ok) {
-          requestLogger.warn("service command validation failed", { errors: result.errors });
-          return failure(
-            new ApiError({
-              code: "validation.failed",
-              details: { issues: result.errors },
-              message: result.errors[0] ?? "Request validation failed.",
-              status: 422,
-            }),
-          );
-        }
-
-        await saveWorkspace(result.document, requestLogger);
-        requestLogger.info("service command completed");
-        return success(200, { workspace: presentWorkspace(result.document) });
-      } catch (error) {
-        const apiError = toApiError(error);
-        requestLogger.error("service command failed", {
-          error: apiError.message,
-          errorCode: apiError.code,
-        });
-        return failure(apiError);
-      }
+      return withMutation(
+        { ...serviceParams("write", request.auth, requestLogger, request.workspaceId), successStatus: 200 },
+        (workspace, audit) =>
+          applyScheduledTransactionException(
+            workspace,
+            { action: request.payload.action, effectiveOn: request.payload.effectiveOn, nextDueOn: request.payload.nextDueOn, note: request.payload.note, scheduleId: request.scheduleId },
+            { audit, logger: requestLogger },
+          ),
+      );
     },
 
-    async postReconciliation(request) {
+    async postScheduledTransaction(request) {
       const requestLogger = getRequestLogger(request.logger).child({
-        accountId: request.payload.accountId,
-        operation: "postReconciliation",
+        operation: "postScheduledTransaction",
+        scheduleId: request.schedule.id,
         workspaceId: request.workspaceId,
       });
       requestLogger.info("service command started");
-
-      try {
-        const workspace = await loadWorkspace(request.workspaceId, requestLogger);
-        const authorization = authorizeWorkspaceAccess(workspace, request.auth, "write");
-
-        if (!authorization.ok) {
-          requestLogger.warn("service command authorization failed", { errors: [authorization.error] });
-          return failure(
-            new ApiError({
-              code: "auth.forbidden",
-              message: authorization.error ?? "Forbidden.",
-              status: 403,
-            }),
-          );
-        }
-        const result = reconcileAccount(workspace, request.payload, {
-          audit: buildAuthorizationAuditContext(request.auth.actor, authorization),
-          logger: requestLogger,
-        });
-
-        if (!result.ok && result.document === workspace) {
-          requestLogger.warn("service command validation failed", { errors: result.errors });
-          return failure(
-            new ApiError({
-              code: "validation.failed",
-              details: { issues: result.errors },
-              message: result.errors[0] ?? "Request validation failed.",
-              status: 422,
-            }),
-          );
-        }
-
-        await saveWorkspace(result.document, requestLogger);
-        requestLogger.info("service command completed", { warnings: result.errors });
-        return success(200, { workspace: presentWorkspace(result.document) });
-      } catch (error) {
-        const apiError = toApiError(error);
-        requestLogger.error("service command failed", {
-          error: apiError.message,
-          errorCode: apiError.code,
-        });
-        return failure(apiError);
-      }
-    },
-
-    async postCsvImport(request) {
-      const requestLogger = getRequestLogger(request.logger).child({
-        batchId: request.payload.batchId,
-        operation: "postCsvImport",
-        workspaceId: request.workspaceId,
-      });
-      requestLogger.info("service command started");
-
-      try {
-        const workspace = await loadWorkspace(request.workspaceId, requestLogger);
-        const authorization = authorizeWorkspaceAccess(workspace, request.auth, "operate");
-
-        if (!authorization.ok) {
-          requestLogger.warn("service command authorization failed", { errors: [authorization.error] });
-          return failure(
-            new ApiError({
-              code: "auth.forbidden",
-              message: authorization.error ?? "Forbidden.",
-              status: 403,
-            }),
-          );
-        }
-        const result = importTransactionsFromCsvRows(
-          workspace,
-          request.payload.rows,
-          {
-            batchId: request.payload.batchId,
-            importedAt: request.payload.importedAt,
-            sourceLabel: request.payload.sourceLabel,
-          },
-          {
-            audit: buildAuthorizationAuditContext(request.auth.actor, authorization),
-            logger: requestLogger,
-          },
-        );
-
-        if (!result.ok) {
-          requestLogger.warn("service command validation failed", { errors: result.errors });
-          return failure(
-            new ApiError({
-              code: "validation.failed",
-              details: { issues: result.errors },
-              message: result.errors[0] ?? "Request validation failed.",
-              status: 422,
-            }),
-          );
-        }
-
-        await saveWorkspace(result.document, requestLogger);
-        requestLogger.info("service command completed");
-        return success(200, { workspace: presentWorkspace(result.document) });
-      } catch (error) {
-        const apiError = toApiError(error);
-        requestLogger.error("service command failed", {
-          error: apiError.message,
-          errorCode: apiError.code,
-        });
-        return failure(apiError);
-      }
-    },
-
-    async postBaselineBudgetLine(request) {
-      const requestLogger = getRequestLogger(request.logger).child({
-        accountId: request.line.accountId,
-        operation: "postBaselineBudgetLine",
-        period: request.line.period,
-        workspaceId: request.workspaceId,
-      });
-      requestLogger.info("service command started");
-
-      try {
-        const workspace = await loadWorkspace(request.workspaceId, requestLogger);
-        const authorization = authorizeWorkspaceAccess(workspace, request.auth, "write");
-
-        if (!authorization.ok) {
-          requestLogger.warn("service command authorization failed", { errors: [authorization.error] });
-          return failure(
-            new ApiError({
-              code: "auth.forbidden",
-              message: authorization.error ?? "Forbidden.",
-              status: 403,
-            }),
-          );
-        }
-
-        const result = upsertBaselineBudgetLine(workspace, request.line, {
-          audit: buildAuthorizationAuditContext(request.auth.actor, authorization),
-          logger: requestLogger,
-        });
-
-        if (!result.ok) {
-          requestLogger.warn("service command validation failed", { errors: result.errors });
-          return failure(
-            new ApiError({
-              code: "validation.failed",
-              details: { issues: result.errors },
-              message: result.errors[0] ?? "Request validation failed.",
-              status: 422,
-            }),
-          );
-        }
-
-        await saveWorkspace(result.document, requestLogger);
-        requestLogger.info("service command completed");
-        return success(200, { workspace: presentWorkspace(result.document) });
-      } catch (error) {
-        const apiError = toApiError(error);
-        requestLogger.error("service command failed", {
-          error: apiError.message,
-          errorCode: apiError.code,
-        });
-        return failure(apiError);
-      }
+      return withMutation(
+        { ...serviceParams("write", request.auth, requestLogger, request.workspaceId), successStatus: 200 },
+        (workspace, audit) => upsertScheduledTransaction(workspace, request.schedule, { audit, logger: requestLogger }),
+      );
     },
 
     async postEnvelope(request) {
@@ -1355,50 +475,10 @@ export function createWorkspaceService(params: {
         workspaceId: request.workspaceId,
       });
       requestLogger.info("service command started");
-
-      try {
-        const workspace = await loadWorkspace(request.workspaceId, requestLogger);
-        const authorization = authorizeWorkspaceAccess(workspace, request.auth, "write");
-
-        if (!authorization.ok) {
-          requestLogger.warn("service command authorization failed", { errors: [authorization.error] });
-          return failure(
-            new ApiError({
-              code: "auth.forbidden",
-              message: authorization.error ?? "Forbidden.",
-              status: 403,
-            }),
-          );
-        }
-
-        const result = upsertEnvelope(workspace, request.envelope, {
-          audit: buildAuthorizationAuditContext(request.auth.actor, authorization),
-          logger: requestLogger,
-        });
-
-        if (!result.ok) {
-          requestLogger.warn("service command validation failed", { errors: result.errors });
-          return failure(
-            new ApiError({
-              code: "validation.failed",
-              details: { issues: result.errors },
-              message: result.errors[0] ?? "Request validation failed.",
-              status: 422,
-            }),
-          );
-        }
-
-        await saveWorkspace(result.document, requestLogger);
-        requestLogger.info("service command completed");
-        return success(200, { workspace: presentWorkspace(result.document) });
-      } catch (error) {
-        const apiError = toApiError(error);
-        requestLogger.error("service command failed", {
-          error: apiError.message,
-          errorCode: apiError.code,
-        });
-        return failure(apiError);
-      }
+      return withMutation(
+        { ...serviceParams("write", request.auth, requestLogger, request.workspaceId), successStatus: 200 },
+        (workspace, audit) => upsertEnvelope(workspace, request.envelope, { audit, logger: requestLogger }),
+      );
     },
 
     async postEnvelopeAllocation(request) {
@@ -1409,103 +489,134 @@ export function createWorkspaceService(params: {
         workspaceId: request.workspaceId,
       });
       requestLogger.info("service command started");
-
-      try {
-        const workspace = await loadWorkspace(request.workspaceId, requestLogger);
-        const authorization = authorizeWorkspaceAccess(workspace, request.auth, "write");
-
-        if (!authorization.ok) {
-          requestLogger.warn("service command authorization failed", { errors: [authorization.error] });
-          return failure(
-            new ApiError({
-              code: "auth.forbidden",
-              message: authorization.error ?? "Forbidden.",
-              status: 403,
-            }),
-          );
-        }
-
-        const result = recordEnvelopeAllocation(workspace, request.allocation, {
-          audit: buildAuthorizationAuditContext(request.auth.actor, authorization),
-          logger: requestLogger,
-        });
-
-        if (!result.ok) {
-          requestLogger.warn("service command validation failed", { errors: result.errors });
-          return failure(
-            new ApiError({
-              code: "validation.failed",
-              details: { issues: result.errors },
-              message: result.errors[0] ?? "Request validation failed.",
-              status: 422,
-            }),
-          );
-        }
-
-        await saveWorkspace(result.document, requestLogger);
-        requestLogger.info("service command completed");
-        return success(200, { workspace: presentWorkspace(result.document) });
-      } catch (error) {
-        const apiError = toApiError(error);
-        requestLogger.error("service command failed", {
-          error: apiError.message,
-          errorCode: apiError.code,
-        });
-        return failure(apiError);
-      }
+      return withMutation(
+        { ...serviceParams("write", request.auth, requestLogger, request.workspaceId), successStatus: 200 },
+        (workspace, audit) => recordEnvelopeAllocation(workspace, request.allocation, { audit, logger: requestLogger }),
+      );
     },
 
-    async postScheduledTransaction(request) {
+    async postBaselineBudgetLine(request) {
       const requestLogger = getRequestLogger(request.logger).child({
-        operation: "postScheduledTransaction",
-        scheduleId: request.schedule.id,
+        accountId: request.line.accountId,
+        operation: "postBaselineBudgetLine",
+        period: request.line.period,
         workspaceId: request.workspaceId,
       });
       requestLogger.info("service command started");
+      return withMutation(
+        { ...serviceParams("write", request.auth, requestLogger, request.workspaceId), successStatus: 200 },
+        (workspace, audit) => upsertBaselineBudgetLine(workspace, request.line, { audit, logger: requestLogger }),
+      );
+    },
 
-      try {
-        const workspace = await loadWorkspace(request.workspaceId, requestLogger);
-        const authorization = authorizeWorkspaceAccess(workspace, request.auth, "write");
+    async postClosePeriod(request) {
+      const requestLogger = getRequestLogger(request.logger).child({
+        from: request.payload.from,
+        operation: "postClosePeriod",
+        to: request.payload.to,
+        workspaceId: request.workspaceId,
+      });
+      requestLogger.info("service command started");
+      return withMutation(
+        { ...serviceParams("operate", request.auth, requestLogger, request.workspaceId), successStatus: 201 },
+        (workspace, audit) =>
+          closeWorkspacePeriod(
+            workspace,
+            { ...request.payload, closedBy: request.auth.actor },
+            { audit, logger: requestLogger },
+          ),
+      );
+    },
 
-        if (!authorization.ok) {
-          requestLogger.warn("service command authorization failed", { errors: [authorization.error] });
-          return failure(
-            new ApiError({
-              code: "auth.forbidden",
-              message: authorization.error ?? "Forbidden.",
-              status: 403,
-            }),
-          );
-        }
+    async postQifImport(request) {
+      const requestLogger = getRequestLogger(request.logger).child({
+        batchId: request.payload.batchId,
+        operation: "postQifImport",
+        workspaceId: request.workspaceId,
+      });
+      requestLogger.info("service command started");
+      return withMutation(
+        { ...serviceParams("operate", request.auth, requestLogger, request.workspaceId), successStatus: 201 },
+        (workspace, audit) => importTransactionsFromQif(workspace, request.payload, { audit, logger: requestLogger }),
+      );
+    },
 
-        const result = upsertScheduledTransaction(workspace, request.schedule, {
-          audit: buildAuthorizationAuditContext(request.auth.actor, authorization),
-          logger: requestLogger,
-        });
+    async postStatementImport(request) {
+      const requestLogger = getRequestLogger(request.logger).child({
+        batchId: request.payload.batchId,
+        format: request.payload.format,
+        operation: "postStatementImport",
+        workspaceId: request.workspaceId,
+      });
+      requestLogger.info("service command started");
+      return withMutation(
+        { ...serviceParams("operate", request.auth, requestLogger, request.workspaceId), successStatus: 201 },
+        (workspace, audit) => importTransactionsFromStatement(workspace, request.payload, { audit, logger: requestLogger }),
+      );
+    },
 
-        if (!result.ok) {
-          requestLogger.warn("service command validation failed", { errors: result.errors });
-          return failure(
-            new ApiError({
-              code: "validation.failed",
-              details: { issues: result.errors },
-              message: result.errors[0] ?? "Request validation failed.",
-              status: 422,
-            }),
-          );
-        }
+    async postGnuCashXmlImport(request) {
+      const requestLogger = getRequestLogger(request.logger).child({
+        operation: "postGnuCashXmlImport",
+        workspaceId: request.workspaceId,
+      });
+      requestLogger.info("service command started");
+      return withMutation(
+        { ...serviceParams("operate", request.auth, requestLogger, request.workspaceId), successStatus: 200 },
+        (workspace, audit) => importWorkspaceFromGnuCashXml(workspace, request.payload, { audit, logger: requestLogger }),
+      );
+    },
 
-        await saveWorkspace(result.document, requestLogger);
-        requestLogger.info("service command completed");
-        return success(200, { workspace: presentWorkspace(result.document) });
-      } catch (error) {
-        const apiError = toApiError(error);
-        requestLogger.error("service command failed", {
-          error: apiError.message,
-          errorCode: apiError.code,
-        });
-        return failure(apiError);
-      }
+    async postCsvImport(request) {
+      const requestLogger = getRequestLogger(request.logger).child({
+        batchId: request.payload.batchId,
+        operation: "postCsvImport",
+        workspaceId: request.workspaceId,
+      });
+      requestLogger.info("service command started");
+      return withMutation(
+        { ...serviceParams("operate", request.auth, requestLogger, request.workspaceId), successStatus: 200 },
+        (workspace, audit) =>
+          importTransactionsFromCsvRows(
+            workspace,
+            request.payload.rows,
+            { batchId: request.payload.batchId, importedAt: request.payload.importedAt, sourceLabel: request.payload.sourceLabel },
+            { audit, logger: requestLogger },
+          ),
+      );
+    },
+
+    // postReconciliation has atypical result handling: saves even on partial failures (warnings).
+    async postReconciliation(request) {
+      const requestLogger = getRequestLogger(request.logger).child({
+        accountId: request.payload.accountId,
+        operation: "postReconciliation",
+        workspaceId: request.workspaceId,
+      });
+      requestLogger.info("service command started");
+      return withWorkspace<WorkspaceEnvelope | ErrorEnvelope>(
+        serviceParams("write", request.auth, requestLogger, request.workspaceId),
+        async (workspace, authorization) => {
+          const audit = buildAuthorizationAuditContext(request.auth.actor, authorization);
+          const result = reconcileAccount(workspace, request.payload, { audit, logger: requestLogger });
+
+          if (!result.ok && result.document === workspace) {
+            requestLogger.warn("service command validation failed", { errors: result.errors });
+            return failure(
+              new ApiError({
+                code: "validation.failed",
+                details: { issues: result.errors },
+                message: result.errors[0] ?? "Request validation failed.",
+                status: 422,
+              }),
+            );
+          }
+
+          await params.repository.save(result.document, { logger: requestLogger });
+          requestLogger.info("service command completed", { warnings: result.errors });
+          return success(200, { workspace: presentWorkspace(result.document) });
+        },
+      );
     },
   };
 }
