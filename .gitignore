@@ -10,3 +10,5 @@ coverage
 .env.*
 data
 apps/api/data
+test-results
+playwright-report

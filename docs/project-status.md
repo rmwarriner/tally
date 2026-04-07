@@ -1,6 +1,6 @@
 # Project Status
 
-Last reviewed: 2026-04-06
+Last reviewed: 2026-04-07
 
 ## Current State
 
@@ -23,6 +23,8 @@ This repository currently includes:
 - first-pass native desktop wrapper assessment for the desktop shell, with a Tauri-first recommendation and Electron fallback criteria
 - manual UI review checklist and regression-testing guidance for the desktop and mobile clients
 - documented register-first desktop UI direction for the next phase of shell work
+- architecture guardrails and baseline metrics documentation for April refactor execution
+- web Playwright E2E harness with ledger smoke and keyboard workflow coverage
 
 ## Completed
 
@@ -139,7 +141,6 @@ The goal of that pass is to turn the current single-runtime auth setup into an e
 
 ## Deferred Follow-Up
 
-- extract the mobile quick-transaction and quick-envelope cards into dedicated components so `apps/mobile/src/App.tsx` becomes mostly screen composition and API orchestration
 - keep GitHub roadmap issues, milestones, and the `GnuCash NG Roadmap` project board aligned as execution moves forward
 - keep native desktop wrapper work in idea/discovery state until a bounded wrapper spike is ready to prove local launch, file access, and local API coordination
 - track deferred web shell cleanup and ledger rebuild sequencing in `docs/ledger-ui-rebuild-plan.md`

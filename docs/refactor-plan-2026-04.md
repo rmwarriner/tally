@@ -2,6 +2,14 @@
 
 Last updated: 2026-04-07
 
+## Current Execution Status
+
+- completed:
+  - PR-0 through PR-8
+- remaining from this plan:
+  - PR-9 (Persistence Evolution RFC, design-only)
+  - PR-10 (Encryption-at-Rest and Key Handling RFC, design-only)
+
 ## Context
 
 This plan converts current architecture and UX critiques into implementation-ready slices.
