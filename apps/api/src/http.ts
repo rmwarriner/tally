@@ -3,6 +3,7 @@ import { createServer, type IncomingMessage, type ServerResponse } from "node:ht
 import { createNoopLogger, type Logger } from "@gnucash-ng/logging";
 import { resolveAuthContext, type AuthIdentity } from "./auth";
 import { ApiError, toErrorEnvelope } from "./errors";
+import { parsePostRequestBody, parsePutRequestBody } from "./http-request-parsing";
 import {
   isLivenessRoute,
   isMetricsRoute,
@@ -75,20 +76,6 @@ function textResponse(
     },
     status,
   });
-}
-
-async function parseJsonBody(request: Request, maxBodyBytes: number): Promise<unknown> {
-  try {
-    const text = await request.text();
-
-    if (Buffer.byteLength(text, "utf8") > maxBodyBytes) {
-      return Symbol.for("body-too-large");
-    }
-
-    return JSON.parse(text) as unknown;
-  } catch {
-    return undefined;
-  }
 }
 
 export function createHttpHandler(params: {
@@ -729,49 +716,22 @@ export function createHttpHandler(params: {
         transactionMatch,
       } = matchHttpPostRoutes(path);
 
-      if (!bodylessPostRoute && !request.headers.get("content-type")?.includes("application/json")) {
-        requestLogger.warn("http request validation failed", {
-          errors: ["POST requests must use application/json."],
-        });
+      const parsedPostBody = await parsePostRequestBody({
+        bodylessPostRoute,
+        maxBodyBytes,
+        request,
+        requestLogger,
+      });
+      const body = parsedPostBody.body;
+
+      if (parsedPostBody.errorCode && parsedPostBody.errorMessage && parsedPostBody.status) {
         return completeJsonResponse(
-          415,
+          parsedPostBody.status,
           toErrorEnvelope(
             new ApiError({
-              code: "request.unsupported_media_type",
-              message: "POST requests must use application/json.",
-              status: 415,
-            }),
-          ),
-        );
-      }
-
-      const body = bodylessPostRoute ? undefined : await parseJsonBody(request, maxBodyBytes);
-
-      if (body === Symbol.for("body-too-large")) {
-        requestLogger.warn("http request rejected for size limit");
-        return completeJsonResponse(
-          413,
-          toErrorEnvelope(
-            new ApiError({
-              code: "request.too_large",
-              message: "Request body exceeds the configured size limit.",
-              status: 413,
-            }),
-          ),
-        );
-      }
-
-      if (!bodylessPostRoute && body === undefined) {
-        requestLogger.warn("http request validation failed", {
-          errors: ["Request body must be valid JSON."],
-        });
-        return completeJsonResponse(
-          400,
-          toErrorEnvelope(
-            new ApiError({
-              code: "request.invalid",
-              message: "Request body must be valid JSON.",
-              status: 400,
+              code: parsedPostBody.errorCode,
+              message: parsedPostBody.errorMessage,
+              status: parsedPostBody.status,
             }),
           ),
         );
@@ -1534,49 +1494,21 @@ export function createHttpHandler(params: {
     if (request.method === "PUT") {
       const transactionMatch = matchHttpPutTransactionRoute(path);
 
-      if (!request.headers.get("content-type")?.includes("application/json")) {
-        requestLogger.warn("http request validation failed", {
-          errors: ["PUT requests must use application/json."],
-        });
+      const parsedPutBody = await parsePutRequestBody({
+        maxBodyBytes,
+        request,
+        requestLogger,
+      });
+      const body = parsedPutBody.body;
+
+      if (parsedPutBody.errorCode && parsedPutBody.errorMessage && parsedPutBody.status) {
         return completeJsonResponse(
-          415,
+          parsedPutBody.status,
           toErrorEnvelope(
             new ApiError({
-              code: "request.unsupported_media_type",
-              message: "PUT requests must use application/json.",
-              status: 415,
-            }),
-          ),
-        );
-      }
-
-      const body = await parseJsonBody(request, maxBodyBytes);
-
-      if (body === Symbol.for("body-too-large")) {
-        requestLogger.warn("http request rejected for size limit");
-        return completeJsonResponse(
-          413,
-          toErrorEnvelope(
-            new ApiError({
-              code: "request.too_large",
-              message: "Request body exceeds the configured size limit.",
-              status: 413,
-            }),
-          ),
-        );
-      }
-
-      if (body === undefined) {
-        requestLogger.warn("http request validation failed", {
-          errors: ["Request body must be valid JSON."],
-        });
-        return completeJsonResponse(
-          400,
-          toErrorEnvelope(
-            new ApiError({
-              code: "request.invalid",
-              message: "Request body must be valid JSON.",
-              status: 400,
+              code: parsedPutBody.errorCode,
+              message: parsedPutBody.errorMessage,
+              status: parsedPutBody.status,
             }),
           ),
         );
