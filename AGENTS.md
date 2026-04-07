@@ -6,16 +6,16 @@ Last reviewed: 2026-04-06
 
 This repository is a `pnpm` monorepo.
 
-- `apps/api/`: Node HTTP API, auth, validation, rate limiting, and service orchestration
-- `apps/web/`: Vite-based desktop/web client
-- `apps/mobile/`: Expo/React Native mobile client
-- `packages/domain/`: core accounting, ledger, budgeting, and schedule logic
-- `packages/workspace/`: workspace document model, commands, persistence, reconciliation, and audit events
-- `packages/logging/`: structured logging utilities
-- `packages/ui/`: shared UI tokens
+- `tally-core/apps/api/`: Node HTTP API, auth, validation, rate limiting, and service orchestration
+- `tally-portal/apps/web/`: Vite-based desktop/web client
+- `tally-go/apps/mobile/`: Expo/React Native mobile client
+- `tally-core/packages/domain/`: core accounting, ledger, budgeting, and schedule logic
+- `tally-core/packages/workspace/`: workspace document model, commands, persistence, reconciliation, and audit events
+- `tally-core/packages/logging/`: structured logging utilities
+- `tally-portal/packages/ui/`: shared UI tokens
 - `docs/`: architecture, standards, security, and roadmap documents
 
-Tests live next to source as `*.test.ts` under `apps/**/src` and `packages/**/src`.
+Tests live next to source as `*.test.ts` under `tally-core/**/src`, `tally-portal/**/src`, and `tally-go/**/src`.
 
 ## Build, Test, and Development Commands
 

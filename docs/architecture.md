@@ -62,15 +62,15 @@ Responsibilities:
 
 ## Proposed Technical Stack
 
-- `packages/domain`
+- `tally-core/packages/domain`
   Shared TypeScript business rules and invariant enforcement
-- `packages/workspace`
+- `tally-core/packages/workspace`
   Workspace documents, commands, selectors, and storage adapters
-- `apps/web`
+- `tally-portal/apps/web`
   Dense desktop/web workspace with keyboard-first flows
-- `apps/mobile`
+- `tally-go/apps/mobile`
   Focused mobile client for quick operations and review
-- `apps/api` or `packages/server`
+- `tally-core/apps/api` or `packages/server`
   Service boundary for persistence, commands, imports, audit, and sync preparation
 
 ### Stack Review Notes
@@ -83,7 +83,7 @@ Responsibilities:
 The repository now runs as:
 
 - shared TypeScript domain and workspace logic reused across clients and the API
-- `apps/api` as the command, persistence, auth, validation, audit, and import/export boundary
+- `tally-core/apps/api` as the command, persistence, auth, validation, audit, and import/export boundary
 - pluggable workspace persistence with `json`, `sqlite`, and `postgres` backends behind one repository contract
 - web and mobile clients consuming the same service boundary for reads and writes
 - a documented single-host Linux deployment model for the API runtime
@@ -97,7 +97,7 @@ The current architecture direction is:
 
 - keep the ledger/accounting layer minimal, deterministic, and authoritative
 - implement budgeting, envelopes, sync behaviors, AI assistance, and similar concerns as higher-order layers above the ledger
-- keep `apps/api` as the operational boundary for persistence, auth, validation, audit, and import/export
+- keep `tally-core/apps/api` as the operational boundary for persistence, auth, validation, audit, and import/export
 - evolve persistence behind explicit abstractions rather than binding the product to JSON-only storage
 - preserve auditability and integrity rules even as backends, clients, and assistive features expand
 

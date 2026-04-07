@@ -1,0 +1,23 @@
+{
+  "name": "@tally-core/api",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "dependencies": {
+    "@tally-core/domain": "workspace:*",
+    "@tally-core/logging": "workspace:*",
+    "@tally-core/workspace": "workspace:*",
+    "pg": "^8.20.0"
+  },
+  "devDependencies": {
+    "@types/node": "^24.0.0",
+    "@types/pg": "^8.20.0",
+    "tsx": "^4.19.3"
+  },
+  "scripts": {
+    "dev": "tsx watch src/dev-server.ts",
+    "persistence:admin": "tsx src/persistence-admin-cli.ts",
+    "start": "tsx src/server.ts",
+    "typecheck": "tsc --noEmit -p tsconfig.json"
+  }
+}
