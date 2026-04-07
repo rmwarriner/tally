@@ -5,6 +5,7 @@ import { describe, expect, it } from "vitest";
 import { createMoney } from "@tally/domain";
 import { createLogger, type LogRecord } from "@tally/logging";
 import {
+  addHouseholdMember,
   addTransaction,
   applyScheduledTransactionException,
   buildDashboardSnapshot,
@@ -19,6 +20,8 @@ import {
   importTransactionsFromQif,
   recordEnvelopeAllocation,
   reconcileAccount,
+  removeHouseholdMember,
+  setHouseholdMemberRole,
   upsertBaselineBudgetLine,
   upsertEnvelope,
   updateTransaction,
@@ -376,6 +379,62 @@ LSalary
     expect(result.document.auditEvents.at(-1)?.eventType).toBe("import.qfx.recorded");
   });
 
+  it("skips duplicate fingerprints in qif imports", () => {
+    const workspace = createDemoWorkspace();
+    const qifStatement = "!Type:Bank\nD04/04/2026\nT100.00\nPPaycheck\n^\n";
+    const params = {
+      batchId: "qif-dup-1",
+      cashAccountId: "acct-checking",
+      defaultCounterpartAccountId: "acct-expense-groceries",
+      importedAt: "2026-04-05T00:00:00Z",
+      qif: qifStatement,
+      sourceLabel: "checking.qif",
+    };
+    const first = importTransactionsFromQif(workspace, params, { audit: { actor: "Primary" } });
+    expect(first.ok).toBe(true);
+    const count = first.document.transactions.length;
+    const second = importTransactionsFromQif(first.document, { ...params, batchId: "qif-dup-2" }, { audit: { actor: "Primary" } });
+    expect(second.ok).toBe(true);
+    expect(second.document.transactions).toHaveLength(count);
+  });
+
+  it("rejects ofx imports with invalid account references", () => {
+    const workspace = createDemoWorkspace();
+    const result = importTransactionsFromStatement(
+      workspace,
+      {
+        batchId: "ofx-bad-1",
+        cashAccountId: "acct-nonexistent",
+        defaultCounterpartAccountId: "acct-expense-groceries",
+        format: "ofx",
+        importedAt: "2026-04-05T00:00:00Z",
+        sourceLabel: "checking.ofx",
+        statement: `OFXHEADER:100
+<OFX>
+<BANKMSGSRSV1>
+<STMTTRNRS>
+<STMTRS>
+<BANKTRANLIST>
+<STMTTRN>
+<TRNTYPE>CREDIT
+<DTPOSTED>20260404000000
+<TRNAMT>100.00
+<FITID>fit-bad-1
+<NAME>Payment
+</STMTTRN>
+</BANKTRANLIST>
+</STMTRS>
+</STMTTRNRS>
+</BANKMSGSRSV1>
+</OFX>`,
+      },
+      { audit: { actor: "Primary" } },
+    );
+
+    expect(result.ok).toBe(false);
+    expect(result.errors[0]).toMatch(/unknown account/i);
+  });
+
   it("rejects malformed statement imports before creating transactions", () => {
     const workspace = createDemoWorkspace();
     const result = importTransactionsFromStatement(
@@ -447,6 +506,106 @@ LSalary
     ]);
   });
 
+  it("rejects ofx import when transaction date falls in a locked period", () => {
+    const workspace = createDemoWorkspace();
+    // Close March (demo workspace has no unreconciled transactions in March)
+    const closed = closeWorkspacePeriod(
+      workspace,
+      { closedAt: "2026-04-01T00:00:00Z", closedBy: "Primary", from: "2026-03-01", to: "2026-03-31" },
+      { audit: { actor: "Primary" } },
+    );
+    expect(closed.ok).toBe(true);
+    const result = importTransactionsFromStatement(
+      closed.document,
+      {
+        batchId: "ofx-locked-1",
+        cashAccountId: "acct-checking",
+        defaultCounterpartAccountId: "acct-expense-groceries",
+        format: "ofx",
+        importedAt: "2026-04-01T00:00:00Z",
+        sourceLabel: "checking.ofx",
+        statement: `OFXHEADER:100
+<OFX>
+<BANKMSGSRSV1>
+<STMTTRNRS>
+<STMTRS>
+<BANKTRANLIST>
+<STMTTRN>
+<TRNTYPE>CREDIT
+<DTPOSTED>20260315000000
+<TRNAMT>100.00
+<FITID>fit-locked-1
+<NAME>Payment
+</STMTTRN>
+</BANKTRANLIST>
+</STMTRS>
+</STMTTRNRS>
+</BANKMSGSRSV1>
+</OFX>`,
+      },
+      { audit: { actor: "Primary" } },
+    );
+
+    expect(result.ok).toBe(false);
+    expect(result.errors[0]).toMatch(/locked/i);
+  });
+
+  it("rejects gnucash xml imports with invalid xml", () => {
+    const workspace = createDemoWorkspace();
+    const result = importWorkspaceFromGnuCashXml(
+      workspace,
+      {
+        importedAt: "2026-04-05T00:00:00Z",
+        sourceLabel: "workspace.gnucash.xml",
+        xml: "<gnc-v2 />",
+      },
+      { audit: { actor: "Primary" } },
+    );
+
+    expect(result.ok).toBe(false);
+    expect(result.errors.length).toBeGreaterThan(0);
+  });
+
+  it("skips duplicate fingerprints in ofx imports", () => {
+    const workspace = createDemoWorkspace();
+    const ofxStatement = `OFXHEADER:100
+<OFX>
+<BANKMSGSRSV1>
+<STMTTRNRS>
+<STMTRS>
+<BANKTRANLIST>
+<STMTTRN>
+<TRNTYPE>CREDIT
+<DTPOSTED>20260404000000
+<TRNAMT>100.00
+<FITID>fit-unique-1
+<NAME>Paycheck
+</STMTTRN>
+</BANKTRANLIST>
+</STMTRS>
+</STMTTRNRS>
+</BANKMSGSRSV1>
+</OFX>`;
+    const params = {
+      batchId: "ofx-dup-1",
+      cashAccountId: "acct-checking",
+      defaultCounterpartAccountId: "acct-expense-groceries",
+      format: "ofx" as const,
+      importedAt: "2026-04-05T00:00:00Z",
+      sourceLabel: "checking.ofx",
+      statement: ofxStatement,
+    };
+    // First import succeeds
+    const first = importTransactionsFromStatement(workspace, params, { audit: { actor: "Primary" } });
+    expect(first.ok).toBe(true);
+    const transactionCount = first.document.transactions.length;
+
+    // Second import with same data — duplicate fingerprint is skipped
+    const second = importTransactionsFromStatement(first.document, { ...params, batchId: "ofx-dup-2" }, { audit: { actor: "Primary" } });
+    expect(second.ok).toBe(true);
+    expect(second.document.transactions).toHaveLength(transactionCount);
+  });
+
   it("records closed periods and blocks locked transactions", () => {
     const workspace = createDemoWorkspace();
     const closed = closeWorkspacePeriod(
@@ -486,8 +645,74 @@ LSalary
     expect(lockedTransaction.errors[0]).toContain("locked by closed period 2026-03-01 through 2026-03-31");
   });
 
+  it("rejects a close period when the workspace is not ready to close", () => {
+    // Demo workspace has transactions on 2026-04-01 with an unreconciled checking account,
+    // which causes the reconciliation readiness check to fail.
+    const workspace = createDemoWorkspace();
+    const result = closeWorkspacePeriod(
+      workspace,
+      {
+        closedAt: "2026-04-07T00:00:00Z",
+        closedBy: "Primary",
+        from: "2026-04-01",
+        to: "2026-04-30",
+      },
+      { audit: { actor: "Primary" } },
+    );
+
+    expect(result.ok).toBe(false);
+    expect(result.errors[0]).toContain("not ready to close");
+  });
+
+  it("sorts close periods when more than one period is added", () => {
+    const workspace = createDemoWorkspace();
+    // Close an earlier period first
+    const first = closeWorkspacePeriod(
+      workspace,
+      {
+        closedAt: "2026-03-01T00:00:00Z",
+        closedBy: "Primary",
+        from: "2026-02-01",
+        to: "2026-02-28",
+      },
+      { audit: { actor: "Primary" } },
+    );
+    expect(first.ok).toBe(true);
+
+    // Close a later period — the sort comparator at line 1514 will run with 2 periods
+    const second = closeWorkspacePeriod(
+      first.document,
+      {
+        closedAt: "2026-04-01T00:00:00Z",
+        closedBy: "Primary",
+        from: "2026-03-01",
+        to: "2026-03-31",
+      },
+      { audit: { actor: "Primary" } },
+    );
+    expect(second.ok).toBe(true);
+    expect(second.document.closePeriods).toHaveLength(2);
+    // Periods should be sorted by from date
+    expect(second.document.closePeriods?.[0]?.from).toBe("2026-02-01");
+    expect(second.document.closePeriods?.[1]?.from).toBe("2026-03-01");
+  });
+
   it("rejects invalid or overlapping close periods", () => {
     const workspace = createDemoWorkspace();
+
+    const badDates = closeWorkspacePeriod(
+      workspace,
+      {
+        closedAt: "2026-04-01T00:00:00Z",
+        closedBy: "Primary",
+        from: "not-a-date",
+        to: "also-bad",
+      },
+      { audit: { actor: "Primary" } },
+    );
+    expect(badDates.ok).toBe(false);
+    expect(badDates.errors).toContain("Close period from must use ISO date format YYYY-MM-DD.");
+    expect(badDates.errors).toContain("Close period to must use ISO date format YYYY-MM-DD.");
 
     const invalid = closeWorkspacePeriod(
       workspace,
@@ -851,5 +1076,217 @@ LSalary
     expect(records.map((record) => record.message)).toContain("workspace storage load completed");
 
     await rm(dir, { recursive: true, force: true });
+  });
+
+  describe("addHouseholdMember", () => {
+    it("adds a new member to the workspace", () => {
+      const workspace = createDemoWorkspace();
+      const result = addHouseholdMember(
+        workspace,
+        { actor: "Child" },
+        { audit: { actor: "Primary" } },
+      );
+
+      expect(result.ok).toBe(true);
+      expect(result.document.householdMembers).toContain("Child");
+      expect(result.document.auditEvents.at(-1)?.eventType).toBe("household-member.added");
+      expect(result.document.auditEvents.at(-1)?.summary).toMatchObject({
+        actor: "Child",
+        role: "member",
+      });
+    });
+
+    it("adds a new member with an explicit role", () => {
+      const workspace = createDemoWorkspace();
+      const result = addHouseholdMember(
+        workspace,
+        { actor: "Child", role: "guardian" },
+        { audit: { actor: "Primary" } },
+      );
+
+      expect(result.ok).toBe(true);
+      expect(result.document.householdMemberRoles?.["Child"]).toBe("guardian");
+    });
+
+    it("rejects an empty actor string", () => {
+      const workspace = createDemoWorkspace();
+      const result = addHouseholdMember(workspace, { actor: "" });
+
+      expect(result.ok).toBe(false);
+      expect(result.errors).toEqual(["Household member actor is required."]);
+      expect(result.document.householdMembers).toEqual(workspace.householdMembers);
+    });
+
+    it("rejects a whitespace-only actor string", () => {
+      const workspace = createDemoWorkspace();
+      const result = addHouseholdMember(workspace, { actor: "   " });
+
+      expect(result.ok).toBe(false);
+      expect(result.errors).toEqual(["Household member actor is required."]);
+    });
+
+    it("rejects a duplicate actor", () => {
+      const workspace = createDemoWorkspace();
+      const existing = workspace.householdMembers[0];
+      const result = addHouseholdMember(workspace, { actor: existing });
+
+      expect(result.ok).toBe(false);
+      expect(result.errors[0]).toContain("already a household member");
+    });
+  });
+
+  describe("removeHouseholdMember", () => {
+    it("removes an existing member", () => {
+      const workspace = {
+        ...createDemoWorkspace(),
+        householdMembers: ["Primary", "Partner", "Admin"],
+        householdMemberRoles: {
+          Primary: "guardian" as const,
+          Partner: "member" as const,
+          Admin: "admin" as const,
+        },
+      };
+      const result = removeHouseholdMember(
+        workspace,
+        { actor: "Partner" },
+        { audit: { actor: "Admin" } },
+      );
+
+      expect(result.ok).toBe(true);
+      expect(result.document.householdMembers).not.toContain("Partner");
+      expect(result.document.householdMemberRoles?.["Partner"]).toBeUndefined();
+      expect(result.document.auditEvents.at(-1)?.eventType).toBe("household-member.removed");
+    });
+
+    it("rejects removal of a non-member", () => {
+      const workspace = createDemoWorkspace();
+      const result = removeHouseholdMember(workspace, { actor: "Nobody" });
+
+      expect(result.ok).toBe(false);
+      expect(result.errors[0]).toContain("not a household member");
+    });
+
+    it("rejects removal of the last admin", () => {
+      const workspace = {
+        ...createDemoWorkspace(),
+        householdMembers: ["Primary", "Admin"],
+        householdMemberRoles: {
+          Primary: "guardian" as const,
+          Admin: "admin" as const,
+        },
+      };
+      const result = removeHouseholdMember(workspace, { actor: "Admin" });
+
+      expect(result.ok).toBe(false);
+      expect(result.errors[0]).toContain("last admin");
+    });
+
+    it("allows removal of an admin when another admin remains", () => {
+      const workspace = {
+        ...createDemoWorkspace(),
+        householdMembers: ["Admin1", "Admin2"],
+        householdMemberRoles: {
+          Admin1: "admin" as const,
+          Admin2: "admin" as const,
+        },
+      };
+      const result = removeHouseholdMember(workspace, { actor: "Admin1" });
+
+      expect(result.ok).toBe(true);
+      expect(result.document.householdMembers).not.toContain("Admin1");
+    });
+  });
+
+  describe("setHouseholdMemberRole", () => {
+    it("updates the role of an existing member", () => {
+      const workspace = {
+        ...createDemoWorkspace(),
+        householdMembers: ["Primary", "Partner", "Admin"],
+        householdMemberRoles: {
+          Primary: "guardian" as const,
+          Partner: "member" as const,
+          Admin: "admin" as const,
+        },
+      };
+      const result = setHouseholdMemberRole(
+        workspace,
+        { actor: "Partner", role: "guardian" },
+        { audit: { actor: "Admin" } },
+      );
+
+      expect(result.ok).toBe(true);
+      expect(result.document.householdMemberRoles?.["Partner"]).toBe("guardian");
+      expect(result.document.auditEvents.at(-1)?.eventType).toBe("household-member.role-changed");
+      expect(result.document.auditEvents.at(-1)?.summary).toMatchObject({
+        actor: "Partner",
+        previousRole: "member",
+        role: "guardian",
+      });
+    });
+
+    it("rejects role change for a non-member", () => {
+      const workspace = createDemoWorkspace();
+      const result = setHouseholdMemberRole(workspace, { actor: "Nobody", role: "guardian" });
+
+      expect(result.ok).toBe(false);
+      expect(result.errors[0]).toContain("not a household member");
+    });
+
+    it("rejects demotion of the last admin", () => {
+      const workspace = {
+        ...createDemoWorkspace(),
+        householdMembers: ["Primary", "Admin"],
+        householdMemberRoles: {
+          Primary: "guardian" as const,
+          Admin: "admin" as const,
+        },
+      };
+      const result = setHouseholdMemberRole(workspace, { actor: "Admin", role: "guardian" });
+
+      expect(result.ok).toBe(false);
+      expect(result.errors[0]).toContain("last admin");
+    });
+
+    it("allows demotion of an admin when another admin remains", () => {
+      const workspace = {
+        ...createDemoWorkspace(),
+        householdMembers: ["Admin1", "Admin2"],
+        householdMemberRoles: {
+          Admin1: "admin" as const,
+          Admin2: "admin" as const,
+        },
+      };
+      const result = setHouseholdMemberRole(workspace, { actor: "Admin1", role: "guardian" });
+
+      expect(result.ok).toBe(true);
+      expect(result.document.householdMemberRoles?.["Admin1"]).toBe("guardian");
+    });
+
+    it("keeps admin role when setting admin to admin", () => {
+      const workspace = {
+        ...createDemoWorkspace(),
+        householdMembers: ["Admin"],
+        householdMemberRoles: { Admin: "admin" as const },
+      };
+      const result = setHouseholdMemberRole(workspace, { actor: "Admin", role: "admin" });
+
+      expect(result.ok).toBe(true);
+      expect(result.document.householdMemberRoles?.["Admin"]).toBe("admin");
+    });
+
+    it("adds a role entry for a member with no previous role entry", () => {
+      const workspace = {
+        ...createDemoWorkspace(),
+        householdMembers: ["Primary", "NoRole"],
+        householdMemberRoles: { Primary: "guardian" as const },
+      };
+      const result = setHouseholdMemberRole(workspace, { actor: "NoRole", role: "guardian" });
+
+      expect(result.ok).toBe(true);
+      expect(result.document.auditEvents.at(-1)?.summary).toMatchObject({
+        previousRole: "member",
+        role: "guardian",
+      });
+    });
   });
 });

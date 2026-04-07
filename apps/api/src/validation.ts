@@ -1,4 +1,5 @@
 import type {
+  AddHouseholdMemberRequest,
   ApplyScheduledTransactionExceptionRequest,
   ExecuteScheduledTransactionRequest,
   GetCloseSummaryRequest,
@@ -16,6 +17,7 @@ import type {
   PostScheduledTransactionRequest,
   PostStatementImportRequest,
   PostTransactionRequest,
+  SetHouseholdMemberRoleRequest,
 } from "./types";
 
 const isoDatePattern = /^\d{4}-\d{2}-\d{2}$/;
@@ -860,4 +862,52 @@ export function validateApplyScheduledTransactionExceptionRequestBody(body: unkn
     : {
         value: body as Pick<ApplyScheduledTransactionExceptionRequest, "payload">,
       };
+}
+
+function isHouseholdMemberRole(
+  value: unknown,
+): value is "admin" | "guardian" | "member" {
+  return value === "admin" || value === "guardian" || value === "member";
+}
+
+export function validateAddHouseholdMemberBody(body: unknown):
+  | { errors: string[] }
+  | { value: Pick<AddHouseholdMemberRequest, "payload"> } {
+  if (!isObject(body) || !isObject(body.payload)) {
+    return { errors: ["payload is required."] };
+  }
+
+  const errors: string[] = [];
+  const payload = body.payload;
+
+  if (!isNonEmptyString(payload.actor)) {
+    errors.push("payload.actor is required.");
+  }
+
+  if (payload.role !== undefined && !isHouseholdMemberRole(payload.role)) {
+    errors.push("payload.role must be admin, guardian, or member when provided.");
+  }
+
+  return errors.length > 0
+    ? { errors }
+    : { value: body as Pick<AddHouseholdMemberRequest, "payload"> };
+}
+
+export function validateSetHouseholdMemberRoleBody(body: unknown):
+  | { errors: string[] }
+  | { value: Pick<SetHouseholdMemberRoleRequest, "payload"> } {
+  if (!isObject(body) || !isObject(body.payload)) {
+    return { errors: ["payload is required."] };
+  }
+
+  const errors: string[] = [];
+  const payload = body.payload;
+
+  if (!isHouseholdMemberRole(payload.role)) {
+    errors.push("payload.role must be admin, guardian, or member.");
+  }
+
+  return errors.length > 0
+    ? { errors }
+    : { value: body as Pick<SetHouseholdMemberRoleRequest, "payload"> };
 }

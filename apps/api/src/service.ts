@@ -1,5 +1,6 @@
 import { createNoopLogger, type Logger } from "@tally/logging";
 import {
+  addHouseholdMember,
   addTransaction,
   buildOperationalWorkspaceView,
   buildCloseSummary,
@@ -19,6 +20,8 @@ import {
   importTransactionsFromQif,
   reconcileAccount,
   recordEnvelopeAllocation,
+  removeHouseholdMember,
+  setHouseholdMemberRole,
   upsertBaselineBudgetLine,
   upsertEnvelope,
   upsertScheduledTransaction,
@@ -32,6 +35,7 @@ import {
   withWorkspace,
 } from "./service-helpers";
 import type {
+  AddHouseholdMemberRequest,
   BackupEnvelope,
   BackupsEnvelope,
   DeleteTransactionRequest,
@@ -44,11 +48,13 @@ import type {
   ExecuteScheduledTransactionRequest,
   GetCloseSummaryRequest,
   GetDashboardRequest,
+  GetHouseholdMembersRequest,
   GetQifExportRequest,
   GetStatementExportRequest,
   GetReportRequest,
   GetWorkspaceRequest,
   GnuCashXmlExportEnvelope,
+  HouseholdMembersEnvelope,
   PostBaselineBudgetLineRequest,
   PostBackupRequest,
   PostBackupRestoreRequest,
@@ -62,7 +68,9 @@ import type {
   PostScheduledTransactionRequest,
   PostStatementImportRequest,
   PostTransactionRequest,
+  RemoveHouseholdMemberRequest,
   ServiceResponse,
+  SetHouseholdMemberRoleRequest,
   StatementExportEnvelope,
   UpdateTransactionRequest,
   DashboardEnvelope,
@@ -144,6 +152,18 @@ export interface WorkspaceService {
   updateTransaction(
     request: UpdateTransactionRequest,
   ): Promise<ServiceResponse<WorkspaceEnvelope | ErrorEnvelope>>;
+  getHouseholdMembers(
+    request: GetHouseholdMembersRequest,
+  ): Promise<ServiceResponse<HouseholdMembersEnvelope | ErrorEnvelope>>;
+  addHouseholdMember(
+    request: AddHouseholdMemberRequest,
+  ): Promise<ServiceResponse<WorkspaceEnvelope | ErrorEnvelope>>;
+  setHouseholdMemberRole(
+    request: SetHouseholdMemberRoleRequest,
+  ): Promise<ServiceResponse<WorkspaceEnvelope | ErrorEnvelope>>;
+  removeHouseholdMember(
+    request: RemoveHouseholdMemberRequest,
+  ): Promise<ServiceResponse<WorkspaceEnvelope | ErrorEnvelope>>;
 }
 
 export function createWorkspaceService(params: {
@@ -160,7 +180,7 @@ export function createWorkspaceService(params: {
     return buildOperationalWorkspaceView(document);
   }
 
-  function serviceParams(access: "destroy" | "operate" | "read" | "write", auth: Parameters<WorkspaceService["getWorkspace"]>[0]["auth"], requestLogger: Logger, workspaceId: string) {
+  function serviceParams(access: "destroy" | "manage" | "operate" | "read" | "write", auth: Parameters<WorkspaceService["getWorkspace"]>[0]["auth"], requestLogger: Logger, workspaceId: string) {
     return { access, auth, logger: requestLogger, repository: params.repository, workspaceId };
   }
 
@@ -614,6 +634,75 @@ export function createWorkspaceService(params: {
 
           await params.repository.save(result.document, { logger: requestLogger });
           requestLogger.info("service command completed", { warnings: result.errors });
+          return success(200, { workspace: presentWorkspace(result.document) });
+        },
+      );
+    },
+
+    // --- Household member management ---
+
+    async getHouseholdMembers(request) {
+      const requestLogger = getRequestLogger(request.logger);
+      return withWorkspace<HouseholdMembersEnvelope | ErrorEnvelope>(
+        serviceParams("read", request.auth, requestLogger, request.workspaceId),
+        async (workspace) => {
+          const roles = workspace.householdMemberRoles ?? {};
+          const members = workspace.householdMembers.map((actor) => ({
+            actor,
+            role: (roles[actor] ?? "member") as "admin" | "guardian" | "member",
+          }));
+          return success(200, { members });
+        },
+      );
+    },
+
+    async addHouseholdMember(request) {
+      const requestLogger = getRequestLogger(request.logger);
+      return withMutation(
+        { ...serviceParams("manage", request.auth, requestLogger, request.workspaceId), successStatus: 200 },
+        (workspace, audit) => addHouseholdMember(workspace, request.payload, { audit, logger: requestLogger }),
+      );
+    },
+
+    async setHouseholdMemberRole(request) {
+      const requestLogger = getRequestLogger(request.logger);
+      return withMutation(
+        { ...serviceParams("manage", request.auth, requestLogger, request.workspaceId), successStatus: 200 },
+        (workspace, audit) =>
+          setHouseholdMemberRole(
+            workspace,
+            { actor: request.actor, role: request.payload.role },
+            { audit, logger: requestLogger },
+          ),
+      );
+    },
+
+    async removeHouseholdMember(request) {
+      const requestLogger = getRequestLogger(request.logger);
+      return withWorkspace<WorkspaceEnvelope | ErrorEnvelope>(
+        serviceParams("manage", request.auth, requestLogger, request.workspaceId),
+        async (workspace, authorization) => {
+          const audit = buildAuthorizationAuditContext(request.auth.actor, authorization);
+          const result = removeHouseholdMember(
+            workspace,
+            { actor: request.actor },
+            { audit, logger: requestLogger },
+          );
+
+          if (!result.ok) {
+            requestLogger.warn("service command validation failed", { errors: result.errors });
+            return failure(
+              new ApiError({
+                code: "validation.failed",
+                details: { issues: result.errors },
+                message: result.errors[0] ?? "Request validation failed.",
+                status: 409,
+              }),
+            );
+          }
+
+          await params.repository.save(result.document, { logger: requestLogger });
+          requestLogger.info("service command completed");
           return success(200, { workspace: presentWorkspace(result.document) });
         },
       );

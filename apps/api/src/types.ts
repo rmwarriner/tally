@@ -301,4 +301,44 @@ export interface ReportEnvelope {
   report: import("@tally/workspace").WorkspaceReport;
 }
 
+export interface GetHouseholdMembersRequest {
+  auth: AuthContext;
+  logger?: Logger;
+  workspaceId: string;
+}
+
+export interface AddHouseholdMemberRequest {
+  auth: AuthContext;
+  logger?: Logger;
+  payload: {
+    actor: string;
+    role?: "admin" | "guardian" | "member";
+  };
+  workspaceId: string;
+}
+
+export interface SetHouseholdMemberRoleRequest {
+  actor: string;
+  auth: AuthContext;
+  logger?: Logger;
+  payload: {
+    role: "admin" | "guardian" | "member";
+  };
+  workspaceId: string;
+}
+
+export interface RemoveHouseholdMemberRequest {
+  actor: string;
+  auth: AuthContext;
+  logger?: Logger;
+  workspaceId: string;
+}
+
+export interface HouseholdMembersEnvelope {
+  members: Array<{
+    actor: string;
+    role: "admin" | "guardian" | "member";
+  }>;
+}
+
 export type { ErrorEnvelope };

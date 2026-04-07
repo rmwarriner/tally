@@ -1,6 +1,6 @@
 # API Runtime Operations
 
-Last reviewed: 2026-04-06
+Last reviewed: 2026-04-07
 
 ## Scope
 
@@ -131,10 +131,58 @@ Header compatibility during transition:
 - workspace authorization is role-scoped per workspace membership:
   - `member`: read and standard write mutations
   - `guardian`: member access plus operate-level mutations (imports, backups, close-period operations)
-  - `admin`: guardian access plus destructive transaction destroy
+  - `admin`: guardian access plus destructive transaction destroy and household member management
   - `local-admin`: runtime bootstrap/admin bypass for local operator contexts
 - workspace role bindings are stored in `householdMemberRoles` on each workspace document and enforced by the API service layer
 - mutation audit events include authorization context (`actorRole` and `authorization`) in event summaries
+- household member management is available through dedicated routes:
+  - `GET /api/workspaces/:id/members` — list members and their roles (any member)
+  - `POST /api/workspaces/:id/members` — add a member (admin only)
+  - `PUT /api/workspaces/:id/members/:actor/role` — set a member role (admin only)
+  - `DELETE /api/workspaces/:id/members/:actor` — remove a member (admin only)
+  - the last admin of a workspace cannot be removed or demoted; all changes emit audit events
+
+## Multi-Actor Identity Strategies
+
+Two auth strategies support family-scale deployments where each household member has their own identity.
+
+### Multi-Token Identities
+
+Use `TALLY_API_AUTH_IDENTITIES` (or `TALLY_API_AUTH_IDENTITIES_FILE` for secret-file storage) to assign each family member a distinct token:
+
+```json
+[
+  { "actor": "Alice", "role": "admin", "token": "tok-alice-..." },
+  { "actor": "Bob",   "role": "member", "token": "tok-bob-..."  }
+]
+```
+
+Each token resolves to the named actor. That actor is then checked against `householdMembers` in each workspace to determine whether access is granted, and `householdMemberRoles` to determine the effective workspace role.
+
+Prefer `TALLY_API_AUTH_IDENTITIES_FILE` in production so token material stays out of process-manager environment logs.
+
+### Trusted-Header / OIDC
+
+Use `TALLY_API_AUTH_TRUSTED_*` variables to delegate identity resolution to an upstream proxy such as Cloudflare Access or another OIDC gateway. The proxy authenticates the user, then injects actor identity as request headers that Tally trusts after verifying a shared proxy key:
+
+| Environment variable | Purpose | Default header name |
+|---|---|---|
+| `TALLY_API_AUTH_TRUSTED_ACTOR_HEADER` | Header carrying the authenticated actor name | (required, no default) |
+| `TALLY_API_AUTH_TRUSTED_ROLE_HEADER` | Header carrying `admin` or `member` | `x-tally-auth-role` |
+| `TALLY_API_AUTH_TRUSTED_PROXY_KEY_HEADER` | Header carrying the shared proxy key | `x-tally-auth-proxy-key` |
+| `TALLY_API_AUTH_TRUSTED_PROXY_KEY` | Inline shared key (use file variant in production) | — |
+| `TALLY_API_AUTH_TRUSTED_PROXY_KEY_FILE` | Path to file containing the shared key | — |
+
+**Cloudflare Access integration example:**
+
+1. Configure a Cloudflare Access application in front of the Tally API.
+2. Set `TALLY_API_AUTH_TRUSTED_ACTOR_HEADER=cf-access-authenticated-user-email` (or a custom JWT claim header).
+3. Set `TALLY_API_AUTH_TRUSTED_ROLE_HEADER` to whichever header carries role information from your Access policy.
+4. Set `TALLY_API_AUTH_TRUSTED_PROXY_KEY_FILE` to a file containing a long random secret shared with the proxy.
+5. Configure Access to inject that secret as the `x-tally-auth-proxy-key` header on every forwarded request.
+6. Ensure the API is not reachable except through the Access-protected entry point.
+
+The Tally API validates the proxy key before trusting any injected actor or role header. Requests without a valid proxy key are rejected with `401`.
 
 ## Current Deployment Assumptions
 

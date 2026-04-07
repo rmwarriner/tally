@@ -4,6 +4,7 @@ export interface HttpReadRouteMatches {
   closeSummaryMatch: RegExpMatchArray | null;
   dashboardMatch: RegExpMatchArray | null;
   gnucashXmlExportMatch: RegExpMatchArray | null;
+  householdMembersMatch: RegExpMatchArray | null;
   qifExportMatch: RegExpMatchArray | null;
   reportMatch: RegExpMatchArray | null;
   statementExportMatch: RegExpMatchArray | null;
@@ -22,6 +23,7 @@ export interface HttpPostRouteMatches {
   exceptionScheduleMatch: RegExpMatchArray | null;
   executeScheduleMatch: RegExpMatchArray | null;
   gnucashXmlImportMatch: RegExpMatchArray | null;
+  householdMemberMatch: RegExpMatchArray | null;
   qifImportMatch: RegExpMatchArray | null;
   reconciliationMatch: RegExpMatchArray | null;
   scheduleMatch: RegExpMatchArray | null;
@@ -32,6 +34,12 @@ export interface HttpPostRouteMatches {
 export interface HttpDeleteRouteMatches {
   deleteTransactionMatch: RegExpMatchArray | null;
   destroyTransactionMatch: RegExpMatchArray | null;
+  removeHouseholdMemberMatch: RegExpMatchArray | null;
+}
+
+export interface HttpPutRouteMatches {
+  putTransactionMatch: RegExpMatchArray | null;
+  setHouseholdMemberRoleMatch: RegExpMatchArray | null;
 }
 
 export function isLivenessRoute(method: string, path: string): boolean {
@@ -163,6 +171,18 @@ export function normalizeRouteLabel(method: string, path: string): string {
     return "/api/workspaces/:workspaceId/exports/gnucash-xml";
   }
 
+  if (/^\/api\/workspaces\/[^/]+\/members$/.test(path)) {
+    return "/api/workspaces/:workspaceId/members";
+  }
+
+  if (/^\/api\/workspaces\/[^/]+\/members\/[^/]+\/role$/.test(path)) {
+    return "/api/workspaces/:workspaceId/members/:actor/role";
+  }
+
+  if (/^\/api\/workspaces\/[^/]+\/members\/[^/]+$/.test(path)) {
+    return "/api/workspaces/:workspaceId/members/:actor";
+  }
+
   return path;
 }
 
@@ -173,6 +193,7 @@ export function matchHttpReadRoutes(path: string): HttpReadRouteMatches {
     closeSummaryMatch: path.match(/^\/api\/workspaces\/([^/]+)\/close-summary$/),
     dashboardMatch: path.match(/^\/api\/workspaces\/([^/]+)\/dashboard$/),
     gnucashXmlExportMatch: path.match(/^\/api\/workspaces\/([^/]+)\/exports\/gnucash-xml$/),
+    householdMembersMatch: path.match(/^\/api\/workspaces\/([^/]+)\/members$/),
     qifExportMatch: path.match(/^\/api\/workspaces\/([^/]+)\/exports\/qif$/),
     reportMatch: path.match(/^\/api\/workspaces\/([^/]+)\/reports\/([^/]+)$/),
     statementExportMatch: path.match(/^\/api\/workspaces\/([^/]+)\/exports\/(ofx|qfx)$/),
@@ -196,6 +217,7 @@ export function matchHttpPostRoutes(path: string): HttpPostRouteMatches {
     exceptionScheduleMatch: path.match(/^\/api\/workspaces\/([^/]+)\/schedules\/([^/]+)\/exceptions$/),
     executeScheduleMatch: path.match(/^\/api\/workspaces\/([^/]+)\/schedules\/([^/]+)\/execute$/),
     gnucashXmlImportMatch: path.match(/^\/api\/workspaces\/([^/]+)\/imports\/gnucash-xml$/),
+    householdMemberMatch: path.match(/^\/api\/workspaces\/([^/]+)\/members$/),
     qifImportMatch: path.match(/^\/api\/workspaces\/([^/]+)\/imports\/qif$/),
     reconciliationMatch: path.match(/^\/api\/workspaces\/([^/]+)\/reconciliations$/),
     scheduleMatch: path.match(/^\/api\/workspaces\/([^/]+)\/schedules$/),
@@ -204,13 +226,17 @@ export function matchHttpPostRoutes(path: string): HttpPostRouteMatches {
   };
 }
 
-export function matchHttpPutTransactionRoute(path: string): RegExpMatchArray | null {
-  return path.match(/^\/api\/workspaces\/([^/]+)\/transactions\/([^/]+)$/);
+export function matchHttpPutRoutes(path: string): HttpPutRouteMatches {
+  return {
+    putTransactionMatch: path.match(/^\/api\/workspaces\/([^/]+)\/transactions\/([^/]+)$/),
+    setHouseholdMemberRoleMatch: path.match(/^\/api\/workspaces\/([^/]+)\/members\/([^/]+)\/role$/),
+  };
 }
 
 export function matchHttpDeleteRoutes(path: string): HttpDeleteRouteMatches {
   return {
     deleteTransactionMatch: path.match(/^\/api\/workspaces\/([^/]+)\/transactions\/([^/]+)$/),
     destroyTransactionMatch: path.match(/^\/api\/workspaces\/([^/]+)\/transactions\/([^/]+)\/destroy$/),
+    removeHouseholdMemberMatch: path.match(/^\/api\/workspaces\/([^/]+)\/members\/([^/]+)$/),
   };
 }

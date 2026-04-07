@@ -188,6 +188,155 @@ describe("gnucash xml adapter", () => {
     expect(parsed.document?.auditEvents[0]?.summary).toEqual({ amount: 2500, source: "import" });
   });
 
+  it("uses fallback values for optional attributes when parsing", () => {
+    // Parse XML that omits optional attributes to exercise parser fallback branches.
+    const xml = `<?xml version="1.0" encoding="utf-8"?>
+<gnc-v2 xmlns:ws="https://tally.dev/ns/workspace">
+  <ws:workspace schemaVersion="1" id="ws-1" name="Test" baseCommodityCode="USD">
+    <ws:householdMembers></ws:householdMembers>
+    <ws:householdMemberRoles />
+    <ws:commodities></ws:commodities>
+    <ws:accounts>
+      <ws:account id="acct-1" code="1000" name="Checking" type="asset" />
+    </ws:accounts>
+    <ws:transactions>
+      <ws:transaction id="txn-1" occurredOn="2026-04-01" description="No source">
+        <ws:postings>
+          <ws:posting accountId="acct-1" commodityCode="USD" quantity="100" />
+        </ws:postings>
+      </ws:transaction>
+    </ws:transactions>
+    <ws:scheduledTransactions>
+      <ws:scheduledTransaction id="sched-1" name="Rent" nextDueOn="2026-05-01" autoPost="false">
+        <ws:templateTransaction description="Rent">
+          <ws:postings>
+            <ws:posting accountId="acct-1" commodityCode="USD" quantity="-1500" />
+          </ws:postings>
+        </ws:templateTransaction>
+      </ws:scheduledTransaction>
+    </ws:scheduledTransactions>
+    <ws:baselineBudgetLines>
+      <ws:baselineBudgetLine accountId="acct-1" period="2026-04" commodityCode="USD" quantity="1000" />
+    </ws:baselineBudgetLines>
+    <ws:envelopes>
+      <ws:envelope id="env-1" name="Groceries" expenseAccountId="acct-1" fundingAccountId="acct-1" availableCommodityCode="USD" availableQuantity="0" rolloverEnabled="false" />
+    </ws:envelopes>
+    <ws:envelopeAllocations>
+      <ws:envelopeAllocation id="alloc-1" envelopeId="env-1" occurredOn="2026-04-01" commodityCode="USD" quantity="100" />
+    </ws:envelopeAllocations>
+    <ws:importBatches>
+      <ws:importBatch id="batch-1" importedAt="2026-04-01T00:00:00Z" sourceLabel="Test" fingerprint="fp1"><ws:transactionIds></ws:transactionIds></ws:importBatch>
+    </ws:importBatches>
+    <ws:reconciliationSessions></ws:reconciliationSessions>
+    <ws:closePeriods>
+      <ws:closePeriod id="cp-1" from="2026-03-01" to="2026-03-31" />
+    </ws:closePeriods>
+    <ws:auditEvents>
+      <ws:auditEvent id="audit-1" workspaceId="ws-1" actor="Alice" occurredAt="2026-04-01T00:00:00Z" entityIds="[]" summary="{}" />
+      <ws:auditEvent />
+    </ws:auditEvents>
+  </ws:workspace>
+</gnc-v2>`;
+
+    const parsed = parseGnuCashXml(xml);
+    expect(parsed.errors).toEqual([]);
+
+    // transaction without source element → source is undefined
+    expect(parsed.document?.transactions[0]?.source).toBeUndefined();
+
+    // scheduledTransaction without frequency → falls back to "monthly"
+    expect(parsed.document?.scheduledTransactions[0]?.frequency).toBe("monthly");
+
+    // baselineBudgetLine without budgetPeriod → falls back to "monthly"
+    expect(parsed.document?.baselineBudgetLines[0]?.budgetPeriod).toBe("monthly");
+
+    // envelope without targetAmount → undefined
+    expect(parsed.document?.envelopes[0]?.targetAmount).toBeUndefined();
+
+    // envelopeAllocation without type → "fund"
+    expect(parsed.document?.envelopeAllocations[0]?.type).toBe("fund");
+
+    // importBatch without provider → "csv"
+    expect(parsed.document?.importBatches[0]?.provider).toBe("csv");
+
+    // auditEvent without eventType → "transaction.created"
+    expect(parsed.document?.auditEvents[0]?.eventType).toBe("transaction.created");
+  });
+
+  it("exports source without externalReference and envelope without targetAmount", () => {
+    const workspace = createDemoWorkspace();
+    workspace.transactions = [
+      {
+        description: "Imported",
+        id: "txn-no-ref",
+        occurredOn: "2026-04-01",
+        postings: [],
+        source: {
+          fingerprint: "fp-x",
+          importedAt: "2026-04-01T00:00:00.000Z",
+          provider: "csv",
+          // no externalReference
+        },
+        tags: [],
+      },
+    ];
+    workspace.envelopes = [
+      {
+        availableAmount: { commodityCode: "USD", quantity: 0 },
+        expenseAccountId: "acct-1",
+        fundingAccountId: "acct-1",
+        id: "env-no-target",
+        name: "Misc",
+        rolloverEnabled: false,
+        // no targetAmount
+      },
+    ];
+    workspace.householdMemberRoles = {};
+    workspace.scheduledTransactions = [];
+    workspace.baselineBudgetLines = [];
+    workspace.envelopeAllocations = [];
+    workspace.importBatches = [];
+    workspace.reconciliationSessions = [];
+    workspace.closePeriods = [];
+    workspace.auditEvents = [];
+
+    const exported = buildGnuCashXmlExport({ workspace });
+    const parsed = parseGnuCashXml(exported.contents);
+
+    expect(parsed.errors).toEqual([]);
+    expect(parsed.document?.transactions[0]?.source?.externalReference).toBeUndefined();
+    expect(parsed.document?.envelopes[0]?.targetAmount).toBeUndefined();
+  });
+
+  it("skips household member roles with invalid role values", () => {
+    const xml = `<?xml version="1.0" encoding="utf-8"?>
+<gnc-v2 xmlns:ws="https://tally.dev/ns/workspace">
+  <ws:workspace schemaVersion="1" id="ws-1" name="Test" baseCommodityCode="USD">
+    <ws:householdMembers></ws:householdMembers>
+    <ws:householdMemberRoles>
+      <ws:memberRole actor="Alice" role="superadmin" />
+      <ws:memberRole actor="" role="admin" />
+      <ws:memberRole actor="Bob" role="admin" />
+    </ws:householdMemberRoles>
+    <ws:commodities></ws:commodities>
+    <ws:accounts></ws:accounts>
+    <ws:transactions></ws:transactions>
+    <ws:scheduledTransactions></ws:scheduledTransactions>
+    <ws:baselineBudgetLines></ws:baselineBudgetLines>
+    <ws:envelopes></ws:envelopes>
+    <ws:envelopeAllocations></ws:envelopeAllocations>
+    <ws:importBatches></ws:importBatches>
+    <ws:reconciliationSessions></ws:reconciliationSessions>
+    <ws:closePeriods></ws:closePeriods>
+    <ws:auditEvents></ws:auditEvents>
+  </ws:workspace>
+</gnc-v2>`;
+    const parsed = parseGnuCashXml(xml);
+    expect(parsed.errors).toEqual([]);
+    // "superadmin" and "" are invalid — only Bob/admin survives
+    expect(parsed.document?.householdMemberRoles).toEqual({ Bob: "admin" });
+  });
+
   it("reports invalid workspace headers", () => {
     expect(parseGnuCashXml("<gnc-v2 />").errors).toEqual([
       "workspace: ws:workspace root element is required.",

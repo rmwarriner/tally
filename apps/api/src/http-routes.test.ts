@@ -5,7 +5,7 @@ import {
   isReadinessRoute,
   matchHttpDeleteRoutes,
   matchHttpPostRoutes,
-  matchHttpPutTransactionRoute,
+  matchHttpPutRoutes,
   matchHttpReadRoutes,
   normalizeRouteLabel,
 } from "./http-routes";
@@ -60,13 +60,28 @@ describe("http routes", () => {
   });
 
   it("matches put and delete transaction routes", () => {
-    const putRoute = matchHttpPutTransactionRoute("/api/workspaces/demo/transactions/txn-42");
+    const putRoutes = matchHttpPutRoutes("/api/workspaces/demo/transactions/txn-42");
     const deleteRoutes = matchHttpDeleteRoutes("/api/workspaces/demo/transactions/txn-42/destroy");
 
-    expect(putRoute?.[1]).toBe("demo");
-    expect(putRoute?.[2]).toBe("txn-42");
+    expect(putRoutes.putTransactionMatch?.[1]).toBe("demo");
+    expect(putRoutes.putTransactionMatch?.[2]).toBe("txn-42");
+    expect(putRoutes.setHouseholdMemberRoleMatch).toBeNull();
     expect(deleteRoutes.destroyTransactionMatch?.[1]).toBe("demo");
     expect(deleteRoutes.destroyTransactionMatch?.[2]).toBe("txn-42");
     expect(deleteRoutes.deleteTransactionMatch).toBeNull();
+  });
+
+  it("matches household member routes", () => {
+    const getMembers = matchHttpReadRoutes("/api/workspaces/demo/members");
+    const postMember = matchHttpPostRoutes("/api/workspaces/demo/members");
+    const putRole = matchHttpPutRoutes("/api/workspaces/demo/members/Alice/role");
+    const deleteMember = matchHttpDeleteRoutes("/api/workspaces/demo/members/Alice");
+
+    expect(getMembers.householdMembersMatch?.[1]).toBe("demo");
+    expect(postMember.householdMemberMatch?.[1]).toBe("demo");
+    expect(putRole.setHouseholdMemberRoleMatch?.[1]).toBe("demo");
+    expect(putRole.setHouseholdMemberRoleMatch?.[2]).toBe("Alice");
+    expect(deleteMember.removeHouseholdMemberMatch?.[1]).toBe("demo");
+    expect(deleteMember.removeHouseholdMemberMatch?.[2]).toBe("Alice");
   });
 });

@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  validateAddHouseholdMemberBody,
   validateApplyScheduledTransactionExceptionRequestBody,
   validateBaselineBudgetLineRequestBody,
   validateClosePeriodRequestBody,
@@ -14,6 +15,7 @@ import {
   validateReconciliationRequestBody,
   validateReportQuery,
   validateScheduledTransactionRequestBody,
+  validateSetHouseholdMemberRoleBody,
   validateStatementExportQuery,
   validateStatementImportRequestBody,
   validateTransactionRequestBody,
@@ -553,5 +555,39 @@ describe("api request validation", () => {
     expect(invalid.errors).toContain("payload.effectiveOn must use YYYY-MM-DD format when provided.");
     expect(invalid.errors).toContain("payload.nextDueOn must use YYYY-MM-DD format when provided.");
     expect(invalid.errors).toContain("payload.note must be a string when provided.");
+  });
+
+  it("validates add household member payloads", () => {
+    const valid = validateAddHouseholdMemberBody({ payload: { actor: "Alice", role: "guardian" } });
+    if ("errors" in valid) throw new Error("expected valid");
+    expect(valid.value.payload.actor).toBe("Alice");
+
+    const withoutRole = validateAddHouseholdMemberBody({ payload: { actor: "Bob" } });
+    expect("errors" in withoutRole).toBe(false);
+
+    const missingPayload = validateAddHouseholdMemberBody({});
+    if (!("errors" in missingPayload)) throw new Error("expected errors");
+    expect(missingPayload.errors).toEqual(["payload is required."]);
+
+    const missingActor = validateAddHouseholdMemberBody({ payload: {} });
+    if (!("errors" in missingActor)) throw new Error("expected errors");
+    expect(missingActor.errors).toContain("payload.actor is required.");
+
+    const invalidRole = validateAddHouseholdMemberBody({ payload: { actor: "Carol", role: "superuser" } });
+    if (!("errors" in invalidRole)) throw new Error("expected errors");
+    expect(invalidRole.errors).toContain("payload.role must be admin, guardian, or member when provided.");
+  });
+
+  it("validates set household member role payloads", () => {
+    const valid = validateSetHouseholdMemberRoleBody({ payload: { role: "admin" } });
+    expect("errors" in valid).toBe(false);
+
+    const missingPayload = validateSetHouseholdMemberRoleBody({});
+    if (!("errors" in missingPayload)) throw new Error("expected errors");
+    expect(missingPayload.errors).toEqual(["payload is required."]);
+
+    const invalidRole = validateSetHouseholdMemberRoleBody({ payload: { role: "superuser" } });
+    if (!("errors" in invalidRole)) throw new Error("expected errors");
+    expect(invalidRole.errors).toContain("payload.role must be admin, guardian, or member.");
   });
 });

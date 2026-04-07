@@ -1,6 +1,6 @@
 # Project Status
 
-Last reviewed: 2026-04-07
+Last reviewed: 2026-04-07 (updated post family-scale identity and authorization implementation)
 
 ## Current State
 
@@ -96,6 +96,16 @@ This repository currently includes:
 - CI and security quality gates
 - security baseline documentation and audited hardening for API/runtime boundaries
 
+### Family-Scale Identity And Authorization
+
+- workspace commands for household member management (add, remove, set role)
+- audit events for all household member mutations (`household-member.added`, `household-member.removed`, `household-member.role-changed`)
+- `"manage"` access level on `WorkspaceAccess` for admin-only member management operations
+- service methods for `getHouseholdMembers`, `addHouseholdMember`, `setHouseholdMemberRole`, `removeHouseholdMember`
+- HTTP routes: `GET/POST /members`, `PUT /members/:actor/role`, `DELETE /members/:actor`
+- last-admin lockout guard: cannot remove or demote the only remaining admin
+- documented multi-token and trusted-header/OIDC identity strategies in `docs/api-runtime-operations.md`
+
 ### Audit And Observability Foundation
 
 - formal workspace audit-event system for successful financial mutations
@@ -121,23 +131,20 @@ The repository is no longer mainly missing core backend foundations.
 
 The main remaining work is now product and architecture shaping across a growing idea backlog. The highest-value next areas are:
 
-1. Continue trust and integrity hardening beyond the new transaction soft-delete/destroy model, especially encryption guidance and broader review controls
+1. Continue trust and integrity hardening: approval/review semantics for high-trust operations (e.g., second-admin confirmation for destroy), encryption guidance, and broader review controls
 2. Budgeting-model definition for remaining-to-budget, rollover, cleanup, and envelope funding semantics
-3. Family-scale multi-user identity and authorization design
-4. Review, automation, and ingestion workflows on top of the current import foundation
-5. Encryption-at-rest, key-handling, and broader trust-boundary guidance across supported persistence backends
+3. Review, automation, and ingestion workflows on top of the current import foundation
+4. Encryption-at-rest, key-handling, and broader trust-boundary guidance across supported persistence backends
 
 ## Next Suggested Restart Point
 
-When work resumes, the next recommended Phase 2 slice is family-scale identity and authorization design.
+Family-scale identity and authorization is now implemented. The next recommended slice is **approval/review semantics for high-trust operations** — the remaining gap from the original family-scale auth intent.
 
-The goal of that pass is to turn the current single-runtime auth setup into an explicit household model with:
+The goal of that pass is:
 
-- role definitions
-- actor attribution rules
-- privileged destructive-action controls
-- review or approval semantics for high-trust operations
-- a clear boundary for future Cloudflare Access and OpenID/OIDC integration
+- a pending-approval model for destructive operations (e.g., a second admin must confirm `destroyTransaction`)
+- time-limited approval tokens or out-of-band confirmation flows
+- audit events for approval grants and denials
 
 ## Deferred Follow-Up
 

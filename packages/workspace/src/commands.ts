@@ -1537,3 +1537,180 @@ export function closeWorkspacePeriod(
     document: nextDocument,
   };
 }
+
+export function addHouseholdMember(
+  document: FinanceWorkspaceDocument,
+  params: {
+    actor: string;
+    role?: "admin" | "guardian" | "member";
+  },
+  options: CommandOptions = {},
+): CommandResult {
+  const logger = (options.logger ?? createNoopLogger()).child({
+    command: "addHouseholdMember",
+    targetActor: params.actor,
+    workspaceId: document.id,
+  });
+  logger.info("workspace command started");
+
+  if (!params.actor || params.actor.trim().length === 0) {
+    const errors = ["Household member actor is required."];
+    logger.warn("workspace command validation failed", { errors });
+    return { ok: false, errors, document };
+  }
+
+  if (document.householdMembers.includes(params.actor)) {
+    const errors = [`Actor ${params.actor} is already a household member.`];
+    logger.warn("workspace command validation failed", { errors });
+    return { ok: false, errors, document };
+  }
+
+  const nextRoles: FinanceWorkspaceDocument["householdMemberRoles"] = params.role
+    ? { ...(document.householdMemberRoles ?? {}), [params.actor]: params.role }
+    : document.householdMemberRoles;
+
+  const nextDocument = appendAuditEvent(
+    {
+      ...document,
+      householdMembers: [...document.householdMembers, params.actor],
+      householdMemberRoles: nextRoles,
+    },
+    {
+      entityIds: [params.actor],
+      eventType: "household-member.added",
+      summary: {
+        actor: params.actor,
+        role: params.role ?? "member",
+      },
+    },
+    options.audit,
+  );
+
+  logger.info("workspace command completed", {
+    householdMemberCount: nextDocument.householdMembers.length,
+  });
+
+  return { ok: true, errors: [], document: nextDocument };
+}
+
+export function removeHouseholdMember(
+  document: FinanceWorkspaceDocument,
+  params: {
+    actor: string;
+  },
+  options: CommandOptions = {},
+): CommandResult {
+  const logger = (options.logger ?? createNoopLogger()).child({
+    command: "removeHouseholdMember",
+    targetActor: params.actor,
+    workspaceId: document.id,
+  });
+  logger.info("workspace command started");
+
+  if (!document.householdMembers.includes(params.actor)) {
+    const errors = [`Actor ${params.actor} is not a household member.`];
+    logger.warn("workspace command validation failed", { errors });
+    return { ok: false, errors, document };
+  }
+
+  const roles = document.householdMemberRoles ?? {};
+  const isAdmin = roles[params.actor] === "admin";
+
+  if (isAdmin) {
+    const remainingAdmins = document.householdMembers.filter(
+      (member) => member !== params.actor && roles[member] === "admin",
+    );
+    if (remainingAdmins.length === 0) {
+      const errors = [`Cannot remove ${params.actor}: they are the last admin of this workspace.`];
+      logger.warn("workspace command validation failed", { errors });
+      return { ok: false, errors, document };
+    }
+  }
+
+  const nextRoles = { ...roles };
+  delete nextRoles[params.actor];
+
+  const nextDocument = appendAuditEvent(
+    {
+      ...document,
+      householdMembers: document.householdMembers.filter((member) => member !== params.actor),
+      householdMemberRoles: nextRoles,
+    },
+    {
+      entityIds: [params.actor],
+      eventType: "household-member.removed",
+      summary: {
+        actor: params.actor,
+      },
+    },
+    options.audit,
+  );
+
+  logger.info("workspace command completed", {
+    householdMemberCount: nextDocument.householdMembers.length,
+  });
+
+  return { ok: true, errors: [], document: nextDocument };
+}
+
+export function setHouseholdMemberRole(
+  document: FinanceWorkspaceDocument,
+  params: {
+    actor: string;
+    role: "admin" | "guardian" | "member";
+  },
+  options: CommandOptions = {},
+): CommandResult {
+  const logger = (options.logger ?? createNoopLogger()).child({
+    command: "setHouseholdMemberRole",
+    targetActor: params.actor,
+    workspaceId: document.id,
+  });
+  logger.info("workspace command started");
+
+  if (!document.householdMembers.includes(params.actor)) {
+    const errors = [`Actor ${params.actor} is not a household member.`];
+    logger.warn("workspace command validation failed", { errors });
+    return { ok: false, errors, document };
+  }
+
+  const roles = document.householdMemberRoles ?? {};
+  const isCurrentlyAdmin = roles[params.actor] === "admin";
+  const isDemotingAdmin = isCurrentlyAdmin && params.role !== "admin";
+
+  if (isDemotingAdmin) {
+    const remainingAdmins = document.householdMembers.filter(
+      (member) => member !== params.actor && roles[member] === "admin",
+    );
+    if (remainingAdmins.length === 0) {
+      const errors = [
+        `Cannot change role of ${params.actor}: they are the last admin of this workspace.`,
+      ];
+      logger.warn("workspace command validation failed", { errors });
+      return { ok: false, errors, document };
+    }
+  }
+
+  const previousRole = roles[params.actor] ?? "member";
+
+  const nextDocument = appendAuditEvent(
+    {
+      ...document,
+      householdMemberRoles: { ...roles, [params.actor]: params.role },
+    },
+    {
+      entityIds: [params.actor],
+      eventType: "household-member.role-changed",
+      summary: {
+        actor: params.actor,
+        previousRole,
+        role: params.role,
+      },
+    },
+    options.audit,
+  );
+
+  logger.info("workspace command completed");
+
+  return { ok: true, errors: [], document: nextDocument };
+}

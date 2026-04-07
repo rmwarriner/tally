@@ -1356,4 +1356,241 @@ Lacct-expense-utilities
 
     await fixture.cleanup();
   });
+
+  it("returns household members for any authenticated member", async () => {
+    const fixture = await createFixture();
+    fixture.workspace.householdMembers = ["Primary", "Partner", "Admin"];
+    fixture.workspace.householdMemberRoles = {
+      Primary: "guardian",
+      Partner: "member",
+      Admin: "admin",
+    };
+    await saveWorkspaceToFile(fixture.workspacePath, fixture.workspace);
+
+    const handler = createHttpHandler({
+      authIdentities: [{ actor: "Partner", role: "member", token: "tok-partner" }],
+      service: createWorkspaceService({
+        repository: createFileSystemWorkspaceRepository({ rootDirectory: fixture.directory }),
+      }),
+    });
+
+    const response = await handler(
+      new Request(`http://localhost/api/workspaces/${fixture.workspace.id}/members`, {
+        headers: { authorization: "Bearer tok-partner" },
+      }),
+    );
+    const body = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(body.members).toHaveLength(3);
+    expect(body.members.find((m: { actor: string }) => m.actor === "Admin")?.role).toBe("admin");
+
+    await fixture.cleanup();
+  });
+
+  it("returns 403 for non-member on GET household members", async () => {
+    const fixture = await createFixture();
+    const handler = createHttpHandler({
+      authIdentities: [{ actor: "Stranger", role: "member", token: "tok-stranger" }],
+      service: createWorkspaceService({
+        repository: createFileSystemWorkspaceRepository({ rootDirectory: fixture.directory }),
+      }),
+    });
+
+    const response = await handler(
+      new Request(`http://localhost/api/workspaces/${fixture.workspace.id}/members`, {
+        headers: { authorization: "Bearer tok-stranger" },
+      }),
+    );
+
+    expect(response.status).toBe(403);
+
+    await fixture.cleanup();
+  });
+
+  it("adds a household member for admin", async () => {
+    const fixture = await createFixture();
+    fixture.workspace.householdMembers = ["Primary", "Admin"];
+    fixture.workspace.householdMemberRoles = { Primary: "guardian", Admin: "admin" };
+    await saveWorkspaceToFile(fixture.workspacePath, fixture.workspace);
+
+    const handler = createHttpHandler({
+      authIdentities: [{ actor: "Admin", role: "admin", token: "tok-admin" }],
+      service: createWorkspaceService({
+        repository: createFileSystemWorkspaceRepository({ rootDirectory: fixture.directory }),
+      }),
+    });
+
+    const response = await handler(
+      new Request(`http://localhost/api/workspaces/${fixture.workspace.id}/members`, {
+        method: "POST",
+        headers: { authorization: "Bearer tok-admin", "content-type": "application/json" },
+        body: JSON.stringify({ payload: { actor: "NewMember", role: "member" } }),
+      }),
+    );
+    const body = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(body.workspace.householdMembers).toContain("NewMember");
+
+    await fixture.cleanup();
+  });
+
+  it("returns 403 when non-admin attempts to add a household member", async () => {
+    const fixture = await createFixture();
+    const handler = createHttpHandler({
+      authIdentities: [{ actor: "Primary", role: "member", token: "tok-primary" }],
+      service: createWorkspaceService({
+        repository: createFileSystemWorkspaceRepository({ rootDirectory: fixture.directory }),
+      }),
+    });
+
+    const response = await handler(
+      new Request(`http://localhost/api/workspaces/${fixture.workspace.id}/members`, {
+        method: "POST",
+        headers: { authorization: "Bearer tok-primary", "content-type": "application/json" },
+        body: JSON.stringify({ payload: { actor: "NewMember" } }),
+      }),
+    );
+
+    expect(response.status).toBe(403);
+
+    await fixture.cleanup();
+  });
+
+  it("updates a household member role for admin", async () => {
+    const fixture = await createFixture();
+    fixture.workspace.householdMembers = ["Primary", "Admin"];
+    fixture.workspace.householdMemberRoles = { Primary: "guardian", Admin: "admin" };
+    await saveWorkspaceToFile(fixture.workspacePath, fixture.workspace);
+
+    const handler = createHttpHandler({
+      authIdentities: [{ actor: "Admin", role: "admin", token: "tok-admin" }],
+      service: createWorkspaceService({
+        repository: createFileSystemWorkspaceRepository({ rootDirectory: fixture.directory }),
+      }),
+    });
+
+    const response = await handler(
+      new Request(`http://localhost/api/workspaces/${fixture.workspace.id}/members/Primary/role`, {
+        method: "PUT",
+        headers: { authorization: "Bearer tok-admin", "content-type": "application/json" },
+        body: JSON.stringify({ payload: { role: "member" } }),
+      }),
+    );
+    const body = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(body.workspace.householdMemberRoles?.["Primary"]).toBe("member");
+
+    await fixture.cleanup();
+  });
+
+  it("removes a household member for admin", async () => {
+    const fixture = await createFixture();
+    fixture.workspace.householdMembers = ["Primary", "Partner", "Admin"];
+    fixture.workspace.householdMemberRoles = { Primary: "guardian", Partner: "member", Admin: "admin" };
+    await saveWorkspaceToFile(fixture.workspacePath, fixture.workspace);
+
+    const handler = createHttpHandler({
+      authIdentities: [{ actor: "Admin", role: "admin", token: "tok-admin" }],
+      service: createWorkspaceService({
+        repository: createFileSystemWorkspaceRepository({ rootDirectory: fixture.directory }),
+      }),
+    });
+
+    const response = await handler(
+      new Request(`http://localhost/api/workspaces/${fixture.workspace.id}/members/Partner`, {
+        method: "DELETE",
+        headers: { authorization: "Bearer tok-admin" },
+      }),
+    );
+    const body = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(body.workspace.householdMembers).not.toContain("Partner");
+
+    await fixture.cleanup();
+  });
+
+  it("returns 409 when removing the last admin", async () => {
+    const fixture = await createFixture();
+    fixture.workspace.householdMembers = ["Primary", "Admin"];
+    fixture.workspace.householdMemberRoles = { Primary: "guardian", Admin: "admin" };
+    await saveWorkspaceToFile(fixture.workspacePath, fixture.workspace);
+
+    const handler = createHttpHandler({
+      authIdentities: [{ actor: "Admin", role: "admin", token: "tok-admin" }],
+      service: createWorkspaceService({
+        repository: createFileSystemWorkspaceRepository({ rootDirectory: fixture.directory }),
+      }),
+    });
+
+    const response = await handler(
+      new Request(`http://localhost/api/workspaces/${fixture.workspace.id}/members/Admin`, {
+        method: "DELETE",
+        headers: { authorization: "Bearer tok-admin" },
+      }),
+    );
+
+    expect(response.status).toBe(409);
+
+    await fixture.cleanup();
+  });
+
+  it("returns 400 when POST household member body is invalid", async () => {
+    const fixture = await createFixture();
+    fixture.workspace.householdMembers = ["Admin"];
+    fixture.workspace.householdMemberRoles = { Admin: "admin" };
+    await saveWorkspaceToFile(fixture.workspacePath, fixture.workspace);
+
+    const handler = createHttpHandler({
+      authIdentities: [{ actor: "Admin", role: "admin", token: "tok-admin" }],
+      service: createWorkspaceService({
+        repository: createFileSystemWorkspaceRepository({ rootDirectory: fixture.directory }),
+      }),
+    });
+
+    const response = await handler(
+      new Request(`http://localhost/api/workspaces/${fixture.workspace.id}/members`, {
+        method: "POST",
+        headers: { authorization: "Bearer tok-admin", "content-type": "application/json" },
+        body: JSON.stringify({ payload: { role: "member" } }),
+      }),
+    );
+    const body = await response.json();
+
+    expect(response.status).toBe(400);
+    expect(body.errors).toContain("payload.actor is required.");
+
+    await fixture.cleanup();
+  });
+
+  it("returns 400 when PUT household member role body is invalid", async () => {
+    const fixture = await createFixture();
+    fixture.workspace.householdMembers = ["Primary", "Admin"];
+    fixture.workspace.householdMemberRoles = { Primary: "guardian", Admin: "admin" };
+    await saveWorkspaceToFile(fixture.workspacePath, fixture.workspace);
+
+    const handler = createHttpHandler({
+      authIdentities: [{ actor: "Admin", role: "admin", token: "tok-admin" }],
+      service: createWorkspaceService({
+        repository: createFileSystemWorkspaceRepository({ rootDirectory: fixture.directory }),
+      }),
+    });
+
+    const response = await handler(
+      new Request(`http://localhost/api/workspaces/${fixture.workspace.id}/members/Primary/role`, {
+        method: "PUT",
+        headers: { authorization: "Bearer tok-admin", "content-type": "application/json" },
+        body: JSON.stringify({ payload: { role: "superuser" } }),
+      }),
+    );
+    const body = await response.json();
+
+    expect(response.status).toBe(400);
+    expect(body.errors).toContain("payload.role must be admin, guardian, or member.");
+
+    await fixture.cleanup();
+  });
 });

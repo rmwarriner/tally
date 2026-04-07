@@ -2,7 +2,7 @@ import type { FinanceWorkspaceDocument } from "@tally/workspace";
 
 export type AuthRole = "admin" | "member" | "local-admin";
 export type WorkspaceRole = "admin" | "guardian" | "local-admin" | "member";
-export type WorkspaceAccess = "destroy" | "operate" | "read" | "write";
+export type WorkspaceAccess = "destroy" | "manage" | "operate" | "read" | "write";
 
 export interface AuthIdentity {
   actor: string;
@@ -167,7 +167,7 @@ export function authorizeWorkspaceAccess(
     };
   }
 
-  if (access === "destroy" && effectiveRole === "admin") {
+  if ((access === "destroy" || access === "manage") && effectiveRole === "admin") {
     return {
       decision: { access, effectiveRole, grantedBy: "workspace-role" },
       ok: true,
@@ -176,6 +176,10 @@ export function authorizeWorkspaceAccess(
 
   if (access === "destroy") {
     return { ok: false, error: "Admin authority is required for destructive transaction removal." };
+  }
+
+  if (access === "manage") {
+    return { ok: false, error: "Admin authority is required for household member management." };
   }
 
   if (access === "operate") {

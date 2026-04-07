@@ -178,4 +178,38 @@ describe("api auth", () => {
     expect(memberAuthorization.error).toContain("Guardian or admin authority");
     expect(guardianAuthorization.ok).toBe(true);
   });
+
+  it("requires admin authority for manage access", () => {
+    const workspace = {
+      ...createDemoWorkspace(),
+      householdMembers: ["Primary", "Partner", "Admin"],
+      householdMemberRoles: {
+        Partner: "member" as const,
+        Primary: "guardian" as const,
+        Admin: "admin" as const,
+      },
+    };
+
+    const memberAuthorization = authorizeWorkspaceAccess(
+      workspace,
+      { actor: "Partner", kind: "token", role: "member", token: "token-2" },
+      "manage",
+    );
+    const guardianAuthorization = authorizeWorkspaceAccess(
+      workspace,
+      { actor: "Primary", kind: "token", role: "member", token: "token-1" },
+      "manage",
+    );
+    const adminAuthorization = authorizeWorkspaceAccess(
+      workspace,
+      { actor: "Admin", kind: "token", role: "admin", token: "token-3" },
+      "manage",
+    );
+
+    expect(memberAuthorization.ok).toBe(false);
+    expect(memberAuthorization.error).toContain("Admin authority");
+    expect(guardianAuthorization.ok).toBe(false);
+    expect(guardianAuthorization.error).toContain("Admin authority");
+    expect(adminAuthorization.ok).toBe(true);
+  });
 });

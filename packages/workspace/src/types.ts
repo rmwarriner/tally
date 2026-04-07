@@ -46,7 +46,10 @@ export type AuditEventType =
   | "import.ofx.recorded"
   | "import.qfx.recorded"
   | "import.gnucash-xml.recorded"
-  | "close.recorded";
+  | "close.recorded"
+  | "household-member.added"
+  | "household-member.removed"
+  | "household-member.role-changed";
 
 export interface WorkspaceClosePeriod {
   id: string;

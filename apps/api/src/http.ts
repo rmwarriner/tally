@@ -11,7 +11,7 @@ import {
   isReadinessRoute,
   matchHttpDeleteRoutes,
   matchHttpPostRoutes,
-  matchHttpPutTransactionRoute,
+  matchHttpPutRoutes,
   matchHttpReadRoutes,
   normalizeRouteLabel,
 } from "./http-routes";
@@ -19,6 +19,7 @@ import { createInMemoryApiMetrics, type ApiMetrics } from "./metrics";
 import { createInMemoryRateLimiter, type RateLimiter, type RateLimitPolicy } from "./rate-limit";
 import type { WorkspaceService } from "./service";
 import {
+  validateAddHouseholdMemberBody,
   validateCloseSummaryQuery,
   validateClosePeriodRequestBody,
   validateApplyScheduledTransactionExceptionRequestBody,
@@ -29,6 +30,7 @@ import {
   validateReportQuery,
   validateQifExportQuery,
   validateQifImportRequestBody,
+  validateSetHouseholdMemberRoleBody,
   validateStatementExportQuery,
   validateStatementImportRequestBody,
   validateEnvelopeAllocationRequestBody,
@@ -241,6 +243,7 @@ export function createHttpHandler(params: {
         closeSummaryMatch,
         dashboardMatch,
         gnucashXmlExportMatch,
+        householdMembersMatch,
         qifExportMatch,
         reportMatch,
         statementExportMatch,
@@ -668,6 +671,40 @@ export function createHttpHandler(params: {
         });
         return completeJsonResponse(response.status, response.body);
       }
+
+      if (householdMembersMatch) {
+        const rateLimited = enforceRateLimit(rateLimitPolicy.read);
+
+        if (rateLimited) {
+          return completeJsonResponse(
+            rateLimited.status,
+            await rateLimited.json(),
+            Object.fromEntries(rateLimited.headers.entries()),
+          );
+        }
+
+        const workspaceId = decodeURIComponent(householdMembersMatch[1]);
+
+        if (!isSafeWorkspaceId(workspaceId)) {
+          return completeJsonResponse(
+            400,
+            toErrorEnvelope(
+              new ApiError({
+                code: "repository.invalid_identifier",
+                message: "Workspace identifier is invalid.",
+                status: 400,
+              }),
+            ),
+          );
+        }
+
+        const response = await params.service.getHouseholdMembers({
+          auth: auth.context,
+          logger: requestLogger,
+          workspaceId,
+        });
+        return completeJsonResponse(response.status, response.body);
+      }
     }
 
     if (request.method === "POST") {
@@ -683,6 +720,7 @@ export function createHttpHandler(params: {
         exceptionScheduleMatch,
         executeScheduleMatch,
         gnucashXmlImportMatch,
+        householdMemberMatch,
         qifImportMatch,
         reconciliationMatch,
         scheduleMatch,
@@ -1463,10 +1501,63 @@ export function createHttpHandler(params: {
         });
         return completeJsonResponse(response.status, response.body);
       }
+
+      if (householdMemberMatch) {
+        const rateLimited = enforceRateLimit(rateLimitPolicy.mutation);
+
+        if (rateLimited) {
+          return completeJsonResponse(
+            rateLimited.status,
+            await rateLimited.json(),
+            Object.fromEntries(rateLimited.headers.entries()),
+          );
+        }
+
+        const workspaceId = decodeURIComponent(householdMemberMatch[1]);
+
+        if (!isSafeWorkspaceId(workspaceId)) {
+          return completeJsonResponse(
+            400,
+            toErrorEnvelope(
+              new ApiError({
+                code: "repository.invalid_identifier",
+                message: "Workspace identifier is invalid.",
+                status: 400,
+              }),
+            ),
+          );
+        }
+
+        const parsed = validateAddHouseholdMemberBody(body);
+
+        if ("errors" in parsed) {
+          requestLogger.warn("http request validation failed", { errors: parsed.errors });
+          return completeJsonResponse(
+            400,
+            toErrorEnvelope(
+              new ApiError({
+                code: "validation.failed",
+                details: { issues: parsed.errors },
+                message: parsed.errors[0] ?? "Request validation failed.",
+                status: 400,
+              }),
+            ),
+          );
+        }
+
+        const response = await params.service.addHouseholdMember({
+          auth: auth.context,
+          logger: requestLogger,
+          payload: parsed.value.payload,
+          workspaceId,
+        });
+        return completeJsonResponse(response.status, response.body);
+      }
     }
 
     if (request.method === "PUT") {
-      const transactionMatch = matchHttpPutTransactionRoute(path);
+      const { putTransactionMatch, setHouseholdMemberRoleMatch } = matchHttpPutRoutes(path);
+      const transactionMatch = putTransactionMatch;
 
       const parsedPutBody = await parsePutRequestBody({
         maxBodyBytes,
@@ -1541,10 +1632,100 @@ export function createHttpHandler(params: {
         });
         return completeJsonResponse(response.status, response.body);
       }
+
+      if (setHouseholdMemberRoleMatch) {
+        const rateLimited = enforceRateLimit(rateLimitPolicy.mutation);
+
+        if (rateLimited) {
+          return completeJsonResponse(
+            rateLimited.status,
+            await rateLimited.json(),
+            Object.fromEntries(rateLimited.headers.entries()),
+          );
+        }
+
+        const workspaceId = decodeURIComponent(setHouseholdMemberRoleMatch[1]);
+        const actor = decodeURIComponent(setHouseholdMemberRoleMatch[2]);
+
+        if (!isSafeWorkspaceId(workspaceId)) {
+          return completeJsonResponse(
+            400,
+            toErrorEnvelope(
+              new ApiError({
+                code: "repository.invalid_identifier",
+                message: "Workspace identifier is invalid.",
+                status: 400,
+              }),
+            ),
+          );
+        }
+
+        const parsed = validateSetHouseholdMemberRoleBody(body);
+
+        if ("errors" in parsed) {
+          requestLogger.warn("http request validation failed", { errors: parsed.errors });
+          return completeJsonResponse(
+            400,
+            toErrorEnvelope(
+              new ApiError({
+                code: "validation.failed",
+                details: { issues: parsed.errors },
+                message: parsed.errors[0] ?? "Request validation failed.",
+                status: 400,
+              }),
+            ),
+          );
+        }
+
+        const response = await params.service.setHouseholdMemberRole({
+          actor,
+          auth: auth.context,
+          logger: requestLogger,
+          payload: parsed.value.payload,
+          workspaceId,
+        });
+        return completeJsonResponse(response.status, response.body);
+      }
     }
 
     if (request.method === "DELETE") {
-      const { deleteTransactionMatch, destroyTransactionMatch } = matchHttpDeleteRoutes(path);
+      const { deleteTransactionMatch, destroyTransactionMatch, removeHouseholdMemberMatch } = matchHttpDeleteRoutes(path);
+
+      if (removeHouseholdMemberMatch) {
+        const rateLimited = enforceRateLimit(rateLimitPolicy.mutation);
+
+        if (rateLimited) {
+          return completeJsonResponse(
+            rateLimited.status,
+            await rateLimited.json(),
+            Object.fromEntries(rateLimited.headers.entries()),
+          );
+        }
+
+        const workspaceId = decodeURIComponent(removeHouseholdMemberMatch[1]);
+        const actor = decodeURIComponent(removeHouseholdMemberMatch[2]);
+
+        if (!isSafeWorkspaceId(workspaceId)) {
+          return completeJsonResponse(
+            400,
+            toErrorEnvelope(
+              new ApiError({
+                code: "repository.invalid_identifier",
+                message: "Workspace identifier is invalid.",
+                status: 400,
+              }),
+            ),
+          );
+        }
+
+        const response = await params.service.removeHouseholdMember({
+          actor,
+          auth: auth.context,
+          logger: requestLogger,
+          workspaceId,
+        });
+        return completeJsonResponse(response.status, response.body);
+      }
 
       if (destroyTransactionMatch || deleteTransactionMatch) {
         const rateLimited = enforceRateLimit(rateLimitPolicy.mutation);
