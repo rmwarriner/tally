@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { colors, typography } from "@gnucash-ng/ui";
 import {
+  deleteTransaction,
   postBaselineBudgetLine,
   postCsvImport,
   postEnvelope,
@@ -803,6 +804,14 @@ export function App() {
     });
   }
 
+  async function deleteInlineLedgerTransaction(transactionId: string) {
+    await runMutation("Transaction delete", async () => {
+      await deleteTransaction(WORKSPACE_ID, transactionId, {
+        actor: "Primary",
+      });
+    });
+  }
+
   async function saveInlineLedgerSplits(input: {
     splits: Array<{
       accountId: string;
@@ -911,6 +920,9 @@ export function App() {
               onCloseLedgerRegisterTab={closeLedgerRegisterTab}
               onCreateInlineTransaction={(draft) => {
                 void postInlineLedgerTransaction(draft);
+              }}
+              onDeleteInlineTransaction={(transactionId) => {
+                void deleteInlineLedgerTransaction(transactionId);
               }}
               onMoveLedgerRegisterTab={moveLedgerRegisterTab}
               onOpenLinkedRegisterTabs={openLinkedRegisterTabsForTransaction}
@@ -1131,6 +1143,7 @@ export function App() {
           {workspaceViews.map((view) => (
             <button
               key={view.id}
+              data-testid={`view-tab-${view.id}`}
               className={`view-tab${activeView === view.id ? " active" : ""}`}
               type="button"
               onClick={() => setActiveView(view.id)}

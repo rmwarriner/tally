@@ -55,6 +55,7 @@ interface LedgerRegisterPanelProps {
   onCancelInlineEdit: () => void;
   onCloseLedgerRegisterTab: (tabId: string) => void;
   onCreateInlineTransaction: (draft: InlineNewTransactionDraft) => void;
+  onDeleteInlineTransaction: (transactionId: string) => void;
   onMoveLedgerRegisterTab: (direction: "left" | "right", tabId: string) => void;
   onOpenLinkedRegisterTabs: (transactionId: string) => void;
   onOpenLedgerRegisterTabForAccount: (accountId: string) => void;
@@ -295,6 +296,7 @@ export function LedgerRegisterPanel(props: LedgerRegisterPanelProps) {
             <span className="muted">Search register</span>
             <input
               ref={props.ledgerSearchInputRef}
+              data-testid="ledger-search-input"
               value={props.ledgerSearchText}
               placeholder="description, payee, account, tag, status"
               onChange={(event) => props.setLedgerSearchText(event.target.value)}
@@ -452,6 +454,7 @@ export function LedgerRegisterPanel(props: LedgerRegisterPanelProps) {
               </td>
               <td>
                 <button
+                  data-testid="ledger-post-transaction"
                   disabled={newRowSaveDisabled || props.busy !== null}
                   type="button"
                   onClick={() => {
@@ -523,6 +526,7 @@ export function LedgerRegisterPanel(props: LedgerRegisterPanelProps) {
                   <>
                     <tr
                       key={transaction.id}
+                      data-transaction-id={transaction.id}
                       className={
                         props.selectedLedgerTransactionId === transaction.id
                           ? "register-row selected"
@@ -534,6 +538,7 @@ export function LedgerRegisterPanel(props: LedgerRegisterPanelProps) {
                         {rowDraft ? (
                           <>
                             <input
+                              data-testid={`ledger-inline-date-${transaction.id}`}
                               value={rowDraft.occurredOn}
                               onClick={(event) => event.stopPropagation()}
                               onChange={(event) =>
@@ -570,6 +575,7 @@ export function LedgerRegisterPanel(props: LedgerRegisterPanelProps) {
                         {rowDraft ? (
                           <>
                             <input
+                              data-testid={`ledger-inline-description-${transaction.id}`}
                               value={rowDraft.description}
                               onClick={(event) => event.stopPropagation()}
                               onChange={(event) =>
@@ -600,6 +606,7 @@ export function LedgerRegisterPanel(props: LedgerRegisterPanelProps) {
                       <td>
                         {rowDraft ? (
                           <input
+                            data-testid={`ledger-inline-payee-${transaction.id}`}
                             value={rowDraft.payee}
                             placeholder="Unassigned"
                             onClick={(event) => event.stopPropagation()}
@@ -626,6 +633,7 @@ export function LedgerRegisterPanel(props: LedgerRegisterPanelProps) {
                         {rowDraft ? (
                           <div className="posting-editor-row">
                             <button
+                              data-testid={`ledger-save-${transaction.id}`}
                               disabled={inlineSaveDisabled}
                               type="button"
                               onClick={(event) => {
@@ -638,6 +646,7 @@ export function LedgerRegisterPanel(props: LedgerRegisterPanelProps) {
                               Save
                             </button>
                             <button
+                              data-testid={`ledger-cancel-${transaction.id}`}
                               type="button"
                               onClick={(event) => {
                                 event.stopPropagation();
@@ -650,6 +659,18 @@ export function LedgerRegisterPanel(props: LedgerRegisterPanelProps) {
                         ) : (
                           <div className="posting-editor-row">
                             <button
+                              data-testid={`ledger-delete-${transaction.id}`}
+                              disabled={props.busy !== null}
+                              type="button"
+                              onClick={(event) => {
+                                event.stopPropagation();
+                                props.onDeleteInlineTransaction(transaction.id);
+                              }}
+                            >
+                              Delete
+                            </button>
+                            <button
+                              data-testid={`ledger-edit-${transaction.id}`}
                               type="button"
                               onClick={(event) => {
                                 event.stopPropagation();

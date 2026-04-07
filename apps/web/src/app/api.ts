@@ -163,6 +163,25 @@ export async function putTransaction(
   return readJson<WorkspaceResponse>(response);
 }
 
+export async function deleteTransaction(
+  workspaceId: string,
+  transactionId: string,
+  body: {
+    actor?: string;
+  } = {},
+): Promise<WorkspaceResponse> {
+  const response = await fetch(`/api/workspaces/${workspaceId}/transactions/${transactionId}`, {
+    body: JSON.stringify(body),
+    headers: {
+      "content-type": "application/json",
+    },
+    method: "DELETE",
+  });
+  await ensureOk(response, "Failed to delete transaction.");
+
+  return readJson<WorkspaceResponse>(response);
+}
+
 export async function postReconciliation(
   workspaceId: string,
   body: {
