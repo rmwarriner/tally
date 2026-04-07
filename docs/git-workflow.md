@@ -138,3 +138,12 @@ When executing the repository rename to `rmwarriner/tally`, complete this checkl
 5. Update local clones:
    - `git remote set-url origin https://github.com/rmwarriner/tally.git`
 6. Verify CI on a fresh PR after rename to confirm no hidden repository-name coupling.
+
+### Rename Execution Status (2026-04-07)
+
+- completed: repository renamed to `rmwarriner/tally`
+- completed: roadmap project created and titled `Tally Roadmap`
+- completed: local clone `origin` updated to `rmwarriner/tally`
+- pending verification: branch protection and required checks after rename
+- pending verification: Actions, Dependabot, and webhook/app integrations after rename
+- pending verification: CI pass on a fresh PR after rename
