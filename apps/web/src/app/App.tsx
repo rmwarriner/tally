@@ -28,8 +28,7 @@ import {
   useLedgerKeyboardAndSelectionSync,
   validateInlineLedgerSplitDrafts,
 } from "./ledger-state";
-import { LedgerOperationsPanels } from "./LedgerOperationsPanels";
-import { LedgerRegisterPanel } from "./LedgerRegisterPanel";
+import { LedgerMainPanels } from "./LedgerMainPanels";
 import { LedgerTransactionEditorPanel } from "./LedgerTransactionEditorPanel";
 import { NonLedgerMainPanels } from "./NonLedgerMainPanels";
 import { ShellInspectorContent, ShellSidebarContent } from "./ShellSidePanels";
@@ -891,115 +890,77 @@ export function App() {
 
   function renderMainPanels() {
     if (activeView === "ledger") {
-      return (
-        <>
-            <LedgerRegisterPanel
-              activeLedgerRegisterTabId={activeLedgerRegisterTabId}
-              busy={busy}
-              expenseAccounts={expenseAccounts}
-              formatCurrency={formatCurrency}
-              formatTransactionStatus={formatTransactionStatus}
-              inlineEditDraft={inlineEditDraft}
-              inlineEditingTransactionId={inlineEditingTransactionId}
-              ledgerRange={ledgerRange}
-              ledgerSearchInputRef={ledgerSearchInputRef}
-              ledgerSearchText={ledgerSearchText}
-              ledgerStatusFilter={ledgerStatusFilter}
-              ledgerRegisterTabs={ledgerRegisterTabs.map((tab) => {
-                const account = workspaceAccounts.find((candidate) => candidate.id === tab.selectedLedgerAccountId);
-                return {
-                  accountId: tab.selectedLedgerAccountId,
-                  id: tab.id,
-                  label: account ? account.name : "All accounts",
-                };
-              })}
-              ledgerWorkspace={ledgerWorkspace}
-              liquidAccounts={liquidAccounts}
-              onCancelInlineEdit={cancelInlineEdit}
-              onActivateLedgerRegisterTab={setActiveLedgerRegisterTabId}
-              onCloseLedgerRegisterTab={closeLedgerRegisterTab}
-              onCreateInlineTransaction={(draft) => {
-                void postInlineLedgerTransaction(draft);
-              }}
-              onDeleteInlineTransaction={(transactionId) => {
-                void deleteInlineLedgerTransaction(transactionId);
-              }}
-              onMoveLedgerRegisterTab={moveLedgerRegisterTab}
-              onOpenLinkedRegisterTabs={openLinkedRegisterTabsForTransaction}
-              onOpenLedgerRegisterTabForAccount={openLedgerRegisterTabForAccount}
-              onOpenAdvancedEditor={() => setIsLedgerDetailOpen(true)}
-              onSaveInlineEdit={(transactionId) => {
-                void saveInlineLedgerRow(transactionId);
-              }}
-              onSaveInlineSplitEdit={(input) => {
-                void saveInlineLedgerSplits(input);
-              }}
-              onStartInlineEdit={(transaction) =>
-                startInlineEdit({
-                  description: transaction.description,
-                  occurredOn: transaction.occurredOn,
-                  payee: transaction.payee,
-                  transactionId: transaction.id,
-                })
-              }
-              onUpdateInlineEditField={setInlineDraftField}
-              selectedLedgerAccountId={selectedLedgerAccountId}
-              selectedLedgerTransactionId={selectedLedgerTransactionId}
-              setLedgerRange={setLedgerRange}
-              setLedgerSearchText={setLedgerSearchText}
-              setLedgerStatusFilter={setLedgerStatusFilter}
-              setSelectedLedgerAccountId={setSelectedLedgerAccountId}
-              setSelectedLedgerTransactionId={setSelectedLedgerTransactionId}
-            />
+      const labeledLedgerRegisterTabs = ledgerRegisterTabs.map((tab) => {
+        const account = workspaceAccounts.find((candidate) => candidate.id === tab.selectedLedgerAccountId);
+        return {
+          accountId: tab.selectedLedgerAccountId,
+          id: tab.id,
+          label: account ? account.name : "All accounts",
+        };
+      });
 
-            {isLedgerDetailOpen ? (
-              <>
-                <div className="posting-editor-row">
-                  <button type="button" onClick={() => setIsLedgerDetailOpen(false)}>
-                    Hide advanced editor
-                  </button>
-                </div>
-                {renderTransactionEditorPanel()}
-              </>
-            ) : (
-              <article className="panel">
-                <div className="panel-header">
-                  <span>Advanced editor</span>
-                  <span className="muted">Optional</span>
-                </div>
-                <p className="form-hint">
-                  Inline row editing is the default. Use the row-level Advanced action only when you need
-                  split-level editing details.
-                </p>
-              </article>
-            )}
-            <article className="panel">
-              <div className="panel-header">
-                <span>Ledger operations</span>
-                <span className="muted">Reconciliation and statement matching</span>
-              </div>
-              <div className="posting-editor-row">
-                <button type="button" onClick={() => setIsLedgerOperationsOpen((current) => !current)}>
-                  {isLedgerOperationsOpen ? "Hide reconciliation workspace" : "Open reconciliation workspace"}
-                </button>
-              </div>
-              {isLedgerOperationsOpen ? (
-                <LedgerOperationsPanels
-                  busy={busy}
-                  liquidAccounts={liquidAccounts}
-                  reconciliationForm={reconciliationForm}
-                  reconciliationWorkspace={reconciliationWorkspace}
-                  runMutation={runMutation}
-                  setReconciliationForm={setReconciliationForm}
-                  setSelectedReconciliationTransactionIds={setSelectedReconciliationTransactionIds}
-                />
-              ) : (
-                <p className="form-hint">
-                  Reconciliation is available on demand so routine editing stays register-first.
-                </p>
-              )}
-            </article>
-        </>
+      return (
+        <LedgerMainPanels
+          activeLedgerRegisterTabId={activeLedgerRegisterTabId}
+          busy={busy}
+          expenseAccounts={expenseAccounts}
+          formatCurrency={formatCurrency}
+          formatTransactionStatus={formatTransactionStatus}
+          inlineEditDraft={inlineEditDraft}
+          inlineEditingTransactionId={inlineEditingTransactionId}
+          isLedgerDetailOpen={isLedgerDetailOpen}
+          isLedgerOperationsOpen={isLedgerOperationsOpen}
+          ledgerRange={ledgerRange}
+          ledgerRegisterTabs={labeledLedgerRegisterTabs}
+          ledgerSearchInputRef={ledgerSearchInputRef}
+          ledgerSearchText={ledgerSearchText}
+          ledgerStatusFilter={ledgerStatusFilter}
+          ledgerWorkspace={ledgerWorkspace}
+          liquidAccounts={liquidAccounts}
+          onActivateLedgerRegisterTab={setActiveLedgerRegisterTabId}
+          onCancelInlineEdit={cancelInlineEdit}
+          onCloseLedgerRegisterTab={closeLedgerRegisterTab}
+          onCreateInlineTransaction={(draft) => {
+            void postInlineLedgerTransaction(draft);
+          }}
+          onDeleteInlineTransaction={(transactionId) => {
+            void deleteInlineLedgerTransaction(transactionId);
+          }}
+          onMoveLedgerRegisterTab={moveLedgerRegisterTab}
+          onOpenAdvancedEditor={() => setIsLedgerDetailOpen(true)}
+          onOpenLedgerRegisterTabForAccount={openLedgerRegisterTabForAccount}
+          onOpenLinkedRegisterTabs={openLinkedRegisterTabsForTransaction}
+          onSaveInlineEdit={(transactionId) => {
+            void saveInlineLedgerRow(transactionId);
+          }}
+          onSaveInlineSplitEdit={(input) => {
+            void saveInlineLedgerSplits(input);
+          }}
+          onStartInlineEdit={(transaction) =>
+            startInlineEdit({
+              description: transaction.description,
+              occurredOn: transaction.occurredOn,
+              payee: transaction.payee,
+              transactionId: transaction.id,
+            })
+          }
+          onToggleLedgerDetailOpen={() => setIsLedgerDetailOpen(false)}
+          onToggleLedgerOperationsOpen={() => setIsLedgerOperationsOpen((current) => !current)}
+          onUpdateInlineEditField={setInlineDraftField}
+          reconciliationForm={reconciliationForm}
+          reconciliationWorkspace={reconciliationWorkspace}
+          runMutation={runMutation}
+          selectedLedgerAccountId={selectedLedgerAccountId}
+          selectedLedgerTransactionId={selectedLedgerTransactionId}
+          setLedgerRange={setLedgerRange}
+          setLedgerSearchText={setLedgerSearchText}
+          setLedgerStatusFilter={setLedgerStatusFilter}
+          setReconciliationForm={setReconciliationForm}
+          setSelectedLedgerAccountId={setSelectedLedgerAccountId}
+          setSelectedLedgerTransactionId={setSelectedLedgerTransactionId}
+          setSelectedReconciliationTransactionIds={setSelectedReconciliationTransactionIds}
+          transactionEditorPanel={renderTransactionEditorPanel()}
+        />
       );
     }
 
