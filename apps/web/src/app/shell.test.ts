@@ -1,8 +1,8 @@
 import { describe, expect, it } from "vitest";
 import {
-  createLedgerWorkspaceModel,
+  createLedgerBookModel,
   createOverviewCards,
-  createReconciliationWorkspaceModel,
+  createReconciliationBookModel,
   findAccountSearchExactMatch,
   getAccountSearchMatches,
   getNextPostingAmountFocusTarget,
@@ -12,15 +12,15 @@ import {
   getTransactionEditorHotkeyAction,
   getPreferredAccountTypesForPostingAmount,
   getLedgerSelectionIndex,
-  getWorkspaceViewDefinition,
+  getBookViewDefinition,
   movePostingIndex,
   shouldHandleLedgerHotkey,
-  workspaceViews,
+  bookViews,
 } from "./shell";
 
 describe("web shell view model", () => {
-  it("exposes stable workspace views for navigation", () => {
-    expect(workspaceViews.map((view) => view.id)).toEqual([
+  it("exposes stable book views for navigation", () => {
+    expect(bookViews.map((view) => view.id)).toEqual([
       "overview",
       "ledger",
       "budget",
@@ -29,8 +29,8 @@ describe("web shell view model", () => {
       "automations",
       "reports",
     ]);
-    expect(getWorkspaceViewDefinition("ledger")).toMatchObject({
-      detail: "Double-entry workspace",
+    expect(getBookViewDefinition("ledger")).toMatchObject({
+      detail: "Double-entry ledger",
       label: "Ledger",
       title: "Ledger register",
     });
@@ -75,7 +75,7 @@ describe("web shell view model", () => {
   });
 
   it("builds account-filtered ledger drill-down state with posting details", () => {
-    const model = createLedgerWorkspaceModel({
+    const model = createLedgerBookModel({
       accountBalances: [
         {
           accountId: "acct-checking",
@@ -95,7 +95,7 @@ describe("web shell view model", () => {
       searchText: "market",
       selectedAccountId: "acct-checking",
       selectedTransactionId: "txn-grocery-1",
-      workspace: {
+      book: {
         accounts: [
           { code: "1000", id: "acct-checking", name: "Checking", type: "asset" },
           { code: "6100", id: "acct-expense-groceries", name: "Groceries", type: "expense" },
@@ -459,7 +459,7 @@ describe("web shell view model", () => {
   });
 
   it("builds reconciliation matching state with cleared totals and latest session", () => {
-    const model = createReconciliationWorkspaceModel({
+    const model = createReconciliationBookModel({
       selectedAccountId: "acct-checking",
       selectedTransactionIds: {
         "txn-grocery-1": true,
@@ -467,7 +467,7 @@ describe("web shell view model", () => {
       },
       statementBalanceText: "3051.58",
       statementDate: "2026-04-02",
-      workspace: {
+      book: {
         accounts: [
           { code: "1000", id: "acct-checking", name: "Checking", type: "asset" },
           { code: "6100", id: "acct-expense-groceries", name: "Groceries", type: "expense" },
@@ -537,14 +537,14 @@ describe("web shell view model", () => {
   });
 
   it("matches ledger searches across multiple tokens and date range filters", () => {
-    const model = createLedgerWorkspaceModel({
+    const model = createLedgerBookModel({
       accountBalances: [],
       rangeEnd: "2026-04-15",
       rangeStart: "2026-04-01",
       searchText: "checking 1000 household cleared",
       selectedAccountId: "acct-checking",
       selectedTransactionId: "txn-grocery-1",
-      workspace: {
+      book: {
         accounts: [
           { code: "1000", id: "acct-checking", name: "Checking", type: "asset" },
           { code: "6100", id: "acct-expense-groceries", name: "Groceries", type: "expense" },
@@ -606,13 +606,13 @@ describe("web shell view model", () => {
   });
 
   it("filters ledger transactions by explicit status filter", () => {
-    const model = createLedgerWorkspaceModel({
+    const model = createLedgerBookModel({
       accountBalances: [],
       searchText: "",
       selectedAccountId: "acct-checking",
       selectedTransactionId: null,
       statusFilter: "cleared",
-      workspace: {
+      book: {
         accounts: [
           { code: "1000", id: "acct-checking", name: "Checking", type: "asset" },
           { code: "6100", id: "acct-expense-groceries", name: "Groceries", type: "expense" },

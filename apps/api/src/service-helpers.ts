@@ -1,9 +1,9 @@
-import { buildOperationalWorkspaceView, type FinanceWorkspaceDocument } from "@tally/workspace";
+import { buildOperationalBookView, type FinanceBookDocument } from "@tally/book";
 import type { Logger } from "@tally/logging";
-import type { ServiceResponse, WorkspaceEnvelope } from "./types";
-import { authorizeWorkspaceAccess, type AuthContext, type AuthorizationResult, type WorkspaceAccess } from "./auth";
+import type { ServiceResponse, BookEnvelope } from "./types";
+import { authorizeBookAccess, type AuthContext, type AuthorizationResult, type BookAccess } from "./auth";
 import { ApiError, toApiError, toErrorEnvelope, type ErrorEnvelope } from "./errors";
-import type { WorkspaceRepository } from "./repository";
+import type { BookRepository } from "./repository";
 
 export function success<TBody>(status: number, body: TBody): ServiceResponse<TBody> {
   return { body, status };
@@ -22,7 +22,7 @@ export function buildAuthorizationAuditContext(
   authorization?: {
     access: string;
     effectiveRole: string;
-    grantedBy: "local-admin" | "workspace-role";
+    grantedBy: "local-admin" | "book-role";
   };
 } {
   const decision = authorization.decision;
@@ -44,22 +44,22 @@ export function buildAuthorizationAuditContext(
 
 /**
  * Handles load → authorize → execute → catch scaffolding for any service operation.
- * The execute callback receives an authorized workspace and the authorization result.
+ * The execute callback receives an authorized book and the authorization result.
  * Returns early with a 403 if authorization fails, or maps thrown errors to ApiErrors.
  */
 export async function withWorkspace<T>(
   params: {
-    access: WorkspaceAccess;
+    access: BookAccess;
     auth: AuthContext;
     logger: Logger;
-    repository: WorkspaceRepository;
-    workspaceId: string;
+    repository: BookRepository;
+    bookId: string;
   },
-  execute: (workspace: FinanceWorkspaceDocument, authorization: AuthorizationResult) => Promise<ServiceResponse<T>>,
+  execute: (book: FinanceBookDocument, authorization: AuthorizationResult) => Promise<ServiceResponse<T>>,
 ): Promise<ServiceResponse<T | ErrorEnvelope>> {
   try {
-    const workspace = await params.repository.load(params.workspaceId, { logger: params.logger });
-    const authorization = authorizeWorkspaceAccess(workspace, params.auth, params.access);
+    const book = await params.repository.load(params.bookId, { logger: params.logger });
+    const authorization = authorizeBookAccess(book, params.auth, params.access);
 
     if (!authorization.ok) {
       params.logger.warn("service command authorization failed", { errors: [authorization.error] });
@@ -72,7 +72,7 @@ export async function withWorkspace<T>(
       );
     }
 
-    return await execute(workspace, authorization);
+    return await execute(book, authorization);
   } catch (error) {
     const apiError = toApiError(error);
     params.logger.error("service command failed", {
@@ -83,8 +83,8 @@ export async function withWorkspace<T>(
   }
 }
 
-type WorkspaceOperationResult = {
-  document: FinanceWorkspaceDocument;
+type BookOperationResult = {
+  document: FinanceBookDocument;
   errors: string[];
   ok: boolean;
 };
@@ -93,24 +93,24 @@ type AuditContext = ReturnType<typeof buildAuthorizationAuditContext>;
 
 /**
  * Handles the standard mutation pattern: load → authorize → execute domain op →
- * validate result → save → return workspace envelope.
- * The execute callback receives the workspace and a pre-built audit context.
- * Always returns { workspace: <operational view> } on success.
+ * validate result → save → return book envelope.
+ * The execute callback receives the book and a pre-built audit context.
+ * Always returns { book: <operational view> } on success.
  */
 export async function withMutation(
   params: {
-    access: WorkspaceAccess;
+    access: BookAccess;
     auth: AuthContext;
     logger: Logger;
-    repository: WorkspaceRepository;
+    repository: BookRepository;
     successStatus: number;
-    workspaceId: string;
+    bookId: string;
   },
-  execute: (workspace: FinanceWorkspaceDocument, audit: AuditContext) => WorkspaceOperationResult,
-): Promise<ServiceResponse<WorkspaceEnvelope | ErrorEnvelope>> {
-  return withWorkspace<WorkspaceEnvelope | ErrorEnvelope>(params, async (workspace, authorization) => {
+  execute: (book: FinanceBookDocument, audit: AuditContext) => BookOperationResult,
+): Promise<ServiceResponse<BookEnvelope | ErrorEnvelope>> {
+  return withWorkspace<BookEnvelope | ErrorEnvelope>(params, async (book, authorization) => {
     const audit = buildAuthorizationAuditContext(params.auth.actor, authorization);
-    const result = execute(workspace, audit);
+    const result = execute(book, audit);
 
     if (!result.ok) {
       params.logger.warn("service command validation failed", { errors: result.errors });
@@ -126,6 +126,6 @@ export async function withMutation(
 
     await params.repository.save(result.document, { logger: params.logger });
     params.logger.info("service command completed");
-    return success(params.successStatus, { workspace: buildOperationalWorkspaceView(result.document) });
+    return success(params.successStatus, { book: buildOperationalBookView(result.document) });
   });
 }

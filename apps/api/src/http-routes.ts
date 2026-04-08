@@ -11,7 +11,7 @@ export interface HttpReadRouteMatches {
   qifExportMatch: RegExpMatchArray | null;
   reportMatch: RegExpMatchArray | null;
   statementExportMatch: RegExpMatchArray | null;
-  workspaceMatch: RegExpMatchArray | null;
+  bookMatch: RegExpMatchArray | null;
 }
 
 export interface HttpPostRouteMatches {
@@ -79,144 +79,144 @@ export function normalizeRouteLabel(method: string, path: string): string {
     return "/metrics";
   }
 
-  if (/^\/api\/workspaces\/[^/]+$/.test(path)) {
-    return "/api/workspaces/:workspaceId";
+  if (/^\/api\/books\/[^/]+$/.test(path)) {
+    return "/api/books/:bookId";
   }
 
-  if (/^\/api\/workspaces\/[^/]+\/dashboard$/.test(path)) {
-    return "/api/workspaces/:workspaceId/dashboard";
+  if (/^\/api\/books\/[^/]+\/dashboard$/.test(path)) {
+    return "/api/books/:bookId/dashboard";
   }
 
-  if (/^\/api\/workspaces\/[^/]+\/reports\/[^/]+$/.test(path)) {
-    return "/api/workspaces/:workspaceId/reports/:kind";
+  if (/^\/api\/books\/[^/]+\/reports\/[^/]+$/.test(path)) {
+    return "/api/books/:bookId/reports/:kind";
   }
 
-  if (/^\/api\/workspaces\/[^/]+\/close-summary$/.test(path)) {
-    return "/api/workspaces/:workspaceId/close-summary";
+  if (/^\/api\/books\/[^/]+\/close-summary$/.test(path)) {
+    return "/api/books/:bookId/close-summary";
   }
 
-  if (/^\/api\/workspaces\/[^/]+\/close-periods$/.test(path)) {
-    return "/api/workspaces/:workspaceId/close-periods";
+  if (/^\/api\/books\/[^/]+\/close-periods$/.test(path)) {
+    return "/api/books/:bookId/close-periods";
   }
 
-  if (/^\/api\/workspaces\/[^/]+\/backups$/.test(path)) {
-    return "/api/workspaces/:workspaceId/backups";
+  if (/^\/api\/books\/[^/]+\/backups$/.test(path)) {
+    return "/api/books/:bookId/backups";
   }
 
-  if (/^\/api\/workspaces\/[^/]+\/backups\/[^/]+\/restore$/.test(path)) {
-    return "/api/workspaces/:workspaceId/backups/:backupId/restore";
+  if (/^\/api\/books\/[^/]+\/backups\/[^/]+\/restore$/.test(path)) {
+    return "/api/books/:bookId/backups/:backupId/restore";
   }
 
-  if (/^\/api\/workspaces\/[^/]+\/transactions$/.test(path)) {
-    return "/api/workspaces/:workspaceId/transactions";
+  if (/^\/api\/books\/[^/]+\/transactions$/.test(path)) {
+    return "/api/books/:bookId/transactions";
   }
 
-  if (/^\/api\/workspaces\/[^/]+\/transactions\/[^/]+\/destroy$/.test(path)) {
-    return "/api/workspaces/:workspaceId/transactions/:transactionId/destroy";
+  if (/^\/api\/books\/[^/]+\/transactions\/[^/]+\/destroy$/.test(path)) {
+    return "/api/books/:bookId/transactions/:transactionId/destroy";
   }
 
-  if (/^\/api\/workspaces\/[^/]+\/transactions\/[^/]+$/.test(path)) {
-    return "/api/workspaces/:workspaceId/transactions/:transactionId";
+  if (/^\/api\/books\/[^/]+\/transactions\/[^/]+$/.test(path)) {
+    return "/api/books/:bookId/transactions/:transactionId";
   }
 
-  if (/^\/api\/workspaces\/[^/]+\/budget-lines$/.test(path)) {
-    return "/api/workspaces/:workspaceId/budget-lines";
+  if (/^\/api\/books\/[^/]+\/budget-lines$/.test(path)) {
+    return "/api/books/:bookId/budget-lines";
   }
 
-  if (/^\/api\/workspaces\/[^/]+\/envelopes$/.test(path)) {
-    return "/api/workspaces/:workspaceId/envelopes";
+  if (/^\/api\/books\/[^/]+\/envelopes$/.test(path)) {
+    return "/api/books/:bookId/envelopes";
   }
 
-  if (/^\/api\/workspaces\/[^/]+\/envelope-allocations$/.test(path)) {
-    return "/api/workspaces/:workspaceId/envelope-allocations";
+  if (/^\/api\/books\/[^/]+\/envelope-allocations$/.test(path)) {
+    return "/api/books/:bookId/envelope-allocations";
   }
 
-  if (/^\/api\/workspaces\/[^/]+\/reconciliations$/.test(path)) {
-    return "/api/workspaces/:workspaceId/reconciliations";
+  if (/^\/api\/books\/[^/]+\/reconciliations$/.test(path)) {
+    return "/api/books/:bookId/reconciliations";
   }
 
-  if (/^\/api\/workspaces\/[^/]+\/schedules$/.test(path)) {
-    return "/api/workspaces/:workspaceId/schedules";
+  if (/^\/api\/books\/[^/]+\/schedules$/.test(path)) {
+    return "/api/books/:bookId/schedules";
   }
 
-  if (/^\/api\/workspaces\/[^/]+\/schedules\/[^/]+\/execute$/.test(path)) {
-    return "/api/workspaces/:workspaceId/schedules/:scheduleId/execute";
+  if (/^\/api\/books\/[^/]+\/schedules\/[^/]+\/execute$/.test(path)) {
+    return "/api/books/:bookId/schedules/:scheduleId/execute";
   }
 
-  if (/^\/api\/workspaces\/[^/]+\/schedules\/[^/]+\/exceptions$/.test(path)) {
-    return "/api/workspaces/:workspaceId/schedules/:scheduleId/exceptions";
+  if (/^\/api\/books\/[^/]+\/schedules\/[^/]+\/exceptions$/.test(path)) {
+    return "/api/books/:bookId/schedules/:scheduleId/exceptions";
   }
 
-  if (/^\/api\/workspaces\/[^/]+\/imports\/csv$/.test(path)) {
-    return "/api/workspaces/:workspaceId/imports/csv";
+  if (/^\/api\/books\/[^/]+\/imports\/csv$/.test(path)) {
+    return "/api/books/:bookId/imports/csv";
   }
 
-  if (/^\/api\/workspaces\/[^/]+\/imports\/qif$/.test(path)) {
-    return "/api/workspaces/:workspaceId/imports/qif";
+  if (/^\/api\/books\/[^/]+\/imports\/qif$/.test(path)) {
+    return "/api/books/:bookId/imports/qif";
   }
 
-  if (/^\/api\/workspaces\/[^/]+\/imports\/ofx$/.test(path)) {
-    return "/api/workspaces/:workspaceId/imports/ofx";
+  if (/^\/api\/books\/[^/]+\/imports\/ofx$/.test(path)) {
+    return "/api/books/:bookId/imports/ofx";
   }
 
-  if (/^\/api\/workspaces\/[^/]+\/imports\/qfx$/.test(path)) {
-    return "/api/workspaces/:workspaceId/imports/qfx";
+  if (/^\/api\/books\/[^/]+\/imports\/qfx$/.test(path)) {
+    return "/api/books/:bookId/imports/qfx";
   }
 
-  if (/^\/api\/workspaces\/[^/]+\/imports\/gnucash-xml$/.test(path)) {
-    return "/api/workspaces/:workspaceId/imports/gnucash-xml";
+  if (/^\/api\/books\/[^/]+\/imports\/gnucash-xml$/.test(path)) {
+    return "/api/books/:bookId/imports/gnucash-xml";
   }
 
-  if (/^\/api\/workspaces\/[^/]+\/exports\/qif$/.test(path)) {
-    return "/api/workspaces/:workspaceId/exports/qif";
+  if (/^\/api\/books\/[^/]+\/exports\/qif$/.test(path)) {
+    return "/api/books/:bookId/exports/qif";
   }
 
-  if (/^\/api\/workspaces\/[^/]+\/exports\/ofx$/.test(path)) {
-    return "/api/workspaces/:workspaceId/exports/ofx";
+  if (/^\/api\/books\/[^/]+\/exports\/ofx$/.test(path)) {
+    return "/api/books/:bookId/exports/ofx";
   }
 
-  if (/^\/api\/workspaces\/[^/]+\/exports\/qfx$/.test(path)) {
-    return "/api/workspaces/:workspaceId/exports/qfx";
+  if (/^\/api\/books\/[^/]+\/exports\/qfx$/.test(path)) {
+    return "/api/books/:bookId/exports/qfx";
   }
 
-  if (/^\/api\/workspaces\/[^/]+\/exports\/gnucash-xml$/.test(path)) {
-    return "/api/workspaces/:workspaceId/exports/gnucash-xml";
+  if (/^\/api\/books\/[^/]+\/exports\/gnucash-xml$/.test(path)) {
+    return "/api/books/:bookId/exports/gnucash-xml";
   }
 
-  if (/^\/api\/workspaces\/[^/]+\/members$/.test(path)) {
-    return "/api/workspaces/:workspaceId/members";
+  if (/^\/api\/books\/[^/]+\/members$/.test(path)) {
+    return "/api/books/:bookId/members";
   }
 
-  if (/^\/api\/workspaces\/[^/]+\/members\/[^/]+\/role$/.test(path)) {
-    return "/api/workspaces/:workspaceId/members/:actor/role";
+  if (/^\/api\/books\/[^/]+\/members\/[^/]+\/role$/.test(path)) {
+    return "/api/books/:bookId/members/:actor/role";
   }
 
-  if (/^\/api\/workspaces\/[^/]+\/members\/[^/]+$/.test(path)) {
-    return "/api/workspaces/:workspaceId/members/:actor";
+  if (/^\/api\/books\/[^/]+\/members\/[^/]+$/.test(path)) {
+    return "/api/books/:bookId/members/:actor";
   }
 
-  if (/^\/api\/workspaces\/[^/]+\/approvals$/.test(path)) {
-    return "/api/workspaces/:workspaceId/approvals";
+  if (/^\/api\/books\/[^/]+\/approvals$/.test(path)) {
+    return "/api/books/:bookId/approvals";
   }
 
-  if (/^\/api\/workspaces\/[^/]+\/approvals\/[^/]+\/grant$/.test(path)) {
-    return "/api/workspaces/:workspaceId/approvals/:approvalId/grant";
+  if (/^\/api\/books\/[^/]+\/approvals\/[^/]+\/grant$/.test(path)) {
+    return "/api/books/:bookId/approvals/:approvalId/grant";
   }
 
-  if (/^\/api\/workspaces\/[^/]+\/approvals\/[^/]+\/deny$/.test(path)) {
-    return "/api/workspaces/:workspaceId/approvals/:approvalId/deny";
+  if (/^\/api\/books\/[^/]+\/approvals\/[^/]+\/deny$/.test(path)) {
+    return "/api/books/:bookId/approvals/:approvalId/deny";
   }
 
-  if (/^\/api\/workspaces\/[^/]+\/audit-events$/.test(path)) {
-    return "/api/workspaces/:workspaceId/audit-events";
+  if (/^\/api\/books\/[^/]+\/audit-events$/.test(path)) {
+    return "/api/books/:bookId/audit-events";
   }
 
-  if (/^\/api\/workspaces\/[^/]+\/accounts$/.test(path)) {
-    return "/api/workspaces/:workspaceId/accounts";
+  if (/^\/api\/books\/[^/]+\/accounts$/.test(path)) {
+    return "/api/books/:bookId/accounts";
   }
 
-  if (/^\/api\/workspaces\/[^/]+\/accounts\/[^/]+$/.test(path)) {
-    return "/api/workspaces/:workspaceId/accounts/:accountId";
+  if (/^\/api\/books\/[^/]+\/accounts\/[^/]+$/.test(path)) {
+    return "/api/books/:bookId/accounts/:accountId";
   }
 
   return path;
@@ -224,65 +224,65 @@ export function normalizeRouteLabel(method: string, path: string): string {
 
 export function matchHttpReadRoutes(path: string): HttpReadRouteMatches {
   return {
-    accountsMatch: path.match(/^\/api\/workspaces\/([^/]+)\/accounts$/),
-    approvalsMatch: path.match(/^\/api\/workspaces\/([^/]+)\/approvals$/),
-    auditEventsMatch: path.match(/^\/api\/workspaces\/([^/]+)\/audit-events$/),
-    backupsMatch: path.match(/^\/api\/workspaces\/([^/]+)\/backups$/),
-    closePeriodsMatch: path.match(/^\/api\/workspaces\/([^/]+)\/close-periods$/),
-    closeSummaryMatch: path.match(/^\/api\/workspaces\/([^/]+)\/close-summary$/),
-    dashboardMatch: path.match(/^\/api\/workspaces\/([^/]+)\/dashboard$/),
-    gnucashXmlExportMatch: path.match(/^\/api\/workspaces\/([^/]+)\/exports\/gnucash-xml$/),
-    householdMembersMatch: path.match(/^\/api\/workspaces\/([^/]+)\/members$/),
-    qifExportMatch: path.match(/^\/api\/workspaces\/([^/]+)\/exports\/qif$/),
-    reportMatch: path.match(/^\/api\/workspaces\/([^/]+)\/reports\/([^/]+)$/),
-    statementExportMatch: path.match(/^\/api\/workspaces\/([^/]+)\/exports\/(ofx|qfx)$/),
-    workspaceMatch: path.match(/^\/api\/workspaces\/([^/]+)$/),
+    accountsMatch: path.match(/^\/api\/books\/([^/]+)\/accounts$/),
+    approvalsMatch: path.match(/^\/api\/books\/([^/]+)\/approvals$/),
+    auditEventsMatch: path.match(/^\/api\/books\/([^/]+)\/audit-events$/),
+    backupsMatch: path.match(/^\/api\/books\/([^/]+)\/backups$/),
+    closePeriodsMatch: path.match(/^\/api\/books\/([^/]+)\/close-periods$/),
+    closeSummaryMatch: path.match(/^\/api\/books\/([^/]+)\/close-summary$/),
+    dashboardMatch: path.match(/^\/api\/books\/([^/]+)\/dashboard$/),
+    gnucashXmlExportMatch: path.match(/^\/api\/books\/([^/]+)\/exports\/gnucash-xml$/),
+    householdMembersMatch: path.match(/^\/api\/books\/([^/]+)\/members$/),
+    qifExportMatch: path.match(/^\/api\/books\/([^/]+)\/exports\/qif$/),
+    reportMatch: path.match(/^\/api\/books\/([^/]+)\/reports\/([^/]+)$/),
+    statementExportMatch: path.match(/^\/api\/books\/([^/]+)\/exports\/(ofx|qfx)$/),
+    bookMatch: path.match(/^\/api\/books\/([^/]+)$/),
   };
 }
 
 export function matchHttpPostRoutes(path: string): HttpPostRouteMatches {
-  const backupsCreateMatch = path.match(/^\/api\/workspaces\/([^/]+)\/backups$/);
-  const backupRestoreMatch = path.match(/^\/api\/workspaces\/([^/]+)\/backups\/([^/]+)\/restore$/);
-  const approvalGrantMatch = path.match(/^\/api\/workspaces\/([^/]+)\/approvals\/([^/]+)\/grant$/);
-  const approvalDenyMatch = path.match(/^\/api\/workspaces\/([^/]+)\/approvals\/([^/]+)\/deny$/);
+  const backupsCreateMatch = path.match(/^\/api\/books\/([^/]+)\/backups$/);
+  const backupRestoreMatch = path.match(/^\/api\/books\/([^/]+)\/backups\/([^/]+)\/restore$/);
+  const approvalGrantMatch = path.match(/^\/api\/books\/([^/]+)\/approvals\/([^/]+)\/grant$/);
+  const approvalDenyMatch = path.match(/^\/api\/books\/([^/]+)\/approvals\/([^/]+)\/deny$/);
 
   return {
-    accountMatch: path.match(/^\/api\/workspaces\/([^/]+)\/accounts$/),
+    accountMatch: path.match(/^\/api\/books\/([^/]+)\/accounts$/),
     approvalGrantMatch,
     approvalDenyMatch,
-    approvalRequestMatch: path.match(/^\/api\/workspaces\/([^/]+)\/approvals$/),
+    approvalRequestMatch: path.match(/^\/api\/books\/([^/]+)\/approvals$/),
     backupRestoreMatch,
     backupsCreateMatch,
     bodylessPostRoute: Boolean(backupsCreateMatch || backupRestoreMatch || approvalGrantMatch || approvalDenyMatch),
-    budgetLineMatch: path.match(/^\/api\/workspaces\/([^/]+)\/budget-lines$/),
-    closePeriodMatch: path.match(/^\/api\/workspaces\/([^/]+)\/close-periods$/),
-    csvImportMatch: path.match(/^\/api\/workspaces\/([^/]+)\/imports\/csv$/),
-    envelopeAllocationMatch: path.match(/^\/api\/workspaces\/([^/]+)\/envelope-allocations$/),
-    envelopeMatch: path.match(/^\/api\/workspaces\/([^/]+)\/envelopes$/),
-    exceptionScheduleMatch: path.match(/^\/api\/workspaces\/([^/]+)\/schedules\/([^/]+)\/exceptions$/),
-    executeScheduleMatch: path.match(/^\/api\/workspaces\/([^/]+)\/schedules\/([^/]+)\/execute$/),
-    gnucashXmlImportMatch: path.match(/^\/api\/workspaces\/([^/]+)\/imports\/gnucash-xml$/),
-    householdMemberMatch: path.match(/^\/api\/workspaces\/([^/]+)\/members$/),
-    qifImportMatch: path.match(/^\/api\/workspaces\/([^/]+)\/imports\/qif$/),
-    reconciliationMatch: path.match(/^\/api\/workspaces\/([^/]+)\/reconciliations$/),
-    scheduleMatch: path.match(/^\/api\/workspaces\/([^/]+)\/schedules$/),
-    statementImportMatch: path.match(/^\/api\/workspaces\/([^/]+)\/imports\/(ofx|qfx)$/),
-    transactionMatch: path.match(/^\/api\/workspaces\/([^/]+)\/transactions$/),
+    budgetLineMatch: path.match(/^\/api\/books\/([^/]+)\/budget-lines$/),
+    closePeriodMatch: path.match(/^\/api\/books\/([^/]+)\/close-periods$/),
+    csvImportMatch: path.match(/^\/api\/books\/([^/]+)\/imports\/csv$/),
+    envelopeAllocationMatch: path.match(/^\/api\/books\/([^/]+)\/envelope-allocations$/),
+    envelopeMatch: path.match(/^\/api\/books\/([^/]+)\/envelopes$/),
+    exceptionScheduleMatch: path.match(/^\/api\/books\/([^/]+)\/schedules\/([^/]+)\/exceptions$/),
+    executeScheduleMatch: path.match(/^\/api\/books\/([^/]+)\/schedules\/([^/]+)\/execute$/),
+    gnucashXmlImportMatch: path.match(/^\/api\/books\/([^/]+)\/imports\/gnucash-xml$/),
+    householdMemberMatch: path.match(/^\/api\/books\/([^/]+)\/members$/),
+    qifImportMatch: path.match(/^\/api\/books\/([^/]+)\/imports\/qif$/),
+    reconciliationMatch: path.match(/^\/api\/books\/([^/]+)\/reconciliations$/),
+    scheduleMatch: path.match(/^\/api\/books\/([^/]+)\/schedules$/),
+    statementImportMatch: path.match(/^\/api\/books\/([^/]+)\/imports\/(ofx|qfx)$/),
+    transactionMatch: path.match(/^\/api\/books\/([^/]+)\/transactions$/),
   };
 }
 
 export function matchHttpPutRoutes(path: string): HttpPutRouteMatches {
   return {
-    putTransactionMatch: path.match(/^\/api\/workspaces\/([^/]+)\/transactions\/([^/]+)$/),
-    setHouseholdMemberRoleMatch: path.match(/^\/api\/workspaces\/([^/]+)\/members\/([^/]+)\/role$/),
+    putTransactionMatch: path.match(/^\/api\/books\/([^/]+)\/transactions\/([^/]+)$/),
+    setHouseholdMemberRoleMatch: path.match(/^\/api\/books\/([^/]+)\/members\/([^/]+)\/role$/),
   };
 }
 
 export function matchHttpDeleteRoutes(path: string): HttpDeleteRouteMatches {
   return {
-    archiveAccountMatch: path.match(/^\/api\/workspaces\/([^/]+)\/accounts\/([^/]+)$/),
-    deleteTransactionMatch: path.match(/^\/api\/workspaces\/([^/]+)\/transactions\/([^/]+)$/),
-    destroyTransactionMatch: path.match(/^\/api\/workspaces\/([^/]+)\/transactions\/([^/]+)\/destroy$/),
-    removeHouseholdMemberMatch: path.match(/^\/api\/workspaces\/([^/]+)\/members\/([^/]+)$/),
+    archiveAccountMatch: path.match(/^\/api\/books\/([^/]+)\/accounts\/([^/]+)$/),
+    deleteTransactionMatch: path.match(/^\/api\/books\/([^/]+)\/transactions\/([^/]+)$/),
+    destroyTransactionMatch: path.match(/^\/api\/books\/([^/]+)\/transactions\/([^/]+)\/destroy$/),
+    removeHouseholdMemberMatch: path.match(/^\/api\/books\/([^/]+)\/members\/([^/]+)$/),
   };
 }

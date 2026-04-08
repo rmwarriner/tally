@@ -1,4 +1,4 @@
-import type { FinanceWorkspaceDocument } from "./types";
+import type { FinanceBookDocument } from "./types";
 
 function escapeXml(value: string): string {
   return value
@@ -68,7 +68,7 @@ function renderStringList(tagName: string, values: string[]): string {
 }
 
 function renderHouseholdMemberRoles(
-  roles: NonNullable<FinanceWorkspaceDocument["householdMemberRoles"]> | undefined,
+  roles: NonNullable<FinanceBookDocument["householdMemberRoles"]> | undefined,
 ): string {
   if (!roles || Object.keys(roles).length === 0) {
     return "<ws:householdMemberRoles />";
@@ -84,26 +84,26 @@ function renderHouseholdMemberRoles(
 }
 
 export function buildGnuCashXmlExport(params: {
-  workspace: FinanceWorkspaceDocument;
+  book: FinanceBookDocument;
 }): {
   contents: string;
   fileName: string;
 } {
-  const workspace = params.workspace;
+  const book = params.book;
   const contents = [
     '<?xml version="1.0" encoding="utf-8"?>',
     '<gnc-v2 xmlns:ws="https://tally.dev/ns/workspace">',
-    `<ws:workspace schemaVersion="${workspace.schemaVersion}" id="${escapeXml(workspace.id)}" name="${escapeXml(workspace.name)}" baseCommodityCode="${escapeXml(workspace.baseCommodityCode)}">`,
-    renderStringList("ws:householdMembers", workspace.householdMembers),
-    renderHouseholdMemberRoles(workspace.householdMemberRoles),
+    `<ws:workspace schemaVersion="${book.schemaVersion}" id="${escapeXml(book.id)}" name="${escapeXml(book.name)}" baseCommodityCode="${escapeXml(book.baseCommodityCode)}">`,
+    renderStringList("ws:householdMembers", book.householdMembers),
+    renderHouseholdMemberRoles(book.householdMemberRoles),
     "<ws:commodities>",
-    ...workspace.commodities.map(
+    ...book.commodities.map(
       (commodity) =>
         `<ws:commodity code="${escapeXml(commodity.code)}" name="${escapeXml(commodity.name)}" type="${escapeXml(commodity.type)}" precision="${commodity.precision}" />`,
     ),
     "</ws:commodities>",
     "<ws:accounts>",
-    ...workspace.accounts.map(
+    ...book.accounts.map(
       (account) =>
         `<ws:account id="${escapeXml(account.id)}" code="${escapeXml(account.code)}" name="${escapeXml(account.name)}" type="${escapeXml(account.type)}"${
           account.parentAccountId ? ` parentAccountId="${escapeXml(account.parentAccountId)}"` : ""
@@ -115,7 +115,7 @@ export function buildGnuCashXmlExport(params: {
     ),
     "</ws:accounts>",
     "<ws:transactions>",
-    ...workspace.transactions.map((transaction) =>
+    ...book.transactions.map((transaction) =>
       [
         `<ws:transaction id="${escapeXml(transaction.id)}" occurredOn="${escapeXml(transaction.occurredOn)}" description="${escapeXml(transaction.description)}"${
           transaction.payee ? ` payee="${escapeXml(transaction.payee)}"` : ""
@@ -147,7 +147,7 @@ export function buildGnuCashXmlExport(params: {
     ),
     "</ws:transactions>",
     "<ws:scheduledTransactions>",
-    ...workspace.scheduledTransactions.map((schedule) =>
+    ...book.scheduledTransactions.map((schedule) =>
       [
         `<ws:scheduledTransaction id="${escapeXml(schedule.id)}" name="${escapeXml(schedule.name)}" frequency="${escapeXml(schedule.frequency)}" nextDueOn="${escapeXml(schedule.nextDueOn)}" autoPost="${String(schedule.autoPost)}">`,
         `<ws:templateTransaction description="${escapeXml(schedule.templateTransaction.description)}"${
@@ -168,7 +168,7 @@ export function buildGnuCashXmlExport(params: {
     ),
     "</ws:scheduledTransactions>",
     "<ws:baselineBudgetLines>",
-    ...workspace.baselineBudgetLines.map(
+    ...book.baselineBudgetLines.map(
       (line) =>
         `<ws:baselineBudgetLine accountId="${escapeXml(line.accountId)}" period="${escapeXml(
           line.period,
@@ -178,7 +178,7 @@ export function buildGnuCashXmlExport(params: {
     ),
     "</ws:baselineBudgetLines>",
     "<ws:envelopes>",
-    ...workspace.envelopes.map(
+    ...book.envelopes.map(
       (envelope) =>
         `<ws:envelope id="${escapeXml(envelope.id)}" name="${escapeXml(envelope.name)}" expenseAccountId="${escapeXml(
           envelope.expenseAccountId,
@@ -194,7 +194,7 @@ export function buildGnuCashXmlExport(params: {
     ),
     "</ws:envelopes>",
     "<ws:envelopeAllocations>",
-    ...workspace.envelopeAllocations.map(
+    ...book.envelopeAllocations.map(
       (allocation) =>
         `<ws:envelopeAllocation id="${escapeXml(allocation.id)}" envelopeId="${escapeXml(
           allocation.envelopeId,
@@ -206,7 +206,7 @@ export function buildGnuCashXmlExport(params: {
     ),
     "</ws:envelopeAllocations>",
     "<ws:importBatches>",
-    ...workspace.importBatches.map((batch) =>
+    ...book.importBatches.map((batch) =>
       [
         `<ws:importBatch id="${escapeXml(batch.id)}" importedAt="${escapeXml(batch.importedAt)}" provider="${escapeXml(
           batch.provider,
@@ -217,7 +217,7 @@ export function buildGnuCashXmlExport(params: {
     ),
     "</ws:importBatches>",
     "<ws:reconciliationSessions>",
-    ...workspace.reconciliationSessions.map((session) =>
+    ...book.reconciliationSessions.map((session) =>
       [
         `<ws:reconciliationSession id="${escapeXml(session.id)}" accountId="${escapeXml(
           session.accountId,
@@ -232,7 +232,7 @@ export function buildGnuCashXmlExport(params: {
     ),
     "</ws:reconciliationSessions>",
     "<ws:closePeriods>",
-    ...(workspace.closePeriods ?? []).map(
+    ...(book.closePeriods ?? []).map(
       (period) =>
         `<ws:closePeriod id="${escapeXml(period.id)}" from="${escapeXml(period.from)}" to="${escapeXml(
           period.to,
@@ -242,9 +242,9 @@ export function buildGnuCashXmlExport(params: {
     ),
     "</ws:closePeriods>",
     "<ws:auditEvents>",
-    ...workspace.auditEvents.map(
+    ...book.auditEvents.map(
       (event) =>
-        `<ws:auditEvent id="${escapeXml(event.id)}" workspaceId="${escapeXml(event.workspaceId)}" actor="${escapeXml(
+        `<ws:auditEvent id="${escapeXml(event.id)}" bookId="${escapeXml(event.bookId)}" actor="${escapeXml(
           event.actor,
         )}" occurredAt="${escapeXml(event.occurredAt)}" eventType="${escapeXml(
           event.eventType,
@@ -260,22 +260,22 @@ export function buildGnuCashXmlExport(params: {
 
   return {
     contents,
-    fileName: `${workspace.id}.gnucash.xml`,
+    fileName: `${book.id}.gnucash.xml`,
   };
 }
 
 export function parseGnuCashXml(contents: string): {
-  document?: FinanceWorkspaceDocument;
+  document?: FinanceBookDocument;
   errors: string[];
 } {
-  const workspaceMatch = contents.match(/<ws:workspace\b([^>]*)>([\s\S]*?)<\/ws:workspace>/);
+  const bookMatch = contents.match(/<ws:workspace\b([^>]*)>([\s\S]*?)<\/ws:workspace>/);
 
-  if (!workspaceMatch) {
+  if (!bookMatch) {
     return { errors: ["workspace: ws:workspace root element is required."] };
   }
 
-  const header = workspaceMatch[1] ?? "";
-  const body = workspaceMatch[2] ?? "";
+  const header = bookMatch[1] ?? "";
+  const body = bookMatch[2] ?? "";
   const schemaVersion = Number.parseInt(extractAttribute(header, "schemaVersion") ?? "", 10);
   const id = extractAttribute(header, "id");
   const name = extractAttribute(header, "name");
@@ -283,19 +283,19 @@ export function parseGnuCashXml(contents: string): {
   const errors: string[] = [];
 
   if (schemaVersion !== 1) {
-    errors.push("workspace: schemaVersion must be 1.");
+    errors.push("book: schemaVersion must be 1.");
   }
 
   if (!id) {
-    errors.push("workspace: id is required.");
+    errors.push("book: id is required.");
   }
 
   if (!name) {
-    errors.push("workspace: name is required.");
+    errors.push("book: name is required.");
   }
 
   if (!baseCommodityCode) {
-    errors.push("workspace: baseCommodityCode is required.");
+    errors.push("book: baseCommodityCode is required.");
   }
 
   if (errors.length > 0 || !id || !name || !baseCommodityCode) {
@@ -328,7 +328,7 @@ export function parseGnuCashXml(contents: string): {
       code: extractAttribute(attributes, "code") ?? "",
       name: extractAttribute(attributes, "name") ?? "",
       precision: Number.parseInt(extractAttribute(attributes, "precision") ?? "0", 10),
-      type: (extractAttribute(attributes, "type") ?? "fiat") as FinanceWorkspaceDocument["commodities"][number]["type"],
+      type: (extractAttribute(attributes, "type") ?? "fiat") as FinanceBookDocument["commodities"][number]["type"],
     }));
   const accounts = extractBlocks(body, "ws:accounts")
     .flatMap((section) => [...section.matchAll(/<ws:account\b([^>]*)\/>/g)].map((match) => match[1] ?? ""))
@@ -339,7 +339,7 @@ export function parseGnuCashXml(contents: string): {
       name: extractAttribute(attributes, "name") ?? "",
       parentAccountId: extractAttribute(attributes, "parentAccountId"),
       taxCategory: extractAttribute(attributes, "taxCategory"),
-      type: (extractAttribute(attributes, "type") ?? "asset") as FinanceWorkspaceDocument["accounts"][number]["type"],
+      type: (extractAttribute(attributes, "type") ?? "asset") as FinanceBookDocument["accounts"][number]["type"],
     }));
   const transactions = extractBlocks(body, "ws:transactions").flatMap((section) =>
     [...section.matchAll(/<ws:transaction\b([^>]*)>([\s\S]*?)<\/ws:transaction>/g)].map((match) => {
@@ -384,7 +384,7 @@ export function parseGnuCashXml(contents: string): {
                 importedAt: extractAttribute(sourceAttributes, "importedAt") ?? "",
                 provider: (extractAttribute(sourceAttributes, "provider") ??
                   "gnucash-xml") as NonNullable<
-                  FinanceWorkspaceDocument["transactions"][number]["source"]
+                  FinanceBookDocument["transactions"][number]["source"]
                 >["provider"],
               }
             : undefined,
@@ -405,7 +405,7 @@ export function parseGnuCashXml(contents: string): {
       return {
         autoPost: extractBooleanAttribute(attributes, "autoPost") ?? false,
         frequency: (extractAttribute(attributes, "frequency") ??
-          "monthly") as FinanceWorkspaceDocument["scheduledTransactions"][number]["frequency"],
+          "monthly") as FinanceBookDocument["scheduledTransactions"][number]["frequency"],
         id: extractAttribute(attributes, "id") ?? "",
         name: extractAttribute(attributes, "name") ?? "",
         nextDueOn: extractAttribute(attributes, "nextDueOn") ?? "",
@@ -438,7 +438,7 @@ export function parseGnuCashXml(contents: string): {
     .map((attributes) => ({
       accountId: extractAttribute(attributes, "accountId") ?? "",
       budgetPeriod: (extractAttribute(attributes, "budgetPeriod") ??
-        "monthly") as FinanceWorkspaceDocument["baselineBudgetLines"][number]["budgetPeriod"],
+        "monthly") as FinanceBookDocument["baselineBudgetLines"][number]["budgetPeriod"],
       notes: extractAttribute(attributes, "notes"),
       period: extractAttribute(attributes, "period") ?? "",
       plannedAmount: {
@@ -485,7 +485,7 @@ export function parseGnuCashXml(contents: string): {
       note: extractAttribute(attributes, "note"),
       occurredOn: extractAttribute(attributes, "occurredOn") ?? "",
       type: (extractAttribute(attributes, "type") ??
-        "fund") as FinanceWorkspaceDocument["envelopeAllocations"][number]["type"],
+        "fund") as FinanceBookDocument["envelopeAllocations"][number]["type"],
     }));
   const importBatches = extractBlocks(body, "ws:importBatches").flatMap((section) =>
     [...section.matchAll(/<ws:importBatch\b([^>]*)>([\s\S]*?)<\/ws:importBatch>/g)].map((match) => {
@@ -497,7 +497,7 @@ export function parseGnuCashXml(contents: string): {
         id: extractAttribute(attributes, "id") ?? "",
         importedAt: extractAttribute(attributes, "importedAt") ?? "",
         provider: (extractAttribute(attributes, "provider") ??
-          "csv") as FinanceWorkspaceDocument["importBatches"][number]["provider"],
+          "csv") as FinanceBookDocument["importBatches"][number]["provider"],
         sourceLabel: extractAttribute(attributes, "sourceLabel") ?? "",
         transactionIds: extractBlocks(batchBody, "ws:transactionIds").flatMap((items) =>
           extractBlocks(items, "item").map((item) => unescapeXml(item.trim())),
@@ -546,11 +546,11 @@ export function parseGnuCashXml(contents: string): {
       actor: extractAttribute(attributes, "actor") ?? "",
       entityIds: JSON.parse(extractAttribute(attributes, "entityIds") ?? "[]") as string[],
       eventType: (extractAttribute(attributes, "eventType") ??
-        "transaction.created") as FinanceWorkspaceDocument["auditEvents"][number]["eventType"],
+        "transaction.created") as FinanceBookDocument["auditEvents"][number]["eventType"],
       id: extractAttribute(attributes, "id") ?? "",
       occurredAt: extractAttribute(attributes, "occurredAt") ?? "",
       summary: JSON.parse(extractAttribute(attributes, "summary") ?? "{}") as Record<string, unknown>,
-      workspaceId: extractAttribute(attributes, "workspaceId") ?? id,
+      bookId: extractAttribute(attributes, "bookId") ?? id,
     }));
 
   return {

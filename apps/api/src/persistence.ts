@@ -1,41 +1,41 @@
 import type { Logger } from "@tally/logging";
-import type { FinanceWorkspaceDocument } from "@tally/workspace";
+import type { FinanceBookDocument } from "@tally/book";
 import type { ApiPersistenceBackend, ApiRuntimeConfig } from "./config";
 import { ApiError } from "./errors";
-import { createFileSystemWorkspacePersistenceBackend } from "./persistence-json";
-import { createPostgresWorkspacePersistenceBackend } from "./persistence-postgres";
-import { createSqliteWorkspacePersistenceBackend } from "./persistence-sqlite";
+import { createFileSystemBookPersistenceBackend } from "./persistence-json";
+import { createPostgresBookPersistenceBackend } from "./persistence-postgres";
+import { createSqliteBookPersistenceBackend } from "./persistence-sqlite";
 import {
-  validateWorkspaceDocumentForPersistence,
-  type WorkspaceValidationReport,
+  validateBookDocumentForPersistence,
+  type BookValidationReport,
 } from "./persistence-validation";
 
-export type WorkspacePersistenceBackendKind = "json" | "postgres" | "sqlite";
+export type BookPersistenceBackendKind = "json" | "postgres" | "sqlite";
 
-export interface WorkspaceBackup {
+export interface BookBackup {
   createdAt: string;
   fileName: string;
   id: string;
   sizeBytes: number;
-  workspaceId: string;
+  bookId: string;
 }
 
-export interface WorkspacePersistenceBackend {
+export interface BookPersistenceBackend {
   close?(): Promise<void>;
-  kind: WorkspacePersistenceBackendKind;
-  createBackup(workspaceId: string, options?: { logger?: Logger }): Promise<WorkspaceBackup>;
-  listWorkspaceIds(options?: { logger?: Logger }): Promise<string[]>;
-  listBackups(workspaceId: string, options?: { logger?: Logger }): Promise<WorkspaceBackup[]>;
-  load(workspaceId: string, options?: { logger?: Logger }): Promise<FinanceWorkspaceDocument>;
+  kind: BookPersistenceBackendKind;
+  createBackup(bookId: string, options?: { logger?: Logger }): Promise<BookBackup>;
+  listBookIds(options?: { logger?: Logger }): Promise<string[]>;
+  listBackups(bookId: string, options?: { logger?: Logger }): Promise<BookBackup[]>;
+  load(bookId: string, options?: { logger?: Logger }): Promise<FinanceBookDocument>;
   restoreBackup(
-    workspaceId: string,
+    bookId: string,
     backupId: string,
     options?: { logger?: Logger },
-  ): Promise<FinanceWorkspaceDocument>;
-  save(document: FinanceWorkspaceDocument, options?: { logger?: Logger }): Promise<void>;
+  ): Promise<FinanceBookDocument>;
+  save(document: FinanceBookDocument, options?: { logger?: Logger }): Promise<void>;
 }
 
-export interface WorkspacePersistenceOptions {
+export interface BookPersistenceOptions {
   dataDirectory: string;
   persistenceBackend: ApiPersistenceBackend;
   postgresUrl: string;
@@ -45,12 +45,12 @@ export interface WorkspacePersistenceOptions {
 export interface PersistenceCopyResult {
   dryRun: boolean;
   rolledBack: boolean;
-  sourceValidation?: WorkspaceValidationReport;
+  sourceValidation?: BookValidationReport;
   targetBackupId?: string;
-  targetWorkspaceId: string;
-  targetWorkspaceValidation?: WorkspaceValidationReport;
-  targetWorkspaceWasPresent: boolean;
-  workspaceId: string;
+  targetBookId: string;
+  targetBookValidation?: BookValidationReport;
+  targetBookWasPresent: boolean;
+  bookId: string;
 }
 
 export type PersistenceCopyManyOnError = "continue" | "halt";
@@ -59,7 +59,7 @@ export interface PersistenceCopyFailure {
   code?: string;
   message: string;
   status?: number;
-  workspaceId: string;
+  bookId: string;
 }
 
 export interface PersistenceCopyManyResult {
@@ -70,23 +70,23 @@ export interface PersistenceCopyManyResult {
   onError: PersistenceCopyManyOnError;
   results: PersistenceCopyResult[];
   successCount: number;
-  workspaceIds: string[];
+  bookIds: string[];
 }
 
 export interface PersistenceExportResult {
-  document: FinanceWorkspaceDocument;
+  document: FinanceBookDocument;
   dryRun: boolean;
-  validation?: WorkspaceValidationReport;
+  validation?: BookValidationReport;
 }
 
 export interface PersistenceImportResult {
   dryRun: boolean;
   rolledBack: boolean;
   targetBackupId?: string;
-  targetWorkspaceValidation?: WorkspaceValidationReport;
-  targetWorkspaceWasPresent: boolean;
-  workspaceId: string;
-  validation?: WorkspaceValidationReport;
+  targetBookValidation?: BookValidationReport;
+  targetBookWasPresent: boolean;
+  bookId: string;
+  validation?: BookValidationReport;
 }
 
 export interface PersistenceWriteOptions {
@@ -97,15 +97,15 @@ export interface PersistenceWriteOptions {
   validate?: boolean;
 }
 
-async function loadWorkspaceIfExists(params: {
-  backend: WorkspacePersistenceBackend;
+async function loadBookIfExists(params: {
+  backend: BookPersistenceBackend;
   logger?: Logger;
-  workspaceId: string;
-}): Promise<FinanceWorkspaceDocument | undefined> {
+  bookId: string;
+}): Promise<FinanceBookDocument | undefined> {
   try {
-    return await params.backend.load(params.workspaceId, { logger: params.logger });
+    return await params.backend.load(params.bookId, { logger: params.logger });
   } catch (error) {
-    if (error instanceof ApiError && error.code === "workspace.not_found") {
+    if (error instanceof ApiError && error.code === "book.not_found") {
       return undefined;
     }
 
@@ -113,35 +113,35 @@ async function loadWorkspaceIfExists(params: {
   }
 }
 
-export function createWorkspacePersistenceBackendFromOptions(params: {
+export function createBookPersistenceBackendFromOptions(params: {
   logger?: Logger;
-  options: WorkspacePersistenceOptions;
-}): WorkspacePersistenceBackend {
+  options: BookPersistenceOptions;
+}): BookPersistenceBackend {
   if (params.options.persistenceBackend === "postgres") {
-    return createPostgresWorkspacePersistenceBackend({
+    return createPostgresBookPersistenceBackend({
       logger: params.logger,
       postgresUrl: params.options.postgresUrl,
     });
   }
 
   if (params.options.persistenceBackend === "sqlite") {
-    return createSqliteWorkspacePersistenceBackend({
+    return createSqliteBookPersistenceBackend({
       databasePath: params.options.sqlitePath,
       logger: params.logger,
     });
   }
 
-  return createFileSystemWorkspacePersistenceBackend({
+  return createFileSystemBookPersistenceBackend({
     logger: params.logger,
     rootDirectory: params.options.dataDirectory,
   });
 }
 
-export function createWorkspacePersistenceBackend(params: {
+export function createBookPersistenceBackend(params: {
   config: ApiRuntimeConfig;
   logger?: Logger;
-}): WorkspacePersistenceBackend {
-  return createWorkspacePersistenceBackendFromOptions({
+}): BookPersistenceBackend {
+  return createBookPersistenceBackendFromOptions({
     logger: params.logger,
     options: {
       dataDirectory: params.config.dataDirectory,
@@ -152,100 +152,100 @@ export function createWorkspacePersistenceBackend(params: {
   });
 }
 
-export async function exportWorkspaceDocument(params: {
-  backend: WorkspacePersistenceBackend;
+export async function exportBookDocument(params: {
+  backend: BookPersistenceBackend;
   dryRun?: boolean;
   logger?: Logger;
   validate?: boolean;
-  workspaceId: string;
+  bookId: string;
 }): Promise<PersistenceExportResult> {
-  const document = await params.backend.load(params.workspaceId, { logger: params.logger });
+  const document = await params.backend.load(params.bookId, { logger: params.logger });
 
   return {
     document,
     dryRun: params.dryRun ?? false,
     validation:
-      params.validate === false ? undefined : validateWorkspaceDocumentForPersistence(document),
+      params.validate === false ? undefined : validateBookDocumentForPersistence(document),
   };
 }
 
-export async function importWorkspaceDocument(params: {
-  backend: WorkspacePersistenceBackend;
-  document: FinanceWorkspaceDocument;
+export async function importBookDocument(params: {
+  backend: BookPersistenceBackend;
+  document: FinanceBookDocument;
 } & PersistenceWriteOptions): Promise<PersistenceImportResult> {
   const validation =
-    params.validate === false ? undefined : validateWorkspaceDocumentForPersistence(params.document);
-  const targetWorkspaceId = params.document.id;
-  const targetWorkspace = await loadWorkspaceIfExists({
+    params.validate === false ? undefined : validateBookDocumentForPersistence(params.document);
+  const targetBookId = params.document.id;
+  const existingBook = await loadBookIfExists({
     backend: params.backend,
     logger: params.logger,
-    workspaceId: targetWorkspaceId,
+    bookId: targetBookId,
   });
-  const targetWorkspaceWasPresent = targetWorkspace !== undefined;
+  const targetBookWasPresent = existingBook !== undefined;
 
   if (params.dryRun) {
     return {
       dryRun: true,
       rolledBack: false,
-      targetWorkspaceWasPresent,
+      targetBookWasPresent,
       validation,
-      workspaceId: targetWorkspaceId,
+      bookId: targetBookId,
     };
   }
 
   let targetBackupId: string | undefined;
 
-  if (params.backupTarget && targetWorkspaceWasPresent) {
-    const backup = await params.backend.createBackup(targetWorkspaceId, { logger: params.logger });
+  if (params.backupTarget && targetBookWasPresent) {
+    const backup = await params.backend.createBackup(targetBookId, { logger: params.logger });
     targetBackupId = backup.id;
   }
 
   try {
     await params.backend.save(params.document, { logger: params.logger });
-    const persistedDocument = await params.backend.load(targetWorkspaceId, { logger: params.logger });
-    const targetWorkspaceValidation =
-      params.validate === false ? undefined : validateWorkspaceDocumentForPersistence(persistedDocument);
+    const persistedDocument = await params.backend.load(targetBookId, { logger: params.logger });
+    const targetBookValidation =
+      params.validate === false ? undefined : validateBookDocumentForPersistence(persistedDocument);
 
-    if (targetWorkspaceValidation && !targetWorkspaceValidation.ok) {
-      throw new Error(`Persisted workspace ${targetWorkspaceId} failed validation after write.`);
+    if (targetBookValidation && !targetBookValidation.ok) {
+      throw new Error(`Persisted book ${targetBookId} failed validation after write.`);
     }
 
     return {
       dryRun: false,
       rolledBack: false,
       targetBackupId,
-      targetWorkspaceValidation,
-      targetWorkspaceWasPresent,
+      targetBookValidation,
+      targetBookWasPresent,
       validation,
-      workspaceId: targetWorkspaceId,
+      bookId: targetBookId,
     };
   } catch (error) {
     if (targetBackupId && params.rollbackOnFailure) {
-      await params.backend.restoreBackup(targetWorkspaceId, targetBackupId, { logger: params.logger });
+      await params.backend.restoreBackup(targetBookId, targetBackupId, { logger: params.logger });
     }
 
     throw error;
   }
 }
 
-export async function copyWorkspaceBetweenBackends(params: {
-  source: WorkspacePersistenceBackend;
-  sourceWorkspaceId: string;
-  target: WorkspacePersistenceBackend;
-  targetWorkspaceId?: string;
+export async function copyBookBetweenBackends(params: {
+  source: BookPersistenceBackend;
+  sourceBookId: string;
+  target: BookPersistenceBackend;
+  targetBookId?: string;
 } & PersistenceWriteOptions): Promise<PersistenceCopyResult> {
-  const document = await params.source.load(params.sourceWorkspaceId, { logger: params.logger });
+  const document = await params.source.load(params.sourceBookId, { logger: params.logger });
   const sourceValidation =
-    params.validate === false ? undefined : validateWorkspaceDocumentForPersistence(document);
-  const targetWorkspaceId = params.targetWorkspaceId ?? document.id;
+    params.validate === false ? undefined : validateBookDocumentForPersistence(document);
+  const targetBookId = params.targetBookId ?? document.id;
   const targetDocument =
-    targetWorkspaceId === document.id
+    targetBookId === document.id
       ? document
       : {
           ...document,
-          id: targetWorkspaceId,
+          id: targetBookId,
         };
-  const imported = await importWorkspaceDocument({
+  const imported = await importBookDocument({
     backend: params.target,
     backupTarget: params.backupTarget,
     document: targetDocument,
@@ -260,35 +260,35 @@ export async function copyWorkspaceBetweenBackends(params: {
     rolledBack: imported.rolledBack,
     sourceValidation,
     targetBackupId: imported.targetBackupId,
-    targetWorkspaceId,
-    targetWorkspaceValidation: imported.targetWorkspaceValidation,
-    targetWorkspaceWasPresent: imported.targetWorkspaceWasPresent,
-    workspaceId: document.id,
+    targetBookId,
+    targetBookValidation: imported.targetBookValidation,
+    targetBookWasPresent: imported.targetBookWasPresent,
+    bookId: document.id,
   };
 }
 
-export async function copyAllWorkspacesBetweenBackends(params: {
+export async function copyAllBooksBetweenBackends(params: {
   onError?: PersistenceCopyManyOnError;
-  source: WorkspacePersistenceBackend;
-  target: WorkspacePersistenceBackend;
-  workspaceIds?: string[];
+  source: BookPersistenceBackend;
+  target: BookPersistenceBackend;
+  bookIds?: string[];
 } & PersistenceWriteOptions): Promise<PersistenceCopyManyResult> {
-  const workspaceIds = params.workspaceIds ?? (await params.source.listWorkspaceIds({ logger: params.logger }));
+  const bookIds = params.bookIds ?? (await params.source.listBookIds({ logger: params.logger }));
   const failures: PersistenceCopyFailure[] = [];
   const onError = params.onError ?? "halt";
   const results: PersistenceCopyResult[] = [];
   let halted = false;
 
-  for (const workspaceId of workspaceIds) {
+  for (const bookId of bookIds) {
     try {
       results.push(
-        await copyWorkspaceBetweenBackends({
+        await copyBookBetweenBackends({
           backupTarget: params.backupTarget,
           dryRun: params.dryRun,
           logger: params.logger,
           rollbackOnFailure: params.rollbackOnFailure,
           source: params.source,
-          sourceWorkspaceId: workspaceId,
+          sourceBookId: bookId,
           target: params.target,
           validate: params.validate,
         }),
@@ -304,7 +304,7 @@ export async function copyAllWorkspacesBetweenBackends(params: {
           typeof error === "object" && error !== null && "status" in error && typeof error.status === "number"
             ? error.status
             : undefined,
-        workspaceId,
+        bookId,
       });
 
       if (onError === "halt") {
@@ -322,10 +322,10 @@ export async function copyAllWorkspacesBetweenBackends(params: {
     onError,
     results,
     successCount: results.length,
-    workspaceIds,
+    bookIds,
   };
 }
 
-export { createFileSystemWorkspacePersistenceBackend } from "./persistence-json";
-export { createPostgresWorkspacePersistenceBackend } from "./persistence-postgres";
-export { createSqliteWorkspacePersistenceBackend } from "./persistence-sqlite";
+export { createFileSystemBookPersistenceBackend } from "./persistence-json";
+export { createPostgresBookPersistenceBackend } from "./persistence-postgres";
+export { createSqliteBookPersistenceBackend } from "./persistence-sqlite";

@@ -3,11 +3,11 @@ import { createConsoleSink, createLogger, type ConsoleLogFormat, type Logger } f
 import { createApiRuntimeConfig, type ApiRuntimeConfig, type ApiRuntimeMode } from "./config";
 import { ConfigValidationError } from "./errors";
 import { createHttpHandler, createNodeHttpServer } from "./http";
-import { createWorkspacePersistenceBackend } from "./persistence";
+import { createBookPersistenceBackend } from "./persistence";
 import { createInMemoryRateLimiter } from "./rate-limit";
-import { createWorkspaceRepository } from "./repository";
-import { createWorkspaceService } from "./service";
-import { ensureDemoWorkspaceFile } from "./dev-seed";
+import { createBookRepository } from "./repository";
+import { createBookService } from "./service";
+import { ensureDemoBookFile } from "./dev-seed";
 
 export interface ApiRuntime {
   config: ApiRuntimeConfig;
@@ -82,20 +82,20 @@ export function createApiRuntime(params: {
     handler: ReturnType<typeof createHttpHandler>;
     logger: Logger;
   }) => RuntimeServer;
-  ensureSeed?: typeof ensureDemoWorkspaceFile;
+  ensureSeed?: typeof ensureDemoBookFile;
   env?: NodeJS.ProcessEnv;
   logger?: Logger;
 }): ApiRuntime {
   const logger = params.logger ?? createRuntimeLogger(params.config, params.env ?? process.env);
-  const persistenceBackend = createWorkspacePersistenceBackend({
+  const persistenceBackend = createBookPersistenceBackend({
     config: params.config,
     logger,
   });
-  const repository = createWorkspaceRepository({
+  const repository = createBookRepository({
     backend: persistenceBackend,
     logger,
   });
-  const service = createWorkspaceService({ logger, repository });
+  const service = createBookService({ logger, repository });
   const handler = createHttpHandler({
     authRequired: params.config.authStrategy !== "none",
     authIdentities: params.config.authIdentities,
@@ -105,10 +105,10 @@ export function createApiRuntime(params: {
     maxBodyBytes: params.config.bodyLimitBytes,
     readinessProbe: async ({ logger: probeLogger }) => {
       try {
-        await persistenceBackend.listWorkspaceIds({
+        await persistenceBackend.listBookIds({
           logger: probeLogger.child({
             component: "apiReadinessProbe",
-            operation: "listWorkspaceIds",
+            operation: "listBookIds",
             persistenceBackend: persistenceBackend.kind,
           }),
         });
@@ -155,7 +155,7 @@ export function createApiRuntime(params: {
     trustedHeaderAuth: params.config.trustedHeaderAuth,
   });
   const server = (params.createServer ?? createNodeHttpServer)({ handler, logger });
-  const ensureSeed = params.ensureSeed ?? ensureDemoWorkspaceFile;
+  const ensureSeed = params.ensureSeed ?? ensureDemoBookFile;
   let started = false;
   let shutdownPromise: Promise<void> | null = null;
 

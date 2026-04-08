@@ -6,7 +6,7 @@ import type {
   ScheduledTransaction,
   Transaction,
 } from "@tally/domain";
-import type { CsvImportRow, FinanceWorkspaceDocument } from "@tally/workspace";
+import type { CsvImportRow, FinanceBookDocument } from "@tally/book";
 import type { Logger } from "@tally/logging";
 import type { AuthContext } from "./auth";
 import type { ErrorEnvelope } from "./errors";
@@ -19,13 +19,13 @@ export interface ServiceResponse<TBody> {
 export interface GetWorkspaceRequest {
   auth: AuthContext;
   logger?: Logger;
-  workspaceId: string;
+  bookId: string;
 }
 
 export interface GetBackupsRequest {
   auth: AuthContext;
   logger?: Logger;
-  workspaceId: string;
+  bookId: string;
 }
 
 export interface GetDashboardRequest {
@@ -33,7 +33,7 @@ export interface GetDashboardRequest {
   from: string;
   logger?: Logger;
   to: string;
-  workspaceId: string;
+  bookId: string;
 }
 
 export interface GetCloseSummaryRequest {
@@ -41,7 +41,7 @@ export interface GetCloseSummaryRequest {
   from: string;
   logger?: Logger;
   to: string;
-  workspaceId: string;
+  bookId: string;
 }
 
 export interface PostClosePeriodRequest {
@@ -54,20 +54,20 @@ export interface PostClosePeriodRequest {
     from: string;
     to: string;
   };
-  workspaceId: string;
+  bookId: string;
 }
 
 export interface PostBackupRequest {
   auth: AuthContext;
   logger?: Logger;
-  workspaceId: string;
+  bookId: string;
 }
 
 export interface PostBackupRestoreRequest {
   auth: AuthContext;
   backupId: string;
   logger?: Logger;
-  workspaceId: string;
+  bookId: string;
 }
 
 export interface GetQifExportRequest {
@@ -76,7 +76,7 @@ export interface GetQifExportRequest {
   from: string;
   logger?: Logger;
   to: string;
-  workspaceId: string;
+  bookId: string;
 }
 
 export interface GetStatementExportRequest {
@@ -86,29 +86,29 @@ export interface GetStatementExportRequest {
   from: string;
   logger?: Logger;
   to: string;
-  workspaceId: string;
+  bookId: string;
 }
 
 export interface GetGnuCashXmlExportRequest {
   auth: AuthContext;
   logger?: Logger;
-  workspaceId: string;
+  bookId: string;
 }
 
 export interface GetReportRequest {
   auth: AuthContext;
   from: string;
-  kind: import("@tally/workspace").WorkspaceReportKind;
+  kind: import("@tally/book").BookReportKind;
   logger?: Logger;
   to: string;
-  workspaceId: string;
+  bookId: string;
 }
 
 export interface PostTransactionRequest {
   auth: AuthContext;
   logger?: Logger;
   transaction: Transaction;
-  workspaceId: string;
+  bookId: string;
 }
 
 export interface UpdateTransactionRequest {
@@ -116,21 +116,21 @@ export interface UpdateTransactionRequest {
   logger?: Logger;
   transaction: Transaction;
   transactionId: string;
-  workspaceId: string;
+  bookId: string;
 }
 
 export interface DeleteTransactionRequest {
   auth: AuthContext;
   logger?: Logger;
   transactionId: string;
-  workspaceId: string;
+  bookId: string;
 }
 
 export interface DestroyTransactionRequest {
   auth: AuthContext;
   logger?: Logger;
   transactionId: string;
-  workspaceId: string;
+  bookId: string;
 }
 
 export interface PostReconciliationRequest {
@@ -143,35 +143,35 @@ export interface PostReconciliationRequest {
     statementBalance: number;
     statementDate: string;
   };
-  workspaceId: string;
+  bookId: string;
 }
 
 export interface PostBaselineBudgetLineRequest {
   auth: AuthContext;
   line: BaselineBudgetLine;
   logger?: Logger;
-  workspaceId: string;
+  bookId: string;
 }
 
 export interface PostEnvelopeRequest {
   auth: AuthContext;
   envelope: Envelope;
   logger?: Logger;
-  workspaceId: string;
+  bookId: string;
 }
 
 export interface PostEnvelopeAllocationRequest {
   auth: AuthContext;
   allocation: EnvelopeAllocation;
   logger?: Logger;
-  workspaceId: string;
+  bookId: string;
 }
 
 export interface PostScheduledTransactionRequest {
   auth: AuthContext;
   logger?: Logger;
   schedule: ScheduledTransaction;
-  workspaceId: string;
+  bookId: string;
 }
 
 export interface ExecuteScheduledTransactionRequest {
@@ -182,7 +182,7 @@ export interface ExecuteScheduledTransactionRequest {
     transactionId?: string;
   };
   scheduleId: string;
-  workspaceId: string;
+  bookId: string;
 }
 
 export interface ApplyScheduledTransactionExceptionRequest {
@@ -195,7 +195,7 @@ export interface ApplyScheduledTransactionExceptionRequest {
     note?: string;
   };
   scheduleId: string;
-  workspaceId: string;
+  bookId: string;
 }
 
 export interface PostCsvImportRequest {
@@ -207,7 +207,7 @@ export interface PostCsvImportRequest {
     rows: CsvImportRow[];
     sourceLabel: string;
   };
-  workspaceId: string;
+  bookId: string;
 }
 
 export interface PostQifImportRequest {
@@ -222,7 +222,7 @@ export interface PostQifImportRequest {
     qif: string;
     sourceLabel: string;
   };
-  workspaceId: string;
+  bookId: string;
 }
 
 export interface PostStatementImportRequest {
@@ -238,7 +238,7 @@ export interface PostStatementImportRequest {
     sourceLabel: string;
     statement: string;
   };
-  workspaceId: string;
+  bookId: string;
 }
 
 export interface PostGnuCashXmlImportRequest {
@@ -249,27 +249,27 @@ export interface PostGnuCashXmlImportRequest {
     sourceLabel: string;
     xml: string;
   };
-  workspaceId: string;
+  bookId: string;
 }
 
-export interface WorkspaceEnvelope {
-  workspace: FinanceWorkspaceDocument;
+export interface BookEnvelope {
+  book: FinanceBookDocument;
 }
 
 export interface DashboardEnvelope {
-  dashboard: ReturnType<typeof import("@tally/workspace").buildDashboardSnapshot>;
+  dashboard: ReturnType<typeof import("@tally/book").buildDashboardSnapshot>;
 }
 
 export interface BackupsEnvelope {
-  backups: import("./repository").WorkspaceBackup[];
+  backups: import("./repository").BookBackup[];
 }
 
 export interface BackupEnvelope {
-  backup: import("./repository").WorkspaceBackup;
+  backup: import("./repository").BookBackup;
 }
 
 export interface CloseSummaryEnvelope {
-  closeSummary: import("@tally/workspace").CloseSummary;
+  closeSummary: import("@tally/book").CloseSummary;
 }
 
 export interface QifExportEnvelope {
@@ -299,13 +299,13 @@ export interface GnuCashXmlExportEnvelope {
 }
 
 export interface ReportEnvelope {
-  report: import("@tally/workspace").WorkspaceReport;
+  report: import("@tally/book").BookReport;
 }
 
 export interface GetHouseholdMembersRequest {
   auth: AuthContext;
   logger?: Logger;
-  workspaceId: string;
+  bookId: string;
 }
 
 export interface AddHouseholdMemberRequest {
@@ -315,7 +315,7 @@ export interface AddHouseholdMemberRequest {
     actor: string;
     role?: "admin" | "guardian" | "member";
   };
-  workspaceId: string;
+  bookId: string;
 }
 
 export interface SetHouseholdMemberRoleRequest {
@@ -325,14 +325,14 @@ export interface SetHouseholdMemberRoleRequest {
   payload: {
     role: "admin" | "guardian" | "member";
   };
-  workspaceId: string;
+  bookId: string;
 }
 
 export interface RemoveHouseholdMemberRequest {
   actor: string;
   auth: AuthContext;
   logger?: Logger;
-  workspaceId: string;
+  bookId: string;
 }
 
 export interface HouseholdMembersEnvelope {
@@ -383,7 +383,7 @@ export interface AuditEventsEnvelope {
 export interface GetApprovalsRequest {
   auth: AuthContext;
   logger?: Logger;
-  workspaceId: string;
+  bookId: string;
 }
 
 export interface RequestApprovalRequest {
@@ -391,28 +391,28 @@ export interface RequestApprovalRequest {
   logger?: Logger;
   payload: {
     approvalId: string;
-    kind: import("@tally/workspace").ApprovalKind;
+    kind: import("@tally/book").ApprovalKind;
     entityId: string;
   };
-  workspaceId: string;
+  bookId: string;
 }
 
 export interface GrantApprovalRequest {
   approvalId: string;
   auth: AuthContext;
   logger?: Logger;
-  workspaceId: string;
+  bookId: string;
 }
 
 export interface DenyApprovalRequest {
   approvalId: string;
   auth: AuthContext;
   logger?: Logger;
-  workspaceId: string;
+  bookId: string;
 }
 
 export interface ApprovalsEnvelope {
-  approvals: import("@tally/workspace").PendingApproval[];
+  approvals: import("@tally/book").PendingApproval[];
 }
 
 export type { ErrorEnvelope };

@@ -2,69 +2,69 @@ import { mkdir, mkdtemp, rm } from "node:fs/promises";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
 import { describe, expect, it } from "vitest";
-import { createDemoWorkspace } from "@tally/workspace";
-import { saveWorkspaceToFile } from "@tally/workspace/src/node";
-import type { WorkspacePersistenceBackend } from "./persistence";
-import { createFileSystemWorkspaceRepository, createWorkspaceRepository } from "./repository";
+import { createDemoBook } from "@tally/book";
+import { saveBookToFile } from "@tally/book/src/node";
+import type { BookPersistenceBackend } from "./persistence";
+import { createFileSystemBookRepository, createBookRepository } from "./repository";
 
-describe("workspace repository abstraction", () => {
+describe("book repository abstraction", () => {
   it("delegates repository operations through the configured persistence backend", async () => {
-    const workspace = createDemoWorkspace();
+    const book = createDemoBook();
     const calls: string[] = [];
-    const backend: WorkspacePersistenceBackend = {
+    const backend: BookPersistenceBackend = {
       kind: "json",
-      async createBackup(workspaceId) {
-        calls.push(`createBackup:${workspaceId}`);
+      async createBackup(bookId) {
+        calls.push(`createBackup:${bookId}`);
         return {
           createdAt: "2026-04-05T00:00:00.000Z",
           fileName: "backup-1.json",
           id: "backup-1",
           sizeBytes: 100,
-          workspaceId,
+          bookId,
         };
       },
-      async listBackups(workspaceId) {
-        calls.push(`listBackups:${workspaceId}`);
+      async listBackups(bookId) {
+        calls.push(`listBackups:${bookId}`);
         return [];
       },
-      async listWorkspaceIds() {
-        calls.push("listWorkspaceIds");
-        return [workspace.id];
+      async listBookIds() {
+        calls.push("listBookIds");
+        return [book.id];
       },
-      async load(workspaceId) {
-        calls.push(`load:${workspaceId}`);
-        return workspace;
+      async load(bookId) {
+        calls.push(`load:${bookId}`);
+        return book;
       },
-      async restoreBackup(workspaceId, backupId) {
-        calls.push(`restoreBackup:${workspaceId}:${backupId}`);
-        return workspace;
+      async restoreBackup(bookId, backupId) {
+        calls.push(`restoreBackup:${bookId}:${backupId}`);
+        return book;
       },
       async save(document) {
         calls.push(`save:${document.id}`);
       },
     };
 
-    const repository = createWorkspaceRepository({ backend });
+    const repository = createBookRepository({ backend });
 
-    expect(await repository.load(workspace.id)).toBe(workspace);
-    await repository.save(workspace);
-    expect(await repository.listBackups(workspace.id)).toEqual([]);
-    await repository.createBackup(workspace.id);
-    expect(await repository.restoreBackup(workspace.id, "backup-1")).toBe(workspace);
+    expect(await repository.load(book.id)).toBe(book);
+    await repository.save(book);
+    expect(await repository.listBackups(book.id)).toEqual([]);
+    await repository.createBackup(book.id);
+    expect(await repository.restoreBackup(book.id, "backup-1")).toBe(book);
     expect(calls).toEqual([
-      `load:${workspace.id}`,
-      `save:${workspace.id}`,
-      `listBackups:${workspace.id}`,
-      `createBackup:${workspace.id}`,
-      `restoreBackup:${workspace.id}:backup-1`,
+      `load:${book.id}`,
+      `save:${book.id}`,
+      `listBackups:${book.id}`,
+      `createBackup:${book.id}`,
+      `restoreBackup:${book.id}:backup-1`,
     ]);
   });
 });
 
-describe("workspace repository security", () => {
-  it("rejects unsafe workspace identifiers", async () => {
+describe("book repository security", () => {
+  it("rejects unsafe book identifiers", async () => {
     const directory = await mkdtemp(join(tmpdir(), "tally-repo-"));
-    const repository = createFileSystemWorkspaceRepository({ rootDirectory: directory });
+    const repository = createFileSystemBookRepository({ rootDirectory: directory });
 
     await expect(repository.load("../secrets")).rejects.toMatchObject({
       code: "repository.invalid_identifier",
@@ -74,25 +74,25 @@ describe("workspace repository security", () => {
     await rm(directory, { recursive: true, force: true });
   });
 
-  it("loads safe workspace identifiers from the configured root", async () => {
+  it("loads safe book identifiers from the configured root", async () => {
     const directory = await mkdtemp(join(tmpdir(), "tally-repo-"));
-    const workspace = createDemoWorkspace();
-    await saveWorkspaceToFile(join(directory, `${workspace.id}.json`), workspace);
-    const repository = createFileSystemWorkspaceRepository({ rootDirectory: directory });
+    const book = createDemoBook();
+    await saveBookToFile(join(directory, `${book.id}.json`), book);
+    const repository = createFileSystemBookRepository({ rootDirectory: directory });
 
-    const loaded = await repository.load(workspace.id);
+    const loaded = await repository.load(book.id);
 
-    expect(loaded.id).toBe(workspace.id);
+    expect(loaded.id).toBe(book.id);
 
     await rm(directory, { recursive: true, force: true });
   });
 
-  it("returns a typed not found error for missing workspaces", async () => {
+  it("returns a typed not found error for missing books", async () => {
     const directory = await mkdtemp(join(tmpdir(), "tally-repo-"));
-    const repository = createFileSystemWorkspaceRepository({ rootDirectory: directory });
+    const repository = createFileSystemBookRepository({ rootDirectory: directory });
 
-    await expect(repository.load("missing-workspace")).rejects.toMatchObject({
-      code: "workspace.not_found",
+    await expect(repository.load("missing-book")).rejects.toMatchObject({
+      code: "book.not_found",
       status: 404,
     });
 
@@ -101,21 +101,21 @@ describe("workspace repository security", () => {
 
   it("creates, lists, and restores backups", async () => {
     const directory = await mkdtemp(join(tmpdir(), "tally-repo-"));
-    const workspace = createDemoWorkspace();
-    await saveWorkspaceToFile(join(directory, `${workspace.id}.json`), workspace);
-    const repository = createFileSystemWorkspaceRepository({ rootDirectory: directory });
+    const book = createDemoBook();
+    await saveBookToFile(join(directory, `${book.id}.json`), book);
+    const repository = createFileSystemBookRepository({ rootDirectory: directory });
 
-    const backup = await repository.createBackup(workspace.id);
-    const backups = await repository.listBackups(workspace.id);
+    const backup = await repository.createBackup(book.id);
+    const backups = await repository.listBackups(book.id);
 
     expect(backup.id).toContain("backup-");
     expect(backups).toHaveLength(1);
     expect(backups[0]?.id).toBe(backup.id);
 
-    workspace.name = "Changed Name";
-    await repository.save(workspace);
+    book.name = "Changed Name";
+    await repository.save(book);
 
-    const restored = await repository.restoreBackup(workspace.id, backup.id);
+    const restored = await repository.restoreBackup(book.id, backup.id);
 
     expect(restored.name).toBe("Household Finance");
 
@@ -124,41 +124,41 @@ describe("workspace repository security", () => {
 
   it("rejects invalid and missing backup identifiers", async () => {
     const directory = await mkdtemp(join(tmpdir(), "tally-repo-"));
-    const workspace = createDemoWorkspace();
-    await saveWorkspaceToFile(join(directory, `${workspace.id}.json`), workspace);
-    const repository = createFileSystemWorkspaceRepository({ rootDirectory: directory });
+    const book = createDemoBook();
+    await saveBookToFile(join(directory, `${book.id}.json`), book);
+    const repository = createFileSystemBookRepository({ rootDirectory: directory });
 
-    await expect(repository.restoreBackup(workspace.id, "../bad-backup")).rejects.toMatchObject({
+    await expect(repository.restoreBackup(book.id, "../bad-backup")).rejects.toMatchObject({
       code: "repository.invalid_identifier",
       status: 400,
     });
 
-    await expect(repository.restoreBackup(workspace.id, "backup-missing")).rejects.toMatchObject({
-      code: "workspace.not_found",
+    await expect(repository.restoreBackup(book.id, "backup-missing")).rejects.toMatchObject({
+      code: "book.not_found",
       status: 404,
     });
 
     await rm(directory, { recursive: true, force: true });
   });
 
-  it("rejects restoring a backup whose workspace id does not match", async () => {
+  it("rejects restoring a backup whose book id does not match", async () => {
     const directory = await mkdtemp(join(tmpdir(), "tally-repo-"));
-    const workspace = createDemoWorkspace();
-    await saveWorkspaceToFile(join(directory, `${workspace.id}.json`), workspace);
-    const repository = createFileSystemWorkspaceRepository({ rootDirectory: directory });
+    const book = createDemoBook();
+    await saveBookToFile(join(directory, `${book.id}.json`), book);
+    const repository = createFileSystemBookRepository({ rootDirectory: directory });
 
     const otherWorkspace = {
-      ...workspace,
-      id: "other-workspace",
+      ...book,
+      id: "other-book",
       name: "Other Workspace",
     };
-    await mkdir(join(directory, "_backups", workspace.id), { recursive: true });
-    await saveWorkspaceToFile(
-      join(directory, "_backups", workspace.id, "backup-manual.json"),
+    await mkdir(join(directory, "_backups", book.id), { recursive: true });
+    await saveBookToFile(
+      join(directory, "_backups", book.id, "backup-manual.json"),
       otherWorkspace,
     );
 
-    await expect(repository.restoreBackup(workspace.id, "backup-manual")).rejects.toMatchObject({
+    await expect(repository.restoreBackup(book.id, "backup-manual")).rejects.toMatchObject({
       code: "repository.invalid_identifier",
       status: 400,
     });

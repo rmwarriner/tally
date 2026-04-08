@@ -3,18 +3,18 @@ import { createMoney } from "@tally/domain";
 import {
   addTransaction,
   createAuditEvent,
-  createDemoWorkspace,
+  createDemoBook,
   deleteTransaction,
   destroyTransaction,
   reconcileAccount,
   updateTransaction,
 } from "./index";
 
-describe("workspace audit events", () => {
+describe("book audit events", () => {
   it("appends a durable audit event for successful transaction creation", () => {
-    const workspace = createDemoWorkspace();
+    const book = createDemoBook();
     const result = addTransaction(
-      workspace,
+      book,
       {
         id: "txn-phone-1",
         occurredOn: "2026-04-03",
@@ -36,7 +36,7 @@ describe("workspace audit events", () => {
     expect(result.ok).toBe(true);
     expect(result.document.auditEvents).toHaveLength(1);
     expect(result.document.auditEvents[0]).toMatchObject({
-      workspaceId: workspace.id,
+      bookId: book.id,
       actor: "Primary",
       eventType: "transaction.created",
       occurredAt: "2026-04-03T10:00:00Z",
@@ -45,9 +45,9 @@ describe("workspace audit events", () => {
   });
 
   it("does not append audit events for rejected commands", () => {
-    const workspace = createDemoWorkspace();
+    const book = createDemoBook();
     const result = addTransaction(
-      workspace,
+      book,
       {
         id: "txn-invalid",
         occurredOn: "2026-04-03",
@@ -70,9 +70,9 @@ describe("workspace audit events", () => {
   });
 
   it("records reconciliation audit events with the relevant entity ids", () => {
-    const workspace = createDemoWorkspace();
+    const book = createDemoBook();
     const result = reconcileAccount(
-      workspace,
+      book,
       {
         accountId: "acct-checking",
         statementDate: "2026-04-02",
@@ -97,9 +97,9 @@ describe("workspace audit events", () => {
   });
 
   it("appends a durable audit event for successful transaction updates", () => {
-    const workspace = createDemoWorkspace();
+    const book = createDemoBook();
     const result = updateTransaction(
-      workspace,
+      book,
       "txn-grocery-1",
       {
         id: "txn-grocery-1",
@@ -129,9 +129,9 @@ describe("workspace audit events", () => {
   });
 
   it("appends durable audit events for transaction soft delete and destroy", () => {
-    const workspace = createDemoWorkspace();
+    const book = createDemoBook();
     const deleted = deleteTransaction(
-      workspace,
+      book,
       "txn-grocery-1",
       {
         deletedAt: "2026-04-03T13:00:00Z",
@@ -169,9 +169,9 @@ describe("workspace audit events", () => {
   });
 
   it("falls back to event type and system actor when audit context omits identifiers", () => {
-    const workspace = createDemoWorkspace();
+    const book = createDemoBook();
     const event = createAuditEvent(
-      workspace,
+      book,
       {
         entityIds: [],
         eventType: "transaction.created",

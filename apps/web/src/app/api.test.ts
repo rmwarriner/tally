@@ -19,7 +19,7 @@ describe("web api client", () => {
 
   it("posts transactions to the service route", async () => {
     const fetchMock = vi.fn().mockResolvedValue({
-      json: async () => ({ workspace: { id: "workspace-household-demo" } }),
+      json: async () => ({ book: { id: "workspace-household-demo" } }),
       ok: true,
     });
     vi.stubGlobal("fetch", fetchMock);
@@ -35,7 +35,7 @@ describe("web api client", () => {
     });
 
     expect(fetchMock).toHaveBeenCalledWith(
-      "/api/workspaces/workspace-household-demo/transactions",
+      "/api/books/workspace-household-demo/transactions",
       expect.objectContaining({
         method: "POST",
       }),
@@ -44,7 +44,7 @@ describe("web api client", () => {
 
   it("puts transaction updates to the service route", async () => {
     const fetchMock = vi.fn().mockResolvedValue({
-      json: async () => ({ workspace: { id: "workspace-household-demo" } }),
+      json: async () => ({ book: { id: "workspace-household-demo" } }),
       ok: true,
     });
     vi.stubGlobal("fetch", fetchMock);
@@ -60,7 +60,7 @@ describe("web api client", () => {
     });
 
     expect(fetchMock).toHaveBeenCalledWith(
-      "/api/workspaces/workspace-household-demo/transactions/txn-grocery-1",
+      "/api/books/workspace-household-demo/transactions/txn-grocery-1",
       expect.objectContaining({
         method: "PUT",
       }),
@@ -69,7 +69,7 @@ describe("web api client", () => {
 
   it("posts csv imports to the service route", async () => {
     const fetchMock = vi.fn().mockResolvedValue({
-      json: async () => ({ workspace: { id: "workspace-household-demo" } }),
+      json: async () => ({ book: { id: "workspace-household-demo" } }),
       ok: true,
     });
     vi.stubGlobal("fetch", fetchMock);
@@ -85,7 +85,7 @@ describe("web api client", () => {
     });
 
     expect(fetchMock).toHaveBeenCalledWith(
-      "/api/workspaces/workspace-household-demo/imports/csv",
+      "/api/books/workspace-household-demo/imports/csv",
       expect.objectContaining({
         method: "POST",
       }),
@@ -94,7 +94,7 @@ describe("web api client", () => {
 
   it("posts reconciliations to the service route", async () => {
     const fetchMock = vi.fn().mockResolvedValue({
-      json: async () => ({ workspace: { id: "workspace-household-demo" } }),
+      json: async () => ({ book: { id: "workspace-household-demo" } }),
       ok: true,
     });
     vi.stubGlobal("fetch", fetchMock);
@@ -110,7 +110,7 @@ describe("web api client", () => {
     });
 
     expect(fetchMock).toHaveBeenCalledWith(
-      "/api/workspaces/workspace-household-demo/reconciliations",
+      "/api/books/workspace-household-demo/reconciliations",
       expect.objectContaining({
         method: "POST",
       }),
@@ -119,7 +119,7 @@ describe("web api client", () => {
 
   it("posts budget lines to the service route", async () => {
     const fetchMock = vi.fn().mockResolvedValue({
-      json: async () => ({ workspace: { id: "workspace-household-demo" } }),
+      json: async () => ({ book: { id: "workspace-household-demo" } }),
       ok: true,
     });
     vi.stubGlobal("fetch", fetchMock);
@@ -134,7 +134,7 @@ describe("web api client", () => {
     });
 
     expect(fetchMock).toHaveBeenCalledWith(
-      "/api/workspaces/workspace-household-demo/budget-lines",
+      "/api/books/workspace-household-demo/budget-lines",
       expect.objectContaining({
         method: "POST",
       }),
@@ -143,7 +143,7 @@ describe("web api client", () => {
 
   it("posts envelopes and allocations to the service routes", async () => {
     const fetchMock = vi.fn().mockResolvedValue({
-      json: async () => ({ workspace: { id: "workspace-household-demo" } }),
+      json: async () => ({ book: { id: "workspace-household-demo" } }),
       ok: true,
     });
     vi.stubGlobal("fetch", fetchMock);
@@ -172,14 +172,14 @@ describe("web api client", () => {
 
     expect(fetchMock).toHaveBeenNthCalledWith(
       1,
-      "/api/workspaces/workspace-household-demo/envelopes",
+      "/api/books/workspace-household-demo/envelopes",
       expect.objectContaining({
         method: "POST",
       }),
     );
     expect(fetchMock).toHaveBeenNthCalledWith(
       2,
-      "/api/workspaces/workspace-household-demo/envelope-allocations",
+      "/api/books/workspace-household-demo/envelope-allocations",
       expect.objectContaining({
         method: "POST",
       }),
@@ -188,7 +188,7 @@ describe("web api client", () => {
 
   it("posts scheduled transactions to the service route", async () => {
     const fetchMock = vi.fn().mockResolvedValue({
-      json: async () => ({ workspace: { id: "workspace-household-demo" } }),
+      json: async () => ({ book: { id: "workspace-household-demo" } }),
       ok: true,
     });
     vi.stubGlobal("fetch", fetchMock);
@@ -217,7 +217,7 @@ describe("web api client", () => {
     });
 
     expect(fetchMock).toHaveBeenCalledWith(
-      "/api/workspaces/workspace-household-demo/schedules",
+      "/api/books/workspace-household-demo/schedules",
       expect.objectContaining({
         method: "POST",
       }),
@@ -234,11 +234,11 @@ describe("web api client", () => {
     await fetchDashboard({
       from: "2026-04-01",
       to: "2026-04-30",
-      workspaceId: "workspace-household-demo",
+      bookId: "workspace-household-demo",
     });
 
     expect(fetchMock).toHaveBeenCalledWith(
-      "/api/workspaces/workspace-household-demo/dashboard?from=2026-04-01&to=2026-04-30",
+      "/api/books/workspace-household-demo/dashboard?from=2026-04-01&to=2026-04-30",
     );
   });
 
@@ -261,7 +261,7 @@ describe("web api client", () => {
       fetchDashboard({
         from: "2026-04-01",
         to: "2026-04-30",
-        workspaceId: "workspace-household-demo",
+        bookId: "workspace-household-demo",
       }),
     ).rejects.toMatchObject({
       code: "security.rate_limited",

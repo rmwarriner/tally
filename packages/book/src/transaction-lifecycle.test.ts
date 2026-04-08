@@ -1,17 +1,17 @@
 import { describe, expect, it } from "vitest";
 import { createMoney } from "@tally/domain";
-import { createDemoWorkspace } from "./factory";
+import { createDemoBook } from "./factory";
 import {
-  buildOperationalWorkspaceView,
+  buildOperationalBookView,
   listActiveTransactions,
   listDeletedTransactions,
   replaceActiveTransactions,
 } from "./transaction-lifecycle";
 
-describe("workspace transaction lifecycle helpers", () => {
+describe("book transaction lifecycle helpers", () => {
   it("separates active and deleted transactions from an operational view", () => {
-    const workspace = createDemoWorkspace();
-    const nextTransactions = workspace.transactions.map((transaction, index) =>
+    const book = createDemoBook();
+    const nextTransactions = book.transactions.map((transaction, index) =>
       index === 0
         ? {
             ...transaction,
@@ -23,19 +23,19 @@ describe("workspace transaction lifecycle helpers", () => {
         : transaction,
     );
     const nextWorkspace = {
-      ...workspace,
+      ...book,
       transactions: nextTransactions,
     };
 
     expect(listDeletedTransactions(nextWorkspace.transactions)).toHaveLength(1);
-    expect(listActiveTransactions(nextWorkspace.transactions)).toHaveLength(workspace.transactions.length - 1);
+    expect(listActiveTransactions(nextWorkspace.transactions)).toHaveLength(book.transactions.length - 1);
     expect(
-      buildOperationalWorkspaceView(nextWorkspace).transactions.some((transaction) => transaction.deletion !== undefined),
+      buildOperationalBookView(nextWorkspace).transactions.some((transaction) => transaction.deletion !== undefined),
     ).toBe(false);
   });
 
   it("replaces active transactions while preserving deleted history and sorted order", () => {
-    const workspace = createDemoWorkspace();
+    const book = createDemoBook();
     const deletedTransaction = {
       id: "txn-deleted-1",
       occurredOn: "2026-04-01",
@@ -50,8 +50,8 @@ describe("workspace transaction lifecycle helpers", () => {
       },
     };
     const document = {
-      ...workspace,
-      transactions: [deletedTransaction, ...workspace.transactions],
+      ...book,
+      transactions: [deletedTransaction, ...book.transactions],
     };
     const replacement = [
       {

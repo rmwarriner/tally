@@ -1,5 +1,5 @@
 import type { Transaction } from "@tally/domain";
-import type { FinanceWorkspaceDocument } from "./types";
+import type { FinanceBookDocument } from "./types";
 
 function compareTransactions(left: Transaction, right: Transaction): number {
   return left.occurredOn.localeCompare(right.occurredOn) || left.id.localeCompare(right.id);
@@ -18,15 +18,15 @@ export function listDeletedTransactions(transactions: Transaction[]): Transactio
 }
 
 export function replaceActiveTransactions(
-  document: FinanceWorkspaceDocument,
+  document: FinanceBookDocument,
   nextActiveTransactions: Transaction[],
 ): Transaction[] {
   return [...listDeletedTransactions(document.transactions), ...nextActiveTransactions].sort(compareTransactions);
 }
 
-export function buildOperationalWorkspaceView(
-  document: FinanceWorkspaceDocument,
-): FinanceWorkspaceDocument {
+export function buildOperationalBookView(
+  document: FinanceBookDocument,
+): FinanceBookDocument {
   return {
     ...document,
     transactions: listActiveTransactions(document.transactions),

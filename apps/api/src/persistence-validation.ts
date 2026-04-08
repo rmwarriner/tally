@@ -2,9 +2,9 @@ import {
   validateBudgetConfiguration,
   validateTransactionForLedger,
 } from "@tally/domain";
-import type { FinanceWorkspaceDocument } from "@tally/workspace";
+import type { FinanceBookDocument } from "@tally/book";
 
-export interface WorkspaceValidationReport {
+export interface BookValidationReport {
   ok: boolean;
   issues: string[];
   summary: {
@@ -18,7 +18,7 @@ export interface WorkspaceValidationReport {
     reconciliationSessionCount: number;
     scheduledTransactionCount: number;
     transactionCount: number;
-    workspaceId: string;
+    bookId: string;
   };
 }
 
@@ -47,9 +47,9 @@ function isIsoTimestamp(value: string): boolean {
   return /^\d{4}-\d{2}-\d{2}T/.test(value);
 }
 
-export function validateWorkspaceDocumentForPersistence(
-  document: FinanceWorkspaceDocument,
-): WorkspaceValidationReport {
+export function validateBookDocumentForPersistence(
+  document: FinanceBookDocument,
+): BookValidationReport {
   const issues: string[] = [];
   const accountIds = new Set(document.accounts.map((account) => account.id));
   const transactionIds = new Set(document.transactions.map((transaction) => transaction.id));
@@ -198,8 +198,8 @@ export function validateWorkspaceDocumentForPersistence(
   }
 
   for (const event of document.auditEvents) {
-    if (event.workspaceId !== document.id) {
-      issues.push(`Audit event ${event.id} references workspace ${event.workspaceId} but document id is ${document.id}.`);
+    if (event.bookId !== document.id) {
+      issues.push(`Audit event ${event.id} references book ${event.bookId} but document id is ${document.id}.`);
     }
 
     if (!event.actor.trim()) {
@@ -233,7 +233,7 @@ export function validateWorkspaceDocumentForPersistence(
       reconciliationSessionCount: document.reconciliationSessions.length,
       scheduledTransactionCount: document.scheduledTransactions.length,
       transactionCount: document.transactions.length,
-      workspaceId: document.id,
+      bookId: document.id,
     },
   };
 }

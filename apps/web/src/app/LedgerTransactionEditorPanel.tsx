@@ -1,5 +1,5 @@
 import type { Dispatch, MutableRefObject, SetStateAction } from "react";
-import type { WorkspaceResponse } from "./api";
+import type { BookResponse } from "./api";
 import {
   getAccountSearchMatches,
   getNextPostingFocusTarget,
@@ -7,7 +7,7 @@ import {
   getPreferredAccountTypesForPostingAmount,
   getTransactionEditorHotkeyAction,
   type PostingFocusField,
-  type createLedgerWorkspaceModel,
+  type createLedgerBookModel,
 } from "./shell";
 import { formatSignedCurrency, formatTransactionStatus } from "./app-format";
 import type { TransactionEditorState } from "./transaction-editor";
@@ -17,7 +17,7 @@ interface LedgerTransactionEditorPanelProps {
   addPostingToEditor: () => void;
   busy: string | null;
   highlightedPostingAccountMatchIndex: number;
-  ledgerWorkspace: ReturnType<typeof createLedgerWorkspaceModel>;
+  ledgerBook: ReturnType<typeof createLedgerBookModel>;
   movePosting: (direction: "up" | "down", postingIndex: number) => void;
   pendingPostingFocusTargetSetter: Dispatch<
     SetStateAction<{
@@ -38,7 +38,7 @@ interface LedgerTransactionEditorPanelProps {
   transactionEditor: TransactionEditorState | null;
   transactionEditorErrors: string[];
   updatePostingAccountSearch: (index: number, query: string) => void;
-  workspaceAccounts: WorkspaceResponse["workspace"]["accounts"];
+  bookAccounts: BookResponse["book"]["accounts"];
 }
 
 export function LedgerTransactionEditorPanel(props: LedgerTransactionEditorPanelProps) {
@@ -47,7 +47,7 @@ export function LedgerTransactionEditorPanel(props: LedgerTransactionEditorPanel
     addPostingToEditor,
     busy,
     highlightedPostingAccountMatchIndex,
-    ledgerWorkspace,
+    ledgerBook,
     movePosting,
     pendingPostingFocusTargetSetter,
     postingAccountInputRefs,
@@ -63,7 +63,7 @@ export function LedgerTransactionEditorPanel(props: LedgerTransactionEditorPanel
     transactionEditor,
     transactionEditorErrors,
     updatePostingAccountSearch,
-    workspaceAccounts,
+    bookAccounts,
   } = props;
 
   return (
@@ -71,46 +71,46 @@ export function LedgerTransactionEditorPanel(props: LedgerTransactionEditorPanel
       <div className="panel-header">
         <span>Register detail</span>
         <span className="muted">
-          {ledgerWorkspace.selectedTransaction?.id ?? "Select a register row"}
+          {ledgerBook.selectedTransaction?.id ?? "Select a register row"}
         </span>
       </div>
-      {transactionEditor && ledgerWorkspace.selectedTransaction ? (
+      {transactionEditor && ledgerBook.selectedTransaction ? (
         <div className="ledger-detail-layout">
           <div className="ledger-detail-summary">
             <div className="detail-stack">
               <div className="status-item">
                 <span>Description</span>
-                <strong>{ledgerWorkspace.selectedTransaction.description}</strong>
+                <strong>{ledgerBook.selectedTransaction.description}</strong>
               </div>
               <div className="status-item">
                 <span>Occurred on</span>
-                <strong>{ledgerWorkspace.selectedTransaction.occurredOn}</strong>
+                <strong>{ledgerBook.selectedTransaction.occurredOn}</strong>
               </div>
               <div className="status-item">
                 <span>Payee</span>
-                <strong>{ledgerWorkspace.selectedTransaction.payee ?? "Unassigned"}</strong>
+                <strong>{ledgerBook.selectedTransaction.payee ?? "Unassigned"}</strong>
               </div>
               <div className="status-item">
                 <span>Split count</span>
-                <strong>{ledgerWorkspace.selectedTransaction.postings.length}</strong>
+                <strong>{ledgerBook.selectedTransaction.postings.length}</strong>
               </div>
               <div className="status-item">
                 <span>Tags</span>
                 <strong>
-                  {ledgerWorkspace.selectedTransaction.tags.length > 0
-                    ? ledgerWorkspace.selectedTransaction.tags.join(", ")
+                  {ledgerBook.selectedTransaction.tags.length > 0
+                    ? ledgerBook.selectedTransaction.tags.join(", ")
                     : "None"}
                 </strong>
               </div>
               <div className="status-item">
                 <span>Status</span>
-                <strong>{formatTransactionStatus(ledgerWorkspace.selectedTransaction.status)}</strong>
+                <strong>{formatTransactionStatus(ledgerBook.selectedTransaction.status)}</strong>
               </div>
             </div>
             <div className="detail-stack">
-              {ledgerWorkspace.selectedTransaction.postings.map((posting) => (
+              {ledgerBook.selectedTransaction.postings.map((posting) => (
                 <div
-                  key={`${ledgerWorkspace.selectedTransaction?.id}:${posting.accountId}:${posting.amount}`}
+                  key={`${ledgerBook.selectedTransaction?.id}:${posting.accountId}:${posting.amount}`}
                   className="posting-summary-row"
                 >
                   <div>
@@ -200,7 +200,7 @@ export function LedgerTransactionEditorPanel(props: LedgerTransactionEditorPanel
             <div className="detail-stack">
               {transactionEditor.postings.map((posting, index) => {
                 const accountMatches = getAccountSearchMatches({
-                  accounts: workspaceAccounts,
+                  accounts: bookAccounts,
                   preferredAccountTypes: getPreferredAccountTypesForPostingAmount(posting.amount),
                   query: posting.accountQuery,
                   selectedAccountId: posting.accountId,

@@ -9,7 +9,7 @@ describe("http middleware", () => {
     const result = resolveHttpAuthentication({
       authIdentities: [],
       authRequired: false,
-      request: new Request("http://localhost/api/workspaces/demo"),
+      request: new Request("http://localhost/api/books/demo"),
       requestLogger: createNoopLogger(),
     });
 
@@ -21,7 +21,7 @@ describe("http middleware", () => {
     const result = resolveHttpAuthentication({
       authIdentities: [],
       authRequired: true,
-      request: new Request("http://localhost/api/workspaces/demo"),
+      request: new Request("http://localhost/api/books/demo"),
       requestLogger: createNoopLogger(),
     });
 
@@ -42,7 +42,7 @@ describe("http middleware", () => {
     const result = resolveHttpAuthentication({
       authIdentities: [{ actor: "legacy", role: "admin", token: "legacy-token" }],
       authRequired: true,
-      request: new Request("http://localhost/api/workspaces/demo", { headers }),
+      request: new Request("http://localhost/api/books/demo", { headers }),
       requestLogger: createNoopLogger(),
     });
 
@@ -87,14 +87,14 @@ describe("http middleware", () => {
       method: "GET",
       metrics,
       requestLogger: createNoopLogger(),
-      route: "/api/workspaces/:workspaceId",
+      route: "/api/books/:bookId",
       startedAt,
       status: 200,
     });
 
     const output = metrics.renderPrometheus();
     expect(output).toContain(
-      'gnucash_ng_http_requests_total{method="GET",route="/api/workspaces/:workspaceId",status="200"} 1',
+      'gnucash_ng_http_requests_total{method="GET",route="/api/books/:bookId",status="200"} 1',
     );
   });
 });

@@ -1,9 +1,9 @@
 import { describe, expect, it } from "vitest";
-import { migrateWorkspaceDocument } from "./migrate";
+import { migrateBookDocument } from "./migrate";
 
 describe("workspace migration", () => {
   it("fills in missing arrays for legacy workspace documents", () => {
-    const migrated = migrateWorkspaceDocument({
+    const migrated = migrateBookDocument({
       accounts: [],
       auditEvents: [],
       baseCommodityCode: "USD",
@@ -26,7 +26,7 @@ describe("workspace migration", () => {
   });
 
   it("filters household members down to string values", () => {
-    const migrated = migrateWorkspaceDocument({
+    const migrated = migrateBookDocument({
       accounts: [],
       auditEvents: [],
       baseCommodityCode: "USD",
@@ -47,7 +47,7 @@ describe("workspace migration", () => {
   });
 
   it("filters household member role bindings to known role values", () => {
-    const migrated = migrateWorkspaceDocument({
+    const migrated = migrateBookDocument({
       accounts: [],
       auditEvents: [],
       baseCommodityCode: "USD",
@@ -76,33 +76,33 @@ describe("workspace migration", () => {
   });
 
   it("rejects non-object documents", () => {
-    expect(() => migrateWorkspaceDocument(null)).toThrow("Workspace document must be an object.");
-    expect(() => migrateWorkspaceDocument([])).toThrow("Workspace document must be an object.");
+    expect(() => migrateBookDocument(null)).toThrow("Book document must be an object.");
+    expect(() => migrateBookDocument([])).toThrow("Book document must be an object.");
   });
 
   it("rejects missing required identity fields", () => {
     expect(() =>
-      migrateWorkspaceDocument({
+      migrateBookDocument({
         baseCommodityCode: "USD",
         id: "",
         name: "Legacy Workspace",
       }),
-    ).toThrow("Workspace document id is required.");
+    ).toThrow("Book document id is required.");
 
     expect(() =>
-      migrateWorkspaceDocument({
+      migrateBookDocument({
         baseCommodityCode: "USD",
         id: "legacy-workspace",
         name: "",
       }),
-    ).toThrow("Workspace document name is required.");
+    ).toThrow("Book document name is required.");
 
     expect(() =>
-      migrateWorkspaceDocument({
+      migrateBookDocument({
         baseCommodityCode: "",
         id: "legacy-workspace",
         name: "Legacy Workspace",
       }),
-    ).toThrow("Workspace document baseCommodityCode is required.");
+    ).toThrow("Book document baseCommodityCode is required.");
   });
 });

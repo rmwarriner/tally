@@ -2,11 +2,11 @@ import { mkdtemp, readFile, rm } from "node:fs/promises";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
 import { afterEach, describe, expect, it } from "vitest";
-import { createDemoWorkspace } from "@tally/workspace";
+import { createDemoBook } from "@tally/book";
 import {
-  createFileSystemWorkspacePersistenceBackend,
-  copyWorkspaceBetweenBackends,
-  createSqliteWorkspacePersistenceBackend,
+  createFileSystemBookPersistenceBackend,
+  copyBookBetweenBackends,
+  createSqliteBookPersistenceBackend,
 } from "./persistence";
 import {
   parsePersistenceAdminCommand,
@@ -24,7 +24,7 @@ describe("persistence admin", () => {
     expect(
       parsePersistenceAdminCommand([
         "copy",
-        "--workspace-id",
+        "--book-id",
         "workspace-a",
         "--dry-run",
         "--backup-target",
@@ -44,13 +44,13 @@ describe("persistence admin", () => {
       command: "copy",
       dryRun: true,
       reportPath: "/tmp/report.json",
-      workspaceId: "workspace-a",
+      bookId: "workspace-a",
     });
 
     expect(
       parsePersistenceAdminCommand([
         "export",
-        "--workspace-id",
+        "--book-id",
         "workspace-a",
         "--backend",
         "json",
@@ -63,7 +63,7 @@ describe("persistence admin", () => {
     ).toMatchObject({
       command: "export",
       dryRun: true,
-      workspaceId: "workspace-a",
+      bookId: "workspace-a",
     });
 
     expect(
@@ -110,7 +110,7 @@ describe("persistence admin", () => {
     expect(
       parsePersistenceAdminCommand([
         "import",
-        "--workspace-id",
+        "--book-id",
         "workspace-a",
         "--rollback-on-failure",
         "--backend",
@@ -123,32 +123,32 @@ describe("persistence admin", () => {
     ).toMatchObject({
       command: "import",
       rollbackOnFailure: true,
-      workspaceId: "workspace-a",
+      bookId: "workspace-a",
     });
   });
 
-  it("copies a workspace between json and sqlite backends", async () => {
+  it("copies a book between json and sqlite backends", async () => {
     const sourceDirectory = await mkdtemp(join(tmpdir(), "tally-copy-source-"));
     const targetDirectory = await mkdtemp(join(tmpdir(), "tally-copy-target-"));
     cleanupPaths.push(sourceDirectory, targetDirectory);
 
-    const source = createFileSystemWorkspacePersistenceBackend({
+    const source = createFileSystemBookPersistenceBackend({
       rootDirectory: sourceDirectory,
     });
-    const target = createSqliteWorkspacePersistenceBackend({
+    const target = createSqliteBookPersistenceBackend({
       databasePath: join(targetDirectory, "workspaces.sqlite"),
     });
-    const workspace = createDemoWorkspace();
+    const book = createDemoBook();
 
-    await source.save(workspace);
-    await copyWorkspaceBetweenBackends({
+    await source.save(book);
+    await copyBookBetweenBackends({
       source,
-      sourceWorkspaceId: workspace.id,
+      sourceBookId: book.id,
       target,
     });
 
-    const loaded = await target.load(workspace.id);
-    expect(loaded.id).toBe(workspace.id);
+    const loaded = await target.load(book.id);
+    expect(loaded.id).toBe(book.id);
 
     await Promise.all([source.close?.(), target.close?.()]);
   });
@@ -158,17 +158,17 @@ describe("persistence admin", () => {
     const targetDirectory = await mkdtemp(join(tmpdir(), "tally-export-target-"));
     cleanupPaths.push(sourceDirectory, targetDirectory);
     const outputPath = join(targetDirectory, "workspace-export.json");
-    const source = createFileSystemWorkspacePersistenceBackend({
+    const source = createFileSystemBookPersistenceBackend({
       rootDirectory: sourceDirectory,
     });
-    const workspace = createDemoWorkspace();
-    await source.save(workspace);
+    const book = createDemoBook();
+    await source.save(book);
 
     await runPersistenceAdminCommand({
       argv: [
         "export",
-        "--workspace-id",
-        workspace.id,
+        "--book-id",
+        book.id,
         "--backend",
         "json",
         "--data-dir",
@@ -179,13 +179,13 @@ describe("persistence admin", () => {
     });
 
     const exported = JSON.parse(await readFile(outputPath, "utf8")) as { id: string };
-    expect(exported.id).toBe(workspace.id);
+    expect(exported.id).toBe(book.id);
 
     await runPersistenceAdminCommand({
       argv: [
         "import",
-        "--workspace-id",
-        workspace.id,
+        "--book-id",
+        book.id,
         "--backend",
         "sqlite",
         "--sqlite-path",
@@ -195,32 +195,32 @@ describe("persistence admin", () => {
       ],
     });
 
-    const target = createSqliteWorkspacePersistenceBackend({
+    const target = createSqliteBookPersistenceBackend({
       databasePath: join(targetDirectory, "workspaces.sqlite"),
     });
-    const imported = await target.load(workspace.id);
-    expect(imported.id).toBe(workspace.id);
+    const imported = await target.load(book.id);
+    expect(imported.id).toBe(book.id);
 
     await Promise.all([source.close?.(), target.close?.()]);
   });
 
-  it("supports dry-run copy reports without writing the target workspace", async () => {
+  it("supports dry-run copy reports without writing the target book", async () => {
     const sourceDirectory = await mkdtemp(join(tmpdir(), "tally-copy-report-source-"));
     const targetDirectory = await mkdtemp(join(tmpdir(), "tally-copy-report-target-"));
     cleanupPaths.push(sourceDirectory, targetDirectory);
     const reportPath = join(targetDirectory, "copy-report.json");
 
-    const source = createFileSystemWorkspacePersistenceBackend({
+    const source = createFileSystemBookPersistenceBackend({
       rootDirectory: sourceDirectory,
     });
-    const workspace = createDemoWorkspace();
-    await source.save(workspace);
+    const book = createDemoBook();
+    await source.save(book);
 
     await runPersistenceAdminCommand({
       argv: [
         "copy",
-        "--workspace-id",
-        workspace.id,
+        "--book-id",
+        book.id,
         "--dry-run",
         "--report-path",
         reportPath,
@@ -239,40 +239,40 @@ describe("persistence admin", () => {
       command: string;
       dryRun: boolean;
       sourceValidation?: { ok: boolean };
-      targetWorkspaceWasPresent: boolean;
+      targetBookWasPresent: boolean;
     };
     expect(report.command).toBe("copy");
     expect(report.dryRun).toBe(true);
     expect(report.sourceValidation?.ok).toBe(true);
-    expect(report.targetWorkspaceWasPresent).toBe(false);
-    const target = createSqliteWorkspacePersistenceBackend({
+    expect(report.targetBookWasPresent).toBe(false);
+    const target = createSqliteBookPersistenceBackend({
       databasePath: join(targetDirectory, "workspaces.sqlite"),
     });
-    await expect(target.load(workspace.id)).rejects.toMatchObject({
-      code: "workspace.not_found",
+    await expect(target.load(book.id)).rejects.toMatchObject({
+      code: "book.not_found",
     });
     await target.close?.();
 
     await source.close?.();
   });
 
-  it("copies all workspaces between backends through the admin runner", async () => {
+  it("copies all books between backends through the admin runner", async () => {
     const sourceDirectory = await mkdtemp(join(tmpdir(), "tally-copy-all-source-"));
     const targetDirectory = await mkdtemp(join(tmpdir(), "tally-copy-all-target-"));
     cleanupPaths.push(sourceDirectory, targetDirectory);
     const reportPath = join(targetDirectory, "copy-all-report.json");
 
-    const source = createFileSystemWorkspacePersistenceBackend({
+    const source = createFileSystemBookPersistenceBackend({
       rootDirectory: sourceDirectory,
     });
-    const firstWorkspace = createDemoWorkspace();
-    const secondWorkspace = {
-      ...createDemoWorkspace(),
+    const firstBook = createDemoBook();
+    const secondBook = {
+      ...createDemoBook(),
       id: "workspace-household-second",
       name: "Second Household",
     };
-    await source.save(firstWorkspace);
-    await source.save(secondWorkspace);
+    await source.save(firstBook);
+    await source.save(secondBook);
 
     await runPersistenceAdminCommand({
       argv: [
@@ -292,17 +292,17 @@ describe("persistence admin", () => {
 
     const report = JSON.parse(await readFile(reportPath, "utf8")) as {
       command: string;
-      results: Array<{ workspaceId: string }>;
-      workspaceIds: string[];
+      results: Array<{ bookId: string }>;
+      bookIds: string[];
     };
     expect(report.command).toBe("copy-all");
-    expect(report.workspaceIds).toEqual([firstWorkspace.id, secondWorkspace.id]);
+    expect(report.bookIds).toEqual([firstBook.id, secondBook.id]);
     expect(report.results).toHaveLength(2);
 
-    const target = createSqliteWorkspacePersistenceBackend({
+    const target = createSqliteBookPersistenceBackend({
       databasePath: join(targetDirectory, "workspaces.sqlite"),
     });
-    expect(await target.listWorkspaceIds()).toEqual([firstWorkspace.id, secondWorkspace.id]);
+    expect(await target.listBookIds()).toEqual([firstBook.id, secondBook.id]);
     await target.close?.();
     await source.close?.();
   });
@@ -313,45 +313,45 @@ describe("persistence admin", () => {
     cleanupPaths.push(sourceDirectory, targetDirectory);
     const reportPath = join(targetDirectory, "copy-all-fail-report.json");
 
-    const source = createFileSystemWorkspacePersistenceBackend({
+    const source = createFileSystemBookPersistenceBackend({
       rootDirectory: sourceDirectory,
     });
-    const target = createSqliteWorkspacePersistenceBackend({
+    const target = createSqliteBookPersistenceBackend({
       databasePath: join(targetDirectory, "workspaces.sqlite"),
     });
-    const firstWorkspace = createDemoWorkspace();
-    const invalidSecondWorkspace = {
-      ...createDemoWorkspace(),
+    const firstBook = createDemoBook();
+    const invalidSecondBook = {
+      ...createDemoBook(),
       id: "workspace-household-second",
       name: "Invalid Second",
       transactions: [
         {
-          ...createDemoWorkspace().transactions[0]!,
+          ...createDemoBook().transactions[0]!,
           postings: [
             {
-              ...createDemoWorkspace().transactions[0]!.postings[0]!,
+              ...createDemoBook().transactions[0]!.postings[0]!,
               accountId: "missing-account",
             },
-            createDemoWorkspace().transactions[0]!.postings[1]!,
+            createDemoBook().transactions[0]!.postings[1]!,
           ],
         },
       ],
     };
-    const existingSecondWorkspace = {
-      ...createDemoWorkspace(),
+    const existingSecondBook = {
+      ...createDemoBook(),
       id: "workspace-household-second",
       name: "Existing Second",
     };
-    const thirdWorkspace = {
-      ...createDemoWorkspace(),
+    const thirdBook = {
+      ...createDemoBook(),
       id: "workspace-household-third",
       name: "Third Household",
     };
 
-    await source.save(firstWorkspace);
-    await source.save(invalidSecondWorkspace as never);
-    await source.save(thirdWorkspace);
-    await target.save(existingSecondWorkspace);
+    await source.save(firstBook);
+    await source.save(invalidSecondBook as never);
+    await source.save(thirdBook);
+    await target.save(existingSecondBook);
 
     await expect(
       runPersistenceAdminCommand({
@@ -375,7 +375,7 @@ describe("persistence admin", () => {
 
     const report = JSON.parse(await readFile(reportPath, "utf8")) as {
       failureCount: number;
-      failures: Array<{ workspaceId: string }>;
+      failures: Array<{ bookId: string }>;
       halted: boolean;
       onError: string;
       successCount: number;
@@ -384,11 +384,11 @@ describe("persistence admin", () => {
     expect(report.halted).toBe(true);
     expect(report.successCount).toBe(1);
     expect(report.failureCount).toBe(1);
-    expect(report.failures[0]?.workspaceId).toBe("workspace-household-second");
-    expect(await target.listWorkspaceIds()).toEqual([firstWorkspace.id, existingSecondWorkspace.id]);
-    expect((await target.load(existingSecondWorkspace.id)).name).toBe("Existing Second");
-    await expect(target.load(thirdWorkspace.id)).rejects.toMatchObject({
-      code: "workspace.not_found",
+    expect(report.failures[0]?.bookId).toBe("workspace-household-second");
+    expect(await target.listBookIds()).toEqual([firstBook.id, existingSecondBook.id]);
+    expect((await target.load(existingSecondBook.id)).name).toBe("Existing Second");
+    await expect(target.load(thirdBook.id)).rejects.toMatchObject({
+      code: "book.not_found",
     });
 
     await Promise.all([source.close?.(), target.close?.()]);
@@ -400,44 +400,44 @@ describe("persistence admin", () => {
     cleanupPaths.push(sourceDirectory, targetDirectory);
     const reportPath = join(targetDirectory, "copy-all-continue-report.json");
 
-    const source = createFileSystemWorkspacePersistenceBackend({
+    const source = createFileSystemBookPersistenceBackend({
       rootDirectory: sourceDirectory,
     });
-    const target = createSqliteWorkspacePersistenceBackend({
+    const target = createSqliteBookPersistenceBackend({
       databasePath: join(targetDirectory, "workspaces.sqlite"),
     });
-    const firstWorkspace = createDemoWorkspace();
-    const invalidSecondWorkspace = {
-      ...createDemoWorkspace(),
+    const firstBook = createDemoBook();
+    const invalidSecondBook = {
+      ...createDemoBook(),
       id: "workspace-household-second",
       transactions: [
         {
-          ...createDemoWorkspace().transactions[0]!,
+          ...createDemoBook().transactions[0]!,
           postings: [
             {
-              ...createDemoWorkspace().transactions[0]!.postings[0]!,
+              ...createDemoBook().transactions[0]!.postings[0]!,
               accountId: "missing-account",
             },
-            createDemoWorkspace().transactions[0]!.postings[1]!,
+            createDemoBook().transactions[0]!.postings[1]!,
           ],
         },
       ],
     };
-    const existingSecondWorkspace = {
-      ...createDemoWorkspace(),
+    const existingSecondBook = {
+      ...createDemoBook(),
       id: "workspace-household-second",
       name: "Existing Second",
     };
-    const thirdWorkspace = {
-      ...createDemoWorkspace(),
+    const thirdBook = {
+      ...createDemoBook(),
       id: "workspace-household-third",
       name: "Third Household",
     };
 
-    await source.save(firstWorkspace);
-    await source.save(invalidSecondWorkspace as never);
-    await source.save(thirdWorkspace);
-    await target.save(existingSecondWorkspace);
+    await source.save(firstBook);
+    await source.save(invalidSecondBook as never);
+    await source.save(thirdBook);
+    await target.save(existingSecondBook);
 
     await expect(
       runPersistenceAdminCommand({
@@ -471,56 +471,56 @@ describe("persistence admin", () => {
     expect(report.halted).toBe(false);
     expect(report.successCount).toBe(2);
     expect(report.failureCount).toBe(1);
-    expect(await target.listWorkspaceIds()).toEqual([
-      firstWorkspace.id,
-      existingSecondWorkspace.id,
-      thirdWorkspace.id,
+    expect(await target.listBookIds()).toEqual([
+      firstBook.id,
+      existingSecondBook.id,
+      thirdBook.id,
     ]);
-    expect((await target.load(thirdWorkspace.id)).name).toBe("Third Household");
+    expect((await target.load(thirdBook.id)).name).toBe("Third Household");
 
     await Promise.all([source.close?.(), target.close?.()]);
   });
 
-  it("retries only failed workspaces from a prior copy-all report", async () => {
+  it("retries only failed books from a prior copy-all report", async () => {
     const sourceDirectory = await mkdtemp(join(tmpdir(), "tally-retry-source-"));
     const targetDirectory = await mkdtemp(join(tmpdir(), "tally-retry-target-"));
     cleanupPaths.push(sourceDirectory, targetDirectory);
     const failureReportPath = join(targetDirectory, "copy-all-failure-report.json");
     const retryReportPath = join(targetDirectory, "retry-report.json");
 
-    const source = createFileSystemWorkspacePersistenceBackend({
+    const source = createFileSystemBookPersistenceBackend({
       rootDirectory: sourceDirectory,
     });
-    const sourceFix = createFileSystemWorkspacePersistenceBackend({
+    const sourceFix = createFileSystemBookPersistenceBackend({
       rootDirectory: sourceDirectory,
     });
-    const target = createSqliteWorkspacePersistenceBackend({
+    const target = createSqliteBookPersistenceBackend({
       databasePath: join(targetDirectory, "workspaces.sqlite"),
     });
-    const firstWorkspace = createDemoWorkspace();
-    const invalidSecondWorkspace = {
-      ...createDemoWorkspace(),
+    const firstBook = createDemoBook();
+    const invalidSecondBook = {
+      ...createDemoBook(),
       id: "workspace-household-second",
       transactions: [
         {
-          ...createDemoWorkspace().transactions[0]!,
+          ...createDemoBook().transactions[0]!,
           postings: [
             {
-              ...createDemoWorkspace().transactions[0]!.postings[0]!,
+              ...createDemoBook().transactions[0]!.postings[0]!,
               accountId: "missing-account",
             },
-            createDemoWorkspace().transactions[0]!.postings[1]!,
+            createDemoBook().transactions[0]!.postings[1]!,
           ],
         },
       ],
     };
-    const secondWorkspace = {
-      ...createDemoWorkspace(),
+    const secondBook = {
+      ...createDemoBook(),
       id: "workspace-household-second",
       name: "Second Household",
     };
-    await source.save(firstWorkspace);
-    await source.save(invalidSecondWorkspace as never);
+    await source.save(firstBook);
+    await source.save(invalidSecondBook as never);
 
     await expect(
       runPersistenceAdminCommand({
@@ -540,7 +540,7 @@ describe("persistence admin", () => {
       }),
     ).rejects.toThrow("copy-all completed with 1 failure");
 
-    await sourceFix.save(secondWorkspace);
+    await sourceFix.save(secondBook);
 
     await runPersistenceAdminCommand({
       argv: [
@@ -564,13 +564,13 @@ describe("persistence admin", () => {
       command: string;
       failureCount: number;
       successCount: number;
-      workspaceIds: string[];
+      bookIds: string[];
     };
     expect(retryReport.command).toBe("retry-failures");
     expect(retryReport.failureCount).toBe(0);
     expect(retryReport.successCount).toBe(1);
-    expect(retryReport.workspaceIds).toEqual([secondWorkspace.id]);
-    expect((await target.load(secondWorkspace.id)).name).toBe(secondWorkspace.name);
+    expect(retryReport.bookIds).toEqual([secondBook.id]);
+    expect((await target.load(secondBook.id)).name).toBe(secondBook.name);
 
     await Promise.all([source.close?.(), sourceFix.close?.(), target.close?.()]);
   });

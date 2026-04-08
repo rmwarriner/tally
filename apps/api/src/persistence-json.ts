@@ -1,37 +1,37 @@
 import { mkdir, readdir, stat } from "node:fs/promises";
 import { join, resolve } from "node:path";
 import { createNoopLogger, type Logger } from "@tally/logging";
-import type { FinanceWorkspaceDocument } from "@tally/workspace";
-import { loadWorkspaceFromFile, saveWorkspaceToFile } from "@tally/workspace/src/node";
+import type { FinanceBookDocument } from "@tally/book";
+import { loadBookFromFile, saveBookToFile } from "@tally/book/src/node";
 import { ApiError } from "./errors";
-import type { WorkspaceBackup, WorkspacePersistenceBackend } from "./persistence";
+import type { BookBackup, BookPersistenceBackend } from "./persistence";
 
-export function createFileSystemWorkspacePersistenceBackend(params: {
+export function createFileSystemBookPersistenceBackend(params: {
   logger?: Logger;
   rootDirectory: string;
-}): WorkspacePersistenceBackend {
+}): BookPersistenceBackend {
   const rootDirectory = resolve(params.rootDirectory);
   const logger = (params.logger ?? createNoopLogger()).child({
-    component: "fileSystemWorkspacePersistenceBackend",
+    component: "fileSystemBookPersistenceBackend",
     persistenceBackend: "json",
     rootDirectory,
   });
 
-  function workspacePath(workspaceId: string): string {
-    if (!/^[a-zA-Z0-9_-]+$/.test(workspaceId)) {
+  function bookPath(bookId: string): string {
+    if (!/^[a-zA-Z0-9_-]+$/.test(bookId)) {
       throw new ApiError({
         code: "repository.invalid_identifier",
-        message: "Workspace identifier is invalid.",
+        message: "Book identifier is invalid.",
         status: 400,
       });
     }
 
-    const path = resolve(join(rootDirectory, `${workspaceId}.json`));
+    const path = resolve(join(rootDirectory, `${bookId}.json`));
 
     if (!path.startsWith(`${rootDirectory}/`) && path !== `${rootDirectory}.json`) {
       throw new ApiError({
         code: "repository.invalid_identifier",
-        message: "Workspace identifier is invalid.",
+        message: "Book identifier is invalid.",
         status: 400,
       });
     }
@@ -39,11 +39,11 @@ export function createFileSystemWorkspacePersistenceBackend(params: {
     return path;
   }
 
-  function backupDirectory(workspaceId: string): string {
-    return resolve(join(rootDirectory, "_backups", workspaceId));
+  function backupDirectory(bookId: string): string {
+    return resolve(join(rootDirectory, "_backups", bookId));
   }
 
-  function backupPath(workspaceId: string, backupId: string): string {
+  function backupPath(bookId: string, backupId: string): string {
     if (!/^[a-zA-Z0-9:._-]+$/.test(backupId)) {
       throw new ApiError({
         code: "repository.invalid_identifier",
@@ -52,11 +52,11 @@ export function createFileSystemWorkspacePersistenceBackend(params: {
       });
     }
 
-    return resolve(join(backupDirectory(workspaceId), `${backupId}.json`));
+    return resolve(join(backupDirectory(bookId), `${backupId}.json`));
   }
 
-  async function describeBackup(workspaceId: string, fileName: string): Promise<WorkspaceBackup> {
-    const filePath = resolve(join(backupDirectory(workspaceId), fileName));
+  async function describeBackup(bookId: string, fileName: string): Promise<BookBackup> {
+    const filePath = resolve(join(backupDirectory(bookId), fileName));
     const fileStats = await stat(filePath);
     const id = fileName.replace(/\.json$/, "");
     const createdAt = id.startsWith("backup-") ? id.slice("backup-".length).replace(/_/g, ":") : id;
@@ -66,37 +66,37 @@ export function createFileSystemWorkspacePersistenceBackend(params: {
       fileName,
       id,
       sizeBytes: fileStats.size,
-      workspaceId,
+      bookId,
     };
   }
 
   return {
     kind: "json",
 
-    async listWorkspaceIds(options: { logger?: Logger } = {}): Promise<string[]> {
+    async listBookIds(options: { logger?: Logger } = {}): Promise<string[]> {
       const requestLogger = (options.logger ?? logger).child({
-        component: "fileSystemWorkspacePersistenceBackend",
-        operation: "listWorkspaceIds",
+        component: "fileSystemBookPersistenceBackend",
+        operation: "listBookIds",
         persistenceBackend: "json",
         rootDirectory,
       });
 
       try {
         const entries = await readdir(rootDirectory);
-        const workspaceIds = entries
+        const bookIds = entries
           .filter((entry) => entry.endsWith(".json"))
           .filter((entry) => !entry.startsWith("_"))
           .map((entry) => entry.replace(/\.json$/, ""))
           .sort((left, right) => left.localeCompare(right));
 
-        requestLogger.info("workspace id list completed", {
-          workspaceCount: workspaceIds.length,
+        requestLogger.info("book id list completed", {
+          bookCount: bookIds.length,
         });
-        return workspaceIds;
+        return bookIds;
       } catch (error) {
         if (typeof error === "object" && error !== null && "code" in error && error.code === "ENOENT") {
-          requestLogger.info("workspace id list completed", {
-            workspaceCount: 0,
+          requestLogger.info("book id list completed", {
+            bookCount: 0,
           });
           return [];
         }
@@ -105,23 +105,23 @@ export function createFileSystemWorkspacePersistenceBackend(params: {
           cause: error,
           code: "repository.unavailable",
           expose: false,
-          message: "Workspace storage is unavailable.",
+          message: "Book storage is unavailable.",
           status: 500,
         });
       }
     },
 
-    async load(workspaceId: string, options: { logger?: Logger } = {}): Promise<FinanceWorkspaceDocument> {
+    async load(bookId: string, options: { logger?: Logger } = {}): Promise<FinanceBookDocument> {
       const requestLogger = (options.logger ?? logger).child({
-        component: "fileSystemWorkspacePersistenceBackend",
-        operation: "loadWorkspace",
+        component: "fileSystemBookPersistenceBackend",
+        operation: "loadBook",
         persistenceBackend: "json",
         rootDirectory,
-        workspaceId,
+        bookId,
       });
 
       try {
-        return await loadWorkspaceFromFile(workspacePath(workspaceId), { logger: requestLogger });
+        return await loadBookFromFile(bookPath(bookId), { logger: requestLogger });
       } catch (error) {
         if (error instanceof ApiError) {
           throw error;
@@ -135,8 +135,8 @@ export function createFileSystemWorkspacePersistenceBackend(params: {
         ) {
           throw new ApiError({
             cause: error,
-            code: "workspace.not_found",
-            message: `Workspace ${workspaceId} was not found.`,
+            code: "book.not_found",
+            message: `Workspace ${bookId} was not found.`,
             status: 404,
           });
         }
@@ -145,99 +145,99 @@ export function createFileSystemWorkspacePersistenceBackend(params: {
           cause: error,
           code: "repository.unavailable",
           expose: false,
-          message: "Workspace storage is unavailable.",
+          message: "Book storage is unavailable.",
           status: 500,
         });
       }
     },
 
-    async listBackups(workspaceId: string, options: { logger?: Logger } = {}): Promise<WorkspaceBackup[]> {
+    async listBackups(bookId: string, options: { logger?: Logger } = {}): Promise<BookBackup[]> {
       const requestLogger = (options.logger ?? logger).child({
-        component: "fileSystemWorkspacePersistenceBackend",
+        component: "fileSystemBookPersistenceBackend",
         operation: "listBackups",
         persistenceBackend: "json",
         rootDirectory,
-        workspaceId,
+        bookId,
       });
 
       try {
-        requestLogger.info("workspace backup list started");
-        const directory = backupDirectory(workspaceId);
+        requestLogger.info("book backup list started");
+        const directory = backupDirectory(bookId);
         const entries = await readdir(directory);
         const backups = await Promise.all(
           entries
             .filter((entry) => entry.endsWith(".json"))
-            .map((entry) => describeBackup(workspaceId, entry)),
+            .map((entry) => describeBackup(bookId, entry)),
         );
 
         const sortedBackups = backups.sort((left, right) => right.id.localeCompare(left.id));
-        requestLogger.info("workspace backup list completed", {
+        requestLogger.info("book backup list completed", {
           backupCount: sortedBackups.length,
         });
         return sortedBackups;
       } catch (error) {
         if (typeof error === "object" && error !== null && "code" in error && error.code === "ENOENT") {
-          requestLogger.info("workspace backup list completed", {
+          requestLogger.info("book backup list completed", {
             backupCount: 0,
           });
           return [];
         }
 
-        requestLogger.error("workspace backup list failed", {
+        requestLogger.error("book backup list failed", {
           error: error instanceof Error ? error.message : String(error),
         });
         throw new ApiError({
           cause: error,
           code: "repository.unavailable",
           expose: false,
-          message: "Workspace storage is unavailable.",
+          message: "Book storage is unavailable.",
           status: 500,
         });
       }
     },
 
-    async createBackup(workspaceId: string, options: { logger?: Logger } = {}): Promise<WorkspaceBackup> {
+    async createBackup(bookId: string, options: { logger?: Logger } = {}): Promise<BookBackup> {
       const requestLogger = (options.logger ?? logger).child({
-        component: "fileSystemWorkspacePersistenceBackend",
+        component: "fileSystemBookPersistenceBackend",
         operation: "createBackup",
         persistenceBackend: "json",
         rootDirectory,
-        workspaceId,
+        bookId,
       });
 
-      const workspace = await this.load(workspaceId, { logger: requestLogger });
+      const book = await this.load(bookId, { logger: requestLogger });
       const createdAt = new Date().toISOString();
       const backupId = `backup-${createdAt.replace(/:/g, "_")}`;
-      const directory = backupDirectory(workspaceId);
-      const filePath = backupPath(workspaceId, backupId);
+      const directory = backupDirectory(bookId);
+      const filePath = backupPath(bookId, backupId);
 
       try {
         await mkdir(directory, { recursive: true });
-        await saveWorkspaceToFile(filePath, workspace, { logger: requestLogger });
-        return await describeBackup(workspaceId, `${backupId}.json`);
+        await saveBookToFile(filePath, book, { logger: requestLogger });
+        return await describeBackup(bookId, `${backupId}.json`);
       } catch (error) {
         throw new ApiError({
           cause: error,
           code: "repository.unavailable",
           expose: false,
-          message: "Workspace storage is unavailable.",
+          message: "Book storage is unavailable.",
           status: 500,
         });
       }
     },
 
-    async save(document: FinanceWorkspaceDocument, options: { logger?: Logger } = {}): Promise<void> {
+    async save(document: FinanceBookDocument, options: { logger?: Logger } = {}): Promise<void> {
       const requestLogger = (options.logger ?? logger).child({
-        component: "fileSystemWorkspacePersistenceBackend",
-        operation: "saveWorkspace",
+        component: "fileSystemBookPersistenceBackend",
+        operation: "saveBook",
         persistenceBackend: "json",
         rootDirectory,
-        workspaceId: document.id,
+        bookId: document.id,
       });
 
       try {
         await mkdir(rootDirectory, { recursive: true });
-        await saveWorkspaceToFile(workspacePath(document.id), document, { logger: requestLogger });
+        await saveBookToFile(bookPath(document.id), document, { logger: requestLogger });
       } catch (error) {
         if (error instanceof ApiError) {
           throw error;
@@ -247,35 +247,35 @@ export function createFileSystemWorkspacePersistenceBackend(params: {
           cause: error,
           code: "repository.unavailable",
           expose: false,
-          message: "Workspace storage is unavailable.",
+          message: "Book storage is unavailable.",
           status: 500,
         });
       }
     },
 
     async restoreBackup(
-      workspaceId: string,
+      bookId: string,
       backupId: string,
       options: { logger?: Logger } = {},
-    ): Promise<FinanceWorkspaceDocument> {
+    ): Promise<FinanceBookDocument> {
       const requestLogger = (options.logger ?? logger).child({
         backupId,
-        component: "fileSystemWorkspacePersistenceBackend",
+        component: "fileSystemBookPersistenceBackend",
         operation: "restoreBackup",
         persistenceBackend: "json",
         rootDirectory,
-        workspaceId,
+        bookId,
       });
 
       try {
-        const document = await loadWorkspaceFromFile(backupPath(workspaceId, backupId), {
+        const document = await loadBookFromFile(backupPath(bookId, backupId), {
           logger: requestLogger,
         });
 
-        if (document.id !== workspaceId) {
+        if (document.id !== bookId) {
           throw new ApiError({
             code: "repository.invalid_identifier",
-            message: "Backup workspace identifier does not match the requested workspace.",
+            message: "Backup book identifier does not match the requested book.",
             status: 400,
           });
         }
@@ -295,8 +295,8 @@ export function createFileSystemWorkspacePersistenceBackend(params: {
         ) {
           throw new ApiError({
             cause: error,
-            code: "workspace.not_found",
-            message: `Backup ${backupId} was not found for workspace ${workspaceId}.`,
+            code: "book.not_found",
+            message: `Backup ${backupId} was not found for book ${bookId}.`,
             status: 404,
           });
         }
@@ -305,7 +305,7 @@ export function createFileSystemWorkspacePersistenceBackend(params: {
           cause: error,
           code: "repository.unavailable",
           expose: false,
-          message: "Workspace storage is unavailable.",
+          message: "Book storage is unavailable.",
           status: 500,
         });
       }

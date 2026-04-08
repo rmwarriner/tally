@@ -32,7 +32,7 @@ import {
   validateScheduleForm,
 } from "./schedule-form";
 
-const defaultWorkspaceId = "workspace-household-demo";
+const defaultWorkspaceId = "book-household-demo";
 
 function formatCurrency(amount: number): string {
   return amount.toLocaleString("en-US", {
@@ -58,7 +58,7 @@ export function App() {
     busy,
     dashboard,
     error,
-    loadWorkspaceData,
+    loadBookData,
     loading,
     reconciliationForm,
     runMutation,
@@ -75,15 +75,15 @@ export function App() {
     setSelectedReconciliationTransactionIds,
     setSelectedScheduleId,
     setTransactionForm,
-    setWorkspaceId,
+    setBookId,
     statusMessage,
     transactionForm,
-    workspace,
-    workspaceId,
+    book,
+    bookId,
   } = useMobileAppController();
 
   useEffect(() => {
-    void loadWorkspaceData();
+    void loadBookData();
   }, []);
 
   const fundingNote =
@@ -94,7 +94,7 @@ export function App() {
   return (
     <ScrollView contentContainerStyle={styles.screen}>
       <View style={styles.heroCard}>
-        <Text style={styles.eyebrow}>Mobile workspace</Text>
+        <Text style={styles.eyebrow}>Mobile book</Text>
         <Text style={styles.title}>Household operations</Text>
         <Text style={styles.helperText}>
           Capture transactions, approve due schedules, handle schedule exceptions, and manage cadence from the same
@@ -117,15 +117,15 @@ export function App() {
           />
         </View>
         <View style={styles.field}>
-          <Text style={styles.label}>Workspace ID</Text>
+          <Text style={styles.label}>Book ID</Text>
           <TextInput
             autoCapitalize="none"
             autoCorrect={false}
-            onChangeText={setWorkspaceId}
-            placeholder="workspace-household-demo"
+            onChangeText={setBookId}
+            placeholder="book-household-demo"
             placeholderTextColor="#7b7c73"
             style={styles.input}
-            value={workspaceId}
+            value={bookId}
           />
         </View>
         <View style={styles.field}>
@@ -145,18 +145,18 @@ export function App() {
         <Pressable
           disabled={loading || busy !== null}
           onPress={() => {
-            void loadWorkspaceData();
+            void loadBookData();
           }}
           style={[styles.primaryButton, (loading || busy !== null) && styles.buttonDisabled]}
         >
-          <Text style={styles.primaryButtonLabel}>{loading ? "Refreshing..." : "Refresh mobile workspace"}</Text>
+          <Text style={styles.primaryButtonLabel}>{loading ? "Refreshing..." : "Refresh mobile book"}</Text>
         </Pressable>
       </View>
 
       {loading ? (
         <View style={styles.loadingCard}>
           <ActivityIndicator color="#006b5f" size="large" />
-          <Text style={styles.loadingText}>Loading workspace and dashboard projections.</Text>
+          <Text style={styles.loadingText}>Loading book and dashboard projections.</Text>
         </View>
       ) : null}
 
@@ -173,16 +173,16 @@ export function App() {
         </View>
       ) : null}
 
-      {workspace && dashboard && !loading ? (
+      {book && dashboard && !loading ? (
         <>
           {(() => {
-            const expenseAccounts = workspace.accounts.filter((account) => account.type === "expense");
-            const dueSchedules = workspace.scheduledTransactions.filter(
+            const expenseAccounts = book.accounts.filter((account) => account.type === "expense");
+            const dueSchedules = book.scheduledTransactions.filter(
               (schedule) => schedule.nextDueOn <= aprilRange.to,
             );
             const activeSchedule =
-              workspace.scheduledTransactions.find((schedule) => schedule.id === selectedScheduleId) ??
-              workspace.scheduledTransactions[0];
+              book.scheduledTransactions.find((schedule) => schedule.id === selectedScheduleId) ??
+              book.scheduledTransactions[0];
             const scheduleValidationErrors = validateScheduleForm(scheduleForm);
             const scheduleSaveDisabled = busy !== null || scheduleValidationErrors.length > 0;
             const scheduleTemplateBalance = scheduleForm.postings.reduce((sum, posting) => {
@@ -216,7 +216,7 @@ export function App() {
                       });
 
                       const amount = Number.parseFloat(transactionForm.amount);
-                      await client.postTransaction(workspaceId.trim(), {
+                      await client.postTransaction(bookId.trim(), {
                         transaction: {
                           description: transactionForm.description.trim(),
                           id: createEntityId("txn-mobile"),
@@ -241,7 +241,7 @@ export function App() {
                 />
 
                 <ReconciliationCapture
-                  accounts={workspace.accounts}
+                  accounts={book.accounts}
                   busy={busy === "Reconciliation capture"}
                   form={reconciliationForm}
                   onAccountChange={(accountId) => {
@@ -250,7 +250,7 @@ export function App() {
                       accountId,
                     }));
                     setSelectedReconciliationTransactionIds(
-                      createReconciliationTransactionMap(workspace.transactions, accountId),
+                      createReconciliationTransactionMap(book.transactions, accountId),
                     );
                   }}
                   onFormChange={(patch) =>
@@ -262,8 +262,8 @@ export function App() {
                   onSubmit={() => {
                     void runMutation("Reconciliation capture", async () => {
                       const selectedReconciliationAccount =
-                        workspace.accounts.find((account) => account.id === reconciliationForm.accountId) ??
-                        workspace.accounts.find(
+                        book.accounts.find((account) => account.id === reconciliationForm.accountId) ??
+                        book.accounts.find(
                           (account) => account.type === "asset" || account.type === "liability",
                         );
 
@@ -271,7 +271,7 @@ export function App() {
                         return;
                       }
 
-                      const selectedClearedTransactionIds = workspace.transactions
+                      const selectedClearedTransactionIds = book.transactions
                         .filter(
                           (transaction) =>
                             transaction.occurredOn <= reconciliationForm.statementDate.trim() &&
@@ -287,7 +287,7 @@ export function App() {
                         apiKey: apiKey.trim() || undefined,
                       });
 
-                      await client.postReconciliation(workspaceId.trim(), {
+                      await client.postReconciliation(bookId.trim(), {
                         payload: {
                           accountId: selectedReconciliationAccount.id,
                           clearedTransactionIds: selectedClearedTransactionIds,
@@ -304,9 +304,9 @@ export function App() {
                       [transactionId]: !current[transactionId],
                     }))
                   }
-                  reconciliationSessions={workspace.reconciliationSessions}
+                  reconciliationSessions={book.reconciliationSessions}
                   selectedTransactionIds={selectedReconciliationTransactionIds}
-                  transactions={workspace.transactions}
+                  transactions={book.transactions}
                 />
 
                 <View style={styles.card}>
@@ -315,7 +315,7 @@ export function App() {
                     Edit cadence, next due date, template postings, and auto-post behavior directly from mobile.
                   </Text>
                   <View style={styles.schedulePicker}>
-                    {workspace.scheduledTransactions.map((schedule) => (
+                    {book.scheduledTransactions.map((schedule) => (
                       <Pressable
                         key={schedule.id}
                         onPress={() => {
@@ -452,7 +452,7 @@ export function App() {
                       {scheduleForm.postings.map((posting, index) => (
                         <SchedulePostingEditor
                           key={`${scheduleForm.id}:posting:${index}`}
-                          accounts={workspace.accounts}
+                          accounts={book.accounts}
                           busy={busy !== null}
                           canRemove={scheduleForm.postings.length > 2}
                           lineNumber={index + 1}
@@ -519,7 +519,7 @@ export function App() {
                           apiKey: apiKey.trim() || undefined,
                         });
 
-                        await client.postScheduledTransaction(workspaceId.trim(), {
+                        await client.postScheduledTransaction(bookId.trim(), {
                           schedule: {
                             autoPost: scheduleForm.autoPost,
                             frequency: scheduleForm.frequency,
@@ -600,7 +600,7 @@ export function App() {
                               apiKey: apiKey.trim() || undefined,
                             });
 
-                            await client.applyScheduledTransactionException(workspaceId.trim(), scheduleForm.id.trim(), {
+                            await client.applyScheduledTransactionException(bookId.trim(), scheduleForm.id.trim(), {
                               payload: {
                                 action: "skip-next",
                                 effectiveOn: scheduleForm.nextDueOn.trim(),
@@ -624,7 +624,7 @@ export function App() {
                               apiKey: apiKey.trim() || undefined,
                             });
 
-                            await client.applyScheduledTransactionException(workspaceId.trim(), scheduleForm.id.trim(), {
+                            await client.applyScheduledTransactionException(bookId.trim(), scheduleForm.id.trim(), {
                               payload: {
                                 action: "defer",
                                 nextDueOn: scheduleExceptionForm.nextDueOn.trim(),
@@ -667,7 +667,7 @@ export function App() {
                         apiKey: apiKey.trim() || undefined,
                       });
 
-                      await client.postEnvelopeAllocation(workspaceId.trim(), {
+                      await client.postEnvelopeAllocation(bookId.trim(), {
                         allocation: {
                           amount: {
                             commodityCode: "USD",
@@ -703,7 +703,7 @@ export function App() {
                                 apiKey: apiKey.trim() || undefined,
                               });
 
-                              await client.executeScheduledTransaction(workspaceId.trim(), schedule.id, {
+                              await client.executeScheduledTransaction(bookId.trim(), schedule.id, {
                                 payload: {
                                   occurredOn: schedule.nextDueOn,
                                 },
@@ -725,7 +725,7 @@ export function App() {
                                 apiKey: apiKey.trim() || undefined,
                               });
 
-                              await client.applyScheduledTransactionException(workspaceId.trim(), schedule.id, {
+                              await client.applyScheduledTransactionException(bookId.trim(), schedule.id, {
                                 payload: {
                                   action: "skip-next",
                                   effectiveOn: schedule.nextDueOn,
@@ -764,7 +764,7 @@ export function App() {
 
                 <View style={styles.card}>
                   <Text style={styles.sectionTitle}>Scheduled activity</Text>
-                  {workspace.scheduledTransactions.map((schedule) => (
+                  {book.scheduledTransactions.map((schedule) => (
                     <View key={schedule.id} style={styles.scheduleItem}>
                       <View>
                         <Text style={styles.metricLabel}>{schedule.name}</Text>
@@ -773,8 +773,8 @@ export function App() {
                       <Text style={styles.metricValue}>{schedule.nextDueOn}</Text>
                     </View>
                   ))}
-                  {!workspace.scheduledTransactions.length ? (
-                    <Text style={styles.note}>No scheduled transactions are configured for this workspace.</Text>
+                  {!book.scheduledTransactions.length ? (
+                    <Text style={styles.note}>No scheduled transactions are configured for this book.</Text>
                   ) : null}
                 </View>
 

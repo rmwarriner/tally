@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { createDemoWorkspace } from "@tally/workspace";
-import { authorizeWorkspaceAccess, resolveAuthContext } from "./auth";
+import { createDemoBook } from "@tally/book";
+import { authorizeBookAccess, resolveAuthContext } from "./auth";
 
 describe("api auth", () => {
   it("resolves loopback local admin access when auth is not required", () => {
@@ -116,10 +116,10 @@ describe("api auth", () => {
     });
   });
 
-  it("denies workspace access to non-members", () => {
-    const workspace = createDemoWorkspace();
-    const authorization = authorizeWorkspaceAccess(
-      workspace,
+  it("denies book access to non-members", () => {
+    const book = createDemoBook();
+    const authorization = authorizeBookAccess(
+      book,
       { actor: "Intruder", kind: "token", role: "member", token: "bad" },
       "read",
     );
@@ -129,8 +129,8 @@ describe("api auth", () => {
   });
 
   it("denies destroy access to non-privileged members and allows admins", () => {
-    const workspace = {
-      ...createDemoWorkspace(),
+    const book = {
+      ...createDemoBook(),
       householdMemberRoles: {
         Admin: "admin" as const,
         Partner: "member" as const,
@@ -138,13 +138,13 @@ describe("api auth", () => {
       },
       householdMembers: ["Primary", "Partner", "Admin"],
     };
-    const memberAuthorization = authorizeWorkspaceAccess(
-      workspace,
+    const memberAuthorization = authorizeBookAccess(
+      book,
       { actor: "Primary", kind: "token", role: "member", token: "token-1" },
       "destroy",
     );
-    const adminAuthorization = authorizeWorkspaceAccess(
-      workspace,
+    const adminAuthorization = authorizeBookAccess(
+      book,
       { actor: "Admin", kind: "token", role: "admin", token: "token-2" },
       "destroy",
     );
@@ -155,21 +155,21 @@ describe("api auth", () => {
   });
 
   it("requires guardian or admin authority for operate access", () => {
-    const workspace = {
-      ...createDemoWorkspace(),
+    const book = {
+      ...createDemoBook(),
       householdMemberRoles: {
         Partner: "member" as const,
         Primary: "guardian" as const,
       },
     };
 
-    const memberAuthorization = authorizeWorkspaceAccess(
-      workspace,
+    const memberAuthorization = authorizeBookAccess(
+      book,
       { actor: "Partner", kind: "token", role: "member", token: "token-2" },
       "operate",
     );
-    const guardianAuthorization = authorizeWorkspaceAccess(
-      workspace,
+    const guardianAuthorization = authorizeBookAccess(
+      book,
       { actor: "Primary", kind: "token", role: "member", token: "token-1" },
       "operate",
     );
@@ -180,8 +180,8 @@ describe("api auth", () => {
   });
 
   it("requires admin authority for manage access", () => {
-    const workspace = {
-      ...createDemoWorkspace(),
+    const book = {
+      ...createDemoBook(),
       householdMembers: ["Primary", "Partner", "Admin"],
       householdMemberRoles: {
         Partner: "member" as const,
@@ -190,18 +190,18 @@ describe("api auth", () => {
       },
     };
 
-    const memberAuthorization = authorizeWorkspaceAccess(
-      workspace,
+    const memberAuthorization = authorizeBookAccess(
+      book,
       { actor: "Partner", kind: "token", role: "member", token: "token-2" },
       "manage",
     );
-    const guardianAuthorization = authorizeWorkspaceAccess(
-      workspace,
+    const guardianAuthorization = authorizeBookAccess(
+      book,
       { actor: "Primary", kind: "token", role: "member", token: "token-1" },
       "manage",
     );
-    const adminAuthorization = authorizeWorkspaceAccess(
-      workspace,
+    const adminAuthorization = authorizeBookAccess(
+      book,
       { actor: "Admin", kind: "token", role: "admin", token: "token-3" },
       "manage",
     );

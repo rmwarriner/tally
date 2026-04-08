@@ -1,14 +1,14 @@
 import type { Dispatch, ReactNode, RefObject, SetStateAction } from "react";
-import type { WorkspaceResponse } from "./api";
+import type { BookResponse } from "./api";
 import { LedgerOperationsPanels } from "./LedgerOperationsPanels";
 import { LedgerRegisterPanel } from "./LedgerRegisterPanel";
 import type { LedgerInlineRowEditDraft } from "./ledger-state";
-import type { createLedgerWorkspaceModel, createReconciliationWorkspaceModel } from "./shell";
+import type { createLedgerBookModel, createReconciliationBookModel } from "./shell";
 
 interface LedgerMainPanelsProps {
   activeLedgerRegisterTabId: string;
   busy: string | null;
-  expenseAccounts: WorkspaceResponse["workspace"]["accounts"];
+  expenseAccounts: BookResponse["book"]["accounts"];
   formatCurrency: (amount: number) => string;
   formatTransactionStatus: (status: "cleared" | "open" | "reconciled") => string;
   inlineEditDraft: LedgerInlineRowEditDraft | null;
@@ -24,8 +24,8 @@ interface LedgerMainPanelsProps {
   ledgerSearchInputRef: RefObject<HTMLInputElement | null>;
   ledgerSearchText: string;
   ledgerStatusFilter: "all" | "cleared" | "open" | "reconciled";
-  ledgerWorkspace: ReturnType<typeof createLedgerWorkspaceModel>;
-  liquidAccounts: WorkspaceResponse["workspace"]["accounts"];
+  ledgerBook: ReturnType<typeof createLedgerBookModel>;
+  liquidAccounts: BookResponse["book"]["accounts"];
   onActivateLedgerRegisterTab: (tabId: string) => void;
   onCancelInlineEdit: () => void;
   onCloseLedgerRegisterTab: (tabId: string) => void;
@@ -54,7 +54,7 @@ interface LedgerMainPanelsProps {
     transactionId: string;
   }) => void;
   onStartInlineEdit: (
-    transaction: ReturnType<typeof createLedgerWorkspaceModel>["filteredTransactions"][number],
+    transaction: ReturnType<typeof createLedgerBookModel>["filteredTransactions"][number],
   ) => void;
   onToggleLedgerDetailOpen: () => void;
   onToggleLedgerOperationsOpen: () => void;
@@ -64,7 +64,7 @@ interface LedgerMainPanelsProps {
     statementBalance: string;
     statementDate: string;
   };
-  reconciliationWorkspace: ReturnType<typeof createReconciliationWorkspaceModel>;
+  reconciliationBook: ReturnType<typeof createReconciliationBookModel>;
   runMutation: (label: string, operation: () => Promise<void>) => Promise<void>;
   selectedLedgerAccountId: string | null;
   selectedLedgerTransactionId: string | null;
@@ -100,7 +100,7 @@ export function LedgerMainPanels(props: LedgerMainPanelsProps) {
         ledgerSearchInputRef={props.ledgerSearchInputRef}
         ledgerSearchText={props.ledgerSearchText}
         ledgerStatusFilter={props.ledgerStatusFilter}
-        ledgerWorkspace={props.ledgerWorkspace}
+        ledgerBook={props.ledgerBook}
         liquidAccounts={props.liquidAccounts}
         onActivateLedgerRegisterTab={props.onActivateLedgerRegisterTab}
         onCancelInlineEdit={props.onCancelInlineEdit}
@@ -152,7 +152,7 @@ export function LedgerMainPanels(props: LedgerMainPanelsProps) {
         </div>
         <div className="posting-editor-row">
           <button type="button" onClick={props.onToggleLedgerOperationsOpen}>
-            {props.isLedgerOperationsOpen ? "Hide reconciliation workspace" : "Open reconciliation workspace"}
+            {props.isLedgerOperationsOpen ? "Hide reconciliation panel" : "Open reconciliation panel"}
           </button>
         </div>
         {props.isLedgerOperationsOpen ? (
@@ -160,7 +160,7 @@ export function LedgerMainPanels(props: LedgerMainPanelsProps) {
             busy={props.busy}
             liquidAccounts={props.liquidAccounts}
             reconciliationForm={props.reconciliationForm}
-            reconciliationWorkspace={props.reconciliationWorkspace}
+            reconciliationBook={props.reconciliationBook}
             runMutation={props.runMutation}
             setReconciliationForm={props.setReconciliationForm}
             setSelectedReconciliationTransactionIds={props.setSelectedReconciliationTransactionIds}

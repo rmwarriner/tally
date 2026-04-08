@@ -1,59 +1,59 @@
 import { readFile, writeFile } from "node:fs/promises";
 import { createNoopLogger, type Logger } from "@tally/logging";
-import { migrateWorkspaceDocument } from "./migrate";
-import type { FinanceWorkspaceDocument } from "./types";
+import { migrateBookDocument } from "./migrate";
+import type { FinanceBookDocument } from "./types";
 
 export interface StorageOptions {
   logger?: Logger;
 }
 
-export async function loadWorkspaceFromFile(
+export async function loadBookFromFile(
   path: string,
   options: StorageOptions = {},
-): Promise<FinanceWorkspaceDocument> {
+): Promise<FinanceBookDocument> {
   const logger = (options.logger ?? createNoopLogger()).child({
-    operation: "loadWorkspaceFromFile",
+    operation: "loadBookFromFile",
     path,
   });
-  logger.info("workspace storage load started");
+  logger.info("book storage load started");
 
   try {
     const contents = await readFile(path, "utf8");
-    const document = migrateWorkspaceDocument(JSON.parse(contents) as unknown);
+    const document = migrateBookDocument(JSON.parse(contents) as unknown);
 
-    logger.info("workspace storage load completed", {
+    logger.info("book storage load completed", {
       transactionCount: document.transactions.length,
-      workspaceId: document.id,
+      bookId: document.id,
     });
 
     return document;
   } catch (error) {
-    logger.error("workspace storage load failed", {
+    logger.error("book storage load failed", {
       error: error instanceof Error ? error.message : String(error),
     });
     throw error;
   }
 }
 
-export async function saveWorkspaceToFile(
+export async function saveBookToFile(
   path: string,
-  document: FinanceWorkspaceDocument,
+  document: FinanceBookDocument,
   options: StorageOptions = {},
 ): Promise<void> {
   const logger = (options.logger ?? createNoopLogger()).child({
-    operation: "saveWorkspaceToFile",
+    operation: "saveBookToFile",
     path,
-    workspaceId: document.id,
+    bookId: document.id,
   });
-  logger.info("workspace storage save started", {
+  logger.info("book storage save started", {
     transactionCount: document.transactions.length,
   });
 
   try {
     await writeFile(path, `${JSON.stringify(document, null, 2)}\n`, "utf8");
-    logger.info("workspace storage save completed");
+    logger.info("book storage save completed");
   } catch (error) {
-    logger.error("workspace storage save failed", {
+    logger.error("book storage save failed", {
       error: error instanceof Error ? error.message : String(error),
     });
     throw error;

@@ -12,15 +12,15 @@ import {
 } from "./api";
 import {
   findAccountSearchExactMatch,
-  createReconciliationWorkspaceModel,
-  createLedgerWorkspaceModel,
+  createReconciliationBookModel,
+  createLedgerBookModel,
   createOverviewCards,
   getPostingBalanceSummary,
-  getWorkspaceViewDefinition,
+  getBookViewDefinition,
   movePostingIndex,
   type PostingFocusField,
-  type WorkspaceView,
-  workspaceViews
+  type BookView,
+  bookViews
 } from "./shell";
 import {
   getLedgerRegisterTabHotkeyAction,
@@ -32,7 +32,7 @@ import { LedgerMainPanels } from "./LedgerMainPanels";
 import { LedgerTransactionEditorPanel } from "./LedgerTransactionEditorPanel";
 import { NonLedgerMainPanels } from "./NonLedgerMainPanels";
 import { ShellInspectorContent, ShellSidebarContent } from "./ShellSidePanels";
-import { APRIL_RANGE, WORKSPACE_ID } from "./app-constants";
+import { APRIL_RANGE, BOOK_ID } from "./app-constants";
 import {
   createTransactionId,
   createEntityId,
@@ -46,7 +46,7 @@ import {
   type TransactionEditorState,
   validateTransactionEditorState,
 } from "./transaction-editor";
-import { useWorkspaceRuntime } from "./use-workspace-runtime";
+import { useBookRuntime } from "./use-book-runtime";
 import { useNonLedgerFormState } from "./non-ledger-state";
 import "../app/styles.css";
 
@@ -69,7 +69,7 @@ interface LedgerRegisterTabState {
 }
 
 export function App() {
-  const [activeView, setActiveView] = useState<WorkspaceView>("overview");
+  const [activeView, setActiveView] = useState<BookView>("overview");
   const [isLedgerDetailOpen, setIsLedgerDetailOpen] = useState(false);
   const [isLedgerOperationsOpen, setIsLedgerOperationsOpen] = useState(false);
   const [isCommandPaletteOpen, setIsCommandPaletteOpen] = useState(false);
@@ -133,24 +133,24 @@ export function App() {
     setInlineDraftField,
     startInlineEdit,
   } = useLedgerInlineRowEditState();
-  const { busy, dashboard, error, loading, runMutation, statusMessage, workspace } =
-    useWorkspaceRuntime({
+  const { book, busy, dashboard, error, loading, runMutation, statusMessage } =
+    useBookRuntime({
       range: APRIL_RANGE,
-      workspaceId: WORKSPACE_ID,
+      bookId: BOOK_ID,
     });
 
-  const loadedWorkspace = workspace;
+  const loadedBook = book;
   const loadedDashboard = dashboard;
-  const workspaceAccounts = loadedWorkspace?.accounts ?? [];
-  const workspaceEnvelopes = loadedWorkspace?.envelopes ?? [];
-  const workspaceSchedules = loadedWorkspace?.scheduledTransactions ?? [];
-  const workspaceTransactions = loadedWorkspace?.transactions ?? [];
-  const expenseAccounts = workspaceAccounts.filter((account) => account.type === "expense");
-  const liquidAccounts = workspaceAccounts.filter(
+  const bookAccounts = loadedBook?.accounts ?? [];
+  const bookEnvelopes = loadedBook?.envelopes ?? [];
+  const bookSchedules = loadedBook?.scheduledTransactions ?? [];
+  const bookTransactions = loadedBook?.transactions ?? [];
+  const expenseAccounts = bookAccounts.filter((account) => account.type === "expense");
+  const liquidAccounts = bookAccounts.filter(
     (account) => account.type === "asset" || account.type === "liability",
   );
-  const fundingAccounts = workspaceAccounts.filter((account) => account.type === "asset");
-  const activeViewDefinition = getWorkspaceViewDefinition(activeView);
+  const fundingAccounts = bookAccounts.filter((account) => account.type === "asset");
+  const activeViewDefinition = getBookViewDefinition(activeView);
   const {
     budgetSnapshot: baselineSnapshot = [],
     envelopeSnapshot = [],
@@ -168,23 +168,23 @@ export function App() {
     accountBalanceCount: accountBalances.length,
     budgetIssueCount: budgetConfigurationErrors.length,
     dueTransactionCount: dueTransactions.length,
-    envelopeCount: workspaceEnvelopes.length,
+    envelopeCount: bookEnvelopes.length,
     ledgerIssueCount: ledgerValidationErrors.length,
   });
 
-  const recentTransactions = [...workspaceTransactions]
+  const recentTransactions = [...bookTransactions]
     .sort((left, right) => right.occurredOn.localeCompare(left.occurredOn))
     .slice(0, 6);
   const topBudgetVarianceRows = [...baselineSnapshot]
     .sort((left, right) => Math.abs(right.variance.quantity) - Math.abs(left.variance.quantity))
     .slice(0, 4);
-  const nextScheduledTransactions = [...workspaceSchedules]
+  const nextScheduledTransactions = [...bookSchedules]
     .sort((left, right) => left.nextDueOn.localeCompare(right.nextDueOn))
     .slice(0, 5);
   const selectedTransactionRecord =
-    workspaceTransactions.find((transaction) => transaction.id === selectedLedgerTransactionId) ?? null;
-  const ledgerWorkspace = loadedWorkspace
-      ? createLedgerWorkspaceModel({
+    bookTransactions.find((transaction) => transaction.id === selectedLedgerTransactionId) ?? null;
+  const ledgerBook = loadedBook
+      ? createLedgerBookModel({
         accountBalances,
         rangeEnd: ledgerRange.to,
         rangeStart: ledgerRange.from,
@@ -192,7 +192,7 @@ export function App() {
         statusFilter: ledgerStatusFilter,
         selectedAccountId: selectedLedgerAccountId,
         selectedTransactionId: selectedLedgerTransactionId,
-        workspace: loadedWorkspace,
+        book: loadedBook,
       })
     : {
         availableAccounts: [],
@@ -202,13 +202,13 @@ export function App() {
         selectedAccount: null,
         selectedTransaction: null,
       };
-  const reconciliationWorkspace = loadedWorkspace
-    ? createReconciliationWorkspaceModel({
+  const reconciliationBook = loadedBook
+    ? createReconciliationBookModel({
         selectedAccountId: reconciliationForm.accountId,
         selectedTransactionIds: selectedReconciliationTransactionIds,
         statementBalanceText: reconciliationForm.statementBalance,
         statementDate: reconciliationForm.statementDate,
-        workspace: loadedWorkspace,
+        book: loadedBook,
       })
     : {
         candidateTransactions: [],
@@ -228,7 +228,7 @@ export function App() {
       };
   useLedgerKeyboardAndSelectionSync({
     activeView,
-    filteredTransactions: ledgerWorkspace.filteredTransactions,
+    filteredTransactions: ledgerBook.filteredTransactions,
     ledgerSearchInputRef,
     selectedLedgerTransactionId,
     setSelectedLedgerTransactionId: (nextValue) => {
@@ -344,7 +344,7 @@ export function App() {
   }, [activeLedgerRegisterTabId, cancelInlineEdit]);
 
   useEffect(() => {
-    if (!loadedWorkspace) {
+    if (!loadedBook) {
       return;
     }
 
@@ -359,23 +359,23 @@ export function App() {
         return current;
       }
 
-      return createTransactionEditorState(selectedTransactionRecord, workspaceAccounts);
+      return createTransactionEditorState(selectedTransactionRecord, bookAccounts);
     });
-  }, [selectedTransactionRecord, workspaceAccounts]);
+  }, [selectedTransactionRecord, bookAccounts]);
 
   useEffect(() => {
     if (!inlineEditingTransactionId) {
       return;
     }
 
-    const editedRowStillVisible = ledgerWorkspace.filteredTransactions.some(
+    const editedRowStillVisible = ledgerBook.filteredTransactions.some(
       (transaction) => transaction.id === inlineEditingTransactionId,
     );
 
     if (!editedRowStillVisible) {
       cancelInlineEdit();
     }
-  }, [cancelInlineEdit, inlineEditingTransactionId, ledgerWorkspace.filteredTransactions]);
+  }, [cancelInlineEdit, inlineEditingTransactionId, ledgerBook.filteredTransactions]);
 
   useEffect(() => {
     if (!pendingPostingFocusTarget) {
@@ -395,17 +395,17 @@ export function App() {
   if (loading) {
     return (
       <ShellState
-        title="Loading workspace"
-        message="Fetching finance workspace and dashboard projections from the service layer."
+        title="Loading book"
+        message="Fetching book and dashboard projections from the service layer."
       />
     );
   }
 
-  if (error || !loadedWorkspace || !loadedDashboard) {
+  if (error || !loadedBook || !loadedDashboard) {
     return (
       <ShellState
         title="Service unavailable"
-        message={error ?? "Workspace data could not be loaded from the API."}
+        message={error ?? "Book data could not be loaded from the API."}
       />
     );
   }
@@ -417,7 +417,7 @@ export function App() {
       }
 
       const nextIndex = current.postings.length;
-      const defaultAccount = workspaceAccounts[0];
+      const defaultAccount = bookAccounts[0];
       const nextAmount = getPostingBalanceSummary(current.postings.map((posting) => posting.amount));
       setPendingPostingFocusTarget({
         field: "account",
@@ -553,7 +553,7 @@ export function App() {
   }
 
   function openLinkedRegisterTabsForTransaction(transactionId: string) {
-    const transaction = ledgerWorkspace.filteredTransactions.find((candidate) => candidate.id === transactionId);
+    const transaction = ledgerBook.filteredTransactions.find((candidate) => candidate.id === transactionId);
     if (!transaction) {
       return;
     }
@@ -639,14 +639,14 @@ export function App() {
       return;
     }
 
-    setTransactionEditor(createTransactionEditorState(selectedTransactionRecord, workspaceAccounts));
+    setTransactionEditor(createTransactionEditorState(selectedTransactionRecord, bookAccounts));
     setActivePostingAccountSearchIndex(null);
     setHighlightedPostingAccountMatchIndex(0);
   }
 
   function updatePostingAccountSearch(index: number, nextQuery: string) {
     const exactMatch = findAccountSearchExactMatch({
-      accounts: workspaceAccounts,
+      accounts: bookAccounts,
       query: nextQuery,
     });
 
@@ -671,7 +671,7 @@ export function App() {
   }
 
   function selectPostingAccount(index: number, accountId: string) {
-    const account = workspaceAccounts.find((candidate) => candidate.id === accountId);
+    const account = bookAccounts.find((candidate) => candidate.id === accountId);
 
     if (!account) {
       return;
@@ -703,7 +703,7 @@ export function App() {
     }
 
     await runMutation("Transaction update", async () => {
-      await putTransaction(WORKSPACE_ID, transactionEditor.transactionId, {
+      await putTransaction(BOOK_ID, transactionEditor.transactionId, {
         actor: "Primary",
         transaction: {
           description: transactionEditor.description.trim(),
@@ -713,7 +713,7 @@ export function App() {
           postings: transactionEditor.postings.map((posting) => ({
             accountId: posting.accountId.trim(),
             amount: {
-              commodityCode: loadedWorkspace?.baseCommodityCode ?? "USD",
+              commodityCode: loadedBook?.baseCommodityCode ?? "USD",
               quantity: Number.parseFloat(posting.amount),
             },
             cleared: posting.cleared || undefined,
@@ -740,14 +740,14 @@ export function App() {
       return;
     }
 
-    const sourceTransaction = workspaceTransactions.find((transaction) => transaction.id === transactionId);
+    const sourceTransaction = bookTransactions.find((transaction) => transaction.id === transactionId);
 
     if (!sourceTransaction) {
       return;
     }
 
     await runMutation("Transaction update", async () => {
-      await putTransaction(WORKSPACE_ID, sourceTransaction.id, {
+      await putTransaction(BOOK_ID, sourceTransaction.id, {
         actor: "Primary",
         transaction: {
           description: trimmedDescription,
@@ -780,7 +780,7 @@ export function App() {
   }) {
     await runMutation("Transaction post", async () => {
       const amount = Number.parseFloat(input.amount);
-      await postTransaction(WORKSPACE_ID, {
+      await postTransaction(BOOK_ID, {
         actor: "Primary",
         transaction: {
           description: input.description,
@@ -805,7 +805,7 @@ export function App() {
 
   async function deleteInlineLedgerTransaction(transactionId: string) {
     await runMutation("Transaction delete", async () => {
-      await deleteTransaction(WORKSPACE_ID, transactionId, {
+      await deleteTransaction(BOOK_ID, transactionId, {
         actor: "Primary",
       });
     });
@@ -822,7 +822,7 @@ export function App() {
     }>;
     transactionId: string;
   }) {
-    const sourceTransaction = workspaceTransactions.find(
+    const sourceTransaction = bookTransactions.find(
       (transaction) => transaction.id === input.transactionId,
     );
 
@@ -838,7 +838,7 @@ export function App() {
     }
 
     await runMutation("Transaction update", async () => {
-      await putTransaction(WORKSPACE_ID, sourceTransaction.id, {
+      await putTransaction(BOOK_ID, sourceTransaction.id, {
         actor: "Primary",
         transaction: {
           description: sourceTransaction.description,
@@ -867,7 +867,7 @@ export function App() {
         addPostingToEditor={addPostingToEditor}
         busy={busy}
         highlightedPostingAccountMatchIndex={highlightedPostingAccountMatchIndex}
-        ledgerWorkspace={ledgerWorkspace}
+        ledgerBook={ledgerBook}
         movePosting={movePosting}
         pendingPostingFocusTargetSetter={setPendingPostingFocusTarget}
         postingAccountInputRefs={postingAccountInputRefs}
@@ -883,7 +883,7 @@ export function App() {
         transactionEditor={transactionEditor}
         transactionEditorErrors={transactionEditorErrors}
         updatePostingAccountSearch={updatePostingAccountSearch}
-        workspaceAccounts={workspaceAccounts}
+        bookAccounts={bookAccounts}
       />
     );
   }
@@ -891,7 +891,7 @@ export function App() {
   function renderMainPanels() {
     if (activeView === "ledger") {
       const labeledLedgerRegisterTabs = ledgerRegisterTabs.map((tab) => {
-        const account = workspaceAccounts.find((candidate) => candidate.id === tab.selectedLedgerAccountId);
+        const account = bookAccounts.find((candidate) => candidate.id === tab.selectedLedgerAccountId);
         return {
           accountId: tab.selectedLedgerAccountId,
           id: tab.id,
@@ -915,7 +915,7 @@ export function App() {
           ledgerSearchInputRef={ledgerSearchInputRef}
           ledgerSearchText={ledgerSearchText}
           ledgerStatusFilter={ledgerStatusFilter}
-          ledgerWorkspace={ledgerWorkspace}
+          ledgerBook={ledgerBook}
           liquidAccounts={liquidAccounts}
           onActivateLedgerRegisterTab={setActiveLedgerRegisterTabId}
           onCancelInlineEdit={cancelInlineEdit}
@@ -948,7 +948,7 @@ export function App() {
           onToggleLedgerOperationsOpen={() => setIsLedgerOperationsOpen((current) => !current)}
           onUpdateInlineEditField={setInlineDraftField}
           reconciliationForm={reconciliationForm}
-          reconciliationWorkspace={reconciliationWorkspace}
+          reconciliationBook={reconciliationBook}
           runMutation={runMutation}
           selectedLedgerAccountId={selectedLedgerAccountId}
           selectedLedgerTransactionId={selectedLedgerTransactionId}
@@ -979,7 +979,7 @@ export function App() {
         expenseAccounts={expenseAccounts}
         formatCurrency={formatCurrency}
         fundingAccounts={fundingAccounts}
-        getWorkspaceViewDefinition={getWorkspaceViewDefinition}
+        getBookViewDefinition={getBookViewDefinition}
         nextScheduledTransactions={nextScheduledTransactions}
         overviewCards={overviewCards}
         parseCsvRows={parseCsvRows}
@@ -998,7 +998,7 @@ export function App() {
         setEnvelopeForm={setEnvelopeForm}
         setScheduleForm={setScheduleForm}
         topBudgetVarianceRows={topBudgetVarianceRows}
-        workspaceEnvelopes={workspaceEnvelopes}
+        bookEnvelopes={bookEnvelopes}
       />
     );
   }
@@ -1010,18 +1010,18 @@ export function App() {
         baselineSnapshot={baselineSnapshot}
         budgetConfigurationErrors={budgetConfigurationErrors}
         dueTransactions={dueTransactions}
-        getWorkspaceViewDefinition={getWorkspaceViewDefinition}
+        getBookViewDefinition={getBookViewDefinition}
         ledgerValidationErrors={ledgerValidationErrors}
-        ledgerWorkspace={ledgerWorkspace}
+        ledgerBook={ledgerBook}
         overviewCards={overviewCards}
         selectedLedgerAccountId={selectedLedgerAccountId}
         selectedLedgerTransactionId={selectedLedgerTransactionId}
         setActiveView={setActiveView}
         setSelectedLedgerAccountId={setSelectedLedgerAccountId}
         setSelectedLedgerTransactionId={setSelectedLedgerTransactionId}
-        workspaceAccounts={workspaceAccounts}
-        workspaceEnvelopes={workspaceEnvelopes}
-        workspaceSchedules={workspaceSchedules}
+        bookAccounts={bookAccounts}
+        bookEnvelopes={bookEnvelopes}
+        bookSchedules={bookSchedules}
       />
     );
   }
@@ -1033,18 +1033,18 @@ export function App() {
         baselineSnapshot={baselineSnapshot}
         budgetConfigurationErrors={budgetConfigurationErrors}
         dueTransactions={dueTransactions}
-        getWorkspaceViewDefinition={getWorkspaceViewDefinition}
+        getBookViewDefinition={getBookViewDefinition}
         ledgerValidationErrors={ledgerValidationErrors}
-        ledgerWorkspace={ledgerWorkspace}
+        ledgerBook={ledgerBook}
         overviewCards={overviewCards}
         selectedLedgerAccountId={selectedLedgerAccountId}
         selectedLedgerTransactionId={selectedLedgerTransactionId}
         setActiveView={setActiveView}
         setSelectedLedgerAccountId={setSelectedLedgerAccountId}
         setSelectedLedgerTransactionId={setSelectedLedgerTransactionId}
-        workspaceAccounts={workspaceAccounts}
-        workspaceEnvelopes={workspaceEnvelopes}
-        workspaceSchedules={workspaceSchedules}
+        bookAccounts={bookAccounts}
+        bookEnvelopes={bookEnvelopes}
+        bookSchedules={bookSchedules}
       />
     );
   }
@@ -1054,7 +1054,7 @@ export function App() {
       <aside className="activity-bar">
         <div className="brand">GN</div>
         <nav>
-          {workspaceViews.map((view) => (
+          {bookViews.map((view) => (
             <button
               key={view.id}
               className={`activity-button${activeView === view.id ? " active" : ""}`}
@@ -1070,7 +1070,7 @@ export function App() {
       <section className="sidebar">
         <div className="panel-header">
           <span>{activeViewDefinition.label}</span>
-          <span className="muted">{loadedWorkspace.name}</span>
+          <span className="muted">{loadedBook.name}</span>
         </div>
         {renderSidebarContent()}
       </section>
@@ -1101,7 +1101,7 @@ export function App() {
         </header>
 
         <section className="view-tabs">
-          {workspaceViews.map((view) => (
+          {bookViews.map((view) => (
             <button
               key={view.id}
               data-testid={`view-tab-${view.id}`}

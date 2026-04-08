@@ -1,5 +1,5 @@
 import type { EnvelopeAllocation, ScheduledTransaction } from "@tally/domain";
-import type { FinanceWorkspaceDocument } from "@tally/workspace";
+import type { FinanceBookDocument } from "@tally/book";
 
 export interface DashboardResponse {
   dashboard: {
@@ -35,8 +35,8 @@ export interface DashboardResponse {
   };
 }
 
-export interface WorkspaceResponse {
-  workspace: FinanceWorkspaceDocument;
+export interface BookResponse {
+  book: FinanceBookDocument;
 }
 
 interface ErrorResponse {
@@ -62,7 +62,7 @@ export class MobileApiError extends Error {
 
 export interface MobileApiClient {
   postReconciliation(
-    workspaceId: string,
+    bookId: string,
     body: {
       payload: {
         accountId: string;
@@ -72,9 +72,9 @@ export interface MobileApiClient {
         statementDate: string;
       };
     },
-  ): Promise<WorkspaceResponse>;
+  ): Promise<BookResponse>;
   applyScheduledTransactionException(
-    workspaceId: string,
+    bookId: string,
     scheduleId: string,
     body: {
       payload: {
@@ -84,9 +84,9 @@ export interface MobileApiClient {
         note?: string;
       };
     },
-  ): Promise<WorkspaceResponse>;
+  ): Promise<BookResponse>;
   executeScheduledTransaction(
-    workspaceId: string,
+    bookId: string,
     scheduleId: string,
     body: {
       payload: {
@@ -94,17 +94,17 @@ export interface MobileApiClient {
         transactionId?: string;
       };
     },
-  ): Promise<WorkspaceResponse>;
-  fetchDashboard(params: { from: string; to: string; workspaceId: string }): Promise<DashboardResponse>;
-  fetchWorkspace(workspaceId: string): Promise<WorkspaceResponse>;
+  ): Promise<BookResponse>;
+  fetchDashboard(params: { from: string; to: string; bookId: string }): Promise<DashboardResponse>;
+  fetchBook(bookId: string): Promise<BookResponse>;
   postScheduledTransaction(
-    workspaceId: string,
+    bookId: string,
     body: {
       schedule: ScheduledTransaction;
     },
-  ): Promise<WorkspaceResponse>;
+  ): Promise<BookResponse>;
   postTransaction(
-    workspaceId: string,
+    bookId: string,
     body: {
       transaction: {
         id: string;
@@ -118,11 +118,11 @@ export interface MobileApiClient {
         }>;
       };
     },
-  ): Promise<WorkspaceResponse>;
+  ): Promise<BookResponse>;
   postEnvelopeAllocation(
-    workspaceId: string,
+    bookId: string,
     body: { allocation: EnvelopeAllocation },
-  ): Promise<WorkspaceResponse>;
+  ): Promise<BookResponse>;
 }
 
 export interface MobileApiClientConfig {
@@ -169,7 +169,7 @@ export function createMobileApiClient(config: MobileApiClientConfig): MobileApiC
 
   return {
     async postReconciliation(
-      workspaceId: string,
+      bookId: string,
       body: {
         payload: {
           accountId: string;
@@ -179,8 +179,8 @@ export function createMobileApiClient(config: MobileApiClientConfig): MobileApiC
           statementDate: string;
         };
       },
-    ): Promise<WorkspaceResponse> {
-      const response = await request(`/api/workspaces/${workspaceId}/reconciliations`, {
+    ): Promise<BookResponse> {
+      const response = await request(`/api/books/${bookId}/reconciliations`, {
         body: JSON.stringify(body),
         headers: {
           "content-type": "application/json",
@@ -188,11 +188,11 @@ export function createMobileApiClient(config: MobileApiClientConfig): MobileApiC
         method: "POST",
       });
       await ensureOk(response, "Failed to record reconciliation.");
-      return readJson<WorkspaceResponse>(response);
+      return readJson<BookResponse>(response);
     },
 
     async applyScheduledTransactionException(
-      workspaceId: string,
+      bookId: string,
       scheduleId: string,
       body: {
         payload: {
@@ -202,8 +202,8 @@ export function createMobileApiClient(config: MobileApiClientConfig): MobileApiC
           note?: string;
         };
       },
-    ): Promise<WorkspaceResponse> {
-      const response = await request(`/api/workspaces/${workspaceId}/schedules/${scheduleId}/exceptions`, {
+    ): Promise<BookResponse> {
+      const response = await request(`/api/books/${bookId}/schedules/${scheduleId}/exceptions`, {
         body: JSON.stringify(body),
         headers: {
           "content-type": "application/json",
@@ -211,28 +211,28 @@ export function createMobileApiClient(config: MobileApiClientConfig): MobileApiC
         method: "POST",
       });
       await ensureOk(response, "Failed to apply scheduled transaction exception.");
-      return readJson<WorkspaceResponse>(response);
+      return readJson<BookResponse>(response);
     },
 
-    async fetchWorkspace(workspaceId: string): Promise<WorkspaceResponse> {
-      const response = await request(`/api/workspaces/${workspaceId}`);
-      await ensureOk(response, "Failed to load workspace.");
-      return readJson<WorkspaceResponse>(response);
+    async fetchBook(bookId: string): Promise<BookResponse> {
+      const response = await request(`/api/books/${bookId}`);
+      await ensureOk(response, "Failed to load book.");
+      return readJson<BookResponse>(response);
     },
 
     async fetchDashboard(params: {
       from: string;
       to: string;
-      workspaceId: string;
+      bookId: string;
     }): Promise<DashboardResponse> {
       const search = new URLSearchParams({ from: params.from, to: params.to });
-      const response = await request(`/api/workspaces/${params.workspaceId}/dashboard?${search}`);
+      const response = await request(`/api/books/${params.bookId}/dashboard?${search}`);
       await ensureOk(response, "Failed to load dashboard.");
       return readJson<DashboardResponse>(response);
     },
 
     async postTransaction(
-      workspaceId: string,
+      bookId: string,
       body: {
         transaction: {
           id: string;
@@ -246,8 +246,8 @@ export function createMobileApiClient(config: MobileApiClientConfig): MobileApiC
           }>;
         };
       },
-    ): Promise<WorkspaceResponse> {
-      const response = await request(`/api/workspaces/${workspaceId}/transactions`, {
+    ): Promise<BookResponse> {
+      const response = await request(`/api/books/${bookId}/transactions`, {
         body: JSON.stringify(body),
         headers: {
           "content-type": "application/json",
@@ -255,16 +255,16 @@ export function createMobileApiClient(config: MobileApiClientConfig): MobileApiC
         method: "POST",
       });
       await ensureOk(response, "Failed to post transaction.");
-      return readJson<WorkspaceResponse>(response);
+      return readJson<BookResponse>(response);
     },
 
     async postScheduledTransaction(
-      workspaceId: string,
+      bookId: string,
       body: {
         schedule: ScheduledTransaction;
       },
-    ): Promise<WorkspaceResponse> {
-      const response = await request(`/api/workspaces/${workspaceId}/schedules`, {
+    ): Promise<BookResponse> {
+      const response = await request(`/api/books/${bookId}/schedules`, {
         body: JSON.stringify(body),
         headers: {
           "content-type": "application/json",
@@ -272,16 +272,16 @@ export function createMobileApiClient(config: MobileApiClientConfig): MobileApiC
         method: "POST",
       });
       await ensureOk(response, "Failed to save scheduled transaction.");
-      return readJson<WorkspaceResponse>(response);
+      return readJson<BookResponse>(response);
     },
 
     async postEnvelopeAllocation(
-      workspaceId: string,
+      bookId: string,
       body: {
         allocation: EnvelopeAllocation;
       },
-    ): Promise<WorkspaceResponse> {
-      const response = await request(`/api/workspaces/${workspaceId}/envelope-allocations`, {
+    ): Promise<BookResponse> {
+      const response = await request(`/api/books/${bookId}/envelope-allocations`, {
         body: JSON.stringify(body),
         headers: {
           "content-type": "application/json",
@@ -289,11 +289,11 @@ export function createMobileApiClient(config: MobileApiClientConfig): MobileApiC
         method: "POST",
       });
       await ensureOk(response, "Failed to record envelope allocation.");
-      return readJson<WorkspaceResponse>(response);
+      return readJson<BookResponse>(response);
     },
 
     async executeScheduledTransaction(
-      workspaceId: string,
+      bookId: string,
       scheduleId: string,
       body: {
         payload: {
@@ -301,8 +301,8 @@ export function createMobileApiClient(config: MobileApiClientConfig): MobileApiC
           transactionId?: string;
         };
       },
-    ): Promise<WorkspaceResponse> {
-      const response = await request(`/api/workspaces/${workspaceId}/schedules/${scheduleId}/execute`, {
+    ): Promise<BookResponse> {
+      const response = await request(`/api/books/${bookId}/schedules/${scheduleId}/execute`, {
         body: JSON.stringify(body),
         headers: {
           "content-type": "application/json",
@@ -310,7 +310,7 @@ export function createMobileApiClient(config: MobileApiClientConfig): MobileApiC
         method: "POST",
       });
       await ensureOk(response, "Failed to execute scheduled transaction.");
-      return readJson<WorkspaceResponse>(response);
+      return readJson<BookResponse>(response);
     },
   };
 }

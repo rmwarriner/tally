@@ -6,7 +6,7 @@
   "dependencies": {
     "@tally/domain": "workspace:*",
     "@tally/logging": "workspace:*",
-    "@tally/workspace": "workspace:*",
+    "@tally/book": "workspace:*",
     "pg": "^8.20.0"
   },
   "devDependencies": {

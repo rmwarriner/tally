@@ -3,15 +3,15 @@ import {
   addHouseholdMember,
   addTransaction,
   archiveAccount,
-  buildOperationalWorkspaceView,
+  buildOperationalBookView,
   buildCloseSummary,
   buildGnuCashXmlExport,
   buildOfxExport,
   applyScheduledTransactionException,
   buildDashboardSnapshot,
   buildQifExport,
-  buildWorkspaceReport,
-  closeWorkspacePeriod,
+  buildBookReport,
+  closeBookPeriod,
   deleteTransaction,
   denyApproval,
   destroyTransaction,
@@ -19,7 +19,7 @@ import {
   grantApproval,
   importTransactionsFromCsvRows,
   importTransactionsFromStatement,
-  importWorkspaceFromGnuCashXml,
+  importBookFromGnuCashXml,
   importTransactionsFromQif,
   reconcileAccount,
   recordEnvelopeAllocation,
@@ -31,7 +31,7 @@ import {
   upsertEnvelope,
   upsertScheduledTransaction,
   updateTransaction,
-} from "@tally/workspace";
+} from "@tally/book";
 import {
   buildAuthorizationAuditContext,
   failure,
@@ -92,12 +92,12 @@ import type {
   DashboardEnvelope,
   QifExportEnvelope,
   ReportEnvelope,
-  WorkspaceEnvelope,
+  BookEnvelope,
 } from "./types";
 import { ApiError, toApiError } from "./errors";
-import type { WorkspaceRepository } from "./repository";
+import type { BookRepository } from "./repository";
 
-export interface WorkspaceService {
+export interface BookService {
   getCloseSummary(
     request: GetCloseSummaryRequest,
   ): Promise<ServiceResponse<CloseSummaryEnvelope | ErrorEnvelope>>;
@@ -113,73 +113,73 @@ export interface WorkspaceService {
     request: GetStatementExportRequest,
   ): Promise<ServiceResponse<StatementExportEnvelope | ErrorEnvelope>>;
   getReport(request: GetReportRequest): Promise<ServiceResponse<ReportEnvelope | ErrorEnvelope>>;
-  getWorkspace(request: GetWorkspaceRequest): Promise<ServiceResponse<WorkspaceEnvelope | ErrorEnvelope>>;
+  getBook(request: GetWorkspaceRequest): Promise<ServiceResponse<BookEnvelope | ErrorEnvelope>>;
   deleteTransaction(
     request: DeleteTransactionRequest,
-  ): Promise<ServiceResponse<WorkspaceEnvelope | ErrorEnvelope>>;
+  ): Promise<ServiceResponse<BookEnvelope | ErrorEnvelope>>;
   destroyTransaction(
     request: DestroyTransactionRequest,
-  ): Promise<ServiceResponse<WorkspaceEnvelope | ErrorEnvelope>>;
+  ): Promise<ServiceResponse<BookEnvelope | ErrorEnvelope>>;
   postCsvImport(
     request: PostCsvImportRequest,
-  ): Promise<ServiceResponse<WorkspaceEnvelope | ErrorEnvelope>>;
+  ): Promise<ServiceResponse<BookEnvelope | ErrorEnvelope>>;
   postQifImport(
     request: PostQifImportRequest,
-  ): Promise<ServiceResponse<WorkspaceEnvelope | ErrorEnvelope>>;
+  ): Promise<ServiceResponse<BookEnvelope | ErrorEnvelope>>;
   postStatementImport(
     request: PostStatementImportRequest,
-  ): Promise<ServiceResponse<WorkspaceEnvelope | ErrorEnvelope>>;
+  ): Promise<ServiceResponse<BookEnvelope | ErrorEnvelope>>;
   postGnuCashXmlImport(
     request: PostGnuCashXmlImportRequest,
-  ): Promise<ServiceResponse<WorkspaceEnvelope | ErrorEnvelope>>;
+  ): Promise<ServiceResponse<BookEnvelope | ErrorEnvelope>>;
   executeScheduledTransaction(
     request: ExecuteScheduledTransactionRequest,
-  ): Promise<ServiceResponse<WorkspaceEnvelope | ErrorEnvelope>>;
+  ): Promise<ServiceResponse<BookEnvelope | ErrorEnvelope>>;
   applyScheduledTransactionException(
     request: ApplyScheduledTransactionExceptionRequest,
-  ): Promise<ServiceResponse<WorkspaceEnvelope | ErrorEnvelope>>;
+  ): Promise<ServiceResponse<BookEnvelope | ErrorEnvelope>>;
   postBaselineBudgetLine(
     request: PostBaselineBudgetLineRequest,
-  ): Promise<ServiceResponse<WorkspaceEnvelope | ErrorEnvelope>>;
+  ): Promise<ServiceResponse<BookEnvelope | ErrorEnvelope>>;
   postBackup(
     request: PostBackupRequest,
   ): Promise<ServiceResponse<BackupEnvelope | ErrorEnvelope>>;
   postBackupRestore(
     request: PostBackupRestoreRequest,
-  ): Promise<ServiceResponse<WorkspaceEnvelope | ErrorEnvelope>>;
+  ): Promise<ServiceResponse<BookEnvelope | ErrorEnvelope>>;
   postClosePeriod(
     request: PostClosePeriodRequest,
-  ): Promise<ServiceResponse<WorkspaceEnvelope | ErrorEnvelope>>;
+  ): Promise<ServiceResponse<BookEnvelope | ErrorEnvelope>>;
   postEnvelope(
     request: PostEnvelopeRequest,
-  ): Promise<ServiceResponse<WorkspaceEnvelope | ErrorEnvelope>>;
+  ): Promise<ServiceResponse<BookEnvelope | ErrorEnvelope>>;
   postEnvelopeAllocation(
     request: PostEnvelopeAllocationRequest,
-  ): Promise<ServiceResponse<WorkspaceEnvelope | ErrorEnvelope>>;
+  ): Promise<ServiceResponse<BookEnvelope | ErrorEnvelope>>;
   postReconciliation(
     request: PostReconciliationRequest,
-  ): Promise<ServiceResponse<WorkspaceEnvelope | ErrorEnvelope>>;
+  ): Promise<ServiceResponse<BookEnvelope | ErrorEnvelope>>;
   postScheduledTransaction(
     request: PostScheduledTransactionRequest,
-  ): Promise<ServiceResponse<WorkspaceEnvelope | ErrorEnvelope>>;
+  ): Promise<ServiceResponse<BookEnvelope | ErrorEnvelope>>;
   postTransaction(
     request: PostTransactionRequest,
-  ): Promise<ServiceResponse<WorkspaceEnvelope | ErrorEnvelope>>;
+  ): Promise<ServiceResponse<BookEnvelope | ErrorEnvelope>>;
   updateTransaction(
     request: UpdateTransactionRequest,
-  ): Promise<ServiceResponse<WorkspaceEnvelope | ErrorEnvelope>>;
+  ): Promise<ServiceResponse<BookEnvelope | ErrorEnvelope>>;
   getHouseholdMembers(
     request: GetHouseholdMembersRequest,
   ): Promise<ServiceResponse<HouseholdMembersEnvelope | ErrorEnvelope>>;
   addHouseholdMember(
     request: AddHouseholdMemberRequest,
-  ): Promise<ServiceResponse<WorkspaceEnvelope | ErrorEnvelope>>;
+  ): Promise<ServiceResponse<BookEnvelope | ErrorEnvelope>>;
   setHouseholdMemberRole(
     request: SetHouseholdMemberRoleRequest,
-  ): Promise<ServiceResponse<WorkspaceEnvelope | ErrorEnvelope>>;
+  ): Promise<ServiceResponse<BookEnvelope | ErrorEnvelope>>;
   removeHouseholdMember(
     request: RemoveHouseholdMemberRequest,
-  ): Promise<ServiceResponse<WorkspaceEnvelope | ErrorEnvelope>>;
+  ): Promise<ServiceResponse<BookEnvelope | ErrorEnvelope>>;
   getAuditEvents(
     request: GetAuditEventsRequest,
   ): Promise<ServiceResponse<AuditEventsEnvelope | ErrorEnvelope>>;
@@ -188,56 +188,56 @@ export interface WorkspaceService {
   ): Promise<ServiceResponse<ApprovalsEnvelope | ErrorEnvelope>>;
   requestApproval(
     request: RequestApprovalRequest,
-  ): Promise<ServiceResponse<WorkspaceEnvelope | ErrorEnvelope>>;
+  ): Promise<ServiceResponse<BookEnvelope | ErrorEnvelope>>;
   grantApproval(
     request: GrantApprovalRequest,
-  ): Promise<ServiceResponse<WorkspaceEnvelope | ErrorEnvelope>>;
+  ): Promise<ServiceResponse<BookEnvelope | ErrorEnvelope>>;
   denyApproval(
     request: DenyApprovalRequest,
-  ): Promise<ServiceResponse<WorkspaceEnvelope | ErrorEnvelope>>;
+  ): Promise<ServiceResponse<BookEnvelope | ErrorEnvelope>>;
   getAccounts(
     request: GetAccountsRequest,
   ): Promise<ServiceResponse<AccountsEnvelope | ErrorEnvelope>>;
   postAccount(
     request: PostAccountRequest,
-  ): Promise<ServiceResponse<WorkspaceEnvelope | ErrorEnvelope>>;
+  ): Promise<ServiceResponse<BookEnvelope | ErrorEnvelope>>;
   archiveAccount(
     request: ArchiveAccountRequest,
-  ): Promise<ServiceResponse<WorkspaceEnvelope | ErrorEnvelope>>;
+  ): Promise<ServiceResponse<BookEnvelope | ErrorEnvelope>>;
 }
 
-export function createWorkspaceService(params: {
+export function createBookService(params: {
   logger?: Logger;
-  repository: WorkspaceRepository;
-}): WorkspaceService {
-  const logger = (params.logger ?? createNoopLogger()).child({ component: "workspaceService" });
+  repository: BookRepository;
+}): BookService {
+  const logger = (params.logger ?? createNoopLogger()).child({ component: "bookService" });
 
   function getRequestLogger(requestLogger?: Logger): Logger {
     return requestLogger ?? logger;
   }
 
-  function presentWorkspace(document: ReturnType<typeof buildOperationalWorkspaceView>) {
-    return buildOperationalWorkspaceView(document);
+  function presentBook(document: ReturnType<typeof buildOperationalBookView>) {
+    return buildOperationalBookView(document);
   }
 
-  function serviceParams(access: "destroy" | "manage" | "operate" | "read" | "write", auth: Parameters<WorkspaceService["getWorkspace"]>[0]["auth"], requestLogger: Logger, workspaceId: string) {
-    return { access, auth, logger: requestLogger, repository: params.repository, workspaceId };
+  function serviceParams(access: "destroy" | "manage" | "operate" | "read" | "write", auth: Parameters<BookService["getBook"]>[0]["auth"], requestLogger: Logger, bookId: string) {
+    return { access, auth, logger: requestLogger, repository: params.repository, bookId };
   }
 
   return {
     // --- Read operations ---
 
-    async getWorkspace(request) {
+    async getBook(request) {
       const requestLogger = getRequestLogger(request.logger).child({
-        operation: "getWorkspace",
-        workspaceId: request.workspaceId,
+        operation: "getBook",
+        bookId: request.bookId,
       });
       requestLogger.info("service command started");
       return withWorkspace(
-        serviceParams("read", request.auth, requestLogger, request.workspaceId),
-        async (workspace) => {
+        serviceParams("read", request.auth, requestLogger, request.bookId),
+        async (book) => {
           requestLogger.info("service command completed");
-          return success(200, { workspace: presentWorkspace(workspace) });
+          return success(200, { book: presentBook(book) });
         },
       );
     },
@@ -247,13 +247,13 @@ export function createWorkspaceService(params: {
         from: request.from,
         operation: "getDashboard",
         to: request.to,
-        workspaceId: request.workspaceId,
+        bookId: request.bookId,
       });
       requestLogger.info("service command started");
       return withWorkspace(
-        serviceParams("read", request.auth, requestLogger, request.workspaceId),
-        async (workspace) => {
-          const dashboard = buildDashboardSnapshot(workspace, { from: request.from, to: request.to });
+        serviceParams("read", request.auth, requestLogger, request.bookId),
+        async (book) => {
+          const dashboard = buildDashboardSnapshot(book, { from: request.from, to: request.to });
           requestLogger.info("service command completed");
           return success(200, { dashboard });
         },
@@ -263,13 +263,13 @@ export function createWorkspaceService(params: {
     async getBackups(request) {
       const requestLogger = getRequestLogger(request.logger).child({
         operation: "getBackups",
-        workspaceId: request.workspaceId,
+        bookId: request.bookId,
       });
       requestLogger.info("service command started");
       return withWorkspace(
-        serviceParams("read", request.auth, requestLogger, request.workspaceId),
+        serviceParams("read", request.auth, requestLogger, request.bookId),
         async () => {
-          const backups = await params.repository.listBackups(request.workspaceId, { logger: requestLogger });
+          const backups = await params.repository.listBackups(request.bookId, { logger: requestLogger });
           requestLogger.info("service command completed", { backupCount: backups.length });
           return success(200, { backups });
         },
@@ -281,13 +281,13 @@ export function createWorkspaceService(params: {
         from: request.from,
         operation: "getCloseSummary",
         to: request.to,
-        workspaceId: request.workspaceId,
+        bookId: request.bookId,
       });
       requestLogger.info("service command started");
       return withWorkspace(
-        serviceParams("read", request.auth, requestLogger, request.workspaceId),
-        async (workspace) => {
-          const closeSummary = buildCloseSummary(workspace, { from: request.from, to: request.to });
+        serviceParams("read", request.auth, requestLogger, request.bookId),
+        async (book) => {
+          const closeSummary = buildCloseSummary(book, { from: request.from, to: request.to });
           requestLogger.info("service command completed", { readyToClose: closeSummary.readyToClose });
           return success(200, { closeSummary });
         },
@@ -300,13 +300,13 @@ export function createWorkspaceService(params: {
         operation: "getReport",
         reportKind: request.kind,
         to: request.to,
-        workspaceId: request.workspaceId,
+        bookId: request.bookId,
       });
       requestLogger.info("service command started");
       return withWorkspace(
-        serviceParams("read", request.auth, requestLogger, request.workspaceId),
-        async (workspace) => {
-          const report = buildWorkspaceReport(workspace, { from: request.from, kind: request.kind, to: request.to });
+        serviceParams("read", request.auth, requestLogger, request.bookId),
+        async (book) => {
+          const report = buildBookReport(book, { from: request.from, kind: request.kind, to: request.to });
           requestLogger.info("service command completed");
           return success(200, { report });
         },
@@ -319,13 +319,13 @@ export function createWorkspaceService(params: {
         from: request.from,
         operation: "getQifExport",
         to: request.to,
-        workspaceId: request.workspaceId,
+        bookId: request.bookId,
       });
       requestLogger.info("service command started");
       return withWorkspace(
-        serviceParams("read", request.auth, requestLogger, request.workspaceId),
-        async (workspace) => {
-          const exportResult = buildQifExport({ accountId: request.accountId, from: request.from, to: request.to, workspace });
+        serviceParams("read", request.auth, requestLogger, request.bookId),
+        async (book) => {
+          const exportResult = buildQifExport({ accountId: request.accountId, from: request.from, to: request.to, book });
           requestLogger.info("service command completed", { transactionCount: exportResult.transactionCount });
           return success(200, {
             export: {
@@ -346,13 +346,13 @@ export function createWorkspaceService(params: {
         from: request.from,
         operation: "getStatementExport",
         to: request.to,
-        workspaceId: request.workspaceId,
+        bookId: request.bookId,
       });
       requestLogger.info("service command started");
       return withWorkspace(
-        serviceParams("read", request.auth, requestLogger, request.workspaceId),
-        async (workspace) => {
-          const exportResult = buildOfxExport({ accountId: request.accountId, format: request.format, from: request.from, to: request.to, workspace });
+        serviceParams("read", request.auth, requestLogger, request.bookId),
+        async (book) => {
+          const exportResult = buildOfxExport({ accountId: request.accountId, format: request.format, from: request.from, to: request.to, book });
           requestLogger.info("service command completed", { format: request.format, transactionCount: exportResult.transactionCount });
           return success(200, {
             export: {
@@ -369,13 +369,13 @@ export function createWorkspaceService(params: {
     async getGnuCashXmlExport(request) {
       const requestLogger = getRequestLogger(request.logger).child({
         operation: "getGnuCashXmlExport",
-        workspaceId: request.workspaceId,
+        bookId: request.bookId,
       });
       requestLogger.info("service command started");
       return withWorkspace(
-        serviceParams("read", request.auth, requestLogger, request.workspaceId),
-        async (workspace) => {
-          const exportResult = buildGnuCashXmlExport({ workspace: presentWorkspace(workspace) });
+        serviceParams("read", request.auth, requestLogger, request.bookId),
+        async (book) => {
+          const exportResult = buildGnuCashXmlExport({ book: presentBook(book) });
           requestLogger.info("service command completed");
           return success(200, {
             export: {
@@ -393,13 +393,13 @@ export function createWorkspaceService(params: {
     async postBackup(request) {
       const requestLogger = getRequestLogger(request.logger).child({
         operation: "postBackup",
-        workspaceId: request.workspaceId,
+        bookId: request.bookId,
       });
       requestLogger.info("service command started");
       return withWorkspace(
-        serviceParams("operate", request.auth, requestLogger, request.workspaceId),
+        serviceParams("operate", request.auth, requestLogger, request.bookId),
         async () => {
-          const backup = await params.repository.createBackup(request.workspaceId, { logger: requestLogger });
+          const backup = await params.repository.createBackup(request.bookId, { logger: requestLogger });
           requestLogger.info("service command completed", { backupId: backup.id });
           return success(201, { backup });
         },
@@ -410,15 +410,15 @@ export function createWorkspaceService(params: {
       const requestLogger = getRequestLogger(request.logger).child({
         backupId: request.backupId,
         operation: "postBackupRestore",
-        workspaceId: request.workspaceId,
+        bookId: request.bookId,
       });
       requestLogger.info("service command started");
       return withWorkspace(
-        serviceParams("operate", request.auth, requestLogger, request.workspaceId),
+        serviceParams("operate", request.auth, requestLogger, request.bookId),
         async () => {
-          const restored = await params.repository.restoreBackup(request.workspaceId, request.backupId, { logger: requestLogger });
+          const restored = await params.repository.restoreBackup(request.bookId, request.backupId, { logger: requestLogger });
           requestLogger.info("service command completed", { backupId: request.backupId });
-          return success(200, { workspace: presentWorkspace(restored) });
+          return success(200, { book: presentBook(restored) });
         },
       );
     },
@@ -429,12 +429,12 @@ export function createWorkspaceService(params: {
       const requestLogger = getRequestLogger(request.logger).child({
         operation: "postTransaction",
         transactionId: request.transaction.id,
-        workspaceId: request.workspaceId,
+        bookId: request.bookId,
       });
       requestLogger.info("service command started");
       return withMutation(
-        { ...serviceParams("write", request.auth, requestLogger, request.workspaceId), successStatus: 201 },
-        (workspace, audit) => addTransaction(workspace, request.transaction, { audit, logger: requestLogger }),
+        { ...serviceParams("write", request.auth, requestLogger, request.bookId), successStatus: 201 },
+        (book, audit) => addTransaction(book, request.transaction, { audit, logger: requestLogger }),
       );
     },
 
@@ -442,12 +442,12 @@ export function createWorkspaceService(params: {
       const requestLogger = getRequestLogger(request.logger).child({
         operation: "updateTransaction",
         transactionId: request.transactionId,
-        workspaceId: request.workspaceId,
+        bookId: request.bookId,
       });
       requestLogger.info("service command started");
       return withMutation(
-        { ...serviceParams("write", request.auth, requestLogger, request.workspaceId), successStatus: 200 },
-        (workspace, audit) => updateTransaction(workspace, request.transactionId, request.transaction, { audit, logger: requestLogger }),
+        { ...serviceParams("write", request.auth, requestLogger, request.bookId), successStatus: 200 },
+        (book, audit) => updateTransaction(book, request.transactionId, request.transaction, { audit, logger: requestLogger }),
       );
     },
 
@@ -455,12 +455,12 @@ export function createWorkspaceService(params: {
       const requestLogger = getRequestLogger(request.logger).child({
         operation: "deleteTransaction",
         transactionId: request.transactionId,
-        workspaceId: request.workspaceId,
+        bookId: request.bookId,
       });
       requestLogger.info("service command started");
       return withMutation(
-        { ...serviceParams("write", request.auth, requestLogger, request.workspaceId), successStatus: 200 },
-        (workspace, audit) => deleteTransaction(workspace, request.transactionId, {}, { audit, logger: requestLogger }),
+        { ...serviceParams("write", request.auth, requestLogger, request.bookId), successStatus: 200 },
+        (book, audit) => deleteTransaction(book, request.transactionId, {}, { audit, logger: requestLogger }),
       );
     },
 
@@ -468,12 +468,12 @@ export function createWorkspaceService(params: {
       const requestLogger = getRequestLogger(request.logger).child({
         operation: "destroyTransaction",
         transactionId: request.transactionId,
-        workspaceId: request.workspaceId,
+        bookId: request.bookId,
       });
       requestLogger.info("service command started");
       return withMutation(
-        { ...serviceParams("destroy", request.auth, requestLogger, request.workspaceId), successStatus: 200 },
-        (workspace, audit) => destroyTransaction(workspace, request.transactionId, { audit, logger: requestLogger }),
+        { ...serviceParams("destroy", request.auth, requestLogger, request.bookId), successStatus: 200 },
+        (book, audit) => destroyTransaction(book, request.transactionId, { audit, logger: requestLogger }),
       );
     },
 
@@ -482,14 +482,14 @@ export function createWorkspaceService(params: {
         occurredOn: request.payload.occurredOn,
         operation: "executeScheduledTransaction",
         scheduleId: request.scheduleId,
-        workspaceId: request.workspaceId,
+        bookId: request.bookId,
       });
       requestLogger.info("service command started");
       return withMutation(
-        { ...serviceParams("write", request.auth, requestLogger, request.workspaceId), successStatus: 201 },
-        (workspace, audit) =>
+        { ...serviceParams("write", request.auth, requestLogger, request.bookId), successStatus: 201 },
+        (book, audit) =>
           executeScheduledTransaction(
-            workspace,
+            book,
             { occurredOn: request.payload.occurredOn, scheduleId: request.scheduleId, transactionId: request.payload.transactionId },
             { audit, logger: requestLogger },
           ),
@@ -501,14 +501,14 @@ export function createWorkspaceService(params: {
         action: request.payload.action,
         operation: "applyScheduledTransactionException",
         scheduleId: request.scheduleId,
-        workspaceId: request.workspaceId,
+        bookId: request.bookId,
       });
       requestLogger.info("service command started");
       return withMutation(
-        { ...serviceParams("write", request.auth, requestLogger, request.workspaceId), successStatus: 200 },
-        (workspace, audit) =>
+        { ...serviceParams("write", request.auth, requestLogger, request.bookId), successStatus: 200 },
+        (book, audit) =>
           applyScheduledTransactionException(
-            workspace,
+            book,
             { action: request.payload.action, effectiveOn: request.payload.effectiveOn, nextDueOn: request.payload.nextDueOn, note: request.payload.note, scheduleId: request.scheduleId },
             { audit, logger: requestLogger },
           ),
@@ -519,12 +519,12 @@ export function createWorkspaceService(params: {
       const requestLogger = getRequestLogger(request.logger).child({
         operation: "postScheduledTransaction",
         scheduleId: request.schedule.id,
-        workspaceId: request.workspaceId,
+        bookId: request.bookId,
       });
       requestLogger.info("service command started");
       return withMutation(
-        { ...serviceParams("write", request.auth, requestLogger, request.workspaceId), successStatus: 200 },
-        (workspace, audit) => upsertScheduledTransaction(workspace, request.schedule, { audit, logger: requestLogger }),
+        { ...serviceParams("write", request.auth, requestLogger, request.bookId), successStatus: 200 },
+        (book, audit) => upsertScheduledTransaction(book, request.schedule, { audit, logger: requestLogger }),
       );
     },
 
@@ -532,12 +532,12 @@ export function createWorkspaceService(params: {
       const requestLogger = getRequestLogger(request.logger).child({
         envelopeId: request.envelope.id,
         operation: "postEnvelope",
-        workspaceId: request.workspaceId,
+        bookId: request.bookId,
       });
       requestLogger.info("service command started");
       return withMutation(
-        { ...serviceParams("write", request.auth, requestLogger, request.workspaceId), successStatus: 200 },
-        (workspace, audit) => upsertEnvelope(workspace, request.envelope, { audit, logger: requestLogger }),
+        { ...serviceParams("write", request.auth, requestLogger, request.bookId), successStatus: 200 },
+        (book, audit) => upsertEnvelope(book, request.envelope, { audit, logger: requestLogger }),
       );
     },
 
@@ -546,12 +546,12 @@ export function createWorkspaceService(params: {
         allocationId: request.allocation.id,
         envelopeId: request.allocation.envelopeId,
         operation: "postEnvelopeAllocation",
-        workspaceId: request.workspaceId,
+        bookId: request.bookId,
       });
       requestLogger.info("service command started");
       return withMutation(
-        { ...serviceParams("write", request.auth, requestLogger, request.workspaceId), successStatus: 200 },
-        (workspace, audit) => recordEnvelopeAllocation(workspace, request.allocation, { audit, logger: requestLogger }),
+        { ...serviceParams("write", request.auth, requestLogger, request.bookId), successStatus: 200 },
+        (book, audit) => recordEnvelopeAllocation(book, request.allocation, { audit, logger: requestLogger }),
       );
     },
 
@@ -560,12 +560,12 @@ export function createWorkspaceService(params: {
         accountId: request.line.accountId,
         operation: "postBaselineBudgetLine",
         period: request.line.period,
-        workspaceId: request.workspaceId,
+        bookId: request.bookId,
       });
       requestLogger.info("service command started");
       return withMutation(
-        { ...serviceParams("write", request.auth, requestLogger, request.workspaceId), successStatus: 200 },
-        (workspace, audit) => upsertBaselineBudgetLine(workspace, request.line, { audit, logger: requestLogger }),
+        { ...serviceParams("write", request.auth, requestLogger, request.bookId), successStatus: 200 },
+        (book, audit) => upsertBaselineBudgetLine(book, request.line, { audit, logger: requestLogger }),
       );
     },
 
@@ -574,14 +574,14 @@ export function createWorkspaceService(params: {
         from: request.payload.from,
         operation: "postClosePeriod",
         to: request.payload.to,
-        workspaceId: request.workspaceId,
+        bookId: request.bookId,
       });
       requestLogger.info("service command started");
       return withMutation(
-        { ...serviceParams("operate", request.auth, requestLogger, request.workspaceId), successStatus: 201 },
-        (workspace, audit) =>
-          closeWorkspacePeriod(
-            workspace,
+        { ...serviceParams("operate", request.auth, requestLogger, request.bookId), successStatus: 201 },
+        (book, audit) =>
+          closeBookPeriod(
+            book,
             { ...request.payload, closedBy: request.auth.actor },
             { audit, logger: requestLogger },
           ),
@@ -592,12 +592,12 @@ export function createWorkspaceService(params: {
       const requestLogger = getRequestLogger(request.logger).child({
         batchId: request.payload.batchId,
         operation: "postQifImport",
-        workspaceId: request.workspaceId,
+        bookId: request.bookId,
       });
       requestLogger.info("service command started");
       return withMutation(
-        { ...serviceParams("operate", request.auth, requestLogger, request.workspaceId), successStatus: 201 },
-        (workspace, audit) => importTransactionsFromQif(workspace, request.payload, { audit, logger: requestLogger }),
+        { ...serviceParams("operate", request.auth, requestLogger, request.bookId), successStatus: 201 },
+        (book, audit) => importTransactionsFromQif(book, request.payload, { audit, logger: requestLogger }),
       );
     },
 
@@ -606,24 +606,24 @@ export function createWorkspaceService(params: {
         batchId: request.payload.batchId,
         format: request.payload.format,
         operation: "postStatementImport",
-        workspaceId: request.workspaceId,
+        bookId: request.bookId,
       });
       requestLogger.info("service command started");
       return withMutation(
-        { ...serviceParams("operate", request.auth, requestLogger, request.workspaceId), successStatus: 201 },
-        (workspace, audit) => importTransactionsFromStatement(workspace, request.payload, { audit, logger: requestLogger }),
+        { ...serviceParams("operate", request.auth, requestLogger, request.bookId), successStatus: 201 },
+        (book, audit) => importTransactionsFromStatement(book, request.payload, { audit, logger: requestLogger }),
       );
     },
 
     async postGnuCashXmlImport(request) {
       const requestLogger = getRequestLogger(request.logger).child({
         operation: "postGnuCashXmlImport",
-        workspaceId: request.workspaceId,
+        bookId: request.bookId,
       });
       requestLogger.info("service command started");
       return withMutation(
-        { ...serviceParams("operate", request.auth, requestLogger, request.workspaceId), successStatus: 200 },
-        (workspace, audit) => importWorkspaceFromGnuCashXml(workspace, request.payload, { audit, logger: requestLogger }),
+        { ...serviceParams("operate", request.auth, requestLogger, request.bookId), successStatus: 200 },
+        (book, audit) => importBookFromGnuCashXml(book, request.payload, { audit, logger: requestLogger }),
       );
     },
 
@@ -631,14 +631,14 @@ export function createWorkspaceService(params: {
       const requestLogger = getRequestLogger(request.logger).child({
         batchId: request.payload.batchId,
         operation: "postCsvImport",
-        workspaceId: request.workspaceId,
+        bookId: request.bookId,
       });
       requestLogger.info("service command started");
       return withMutation(
-        { ...serviceParams("operate", request.auth, requestLogger, request.workspaceId), successStatus: 200 },
-        (workspace, audit) =>
+        { ...serviceParams("operate", request.auth, requestLogger, request.bookId), successStatus: 200 },
+        (book, audit) =>
           importTransactionsFromCsvRows(
-            workspace,
+            book,
             request.payload.rows,
             { batchId: request.payload.batchId, importedAt: request.payload.importedAt, sourceLabel: request.payload.sourceLabel },
             { audit, logger: requestLogger },
@@ -651,16 +651,16 @@ export function createWorkspaceService(params: {
       const requestLogger = getRequestLogger(request.logger).child({
         accountId: request.payload.accountId,
         operation: "postReconciliation",
-        workspaceId: request.workspaceId,
+        bookId: request.bookId,
       });
       requestLogger.info("service command started");
-      return withWorkspace<WorkspaceEnvelope | ErrorEnvelope>(
-        serviceParams("write", request.auth, requestLogger, request.workspaceId),
-        async (workspace, authorization) => {
+      return withWorkspace<BookEnvelope | ErrorEnvelope>(
+        serviceParams("write", request.auth, requestLogger, request.bookId),
+        async (book, authorization) => {
           const audit = buildAuthorizationAuditContext(request.auth.actor, authorization);
-          const result = reconcileAccount(workspace, request.payload, { audit, logger: requestLogger });
+          const result = reconcileAccount(book, request.payload, { audit, logger: requestLogger });
 
-          if (!result.ok && result.document === workspace) {
+          if (!result.ok && result.document === book) {
             requestLogger.warn("service command validation failed", { errors: result.errors });
             return failure(
               new ApiError({
@@ -674,7 +674,7 @@ export function createWorkspaceService(params: {
 
           await params.repository.save(result.document, { logger: requestLogger });
           requestLogger.info("service command completed", { warnings: result.errors });
-          return success(200, { workspace: presentWorkspace(result.document) });
+          return success(200, { book: presentBook(result.document) });
         },
       );
     },
@@ -684,10 +684,10 @@ export function createWorkspaceService(params: {
     async getHouseholdMembers(request) {
       const requestLogger = getRequestLogger(request.logger);
       return withWorkspace<HouseholdMembersEnvelope | ErrorEnvelope>(
-        serviceParams("read", request.auth, requestLogger, request.workspaceId),
-        async (workspace) => {
-          const roles = workspace.householdMemberRoles ?? {};
-          const members = workspace.householdMembers.map((actor) => ({
+        serviceParams("read", request.auth, requestLogger, request.bookId),
+        async (book) => {
+          const roles = book.householdMemberRoles ?? {};
+          const members = book.householdMembers.map((actor) => ({
             actor,
             role: (roles[actor] ?? "member") as "admin" | "guardian" | "member",
           }));
@@ -699,18 +699,18 @@ export function createWorkspaceService(params: {
     async addHouseholdMember(request) {
       const requestLogger = getRequestLogger(request.logger);
       return withMutation(
-        { ...serviceParams("manage", request.auth, requestLogger, request.workspaceId), successStatus: 200 },
-        (workspace, audit) => addHouseholdMember(workspace, request.payload, { audit, logger: requestLogger }),
+        { ...serviceParams("manage", request.auth, requestLogger, request.bookId), successStatus: 200 },
+        (book, audit) => addHouseholdMember(book, request.payload, { audit, logger: requestLogger }),
       );
     },
 
     async setHouseholdMemberRole(request) {
       const requestLogger = getRequestLogger(request.logger);
       return withMutation(
-        { ...serviceParams("manage", request.auth, requestLogger, request.workspaceId), successStatus: 200 },
-        (workspace, audit) =>
+        { ...serviceParams("manage", request.auth, requestLogger, request.bookId), successStatus: 200 },
+        (book, audit) =>
           setHouseholdMemberRole(
-            workspace,
+            book,
             { actor: request.actor, role: request.payload.role },
             { audit, logger: requestLogger },
           ),
@@ -719,12 +719,12 @@ export function createWorkspaceService(params: {
 
     async removeHouseholdMember(request) {
       const requestLogger = getRequestLogger(request.logger);
-      return withWorkspace<WorkspaceEnvelope | ErrorEnvelope>(
-        serviceParams("manage", request.auth, requestLogger, request.workspaceId),
-        async (workspace, authorization) => {
+      return withWorkspace<BookEnvelope | ErrorEnvelope>(
+        serviceParams("manage", request.auth, requestLogger, request.bookId),
+        async (book, authorization) => {
           const audit = buildAuthorizationAuditContext(request.auth.actor, authorization);
           const result = removeHouseholdMember(
-            workspace,
+            book,
             { actor: request.actor },
             { audit, logger: requestLogger },
           );
@@ -743,7 +743,7 @@ export function createWorkspaceService(params: {
 
           await params.repository.save(result.document, { logger: requestLogger });
           requestLogger.info("service command completed");
-          return success(200, { workspace: presentWorkspace(result.document) });
+          return success(200, { book: presentBook(result.document) });
         },
       );
     },
@@ -780,9 +780,9 @@ export function createWorkspaceService(params: {
     async getApprovals(request) {
       const requestLogger = getRequestLogger(request.logger);
       return withWorkspace<ApprovalsEnvelope | ErrorEnvelope>(
-        serviceParams("read", request.auth, requestLogger, request.workspaceId),
-        async (workspace) => {
-          const approvals = workspace.pendingApprovals ?? [];
+        serviceParams("read", request.auth, requestLogger, request.bookId),
+        async (book) => {
+          const approvals = book.pendingApprovals ?? [];
           return success(200, { approvals });
         },
       );
@@ -793,14 +793,14 @@ export function createWorkspaceService(params: {
         operation: "requestApproval",
         kind: request.payload.kind,
         entityId: request.payload.entityId,
-        workspaceId: request.workspaceId,
+        bookId: request.bookId,
       });
       requestLogger.info("service command started");
       return withMutation(
-        { ...serviceParams("destroy", request.auth, requestLogger, request.workspaceId), successStatus: 201 },
-        (workspace, audit) =>
+        { ...serviceParams("destroy", request.auth, requestLogger, request.bookId), successStatus: 201 },
+        (book, audit) =>
           requestApproval(
-            workspace,
+            book,
             {
               approvalId: request.payload.approvalId,
               kind: request.payload.kind,
@@ -816,14 +816,14 @@ export function createWorkspaceService(params: {
       const requestLogger = getRequestLogger(request.logger).child({
         operation: "grantApproval",
         approvalId: request.approvalId,
-        workspaceId: request.workspaceId,
+        bookId: request.bookId,
       });
       requestLogger.info("service command started");
       return withMutation(
-        { ...serviceParams("destroy", request.auth, requestLogger, request.workspaceId), successStatus: 200 },
-        (workspace, audit) =>
+        { ...serviceParams("destroy", request.auth, requestLogger, request.bookId), successStatus: 200 },
+        (book, audit) =>
           grantApproval(
-            workspace,
+            book,
             { approvalId: request.approvalId, reviewedBy: request.auth.actor },
             { audit, logger: requestLogger },
           ),
@@ -834,14 +834,14 @@ export function createWorkspaceService(params: {
       const requestLogger = getRequestLogger(request.logger).child({
         operation: "denyApproval",
         approvalId: request.approvalId,
-        workspaceId: request.workspaceId,
+        bookId: request.bookId,
       });
       requestLogger.info("service command started");
       return withMutation(
-        { ...serviceParams("destroy", request.auth, requestLogger, request.workspaceId), successStatus: 200 },
-        (workspace, audit) =>
+        { ...serviceParams("destroy", request.auth, requestLogger, request.bookId), successStatus: 200 },
+        (book, audit) =>
           denyApproval(
-            workspace,
+            book,
             { approvalId: request.approvalId, reviewedBy: request.auth.actor },
             { audit, logger: requestLogger },
           ),

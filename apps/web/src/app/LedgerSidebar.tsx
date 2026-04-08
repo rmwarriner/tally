@@ -1,8 +1,8 @@
 import type { Dispatch, SetStateAction } from "react";
-import { type createLedgerWorkspaceModel } from "./shell";
+import { type createLedgerBookModel } from "./shell";
 
 interface LedgerSidebarProps {
-  ledgerWorkspace: ReturnType<typeof createLedgerWorkspaceModel>;
+  ledgerBook: ReturnType<typeof createLedgerBookModel>;
   selectedLedgerAccountId: string | null;
   selectedLedgerTransactionId: string | null;
   setSelectedLedgerAccountId: Dispatch<SetStateAction<string | null>>;
@@ -14,7 +14,7 @@ export function LedgerSidebar(props: LedgerSidebarProps) {
     <>
       <div className="tree-section">
         <h3>Ledger accounts</h3>
-        {props.ledgerWorkspace.availableAccounts.map((account) => (
+        {props.ledgerBook.availableAccounts.map((account) => (
           <button
             key={account.id}
             className={`tree-button${props.selectedLedgerAccountId === account.id ? " active" : ""}`}
@@ -31,7 +31,7 @@ export function LedgerSidebar(props: LedgerSidebarProps) {
 
       <div className="tree-section">
         <h3>Filtered register</h3>
-        {props.ledgerWorkspace.filteredTransactions.slice(0, 8).map((transaction) => (
+        {props.ledgerBook.filteredTransactions.slice(0, 8).map((transaction) => (
           <button
             key={transaction.id}
             className={`tree-button${props.selectedLedgerTransactionId === transaction.id ? " active" : ""}`}

@@ -1,9 +1,9 @@
 import type { Dispatch, SetStateAction } from "react";
-import type { WorkspaceResponse } from "./api";
+import type { BookResponse } from "./api";
 import { postReconciliation } from "./api";
-import { WORKSPACE_ID } from "./app-constants";
+import { BOOK_ID } from "./app-constants";
 import { formatSignedCurrency } from "./app-format";
-import type { createReconciliationWorkspaceModel } from "./shell";
+import type { createReconciliationBookModel } from "./shell";
 
 interface ReconciliationFormState {
   accountId: string;
@@ -13,9 +13,9 @@ interface ReconciliationFormState {
 
 interface LedgerOperationsPanelsProps {
   busy: string | null;
-  liquidAccounts: WorkspaceResponse["workspace"]["accounts"];
+  liquidAccounts: BookResponse["book"]["accounts"];
   reconciliationForm: ReconciliationFormState;
-  reconciliationWorkspace: ReturnType<typeof createReconciliationWorkspaceModel>;
+  reconciliationBook: ReturnType<typeof createReconciliationBookModel>;
   runMutation: (label: string, operation: () => Promise<void>) => Promise<void>;
   setReconciliationForm: Dispatch<SetStateAction<ReconciliationFormState>>;
   setSelectedReconciliationTransactionIds: Dispatch<SetStateAction<Record<string, boolean>>>;
@@ -34,11 +34,11 @@ export function LedgerOperationsPanels(props: LedgerOperationsPanelsProps) {
           onSubmit={(event) => {
             event.preventDefault();
             void props.runMutation("Reconciliation", async () => {
-              await postReconciliation(WORKSPACE_ID, {
+              await postReconciliation(BOOK_ID, {
                 actor: "Primary",
                 payload: {
                   accountId: props.reconciliationForm.accountId,
-                  clearedTransactionIds: props.reconciliationWorkspace.candidateTransactions
+                  clearedTransactionIds: props.reconciliationBook.candidateTransactions
                     .filter((candidate) => candidate.selected)
                     .map((candidate) => candidate.id),
                   statementBalance: Number.parseFloat(props.reconciliationForm.statementBalance),
@@ -84,27 +84,27 @@ export function LedgerOperationsPanels(props: LedgerOperationsPanelsProps) {
               }
             />
           </label>
-          {props.reconciliationWorkspace.latestSession ? (
+          {props.reconciliationBook.latestSession ? (
             <div className="reconciliation-note">
-              Latest session: {props.reconciliationWorkspace.latestSession.statementDate} with difference{" "}
-              {formatSignedCurrency(props.reconciliationWorkspace.latestSession.difference.quantity)}
+              Latest session: {props.reconciliationBook.latestSession.statementDate} with difference{" "}
+              {formatSignedCurrency(props.reconciliationBook.latestSession.difference.quantity)}
             </div>
           ) : null}
           <div className="reconciliation-summary-grid">
             <div className="summary-card">
               <span>Cleared total</span>
-              <strong>{formatSignedCurrency(props.reconciliationWorkspace.clearedTotal)}</strong>
+              <strong>{formatSignedCurrency(props.reconciliationBook.clearedTotal)}</strong>
             </div>
             <div
               className={`summary-card${
-                props.reconciliationWorkspace.difference === 0 ? " balanced" : " warning"
+                props.reconciliationBook.difference === 0 ? " balanced" : " warning"
               }`}
             >
               <span>Difference</span>
               <strong>
-                {props.reconciliationWorkspace.difference === null
+                {props.reconciliationBook.difference === null
                   ? "Enter balance"
-                  : formatSignedCurrency(props.reconciliationWorkspace.difference)}
+                  : formatSignedCurrency(props.reconciliationBook.difference)}
               </strong>
             </div>
           </div>
@@ -112,11 +112,11 @@ export function LedgerOperationsPanels(props: LedgerOperationsPanelsProps) {
             <div className="panel-header">
               <span>Cleared candidates</span>
               <span className="muted">
-                {props.reconciliationWorkspace.selectedAccount?.name ?? "Select account"}
+                {props.reconciliationBook.selectedAccount?.name ?? "Select account"}
               </span>
             </div>
-            {props.reconciliationWorkspace.candidateTransactions.length > 0 ? (
-              props.reconciliationWorkspace.candidateTransactions.map((candidate) => (
+            {props.reconciliationBook.candidateTransactions.length > 0 ? (
+              props.reconciliationBook.candidateTransactions.map((candidate) => (
                 <button
                   key={candidate.id}
                   className={`reconciliation-candidate${candidate.selected ? " active" : ""}`}

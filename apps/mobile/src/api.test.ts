@@ -6,11 +6,11 @@ describe("mobile api client", () => {
     vi.unstubAllGlobals();
   });
 
-  it("loads workspace and dashboard from the configured api base url", async () => {
+  it("loads book and dashboard from the configured api base url", async () => {
     const fetchMock = vi
       .fn()
       .mockResolvedValueOnce({
-        json: async () => ({ workspace: { id: "workspace-household-demo" } }),
+        json: async () => ({ book: { id: "workspace-household-demo" } }),
         ok: true,
       })
       .mockResolvedValueOnce({
@@ -23,19 +23,19 @@ describe("mobile api client", () => {
       apiBaseUrl: "http://127.0.0.1:3000/",
     });
 
-    await client.fetchWorkspace("workspace-household-demo");
+    await client.fetchBook("workspace-household-demo");
     await client.fetchDashboard({
       from: "2026-04-01",
       to: "2026-04-30",
-      workspaceId: "workspace-household-demo",
+      bookId: "workspace-household-demo",
     });
 
-    expect(fetchMock).toHaveBeenNthCalledWith(1, "http://127.0.0.1:3000/api/workspaces/workspace-household-demo", {
+    expect(fetchMock).toHaveBeenNthCalledWith(1, "http://127.0.0.1:3000/api/books/workspace-household-demo", {
       headers: new Headers(),
     });
     expect(fetchMock).toHaveBeenNthCalledWith(
       2,
-      "http://127.0.0.1:3000/api/workspaces/workspace-household-demo/dashboard?from=2026-04-01&to=2026-04-30",
+      "http://127.0.0.1:3000/api/books/workspace-household-demo/dashboard?from=2026-04-01&to=2026-04-30",
       {
         headers: new Headers(),
       },
@@ -44,7 +44,7 @@ describe("mobile api client", () => {
 
   it("sends api key headers when configured", async () => {
     const fetchMock = vi.fn().mockResolvedValue({
-      json: async () => ({ workspace: { id: "workspace-household-demo" } }),
+      json: async () => ({ book: { id: "workspace-household-demo" } }),
       ok: true,
     });
     vi.stubGlobal("fetch", fetchMock);
@@ -68,7 +68,7 @@ describe("mobile api client", () => {
     const headers = new Headers(requestInit.headers);
 
     expect(fetchMock).toHaveBeenCalledWith(
-      "http://192.168.1.15:3000/api/workspaces/workspace-household-demo/envelope-allocations",
+      "http://192.168.1.15:3000/api/books/workspace-household-demo/envelope-allocations",
       expect.objectContaining({
         method: "POST",
       }),
@@ -81,11 +81,11 @@ describe("mobile api client", () => {
     const fetchMock = vi
       .fn()
       .mockResolvedValueOnce({
-        json: async () => ({ workspace: { id: "workspace-household-demo" } }),
+        json: async () => ({ book: { id: "workspace-household-demo" } }),
         ok: true,
       })
       .mockResolvedValueOnce({
-        json: async () => ({ workspace: { id: "workspace-household-demo" } }),
+        json: async () => ({ book: { id: "workspace-household-demo" } }),
         ok: true,
       });
     vi.stubGlobal("fetch", fetchMock);
@@ -120,14 +120,14 @@ describe("mobile api client", () => {
 
     expect(fetchMock).toHaveBeenNthCalledWith(
       1,
-      "http://192.168.1.15:3000/api/workspaces/workspace-household-demo/transactions",
+      "http://192.168.1.15:3000/api/books/workspace-household-demo/transactions",
       expect.objectContaining({
         method: "POST",
       }),
     );
     expect(fetchMock).toHaveBeenNthCalledWith(
       2,
-      "http://192.168.1.15:3000/api/workspaces/workspace-household-demo/schedules/sched-rent/execute",
+      "http://192.168.1.15:3000/api/books/workspace-household-demo/schedules/sched-rent/execute",
       expect.objectContaining({
         method: "POST",
       }),
@@ -136,7 +136,7 @@ describe("mobile api client", () => {
 
   it("saves scheduled transactions through the service route", async () => {
     const fetchMock = vi.fn().mockResolvedValue({
-      json: async () => ({ workspace: { id: "workspace-household-demo" } }),
+      json: async () => ({ book: { id: "workspace-household-demo" } }),
       ok: true,
     });
     vi.stubGlobal("fetch", fetchMock);
@@ -170,7 +170,7 @@ describe("mobile api client", () => {
     });
 
     expect(fetchMock).toHaveBeenCalledWith(
-      "http://192.168.1.15:3000/api/workspaces/workspace-household-demo/schedules",
+      "http://192.168.1.15:3000/api/books/workspace-household-demo/schedules",
       expect.objectContaining({
         method: "POST",
       }),
@@ -179,7 +179,7 @@ describe("mobile api client", () => {
 
   it("applies scheduled transaction exceptions through the service route", async () => {
     const fetchMock = vi.fn().mockResolvedValue({
-      json: async () => ({ workspace: { id: "workspace-household-demo" } }),
+      json: async () => ({ book: { id: "workspace-household-demo" } }),
       ok: true,
     });
     vi.stubGlobal("fetch", fetchMock);
@@ -197,7 +197,7 @@ describe("mobile api client", () => {
     });
 
     expect(fetchMock).toHaveBeenCalledWith(
-      "http://192.168.1.15:3000/api/workspaces/workspace-household-demo/schedules/sched-rent/exceptions",
+      "http://192.168.1.15:3000/api/books/workspace-household-demo/schedules/sched-rent/exceptions",
       expect.objectContaining({
         method: "POST",
       }),
@@ -206,7 +206,7 @@ describe("mobile api client", () => {
 
   it("records reconciliations through the service route", async () => {
     const fetchMock = vi.fn().mockResolvedValue({
-      json: async () => ({ workspace: { id: "workspace-household-demo" } }),
+      json: async () => ({ book: { id: "workspace-household-demo" } }),
       ok: true,
     });
     vi.stubGlobal("fetch", fetchMock);
@@ -225,7 +225,7 @@ describe("mobile api client", () => {
     });
 
     expect(fetchMock).toHaveBeenCalledWith(
-      "http://192.168.1.15:3000/api/workspaces/workspace-household-demo/reconciliations",
+      "http://192.168.1.15:3000/api/books/workspace-household-demo/reconciliations",
       expect.objectContaining({
         method: "POST",
       }),
@@ -250,7 +250,7 @@ describe("mobile api client", () => {
       apiBaseUrl: "http://192.168.1.15:3000",
     });
 
-    await expect(client.fetchWorkspace("workspace-household-demo")).rejects.toMatchObject({
+    await expect(client.fetchBook("workspace-household-demo")).rejects.toMatchObject({
       code: "auth.required",
       message: "Authentication is required.",
       status: 401,

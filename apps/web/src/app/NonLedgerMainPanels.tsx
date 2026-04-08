@@ -1,15 +1,15 @@
 import { useState, type Dispatch, type SetStateAction } from "react";
-import type { CsvImportRow } from "@tally/workspace";
+import type { CsvImportRow } from "@tally/book";
 import type {
   DashboardResponse,
-  WorkspaceResponse,
+  BookResponse,
   postBaselineBudgetLine,
   postCsvImport,
   postEnvelope,
   postEnvelopeAllocation,
   postScheduledTransaction,
 } from "./api";
-import { WORKSPACE_ID } from "./app-constants";
+import { BOOK_ID } from "./app-constants";
 import type {
   BudgetLineFormState,
   CsvFormState,
@@ -17,10 +17,10 @@ import type {
   EnvelopeFormState,
   ScheduleFormState,
 } from "./non-ledger-state";
-import type { OverviewCard, WorkspaceView, WorkspaceViewDefinition } from "./shell";
+import type { OverviewCard, BookView, BookViewDefinition } from "./shell";
 
 interface NonLedgerMainPanelsProps {
-  activeView: WorkspaceView;
+  activeView: BookView;
   baselineSnapshot: DashboardResponse["dashboard"]["budgetSnapshot"];
   budgetLineForm: BudgetLineFormState;
   busy: string | null;
@@ -30,11 +30,11 @@ interface NonLedgerMainPanelsProps {
   envelopeAllocationForm: EnvelopeAllocationFormState;
   envelopeForm: EnvelopeFormState;
   envelopeSnapshot: DashboardResponse["dashboard"]["envelopeSnapshot"];
-  expenseAccounts: WorkspaceResponse["workspace"]["accounts"];
+  expenseAccounts: BookResponse["book"]["accounts"];
   formatCurrency: (amount: number) => string;
-  fundingAccounts: WorkspaceResponse["workspace"]["accounts"];
-  getWorkspaceViewDefinition: (view: WorkspaceView) => WorkspaceViewDefinition;
-  nextScheduledTransactions: WorkspaceResponse["workspace"]["scheduledTransactions"];
+  fundingAccounts: BookResponse["book"]["accounts"];
+  getBookViewDefinition: (view: BookView) => BookViewDefinition;
+  nextScheduledTransactions: BookResponse["book"]["scheduledTransactions"];
   overviewCards: OverviewCard[];
   parseCsvRows: (input: string) => CsvImportRow[];
   postBaselineBudgetLine: typeof postBaselineBudgetLine;
@@ -42,17 +42,17 @@ interface NonLedgerMainPanelsProps {
   postEnvelope: typeof postEnvelope;
   postEnvelopeAllocation: typeof postEnvelopeAllocation;
   postScheduledTransaction: typeof postScheduledTransaction;
-  recentTransactions: WorkspaceResponse["workspace"]["transactions"];
+  recentTransactions: BookResponse["book"]["transactions"];
   runMutation: (label: string, operation: () => Promise<void>) => Promise<void>;
   scheduleForm: ScheduleFormState;
-  setActiveView: (view: WorkspaceView) => void;
+  setActiveView: (view: BookView) => void;
   setBudgetLineForm: Dispatch<SetStateAction<BudgetLineFormState>>;
   setCsvForm: Dispatch<SetStateAction<CsvFormState>>;
   setEnvelopeAllocationForm: Dispatch<SetStateAction<EnvelopeAllocationFormState>>;
   setEnvelopeForm: Dispatch<SetStateAction<EnvelopeFormState>>;
   setScheduleForm: Dispatch<SetStateAction<ScheduleFormState>>;
   topBudgetVarianceRows: DashboardResponse["dashboard"]["budgetSnapshot"];
-  workspaceEnvelopes: WorkspaceResponse["workspace"]["envelopes"];
+  bookEnvelopes: BookResponse["book"]["envelopes"];
 }
 
 export function NonLedgerMainPanels(props: NonLedgerMainPanelsProps) {
@@ -69,7 +69,7 @@ export function NonLedgerMainPanels(props: NonLedgerMainPanelsProps) {
     expenseAccounts,
     formatCurrency,
     fundingAccounts,
-    getWorkspaceViewDefinition,
+    getBookViewDefinition,
     nextScheduledTransactions,
     overviewCards,
     parseCsvRows,
@@ -88,7 +88,7 @@ export function NonLedgerMainPanels(props: NonLedgerMainPanelsProps) {
     setEnvelopeForm,
     setScheduleForm,
     topBudgetVarianceRows,
-    workspaceEnvelopes,
+    bookEnvelopes,
   } = props;
   const [inlineBudgetDrafts, setInlineBudgetDrafts] = useState<
     Record<
@@ -135,7 +135,7 @@ export function NonLedgerMainPanels(props: NonLedgerMainPanelsProps) {
             </div>
             <div className="overview-card-grid">
               {overviewCards.map((card) => {
-                const targetView = getWorkspaceViewDefinition(card.id);
+                const targetView = getBookViewDefinition(card.id);
 
                 return (
                   <button
@@ -300,7 +300,7 @@ export function NonLedgerMainPanels(props: NonLedgerMainPanelsProps) {
                           type="button"
                           onClick={() => {
                             void runMutation("Budget line save", async () => {
-                              await postBaselineBudgetLine(WORKSPACE_ID, {
+                              await postBaselineBudgetLine(BOOK_ID, {
                                 line: {
                                   accountId: row.accountId,
                                   budgetPeriod: draft.budgetPeriod,
@@ -334,7 +334,7 @@ export function NonLedgerMainPanels(props: NonLedgerMainPanelsProps) {
               onSubmit={(event) => {
                 event.preventDefault();
                 void runMutation("Budget line save", async () => {
-                  await postBaselineBudgetLine(WORKSPACE_ID, {
+                  await postBaselineBudgetLine(BOOK_ID, {
                     line: {
                       accountId: budgetLineForm.accountId,
                       budgetPeriod: budgetLineForm.budgetPeriod as "monthly" | "quarterly" | "annually",
@@ -438,7 +438,7 @@ export function NonLedgerMainPanels(props: NonLedgerMainPanelsProps) {
                 </tr>
               </thead>
               <tbody>
-                {workspaceEnvelopes.map((envelope) => {
+                {bookEnvelopes.map((envelope) => {
                   const draft = inlineEnvelopeDrafts[envelope.id] ?? {
                     availableAmount: String(envelope.availableAmount?.quantity ?? 0),
                     name: envelope.name,
@@ -513,7 +513,7 @@ export function NonLedgerMainPanels(props: NonLedgerMainPanelsProps) {
                           type="button"
                           onClick={() => {
                             void runMutation("Envelope save", async () => {
-                              await postEnvelope(WORKSPACE_ID, {
+                              await postEnvelope(BOOK_ID, {
                                 envelope: {
                                   availableAmount: {
                                     commodityCode: "USD",
@@ -553,7 +553,7 @@ export function NonLedgerMainPanels(props: NonLedgerMainPanelsProps) {
               onSubmit={(event) => {
                 event.preventDefault();
                 void runMutation("Envelope save", async () => {
-                  await postEnvelope(WORKSPACE_ID, {
+                  await postEnvelope(BOOK_ID, {
                     envelope: {
                       availableAmount: {
                         commodityCode: "USD",
@@ -682,7 +682,7 @@ export function NonLedgerMainPanels(props: NonLedgerMainPanelsProps) {
               onSubmit={(event) => {
                 event.preventDefault();
                 void runMutation("Envelope allocation", async () => {
-                  await postEnvelopeAllocation(WORKSPACE_ID, {
+                  await postEnvelopeAllocation(BOOK_ID, {
                     allocation: {
                       amount: {
                         commodityCode: "USD",
@@ -709,7 +709,7 @@ export function NonLedgerMainPanels(props: NonLedgerMainPanelsProps) {
                     }))
                   }
                 >
-                  {workspaceEnvelopes.map((envelope) => (
+                  {bookEnvelopes.map((envelope) => (
                     <option key={envelope.id} value={envelope.id}>
                       {envelope.name}
                     </option>
@@ -787,7 +787,7 @@ export function NonLedgerMainPanels(props: NonLedgerMainPanelsProps) {
               onSubmit={(event) => {
                 event.preventDefault();
                 void runMutation("CSV import", async () => {
-                  await postCsvImport(WORKSPACE_ID, {
+                  await postCsvImport(BOOK_ID, {
                     actor: "Primary",
                     payload: {
                       batchId: `import-web-${Date.now()}`,
@@ -972,7 +972,7 @@ export function NonLedgerMainPanels(props: NonLedgerMainPanelsProps) {
                           onClick={() => {
                             const amount = Number.parseFloat(draft.amount);
                             void runMutation("Schedule save", async () => {
-                              await postScheduledTransaction(WORKSPACE_ID, {
+                              await postScheduledTransaction(BOOK_ID, {
                                 schedule: {
                                   ...schedule,
                                   autoPost: draft.autoPost,
@@ -1038,7 +1038,7 @@ export function NonLedgerMainPanels(props: NonLedgerMainPanelsProps) {
                 event.preventDefault();
                 void runMutation("Schedule save", async () => {
                   const amount = Number.parseFloat(scheduleForm.amount);
-                  await postScheduledTransaction(WORKSPACE_ID, {
+                  await postScheduledTransaction(BOOK_ID, {
                     schedule: {
                       autoPost: scheduleForm.autoPost,
                       frequency: scheduleForm.frequency as

@@ -1,11 +1,11 @@
 import { describe, expect, it } from "vitest";
-import { createDemoWorkspace } from "./factory";
-import { buildCloseSummary, buildWorkspaceReport } from "./reports";
+import { createDemoBook } from "./factory";
+import { buildCloseSummary, buildBookReport } from "./reports";
 
-describe("workspace reports", () => {
+describe("book reports", () => {
   it("builds a net worth report", () => {
-    const workspace = createDemoWorkspace();
-    const report = buildWorkspaceReport(workspace, {
+    const book = createDemoBook();
+    const report = buildBookReport(book, {
       from: "2026-04-01",
       kind: "net-worth",
       to: "2026-04-30",
@@ -17,8 +17,8 @@ describe("workspace reports", () => {
   });
 
   it("builds an income statement report", () => {
-    const workspace = createDemoWorkspace();
-    const report = buildWorkspaceReport(workspace, {
+    const book = createDemoBook();
+    const report = buildBookReport(book, {
       from: "2026-04-01",
       kind: "income-statement",
       to: "2026-04-30",
@@ -31,8 +31,8 @@ describe("workspace reports", () => {
   });
 
   it("builds a cash-flow report", () => {
-    const workspace = createDemoWorkspace();
-    const report = buildWorkspaceReport(workspace, {
+    const book = createDemoBook();
+    const report = buildBookReport(book, {
       from: "2026-04-01",
       kind: "cash-flow",
       to: "2026-04-30",
@@ -45,8 +45,8 @@ describe("workspace reports", () => {
   });
 
   it("builds a close summary with reconciliation gaps", () => {
-    const workspace = createDemoWorkspace();
-    workspace.closePeriods = [
+    const book = createDemoBook();
+    book.closePeriods = [
       {
         id: "close-2026-03",
         closedAt: "2026-04-01T00:00:00Z",
@@ -55,7 +55,7 @@ describe("workspace reports", () => {
         to: "2026-03-31",
       },
     ];
-    const summary = buildCloseSummary(workspace, {
+    const summary = buildCloseSummary(book, {
       from: "2026-04-01",
       to: "2026-04-30",
     });

@@ -1,99 +1,99 @@
 import { createNoopLogger, type Logger } from "@tally/logging";
-import type { FinanceWorkspaceDocument } from "@tally/workspace";
+import type { FinanceBookDocument } from "@tally/book";
 import {
-  createFileSystemWorkspacePersistenceBackend,
-  type WorkspaceBackup,
-  type WorkspacePersistenceBackend,
+  createFileSystemBookPersistenceBackend,
+  type BookBackup,
+  type BookPersistenceBackend,
 } from "./persistence";
 
-export interface WorkspaceRepository {
-  createBackup(workspaceId: string, options?: { logger?: Logger }): Promise<WorkspaceBackup>;
-  listBackups(workspaceId: string, options?: { logger?: Logger }): Promise<WorkspaceBackup[]>;
-  load(workspaceId: string, options?: { logger?: Logger }): Promise<FinanceWorkspaceDocument>;
+export interface BookRepository {
+  createBackup(bookId: string, options?: { logger?: Logger }): Promise<BookBackup>;
+  listBackups(bookId: string, options?: { logger?: Logger }): Promise<BookBackup[]>;
+  load(bookId: string, options?: { logger?: Logger }): Promise<FinanceBookDocument>;
   restoreBackup(
-    workspaceId: string,
+    bookId: string,
     backupId: string,
     options?: { logger?: Logger },
-  ): Promise<FinanceWorkspaceDocument>;
-  save(document: FinanceWorkspaceDocument, options?: { logger?: Logger }): Promise<void>;
+  ): Promise<FinanceBookDocument>;
+  save(document: FinanceBookDocument, options?: { logger?: Logger }): Promise<void>;
 }
 
-export function createWorkspaceRepository(params: {
-  backend: WorkspacePersistenceBackend;
+export function createBookRepository(params: {
+  backend: BookPersistenceBackend;
   logger?: Logger;
-}): WorkspaceRepository {
+}): BookRepository {
   const logger = (params.logger ?? createNoopLogger()).child({
-    component: "workspaceRepository",
+    component: "bookRepository",
     persistenceBackend: params.backend.kind,
   });
 
   return {
-    async load(workspaceId: string, options: { logger?: Logger } = {}): Promise<FinanceWorkspaceDocument> {
-      return params.backend.load(workspaceId, {
+    async load(bookId: string, options: { logger?: Logger } = {}): Promise<FinanceBookDocument> {
+      return params.backend.load(bookId, {
         logger: (options.logger ?? logger).child({
-          component: "workspaceRepository",
-          operation: "loadWorkspace",
+          component: "bookRepository",
+          operation: "loadBook",
           persistenceBackend: params.backend.kind,
-          workspaceId,
+          bookId,
         }),
       });
     },
-    async save(document: FinanceWorkspaceDocument, options: { logger?: Logger } = {}): Promise<void> {
+    async save(document: FinanceBookDocument, options: { logger?: Logger } = {}): Promise<void> {
       await params.backend.save(document, {
         logger: (options.logger ?? logger).child({
-          component: "workspaceRepository",
-          operation: "saveWorkspace",
+          component: "bookRepository",
+          operation: "saveBook",
           persistenceBackend: params.backend.kind,
-          workspaceId: document.id,
+          bookId: document.id,
         }),
       });
     },
-    async listBackups(workspaceId: string, options: { logger?: Logger } = {}): Promise<WorkspaceBackup[]> {
-      return params.backend.listBackups(workspaceId, {
+    async listBackups(bookId: string, options: { logger?: Logger } = {}): Promise<BookBackup[]> {
+      return params.backend.listBackups(bookId, {
         logger: (options.logger ?? logger).child({
-          component: "workspaceRepository",
+          component: "bookRepository",
           operation: "listBackups",
           persistenceBackend: params.backend.kind,
-          workspaceId,
+          bookId,
         }),
       });
     },
-    async createBackup(workspaceId: string, options: { logger?: Logger } = {}): Promise<WorkspaceBackup> {
-      return params.backend.createBackup(workspaceId, {
+    async createBackup(bookId: string, options: { logger?: Logger } = {}): Promise<BookBackup> {
+      return params.backend.createBackup(bookId, {
         logger: (options.logger ?? logger).child({
-          component: "workspaceRepository",
+          component: "bookRepository",
           operation: "createBackup",
           persistenceBackend: params.backend.kind,
-          workspaceId,
+          bookId,
         }),
       });
     },
     async restoreBackup(
-      workspaceId: string,
+      bookId: string,
       backupId: string,
       options: { logger?: Logger } = {},
-    ): Promise<FinanceWorkspaceDocument> {
-      return params.backend.restoreBackup(workspaceId, backupId, {
+    ): Promise<FinanceBookDocument> {
+      return params.backend.restoreBackup(bookId, backupId, {
         logger: (options.logger ?? logger).child({
           backupId,
-          component: "workspaceRepository",
+          component: "bookRepository",
           operation: "restoreBackup",
           persistenceBackend: params.backend.kind,
-          workspaceId,
+          bookId,
         }),
       });
     },
   };
 }
 
-export function createFileSystemWorkspaceRepository(params: {
+export function createFileSystemBookRepository(params: {
   logger?: Logger;
   rootDirectory: string;
-}): WorkspaceRepository {
-  return createWorkspaceRepository({
-    backend: createFileSystemWorkspacePersistenceBackend(params),
+}): BookRepository {
+  return createBookRepository({
+    backend: createFileSystemBookPersistenceBackend(params),
     logger: params.logger,
   });
 }
 
-export type { WorkspaceBackup } from "./persistence";
+export type { BookBackup } from "./persistence";

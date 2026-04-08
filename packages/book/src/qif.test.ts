@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { createDemoWorkspace } from "./factory";
+import { createDemoBook } from "./factory";
 import { buildQifExport, parseQif } from "./qif";
 
 describe("qif adapter", () => {
@@ -39,12 +39,12 @@ Lacct-income-salary
   });
 
   it("exports account transactions to qif", () => {
-    const workspace = createDemoWorkspace();
+    const book = createDemoBook();
     const result = buildQifExport({
       accountId: "acct-checking",
       from: "2026-04-01",
       to: "2026-04-30",
-      workspace,
+      book,
     });
 
     expect(result.transactionCount).toBeGreaterThan(0);
@@ -79,8 +79,8 @@ Tbad
   });
 
   it("exports split transactions with fallback categories and sanitized text", () => {
-    const workspace = createDemoWorkspace();
-    workspace.transactions.push({
+    const book = createDemoBook();
+    book.transactions.push({
       description: "  Split groceries ^ trip  ",
       id: "txn-split-1",
       occurredOn: "2026-04-20",
@@ -96,7 +96,7 @@ Tbad
       accountId: "acct-checking",
       from: "2026-04-01",
       to: "2026-04-30",
-      workspace,
+      book,
     });
 
     expect(result.contents).toContain("PStore Name");

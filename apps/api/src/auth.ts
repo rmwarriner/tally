@@ -1,8 +1,8 @@
-import type { FinanceWorkspaceDocument } from "@tally/workspace";
+import type { FinanceBookDocument } from "@tally/book";
 
 export type AuthRole = "admin" | "member" | "local-admin";
-export type WorkspaceRole = "admin" | "guardian" | "local-admin" | "member";
-export type WorkspaceAccess = "destroy" | "manage" | "operate" | "read" | "write";
+export type BookRole = "admin" | "guardian" | "local-admin" | "member";
+export type BookAccess = "destroy" | "manage" | "operate" | "read" | "write";
 
 export interface AuthIdentity {
   actor: string;
@@ -36,9 +36,9 @@ export interface AuthResolution {
 
 export interface AuthorizationResult {
   decision?: {
-    access: WorkspaceAccess;
-    effectiveRole: WorkspaceRole;
-    grantedBy: "local-admin" | "workspace-role";
+    access: BookAccess;
+    effectiveRole: BookRole;
+    grantedBy: "local-admin" | "book-role";
   };
   error?: string;
   ok: boolean;
@@ -128,10 +128,10 @@ export function resolveAuthContext(params: {
   };
 }
 
-export function authorizeWorkspaceAccess(
-  workspace: FinanceWorkspaceDocument,
+export function authorizeBookAccess(
+  book: FinanceBookDocument,
   auth: AuthContext,
-  access: WorkspaceAccess,
+  access: BookAccess,
 ): AuthorizationResult {
   if (auth.role === "local-admin") {
     return {
@@ -140,36 +140,36 @@ export function authorizeWorkspaceAccess(
     };
   }
 
-  if (!workspace.householdMembers.includes(auth.actor)) {
+  if (!book.householdMembers.includes(auth.actor)) {
     return {
-      error: `Actor ${auth.actor} is not authorized for workspace ${workspace.id}.`,
+      error: `Actor ${auth.actor} is not authorized for book ${book.id}.`,
       ok: false,
     };
   }
 
-  const configuredRole = workspace.householdMemberRoles?.[auth.actor];
-  const effectiveRole: WorkspaceRole =
+  const configuredRole = book.householdMemberRoles?.[auth.actor];
+  const effectiveRole: BookRole =
     configuredRole === "admin" || configuredRole === "guardian" || configuredRole === "member"
       ? configuredRole
       : "member";
 
   if (access === "read" || access === "write") {
     return {
-      decision: { access, effectiveRole, grantedBy: "workspace-role" },
+      decision: { access, effectiveRole, grantedBy: "book-role" },
       ok: true,
     };
   }
 
   if (access === "operate" && (effectiveRole === "guardian" || effectiveRole === "admin")) {
     return {
-      decision: { access, effectiveRole, grantedBy: "workspace-role" },
+      decision: { access, effectiveRole, grantedBy: "book-role" },
       ok: true,
     };
   }
 
   if ((access === "destroy" || access === "manage") && effectiveRole === "admin") {
     return {
-      decision: { access, effectiveRole, grantedBy: "workspace-role" },
+      decision: { access, effectiveRole, grantedBy: "book-role" },
       ok: true,
     };
   }

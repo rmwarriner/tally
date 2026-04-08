@@ -1,4 +1,4 @@
-import type { WorkspaceResponse } from "./api";
+import type { BookResponse } from "./api";
 import { formatAccountOptionLabel } from "./app-format";
 
 export interface TransactionEditorPosting {
@@ -19,8 +19,8 @@ export interface TransactionEditorState {
 }
 
 export function createTransactionEditorState(
-  transaction: WorkspaceResponse["workspace"]["transactions"][number],
-  accounts: WorkspaceResponse["workspace"]["accounts"],
+  transaction: BookResponse["book"]["transactions"][number],
+  accounts: BookResponse["book"]["accounts"],
 ): TransactionEditorState {
   return {
     description: transaction.description,

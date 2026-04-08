@@ -1,4 +1,4 @@
-import type { FinanceWorkspaceDocument } from "./types";
+import type { FinanceBookDocument } from "./types";
 import { listActiveTransactions } from "./transaction-lifecycle";
 
 export interface QifEntry {
@@ -173,13 +173,13 @@ export function buildQifExport(params: {
   accountId: string;
   from: string;
   to: string;
-  workspace: FinanceWorkspaceDocument;
+  book: FinanceBookDocument;
 }): {
   contents: string;
   fileName: string;
   transactionCount: number;
 } {
-  const transactions = listActiveTransactions(params.workspace.transactions)
+  const transactions = listActiveTransactions(params.book.transactions)
     .filter((transaction) => transaction.occurredOn >= params.from && transaction.occurredOn <= params.to)
     .filter((transaction) => transaction.postings.some((posting) => posting.accountId === params.accountId))
     .sort((left, right) => left.occurredOn.localeCompare(right.occurredOn) || left.id.localeCompare(right.id));
@@ -196,7 +196,7 @@ export function buildQifExport(params: {
     const counterpartPostings = transaction.postings.filter((candidate) => candidate.accountId !== params.accountId);
     const category =
       counterpartPostings.length === 1
-        ? params.workspace.accounts.find((account) => account.id === counterpartPostings[0]?.accountId)?.name ??
+        ? params.book.accounts.find((account) => account.id === counterpartPostings[0]?.accountId)?.name ??
           counterpartPostings[0]?.accountId
         : "[Split]";
     const memo = posting.memo ?? transaction.description;
@@ -216,7 +216,7 @@ export function buildQifExport(params: {
 
   return {
     contents: `${lines.join("\n")}\n`,
-    fileName: `${params.workspace.id}-${params.accountId}-${params.from}-${params.to}.qif`,
+    fileName: `${params.book.id}-${params.accountId}-${params.from}-${params.to}.qif`,
     transactionCount: transactions.length,
   };
 }

@@ -8,10 +8,10 @@ import {
   validateTransactionForLedger,
 } from "@tally/domain";
 import { listActiveTransactions } from "./transaction-lifecycle";
-import type { FinanceWorkspaceDocument } from "./types";
+import type { FinanceBookDocument } from "./types";
 
 export function buildDashboardSnapshot(
-  document: FinanceWorkspaceDocument,
+  document: FinanceBookDocument,
   range: { from: string; to: string },
 ) {
   const transactions = listActiveTransactions(document.transactions);

@@ -72,7 +72,7 @@ export interface PendingApproval {
   reviewedAt?: string;
 }
 
-export interface WorkspaceClosePeriod {
+export interface BookClosePeriod {
   id: string;
   closedAt: string;
   closedBy: string;
@@ -83,7 +83,7 @@ export interface WorkspaceClosePeriod {
 
 export interface AuditEvent {
   id: string;
-  workspaceId: string;
+  bookId: string;
   actor: string;
   occurredAt: string;
   eventType: AuditEventType;
@@ -91,7 +91,7 @@ export interface AuditEvent {
   summary: Record<string, unknown>;
 }
 
-export interface FinanceWorkspaceDocument {
+export interface FinanceBookDocument {
   schemaVersion: 1;
   id: string;
   name: string;
@@ -107,7 +107,7 @@ export interface FinanceWorkspaceDocument {
   envelopeAllocations: EnvelopeAllocation[];
   importBatches: ImportBatch[];
   reconciliationSessions: ReconciliationSession[];
-  closePeriods?: WorkspaceClosePeriod[];
+  closePeriods?: BookClosePeriod[];
   pendingApprovals?: PendingApproval[];
   auditEvents: AuditEvent[];
 }

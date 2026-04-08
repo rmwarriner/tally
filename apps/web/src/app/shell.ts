@@ -1,6 +1,6 @@
-import type { FinanceWorkspaceDocument, ReconciliationSession } from "@tally/workspace";
+import type { FinanceBookDocument, ReconciliationSession } from "@tally/book";
 
-export type WorkspaceView =
+export type BookView =
   | "overview"
   | "ledger"
   | "budget"
@@ -9,18 +9,18 @@ export type WorkspaceView =
   | "automations"
   | "reports";
 
-export interface WorkspaceViewDefinition {
+export interface BookViewDefinition {
   description: string;
   detail: string;
   emptyMessage: string;
-  id: WorkspaceView;
+  id: BookView;
   label: string;
   shortLabel: string;
   title: string;
 }
 
 export interface OverviewCard {
-  id: WorkspaceView;
+  id: BookView;
   metric: string;
   summary: string;
 }
@@ -54,13 +54,13 @@ export interface LedgerTransactionDetail {
   occurredOn: string;
 }
 
-export interface LedgerWorkspaceModel {
-  availableAccounts: FinanceWorkspaceDocument["accounts"];
+export interface LedgerBookModel {
+  availableAccounts: FinanceBookDocument["accounts"];
   filteredBalances: LedgerBalanceSummary[];
   filteredTransactions: LedgerTransactionDetail[];
   selectedAccountBalance: LedgerBalanceSummary | null;
   selectedAccount:
-    | (FinanceWorkspaceDocument["accounts"][number] & {
+    | (FinanceBookDocument["accounts"][number] & {
         balanceCount: number;
         transactionCount: number;
       })
@@ -77,17 +77,17 @@ export interface ReconciliationCandidate {
   selected: boolean;
 }
 
-export interface ReconciliationWorkspaceModel {
+export interface ReconciliationBookModel {
   candidateTransactions: ReconciliationCandidate[];
   clearedTotal: number;
   difference: number | null;
   latestSession: ReconciliationSession | undefined;
-  selectedAccount: FinanceWorkspaceDocument["accounts"][number] | null;
+  selectedAccount: FinanceBookDocument["accounts"][number] | null;
   statementBalance: number | null;
 }
 
 export interface AccountSearchMatch {
-  account: FinanceWorkspaceDocument["accounts"][number];
+  account: FinanceBookDocument["accounts"][number];
   label: string;
   meta: string;
   recommended: boolean;
@@ -112,11 +112,11 @@ function normalizeSearchTokens(value: string): string[] {
     .filter(Boolean);
 }
 
-function getAccountSearchLabel(account: FinanceWorkspaceDocument["accounts"][number]): string {
+function getAccountSearchLabel(account: FinanceBookDocument["accounts"][number]): string {
   return account.code ? `${account.name} (${account.code})` : account.name;
 }
 
-function getAccountSearchMeta(account: FinanceWorkspaceDocument["accounts"][number]): string {
+function getAccountSearchMeta(account: FinanceBookDocument["accounts"][number]): string {
   return [account.type, account.id].filter(Boolean).join(" · ");
 }
 
@@ -157,7 +157,7 @@ export function getPostingBalanceSummary(amountTexts: string[]): PostingBalanceS
 }
 
 function scoreAccountSearchMatch(input: {
-  account: FinanceWorkspaceDocument["accounts"][number];
+  account: FinanceBookDocument["accounts"][number];
   query: string;
 }): number {
   const tokens = normalizeSearchTokens(input.query);
@@ -214,9 +214,9 @@ function scoreAccountSearchMatch(input: {
 }
 
 export function findAccountSearchExactMatch(input: {
-  accounts: FinanceWorkspaceDocument["accounts"];
+  accounts: FinanceBookDocument["accounts"];
   query: string;
-}): FinanceWorkspaceDocument["accounts"][number] | null {
+}): FinanceBookDocument["accounts"][number] | null {
   const query = normalizeAccountSearchValue(input.query);
 
   if (!query) {
@@ -238,7 +238,7 @@ export function findAccountSearchExactMatch(input: {
 }
 
 export function getAccountSearchMatches(input: {
-  accounts: FinanceWorkspaceDocument["accounts"];
+  accounts: FinanceBookDocument["accounts"];
   limit?: number;
   preferredAccountTypes?: string[];
   query: string;
@@ -289,7 +289,7 @@ export function getAccountSearchMatches(input: {
 }
 
 function getTransactionStatus(
-  transaction: FinanceWorkspaceDocument["transactions"][number],
+  transaction: FinanceBookDocument["transactions"][number],
 ): "cleared" | "open" | "reconciled" {
   const postingStates = transaction.postings.map((posting) =>
     posting.reconciledAt ? "reconciled" : posting.cleared ? "cleared" : "open",
@@ -452,7 +452,7 @@ export function movePostingIndex(input: {
 }
 
 function getTransactionAmountForAccount(
-  transaction: FinanceWorkspaceDocument["transactions"][number],
+  transaction: FinanceBookDocument["transactions"][number],
   accountId: string,
 ): number {
   return transaction.postings
@@ -460,20 +460,20 @@ function getTransactionAmountForAccount(
     .reduce((sum, posting) => sum + posting.amount.quantity, 0);
 }
 
-export function createReconciliationWorkspaceModel(input: {
+export function createReconciliationBookModel(input: {
   selectedAccountId: string;
   selectedTransactionIds: Record<string, boolean>;
   statementBalanceText: string;
   statementDate: string;
-  workspace: FinanceWorkspaceDocument;
-}): ReconciliationWorkspaceModel {
-  const reconciliationAccounts = input.workspace.accounts.filter(
+  book: FinanceBookDocument;
+}): ReconciliationBookModel {
+  const reconciliationAccounts = input.book.accounts.filter(
     (account) => account.type === "asset" || account.type === "liability",
   );
   const selectedAccount =
     reconciliationAccounts.find((account) => account.id === input.selectedAccountId) ?? null;
   const candidateTransactions = selectedAccount
-    ? input.workspace.transactions
+    ? input.book.transactions
         .filter(
           (transaction) =>
             transaction.occurredOn <= input.statementDate.trim() &&
@@ -498,7 +498,7 @@ export function createReconciliationWorkspaceModel(input: {
   }, 0);
   const statementBalance = Number.parseFloat(input.statementBalanceText);
   const latestSession = selectedAccount
-    ? [...input.workspace.reconciliationSessions]
+    ? [...input.book.reconciliationSessions]
         .filter((session) => session.accountId === selectedAccount.id)
         .sort((left, right) => right.statementDate.localeCompare(left.statementDate))[0]
     : undefined;
@@ -513,9 +513,9 @@ export function createReconciliationWorkspaceModel(input: {
   };
 }
 
-export const workspaceViews: WorkspaceViewDefinition[] = [
+export const bookViews: BookViewDefinition[] = [
   {
-    description: "Cross-workspace operating picture with next actions and integrity status.",
+    description: "Cross-book operating picture with next actions and integrity status.",
     detail: "Command center",
     emptyMessage: "Overview keeps the current operating picture and next actions in one place.",
     id: "overview",
@@ -525,7 +525,7 @@ export const workspaceViews: WorkspaceViewDefinition[] = [
   },
   {
     description: "Dense register and reconciliation flows for balanced ledger work.",
-    detail: "Double-entry workspace",
+    detail: "Double-entry ledger",
     emptyMessage: "Register activity will appear here as transactions are captured.",
     id: "ledger",
     label: "Ledger",
@@ -569,7 +569,7 @@ export const workspaceViews: WorkspaceViewDefinition[] = [
     title: "Automation queue",
   },
   {
-    description: "Reporting workspace placeholder while close and reporting flows are still on the roadmap.",
+    description: "Reporting placeholder while close and reporting flows are still on the roadmap.",
     detail: "Reporting roadmap",
     emptyMessage: "Reporting is planned but not yet implemented.",
     id: "reports",
@@ -579,11 +579,11 @@ export const workspaceViews: WorkspaceViewDefinition[] = [
   },
 ];
 
-export function getWorkspaceViewDefinition(view: WorkspaceView): WorkspaceViewDefinition {
-  const definition = workspaceViews.find((candidate) => candidate.id === view);
+export function getBookViewDefinition(view: BookView): BookViewDefinition {
+  const definition = bookViews.find((candidate) => candidate.id === view);
 
   if (!definition) {
-    throw new Error(`Unknown workspace view: ${view}`);
+    throw new Error();
   }
 
   return definition;
@@ -626,7 +626,7 @@ export function createOverviewCards(input: {
   ];
 }
 
-export function createLedgerWorkspaceModel(input: {
+export function createLedgerBookModel(input: {
   accountBalances: LedgerBalanceSummary[];
   rangeEnd?: string;
   rangeStart?: string;
@@ -634,11 +634,11 @@ export function createLedgerWorkspaceModel(input: {
   statusFilter?: "all" | "cleared" | "open" | "reconciled";
   selectedAccountId: string | null;
   selectedTransactionId: string | null;
-  workspace: FinanceWorkspaceDocument;
-}): LedgerWorkspaceModel {
+  book: FinanceBookDocument;
+}): LedgerBookModel {
   const searchTokens = normalizeSearchTokens(input.searchText);
-  const accountById = new Map(input.workspace.accounts.map((account) => [account.id, account]));
-  const filteredTransactions = input.workspace.transactions
+  const accountById = new Map(input.book.accounts.map((account) => [account.id, account]));
+  const filteredTransactions = input.book.transactions
     .map((transaction) => {
       const matchedAccountIds = transaction.postings.map((posting) => posting.accountId);
       const postings = transaction.postings.map((posting) => {
@@ -723,7 +723,7 @@ export function createLedgerWorkspaceModel(input: {
         balanceCount: input.accountBalances.filter(
           (balance) => balance.accountId === selectedAccountRecord.id,
         ).length,
-        transactionCount: input.workspace.transactions.filter((transaction) =>
+        transactionCount: input.book.transactions.filter((transaction) =>
           transaction.postings.some((posting) => posting.accountId === selectedAccountRecord.id),
         ).length,
       }
@@ -732,7 +732,7 @@ export function createLedgerWorkspaceModel(input: {
     filteredTransactions.find((transaction) => transaction.id === input.selectedTransactionId) ?? null;
 
   return {
-    availableAccounts: input.workspace.accounts,
+    availableAccounts: input.book.accounts,
     filteredBalances,
     filteredTransactions,
     selectedAccountBalance:

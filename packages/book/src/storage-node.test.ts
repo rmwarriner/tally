@@ -2,8 +2,8 @@ import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
 import { afterEach, describe, expect, it } from "vitest";
-import { createDemoWorkspace } from "./factory";
-import { loadWorkspaceFromFile, saveWorkspaceToFile } from "./storage-node";
+import { createDemoBook } from "./factory";
+import { loadBookFromFile, saveBookToFile } from "./storage-node";
 
 const temporaryDirectories: string[] = [];
 
@@ -13,22 +13,22 @@ async function createTempDirectory(): Promise<string> {
   return directory;
 }
 
-describe("workspace file storage", () => {
+describe("book file storage", () => {
   afterEach(async () => {
     await Promise.all(
       temporaryDirectories.splice(0).map((directory) => rm(directory, { recursive: true, force: true })),
     );
   });
 
-  it("saves and loads migrated workspace documents", async () => {
+  it("saves and loads migrated book documents", async () => {
     const directory = await createTempDirectory();
-    const filePath = join(directory, "workspace.json");
-    const workspace = createDemoWorkspace();
+    const filePath = join(directory, "book.json");
+    const book = createDemoBook();
 
-    await saveWorkspaceToFile(filePath, workspace);
-    const loaded = await loadWorkspaceFromFile(filePath);
+    await saveBookToFile(filePath, book);
+    const loaded = await loadBookFromFile(filePath);
 
-    expect(loaded).toEqual(workspace);
+    expect(loaded).toEqual(book);
   });
 
   it("loads legacy documents through the migration layer", async () => {
@@ -44,7 +44,7 @@ describe("workspace file storage", () => {
         envelopeAllocations: [],
         envelopes: [],
         householdMembers: ["Primary"],
-        id: "legacy-workspace",
+        id: "legacy-book",
         name: "Legacy Workspace",
         reconciliationSessions: [],
         scheduledTransactions: [],
@@ -53,7 +53,7 @@ describe("workspace file storage", () => {
       "utf8",
     );
 
-    const loaded = await loadWorkspaceFromFile(filePath);
+    const loaded = await loadBookFromFile(filePath);
 
     expect(loaded.importBatches).toEqual([]);
     expect(loaded.closePeriods).toEqual([]);
@@ -62,13 +62,13 @@ describe("workspace file storage", () => {
 
   it("propagates file save and load failures", async () => {
     const directory = await createTempDirectory();
-    const missingParentPath = join(directory, "missing", "workspace.json");
+    const missingParentPath = join(directory, "missing", "book.json");
 
-    await expect(saveWorkspaceToFile(missingParentPath, createDemoWorkspace())).rejects.toBeInstanceOf(Error);
+    await expect(saveBookToFile(missingParentPath, createDemoBook())).rejects.toBeInstanceOf(Error);
 
     const unreadablePath = join(directory, "broken.json");
     await mkdir(unreadablePath, { recursive: true });
 
-    await expect(loadWorkspaceFromFile(unreadablePath)).rejects.toBeInstanceOf(Error);
+    await expect(loadBookFromFile(unreadablePath)).rejects.toBeInstanceOf(Error);
   });
 });

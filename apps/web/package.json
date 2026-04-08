@@ -5,7 +5,7 @@
   "type": "module",
   "dependencies": {
     "@tally/domain": "workspace:*",
-    "@tally/workspace": "workspace:*",
+    "@tally/book": "workspace:*",
     "@tally/ui": "workspace:*",
     "react": "^19.0.0",
     "react-dom": "^19.0.0"

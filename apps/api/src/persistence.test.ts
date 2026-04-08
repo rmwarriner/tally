@@ -2,18 +2,18 @@ import { mkdtemp, rm } from "node:fs/promises";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
 import { afterEach, describe, expect, it } from "vitest";
-import { createDemoWorkspace } from "@tally/workspace";
+import { createDemoBook } from "@tally/book";
 import { createApiRuntimeConfig } from "./config";
 import {
-  createWorkspacePersistenceBackend,
-  importWorkspaceDocument,
+  createBookPersistenceBackend,
+  importBookDocument,
 } from "./persistence";
 import {
-  createPostgresWorkspacePersistenceBackend,
+  createPostgresBookPersistenceBackend,
   type PostgresQueryable,
 } from "./persistence-postgres";
-import { createSqliteWorkspacePersistenceBackend } from "./persistence-sqlite";
-import { validateWorkspaceDocumentForPersistence } from "./persistence-validation";
+import { createSqliteBookPersistenceBackend } from "./persistence-sqlite";
+import { validateBookDocumentForPersistence } from "./persistence-validation";
 
 class FakePostgresPool implements PostgresQueryable {
   private readonly backups = new Map<string, Array<{
@@ -46,8 +46,8 @@ class FakePostgresPool implements PostgresQueryable {
     }
 
     if (normalized.startsWith("SELECT document_json FROM workspaces WHERE id = $1")) {
-      const workspaceId = String(params[0]);
-      const documentJson = this.workspaces.get(workspaceId);
+      const bookId = String(params[0]);
+      const documentJson = this.workspaces.get(bookId);
       return {
         rowCount: documentJson ? 1 : 0,
         rows: documentJson ? ([{ document_json: documentJson }] as unknown as TResult[]) : [],
@@ -102,7 +102,7 @@ class FakePostgresPool implements PostgresQueryable {
   }
 }
 
-describe("workspace persistence backends", () => {
+describe("book persistence backends", () => {
   const cleanupPaths: string[] = [];
 
   afterEach(async () => {
@@ -120,7 +120,7 @@ describe("workspace persistence backends", () => {
       directory,
     );
 
-    const backend = createWorkspacePersistenceBackend({ config });
+    const backend = createBookPersistenceBackend({ config });
 
     expect(backend.kind).toBe("sqlite");
     await backend.close?.();
@@ -138,7 +138,7 @@ describe("workspace persistence backends", () => {
       directory,
     );
 
-    const backend = createWorkspacePersistenceBackend({ config });
+    const backend = createBookPersistenceBackend({ config });
 
     expect(backend.kind).toBe("postgres");
     await backend.close?.();
@@ -147,41 +147,41 @@ describe("workspace persistence backends", () => {
   it("loads, saves, backs up, restores, and migrates workspaces in sqlite", async () => {
     const directory = await mkdtemp(join(tmpdir(), "tally-sqlite-"));
     cleanupPaths.push(directory);
-    const backend = createSqliteWorkspacePersistenceBackend({
+    const backend = createSqliteBookPersistenceBackend({
       databasePath: join(directory, "workspaces.sqlite"),
     });
 
-    const workspace = createDemoWorkspace();
-    await backend.save(workspace);
+    const book = createDemoBook();
+    await backend.save(book);
 
-    const loaded = await backend.load(workspace.id);
-    expect(loaded.id).toBe(workspace.id);
-    expect(await backend.listWorkspaceIds()).toEqual([workspace.id]);
+    const loaded = await backend.load(book.id);
+    expect(loaded.id).toBe(book.id);
+    expect(await backend.listBookIds()).toEqual([book.id]);
 
-    const backup = await backend.createBackup(workspace.id);
-    const backups = await backend.listBackups(workspace.id);
+    const backup = await backend.createBackup(book.id);
+    const backups = await backend.listBackups(book.id);
     expect(backup.id).toContain("backup-");
     expect(backups).toHaveLength(1);
     expect(backups[0]?.id).toBe(backup.id);
 
-    workspace.name = "Changed Name";
-    await backend.save(workspace);
+    book.name = "Changed Name";
+    await backend.save(book);
 
-    const restored = await backend.restoreBackup(workspace.id, backup.id);
+    const restored = await backend.restoreBackup(book.id, backup.id);
     expect(restored.name).toBe("Household Finance");
 
     await backend.close?.();
   });
 
-  it("loads legacy workspace documents through sqlite migration", async () => {
+  it("loads legacy book documents through sqlite migration", async () => {
     const directory = await mkdtemp(join(tmpdir(), "tally-sqlite-legacy-"));
     cleanupPaths.push(directory);
-    const backend = createSqliteWorkspacePersistenceBackend({
+    const backend = createSqliteBookPersistenceBackend({
       databasePath: join(directory, "workspaces.sqlite"),
     });
 
     const legacyDocument = {
-      id: "workspace-household-demo",
+      id: "book-household-demo",
       name: "Household Finance",
       baseCommodityCode: "USD",
       accounts: [],
@@ -193,7 +193,7 @@ describe("workspace persistence backends", () => {
     };
     await rawBackend.save(legacyDocument);
 
-    const loaded = await backend.load("workspace-household-demo");
+    const loaded = await backend.load("book-household-demo");
     expect(loaded.schemaVersion).toBe(1);
     expect(loaded.auditEvents).toEqual([]);
 
@@ -202,28 +202,28 @@ describe("workspace persistence backends", () => {
 
   it("loads, saves, backs up, restores, and migrates workspaces in postgres", async () => {
     const pool = new FakePostgresPool();
-    const backend = createPostgresWorkspacePersistenceBackend({
+    const backend = createPostgresBookPersistenceBackend({
       pool,
       postgresUrl: "postgres://ledger:test@localhost:5432/ledger",
     });
 
-    const workspace = createDemoWorkspace();
-    await backend.save(workspace);
+    const book = createDemoBook();
+    await backend.save(book);
 
-    const loaded = await backend.load(workspace.id);
-    expect(loaded.id).toBe(workspace.id);
-    expect(await backend.listWorkspaceIds()).toEqual([workspace.id]);
+    const loaded = await backend.load(book.id);
+    expect(loaded.id).toBe(book.id);
+    expect(await backend.listBookIds()).toEqual([book.id]);
 
-    const backup = await backend.createBackup(workspace.id);
-    const backups = await backend.listBackups(workspace.id);
+    const backup = await backend.createBackup(book.id);
+    const backups = await backend.listBackups(book.id);
     expect(backup.id).toContain("backup-");
     expect(backups).toHaveLength(1);
     expect(backups[0]?.id).toBe(backup.id);
 
-    workspace.name = "Changed Name";
-    await backend.save(workspace);
+    book.name = "Changed Name";
+    await backend.save(book);
 
-    const restored = await backend.restoreBackup(workspace.id, backup.id);
+    const restored = await backend.restoreBackup(book.id, backup.id);
     expect(restored.name).toBe("Household Finance");
 
     await backend.close?.();
@@ -231,23 +231,23 @@ describe("workspace persistence backends", () => {
   });
 
   it("reports validation issues for persistence documents", () => {
-    const workspace = createDemoWorkspace();
-    workspace.transactions = [
+    const book = createDemoBook();
+    book.transactions = [
       {
-        ...workspace.transactions[0]!,
-        id: workspace.transactions[0]!.id,
+        ...book.transactions[0]!,
+        id: book.transactions[0]!.id,
         postings: [
           {
-            ...workspace.transactions[0]!.postings[0]!,
+            ...book.transactions[0]!.postings[0]!,
             accountId: "missing-account",
           },
-          workspace.transactions[0]!.postings[1]!,
+          book.transactions[0]!.postings[1]!,
         ],
       },
-      workspace.transactions[0]!,
+      book.transactions[0]!,
     ];
 
-    const report = validateWorkspaceDocumentForPersistence(workspace);
+    const report = validateBookDocumentForPersistence(book);
 
     expect(report.ok).toBe(false);
     expect(report.issues.some((issue) => issue.startsWith("Duplicate transaction id "))).toBe(true);
@@ -257,31 +257,31 @@ describe("workspace persistence backends", () => {
   it("backs up and rolls back target workspaces when verified imports fail", async () => {
     const directory = await mkdtemp(join(tmpdir(), "tally-sqlite-import-rollback-"));
     cleanupPaths.push(directory);
-    const backend = createSqliteWorkspacePersistenceBackend({
+    const backend = createSqliteBookPersistenceBackend({
       databasePath: join(directory, "workspaces.sqlite"),
     });
-    const existing = createDemoWorkspace();
+    const existing = createDemoBook();
     await backend.save(existing);
 
     const invalidReplacement = {
-      ...createDemoWorkspace(),
+      ...createDemoBook(),
       id: existing.id,
       transactions: [
         {
-          ...createDemoWorkspace().transactions[0]!,
+          ...createDemoBook().transactions[0]!,
           postings: [
             {
-              ...createDemoWorkspace().transactions[0]!.postings[0]!,
+              ...createDemoBook().transactions[0]!.postings[0]!,
               accountId: "missing-account",
             },
-            createDemoWorkspace().transactions[0]!.postings[1]!,
+            createDemoBook().transactions[0]!.postings[1]!,
           ],
         },
       ],
     };
 
     await expect(
-      importWorkspaceDocument({
+      importBookDocument({
         backend,
         backupTarget: true,
         document: invalidReplacement,

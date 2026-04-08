@@ -1,4 +1,4 @@
-import type { FinanceWorkspaceDocument } from "./types";
+import type { FinanceBookDocument } from "./types";
 import { listActiveTransactions } from "./transaction-lifecycle";
 
 export interface StatementEntry {
@@ -98,19 +98,19 @@ export function buildOfxExport(params: {
   format: "ofx" | "qfx";
   from: string;
   to: string;
-  workspace: FinanceWorkspaceDocument;
+  book: FinanceBookDocument;
 }): {
   contents: string;
   fileName: string;
   transactionCount: number;
 } {
-  const account = params.workspace.accounts.find((candidate) => candidate.id === params.accountId);
+  const account = params.book.accounts.find((candidate) => candidate.id === params.accountId);
 
   if (!account) {
     throw new Error(`Account ${params.accountId} does not exist.`);
   }
 
-  const transactions = listActiveTransactions(params.workspace.transactions)
+  const transactions = listActiveTransactions(params.book.transactions)
     .filter((transaction) => transaction.occurredOn >= params.from && transaction.occurredOn <= params.to)
     .filter((transaction) => transaction.postings.some((posting) => posting.accountId === params.accountId))
     .sort((left, right) => left.occurredOn.localeCompare(right.occurredOn) || left.id.localeCompare(right.id));
@@ -173,7 +173,7 @@ export function buildOfxExport(params: {
 
   return {
     contents,
-    fileName: `${params.workspace.id}-${params.accountId}-${params.from}-${params.to}.${params.format}`,
+    fileName: `${params.book.id}-${params.accountId}-${params.from}-${params.to}.${params.format}`,
     transactionCount: transactions.length,
   };
 }

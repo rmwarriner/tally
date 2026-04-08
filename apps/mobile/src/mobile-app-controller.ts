@@ -1,11 +1,11 @@
 import { useReducer, useState } from "react";
 import type { ScheduleFrequency, Transaction } from "@tally/domain";
-import { createMobileApiClient, type DashboardResponse, type WorkspaceResponse } from "./api";
+import { createMobileApiClient, type DashboardResponse, type BookResponse } from "./api";
 import { createScheduleForm, type ScheduleFormState } from "./schedule-form";
 import type { ReconciliationFormValue } from "./ReconciliationCapture";
 
 export const aprilRange = { from: "2026-04-01", to: "2026-04-30" };
-export const defaultWorkspaceId = "workspace-household-demo";
+export const defaultBookId = "book-household-demo";
 export const defaultApiBaseUrl = "http://127.0.0.1:3000";
 export const scheduleFrequencies: ScheduleFrequency[] = [
   "daily",
@@ -107,8 +107,8 @@ export function createReconciliationTransactionMap(
 export function useMobileAppController() {
   const [apiBaseUrl, setApiBaseUrl] = useState(defaultApiBaseUrl);
   const [apiKey, setApiKey] = useState("");
-  const [workspaceId, setWorkspaceId] = useState(defaultWorkspaceId);
-  const [workspace, setWorkspace] = useState<WorkspaceResponse["workspace"] | null>(null);
+  const [bookId, setBookId] = useState(defaultBookId);
+  const [book, setBook] = useState<BookResponse["book"] | null>(null);
   const [dashboard, setDashboard] = useState<DashboardResponse["dashboard"] | null>(null);
   const [appStatus, dispatchAppStatus] = useReducer(appStatusReducer, initialAppStatusState);
   const [selectedScheduleId, setSelectedScheduleId] = useState("sched-rent");
@@ -138,7 +138,7 @@ export function useMobileAppController() {
     Record<string, boolean>
   >({});
 
-  async function loadWorkspaceData() {
+  async function loadBookData() {
     dispatchAppStatus({ type: "load_start" });
 
     try {
@@ -146,35 +146,35 @@ export function useMobileAppController() {
         apiBaseUrl,
         apiKey: apiKey.trim() || undefined,
       });
-      const [workspaceResponse, dashboardResponse] = await Promise.all([
-        client.fetchWorkspace(workspaceId.trim()),
+      const [bookResponse, dashboardResponse] = await Promise.all([
+        client.fetchBook(bookId.trim()),
         client.fetchDashboard({
           ...aprilRange,
-          workspaceId: workspaceId.trim(),
+          bookId: bookId.trim(),
         }),
       ]);
 
-      setWorkspace(workspaceResponse.workspace);
+      setBook(bookResponse.book);
       setDashboard(dashboardResponse.dashboard);
 
       const activeSchedule =
-        workspaceResponse.workspace.scheduledTransactions.find((schedule) => schedule.id === selectedScheduleId) ??
-        workspaceResponse.workspace.scheduledTransactions[0];
+        bookResponse.book.scheduledTransactions.find((schedule) => schedule.id === selectedScheduleId) ??
+        bookResponse.book.scheduledTransactions[0];
 
       if (activeSchedule) {
         setSelectedScheduleId(activeSchedule.id);
         setScheduleForm(createScheduleForm(activeSchedule));
       }
 
-      const reconciliationAccounts = workspaceResponse.workspace.accounts.filter(
+      const reconciliationAccounts = bookResponse.book.accounts.filter(
         (account) => account.type === "asset" || account.type === "liability",
       );
       const activeReconciliationAccountId =
         reconciliationAccounts.find((account) => account.id === reconciliationForm.accountId)?.id ??
         reconciliationAccounts[0]?.id ??
-        workspaceResponse.workspace.accounts[0]?.id ??
+        bookResponse.book.accounts[0]?.id ??
         "acct-checking";
-      const activeReconciliationTransactions = workspaceResponse.workspace.transactions.filter(
+      const activeReconciliationTransactions = bookResponse.book.transactions.filter(
         (transaction) =>
           transaction.postings.some((posting) => posting.accountId === activeReconciliationAccountId),
       );
@@ -188,7 +188,7 @@ export function useMobileAppController() {
       );
     } catch (loadError) {
       dispatchAppStatus({
-        message: loadError instanceof Error ? loadError.message : "Failed to load mobile workspace.",
+        message: loadError instanceof Error ? loadError.message : "Failed to load mobile book.",
         type: "load_error",
       });
     } finally {
@@ -200,7 +200,7 @@ export function useMobileAppController() {
     try {
       dispatchAppStatus({ label, type: "mutation_start" });
       await operation();
-      await loadWorkspaceData();
+      await loadBookData();
       dispatchAppStatus({ label, type: "mutation_success" });
     } catch (mutationError) {
       dispatchAppStatus({
@@ -217,7 +217,7 @@ export function useMobileAppController() {
     busy: appStatus.busy,
     dashboard,
     error: appStatus.error,
-    loadWorkspaceData,
+    loadBookData,
     loading: appStatus.loading,
     reconciliationForm,
     runMutation,
@@ -234,10 +234,10 @@ export function useMobileAppController() {
     setSelectedReconciliationTransactionIds,
     setSelectedScheduleId,
     setTransactionForm,
-    setWorkspaceId,
+    setBookId,
     statusMessage: appStatus.statusMessage,
     transactionForm,
-    workspace,
-    workspaceId,
+    book,
+    bookId,
   };
 }

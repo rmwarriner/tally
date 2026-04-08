@@ -4,8 +4,8 @@ import type {
   EnvelopeAllocation,
   ScheduledTransaction,
 } from "@tally/domain";
-import type { FinanceWorkspaceDocument } from "@tally/workspace";
-import type { CsvImportRow } from "@tally/workspace";
+import type { FinanceBookDocument } from "@tally/book";
+import type { CsvImportRow } from "@tally/book";
 
 export interface DashboardResponse {
   dashboard: {
@@ -41,8 +41,8 @@ export interface DashboardResponse {
   };
 }
 
-export interface WorkspaceResponse {
-  workspace: FinanceWorkspaceDocument;
+export interface BookResponse {
+  book: FinanceBookDocument;
 }
 
 interface ErrorResponse {
@@ -83,27 +83,27 @@ async function ensureOk(response: Response, fallbackMessage: string): Promise<vo
   });
 }
 
-export async function fetchWorkspace(workspaceId: string): Promise<WorkspaceResponse> {
-  const response = await fetch(`/api/workspaces/${workspaceId}`);
-  await ensureOk(response, "Failed to load workspace.");
+export async function fetchBook(bookId: string): Promise<BookResponse> {
+  const response = await fetch(`/api/books/${bookId}`);
+  await ensureOk(response, "Failed to load book.");
 
-  return readJson<WorkspaceResponse>(response);
+  return readJson<BookResponse>(response);
 }
 
 export async function fetchDashboard(params: {
   from: string;
   to: string;
-  workspaceId: string;
+  bookId: string;
 }): Promise<DashboardResponse> {
   const search = new URLSearchParams({ from: params.from, to: params.to });
-  const response = await fetch(`/api/workspaces/${params.workspaceId}/dashboard?${search}`);
+  const response = await fetch(`/api/books/${params.bookId}/dashboard?${search}`);
   await ensureOk(response, "Failed to load dashboard.");
 
   return readJson<DashboardResponse>(response);
 }
 
 export async function postTransaction(
-  workspaceId: string,
+  bookId: string,
   body: {
     actor?: string;
     transaction: {
@@ -118,8 +118,8 @@ export async function postTransaction(
       }>;
     };
   },
-): Promise<WorkspaceResponse> {
-  const response = await fetch(`/api/workspaces/${workspaceId}/transactions`, {
+): Promise<BookResponse> {
+  const response = await fetch(`/api/books/${bookId}/transactions`, {
     body: JSON.stringify(body),
     headers: {
       "content-type": "application/json",
@@ -128,11 +128,11 @@ export async function postTransaction(
   });
   await ensureOk(response, "Failed to post transaction.");
 
-  return readJson<WorkspaceResponse>(response);
+  return readJson<BookResponse>(response);
 }
 
 export async function putTransaction(
-  workspaceId: string,
+  bookId: string,
   transactionId: string,
   body: {
     actor?: string;
@@ -150,8 +150,8 @@ export async function putTransaction(
       tags?: string[];
     };
   },
-): Promise<WorkspaceResponse> {
-  const response = await fetch(`/api/workspaces/${workspaceId}/transactions/${transactionId}`, {
+): Promise<BookResponse> {
+  const response = await fetch(`/api/books/${bookId}/transactions/${transactionId}`, {
     body: JSON.stringify(body),
     headers: {
       "content-type": "application/json",
@@ -160,17 +160,17 @@ export async function putTransaction(
   });
   await ensureOk(response, "Failed to update transaction.");
 
-  return readJson<WorkspaceResponse>(response);
+  return readJson<BookResponse>(response);
 }
 
 export async function deleteTransaction(
-  workspaceId: string,
+  bookId: string,
   transactionId: string,
   body: {
     actor?: string;
   } = {},
-): Promise<WorkspaceResponse> {
-  const response = await fetch(`/api/workspaces/${workspaceId}/transactions/${transactionId}`, {
+): Promise<BookResponse> {
+  const response = await fetch(`/api/books/${bookId}/transactions/${transactionId}`, {
     body: JSON.stringify(body),
     headers: {
       "content-type": "application/json",
@@ -179,11 +179,11 @@ export async function deleteTransaction(
   });
   await ensureOk(response, "Failed to delete transaction.");
 
-  return readJson<WorkspaceResponse>(response);
+  return readJson<BookResponse>(response);
 }
 
 export async function postReconciliation(
-  workspaceId: string,
+  bookId: string,
   body: {
     actor?: string;
     payload: {
@@ -194,8 +194,8 @@ export async function postReconciliation(
       statementDate: string;
     };
   },
-): Promise<WorkspaceResponse> {
-  const response = await fetch(`/api/workspaces/${workspaceId}/reconciliations`, {
+): Promise<BookResponse> {
+  const response = await fetch(`/api/books/${bookId}/reconciliations`, {
     body: JSON.stringify(body),
     headers: {
       "content-type": "application/json",
@@ -204,11 +204,11 @@ export async function postReconciliation(
   });
   await ensureOk(response, "Failed to post reconciliation.");
 
-  return readJson<WorkspaceResponse>(response);
+  return readJson<BookResponse>(response);
 }
 
 export async function postCsvImport(
-  workspaceId: string,
+  bookId: string,
   body: {
     actor?: string;
     payload: {
@@ -218,8 +218,8 @@ export async function postCsvImport(
       sourceLabel: string;
     };
   },
-): Promise<WorkspaceResponse> {
-  const response = await fetch(`/api/workspaces/${workspaceId}/imports/csv`, {
+): Promise<BookResponse> {
+  const response = await fetch(`/api/books/${bookId}/imports/csv`, {
     body: JSON.stringify(body),
     headers: {
       "content-type": "application/json",
@@ -228,16 +228,16 @@ export async function postCsvImport(
   });
   await ensureOk(response, "Failed to import CSV.");
 
-  return readJson<WorkspaceResponse>(response);
+  return readJson<BookResponse>(response);
 }
 
 export async function postBaselineBudgetLine(
-  workspaceId: string,
+  bookId: string,
   body: {
     line: BaselineBudgetLine;
   },
-): Promise<WorkspaceResponse> {
-  const response = await fetch(`/api/workspaces/${workspaceId}/budget-lines`, {
+): Promise<BookResponse> {
+  const response = await fetch(`/api/books/${bookId}/budget-lines`, {
     body: JSON.stringify(body),
     headers: {
       "content-type": "application/json",
@@ -246,16 +246,16 @@ export async function postBaselineBudgetLine(
   });
   await ensureOk(response, "Failed to save budget line.");
 
-  return readJson<WorkspaceResponse>(response);
+  return readJson<BookResponse>(response);
 }
 
 export async function postEnvelope(
-  workspaceId: string,
+  bookId: string,
   body: {
     envelope: Envelope;
   },
-): Promise<WorkspaceResponse> {
-  const response = await fetch(`/api/workspaces/${workspaceId}/envelopes`, {
+): Promise<BookResponse> {
+  const response = await fetch(`/api/books/${bookId}/envelopes`, {
     body: JSON.stringify(body),
     headers: {
       "content-type": "application/json",
@@ -264,16 +264,16 @@ export async function postEnvelope(
   });
   await ensureOk(response, "Failed to save envelope.");
 
-  return readJson<WorkspaceResponse>(response);
+  return readJson<BookResponse>(response);
 }
 
 export async function postEnvelopeAllocation(
-  workspaceId: string,
+  bookId: string,
   body: {
     allocation: EnvelopeAllocation;
   },
-): Promise<WorkspaceResponse> {
-  const response = await fetch(`/api/workspaces/${workspaceId}/envelope-allocations`, {
+): Promise<BookResponse> {
+  const response = await fetch(`/api/books/${bookId}/envelope-allocations`, {
     body: JSON.stringify(body),
     headers: {
       "content-type": "application/json",
@@ -282,16 +282,16 @@ export async function postEnvelopeAllocation(
   });
   await ensureOk(response, "Failed to record envelope allocation.");
 
-  return readJson<WorkspaceResponse>(response);
+  return readJson<BookResponse>(response);
 }
 
 export async function postScheduledTransaction(
-  workspaceId: string,
+  bookId: string,
   body: {
     schedule: ScheduledTransaction;
   },
-): Promise<WorkspaceResponse> {
-  const response = await fetch(`/api/workspaces/${workspaceId}/schedules`, {
+): Promise<BookResponse> {
+  const response = await fetch(`/api/books/${bookId}/schedules`, {
     body: JSON.stringify(body),
     headers: {
       "content-type": "application/json",
@@ -300,5 +300,5 @@ export async function postScheduledTransaction(
   });
   await ensureOk(response, "Failed to save schedule.");
 
-  return readJson<WorkspaceResponse>(response);
+  return readJson<BookResponse>(response);
 }

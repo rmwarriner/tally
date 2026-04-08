@@ -1,26 +1,26 @@
 import { describe, expect, it } from "vitest";
-import { createDemoWorkspace } from "./factory";
+import { createDemoBook } from "./factory";
 import { buildGnuCashXmlExport, parseGnuCashXml } from "./gnucash-xml";
 
 describe("gnucash xml adapter", () => {
-  it("exports and parses a workspace snapshot", () => {
-    const workspace = createDemoWorkspace();
-    const exported = buildGnuCashXmlExport({ workspace });
+  it("exports and parses a book snapshot", () => {
+    const book = createDemoBook();
+    const exported = buildGnuCashXmlExport({ book });
     const parsed = parseGnuCashXml(exported.contents);
 
-    expect(exported.fileName).toBe(`${workspace.id}.gnucash.xml`);
+    expect(exported.fileName).toBe(`${book.id}.gnucash.xml`);
     expect(parsed.errors).toEqual([]);
     expect(parsed.document).toBeDefined();
-    expect(parsed.document?.id).toBe(workspace.id);
-    expect(parsed.document?.transactions).toHaveLength(workspace.transactions.length);
-    expect(parsed.document?.scheduledTransactions).toHaveLength(workspace.scheduledTransactions.length);
-    expect(parsed.document?.householdMemberRoles).toEqual(workspace.householdMemberRoles);
+    expect(parsed.document?.id).toBe(book.id);
+    expect(parsed.document?.transactions).toHaveLength(book.transactions.length);
+    expect(parsed.document?.scheduledTransactions).toHaveLength(book.scheduledTransactions.length);
+    expect(parsed.document?.householdMemberRoles).toEqual(book.householdMemberRoles);
   });
 
   it("round-trips optional attributes and nested lists", () => {
-    const workspace = createDemoWorkspace();
-    workspace.householdMembers = [];
-    workspace.accounts = [
+    const book = createDemoBook();
+    book.householdMembers = [];
+    book.accounts = [
       {
         code: "1000",
         id: "acct-checking",
@@ -30,7 +30,7 @@ describe("gnucash xml adapter", () => {
         type: "asset",
       },
     ];
-    workspace.transactions = [
+    book.transactions = [
       {
         deletion: {
           deletedAt: "2026-04-03T00:00:00.000Z",
@@ -59,7 +59,7 @@ describe("gnucash xml adapter", () => {
         tags: ["income", "salary"],
       },
     ];
-    workspace.scheduledTransactions = [
+    book.scheduledTransactions = [
       {
         autoPost: true,
         frequency: "monthly",
@@ -81,7 +81,7 @@ describe("gnucash xml adapter", () => {
         },
       },
     ];
-    workspace.baselineBudgetLines = [
+    book.baselineBudgetLines = [
       {
         accountId: "acct-checking",
         budgetPeriod: "monthly",
@@ -90,7 +90,7 @@ describe("gnucash xml adapter", () => {
         plannedAmount: { commodityCode: "USD", quantity: 1500 },
       },
     ];
-    workspace.envelopes = [
+    book.envelopes = [
       {
         availableAmount: { commodityCode: "USD", quantity: 200 },
         expenseAccountId: "acct-checking",
@@ -101,7 +101,7 @@ describe("gnucash xml adapter", () => {
         targetAmount: { commodityCode: "USD", quantity: 500 },
       },
     ];
-    workspace.envelopeAllocations = [
+    book.envelopeAllocations = [
       {
         amount: { commodityCode: "USD", quantity: 100 },
         envelopeId: "env-1",
@@ -111,7 +111,7 @@ describe("gnucash xml adapter", () => {
         type: "fund",
       },
     ];
-    workspace.importBatches = [
+    book.importBatches = [
       {
         fingerprint: "fp-batch",
         id: "batch-1",
@@ -121,7 +121,7 @@ describe("gnucash xml adapter", () => {
         transactionIds: ["txn-1"],
       },
     ];
-    workspace.reconciliationSessions = [
+    book.reconciliationSessions = [
       {
         accountId: "acct-checking",
         clearedTransactionIds: ["txn-1"],
@@ -132,7 +132,7 @@ describe("gnucash xml adapter", () => {
         statementDate: "2026-04-30",
       },
     ];
-    workspace.closePeriods = [
+    book.closePeriods = [
       {
         closedAt: "2026-05-01T00:00:00.000Z",
         closedBy: "robert",
@@ -142,7 +142,7 @@ describe("gnucash xml adapter", () => {
         to: "2026-04-30",
       },
     ];
-    workspace.auditEvents = [
+    book.auditEvents = [
       {
         actor: "robert",
         entityIds: ["txn-1"],
@@ -150,11 +150,11 @@ describe("gnucash xml adapter", () => {
         id: "audit-1",
         occurredAt: "2026-04-01T00:00:00.000Z",
         summary: { amount: 2500, source: "import" },
-        workspaceId: workspace.id,
+        bookId: book.id,
       },
     ];
 
-    const exported = buildGnuCashXmlExport({ workspace });
+    const exported = buildGnuCashXmlExport({ book });
     const parsed = parseGnuCashXml(exported.contents);
 
     expect(parsed.errors).toEqual([]);
@@ -184,7 +184,7 @@ describe("gnucash xml adapter", () => {
       commodityCode: "USD",
       quantity: 500,
     });
-    expect(parsed.document?.closePeriods).toEqual(workspace.closePeriods);
+    expect(parsed.document?.closePeriods).toEqual(book.closePeriods);
     expect(parsed.document?.auditEvents[0]?.summary).toEqual({ amount: 2500, source: "import" });
   });
 
@@ -232,7 +232,7 @@ describe("gnucash xml adapter", () => {
       <ws:closePeriod id="cp-1" from="2026-03-01" to="2026-03-31" />
     </ws:closePeriods>
     <ws:auditEvents>
-      <ws:auditEvent id="audit-1" workspaceId="ws-1" actor="Alice" occurredAt="2026-04-01T00:00:00Z" entityIds="[]" summary="{}" />
+      <ws:auditEvent id="audit-1" bookId="ws-1" actor="Alice" occurredAt="2026-04-01T00:00:00Z" entityIds="[]" summary="{}" />
       <ws:auditEvent />
     </ws:auditEvents>
   </ws:workspace>
@@ -264,8 +264,8 @@ describe("gnucash xml adapter", () => {
   });
 
   it("exports source without externalReference and envelope without targetAmount", () => {
-    const workspace = createDemoWorkspace();
-    workspace.transactions = [
+    const book = createDemoBook();
+    book.transactions = [
       {
         description: "Imported",
         id: "txn-no-ref",
@@ -280,7 +280,7 @@ describe("gnucash xml adapter", () => {
         tags: [],
       },
     ];
-    workspace.envelopes = [
+    book.envelopes = [
       {
         availableAmount: { commodityCode: "USD", quantity: 0 },
         expenseAccountId: "acct-1",
@@ -291,16 +291,16 @@ describe("gnucash xml adapter", () => {
         // no targetAmount
       },
     ];
-    workspace.householdMemberRoles = {};
-    workspace.scheduledTransactions = [];
-    workspace.baselineBudgetLines = [];
-    workspace.envelopeAllocations = [];
-    workspace.importBatches = [];
-    workspace.reconciliationSessions = [];
-    workspace.closePeriods = [];
-    workspace.auditEvents = [];
+    book.householdMemberRoles = {};
+    book.scheduledTransactions = [];
+    book.baselineBudgetLines = [];
+    book.envelopeAllocations = [];
+    book.importBatches = [];
+    book.reconciliationSessions = [];
+    book.closePeriods = [];
+    book.auditEvents = [];
 
-    const exported = buildGnuCashXmlExport({ workspace });
+    const exported = buildGnuCashXmlExport({ book });
     const parsed = parseGnuCashXml(exported.contents);
 
     expect(parsed.errors).toEqual([]);
@@ -337,7 +337,7 @@ describe("gnucash xml adapter", () => {
     expect(parsed.document?.householdMemberRoles).toEqual({ Bob: "admin" });
   });
 
-  it("reports invalid workspace headers", () => {
+  it("reports invalid book headers", () => {
     expect(parseGnuCashXml("<gnc-v2 />").errors).toEqual([
       "workspace: ws:workspace root element is required.",
     ]);
@@ -347,10 +347,10 @@ describe("gnucash xml adapter", () => {
         '<ws:workspace schemaVersion="2" id="" name="" baseCommodityCode=""></ws:workspace>',
       ).errors,
     ).toEqual([
-      "workspace: schemaVersion must be 1.",
-      "workspace: id is required.",
-      "workspace: name is required.",
-      "workspace: baseCommodityCode is required.",
+      "book: schemaVersion must be 1.",
+      "book: id is required.",
+      "book: name is required.",
+      "book: baseCommodityCode is required.",
     ]);
   });
 });

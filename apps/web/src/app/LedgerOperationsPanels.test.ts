@@ -16,7 +16,7 @@ describe("LedgerOperationsPanels", () => {
           statementBalance: "100",
           statementDate: "2026-04-01",
         },
-        reconciliationWorkspace: {
+        reconciliationBook: {
           candidateTransactions: [],
           clearedTotal: 0,
           difference: 0,

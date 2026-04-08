@@ -1,9 +1,9 @@
 import { useEffect, useState, type Dispatch, type RefObject, type SetStateAction } from "react";
 import {
-  createLedgerWorkspaceModel,
+  createLedgerBookModel,
   getNextLedgerTransactionId,
   shouldHandleLedgerHotkey,
-  type WorkspaceView,
+  type BookView,
 } from "./shell";
 
 interface LedgerRange {
@@ -326,8 +326,8 @@ export function useLedgerInlineRowEditState() {
 }
 
 interface UseLedgerKeyboardAndSelectionSyncInput {
-  activeView: WorkspaceView;
-  filteredTransactions: ReturnType<typeof createLedgerWorkspaceModel>["filteredTransactions"];
+  activeView: BookView;
+  filteredTransactions: ReturnType<typeof createLedgerBookModel>["filteredTransactions"];
   ledgerSearchInputRef: RefObject<HTMLInputElement | null>;
   selectedLedgerTransactionId: string | null;
   setSelectedLedgerTransactionId: Dispatch<SetStateAction<string | null>>;
@@ -335,7 +335,7 @@ interface UseLedgerKeyboardAndSelectionSyncInput {
 
 export function getLedgerHotkeySelectionUpdate(input: {
   eventKey: string;
-  filteredTransactions: ReturnType<typeof createLedgerWorkspaceModel>["filteredTransactions"];
+  filteredTransactions: ReturnType<typeof createLedgerBookModel>["filteredTransactions"];
   selectedLedgerTransactionId: string | null;
   target: EventTarget | null;
 }): {
@@ -399,7 +399,7 @@ export function getLedgerHotkeySelectionUpdate(input: {
 }
 
 export function getSyncedLedgerSelectionId(input: {
-  filteredTransactions: ReturnType<typeof createLedgerWorkspaceModel>["filteredTransactions"];
+  filteredTransactions: ReturnType<typeof createLedgerBookModel>["filteredTransactions"];
   selectedLedgerTransactionId: string | null;
 }): string | null {
   if (!input.selectedLedgerTransactionId) {

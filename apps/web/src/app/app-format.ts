@@ -1,4 +1,4 @@
-import type { WorkspaceResponse } from "./api";
+import type { BookResponse } from "./api";
 
 export function formatCurrency(amount: number): string {
   return amount.toLocaleString("en-US", {
@@ -24,7 +24,7 @@ export function formatTransactionStatus(status: "cleared" | "open" | "reconciled
 }
 
 export function formatAccountOptionLabel(
-  account: WorkspaceResponse["workspace"]["accounts"][number],
+  account: BookResponse["book"]["accounts"][number],
 ): string {
   return account.code ? `${account.name} (${account.code})` : account.name;
 }

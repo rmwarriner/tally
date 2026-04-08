@@ -2,45 +2,45 @@ import { mkdtemp, rm } from "node:fs/promises";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
 import { describe, expect, it } from "vitest";
-import { buildGnuCashXmlExport, createDemoWorkspace } from "@tally/workspace";
-import { saveWorkspaceToFile } from "@tally/workspace/src/node";
+import { buildGnuCashXmlExport, createDemoBook } from "@tally/book";
+import { saveBookToFile } from "@tally/book/src/node";
 import {
   createInMemoryRateLimiter,
-  createFileSystemWorkspaceRepository,
+  createFileSystemBookRepository,
   createHttpHandler,
-  createWorkspaceService,
+  createBookService,
 } from "./index";
 
 describe("api http transport", () => {
   async function createFixture() {
     const directory = await mkdtemp(join(tmpdir(), "tally-http-"));
-    const workspace = createDemoWorkspace();
-    const workspacePath = join(directory, `${workspace.id}.json`);
+    const book = createDemoBook();
+    const bookPath = join(directory, `${book.id}.json`);
 
-    await saveWorkspaceToFile(workspacePath, workspace);
+    await saveBookToFile(bookPath, book);
 
     return {
       cleanup: async () => rm(directory, { recursive: true, force: true }),
       directory,
-      workspace,
-      workspacePath,
+      book,
+      bookPath,
     };
   }
 
-  it("serves workspace reads over HTTP", async () => {
+  it("serves book reads over HTTP", async () => {
     const fixture = await createFixture();
-    const service = createWorkspaceService({
-      repository: createFileSystemWorkspaceRepository({ rootDirectory: fixture.directory }),
+    const service = createBookService({
+      repository: createFileSystemBookRepository({ rootDirectory: fixture.directory }),
     });
     const handler = createHttpHandler({ service });
 
     const response = await handler(
-      new Request(`http://localhost/api/workspaces/${fixture.workspace.id}`),
+      new Request(`http://localhost/api/books/${fixture.book.id}`),
     );
     const body = await response.json();
 
     expect(response.status).toBe(200);
-    expect(body.workspace.id).toBe(fixture.workspace.id);
+    expect(body.book.id).toBe(fixture.book.id);
     expect(response.headers.get("x-request-id")).toBeTruthy();
 
     await fixture.cleanup();
@@ -48,8 +48,8 @@ describe("api http transport", () => {
 
   it("serves unauthenticated liveness and readiness checks over HTTP", async () => {
     const fixture = await createFixture();
-    const service = createWorkspaceService({
-      repository: createFileSystemWorkspaceRepository({ rootDirectory: fixture.directory }),
+    const service = createBookService({
+      repository: createFileSystemBookRepository({ rootDirectory: fixture.directory }),
     });
     const handler = createHttpHandler({
       authIdentities: [{ actor: "Primary", role: "member", token: "top-secret" }],
@@ -86,8 +86,8 @@ describe("api http transport", () => {
 
   it("returns 503 for readiness checks when dependencies are unavailable", async () => {
     const fixture = await createFixture();
-    const service = createWorkspaceService({
-      repository: createFileSystemWorkspaceRepository({ rootDirectory: fixture.directory }),
+    const service = createBookService({
+      repository: createFileSystemBookRepository({ rootDirectory: fixture.directory }),
     });
     const handler = createHttpHandler({
       authIdentities: [{ actor: "Primary", role: "member", token: "top-secret" }],
@@ -112,8 +112,8 @@ describe("api http transport", () => {
 
   it("serves request metrics over HTTP", async () => {
     const fixture = await createFixture();
-    const service = createWorkspaceService({
-      repository: createFileSystemWorkspaceRepository({ rootDirectory: fixture.directory }),
+    const service = createBookService({
+      repository: createFileSystemBookRepository({ rootDirectory: fixture.directory }),
     });
     const handler = createHttpHandler({
       authIdentities: [{ actor: "Primary", role: "member", token: "top-secret" }],
@@ -121,7 +121,7 @@ describe("api http transport", () => {
     });
 
     await handler(
-      new Request(`http://localhost/api/workspaces/${fixture.workspace.id}`, {
+      new Request(`http://localhost/api/books/${fixture.book.id}`, {
         headers: {
           authorization: "Bearer top-secret",
         },
@@ -138,7 +138,7 @@ describe("api http transport", () => {
     expect(metricsResponse.headers.get("x-request-id")).toBeTruthy();
     expect(body).toContain("# HELP gnucash_ng_http_requests_total");
     expect(body).toContain(
-      'gnucash_ng_http_requests_total{method="GET",route="/api/workspaces/:workspaceId",status="200"} 1',
+      'gnucash_ng_http_requests_total{method="GET",route="/api/books/:bookId",status="200"} 1',
     );
     expect(body).toContain(
       'gnucash_ng_http_requests_total{method="GET",route="/api/unknown",status="401"} 1',
@@ -147,7 +147,7 @@ describe("api http transport", () => {
       'gnucash_ng_http_request_failures_total{method="GET",route="/api/unknown",status="401"} 1',
     );
     expect(body).toContain(
-      'gnucash_ng_http_request_duration_ms_count{method="GET",route="/api/workspaces/:workspaceId"} 1',
+      'gnucash_ng_http_request_duration_ms_count{method="GET",route="/api/books/:bookId"} 1',
     );
 
     await fixture.cleanup();
@@ -155,8 +155,8 @@ describe("api http transport", () => {
 
   it("authenticates requests using trusted-header auth when configured", async () => {
     const fixture = await createFixture();
-    const service = createWorkspaceService({
-      repository: createFileSystemWorkspaceRepository({ rootDirectory: fixture.directory }),
+    const service = createBookService({
+      repository: createFileSystemBookRepository({ rootDirectory: fixture.directory }),
     });
     const handler = createHttpHandler({
       authRequired: true,
@@ -170,13 +170,13 @@ describe("api http transport", () => {
     });
 
     const unauthorized = await handler(
-      new Request(`http://localhost/api/workspaces/${fixture.workspace.id}`),
+      new Request(`http://localhost/api/books/${fixture.book.id}`),
     );
 
     expect(unauthorized.status).toBe(401);
 
     const authorized = await handler(
-      new Request(`http://localhost/api/workspaces/${fixture.workspace.id}`, {
+      new Request(`http://localhost/api/books/${fixture.book.id}`, {
         headers: {
           "x-authenticated-actor": "Primary",
           "x-authenticated-role": "member",
@@ -192,14 +192,14 @@ describe("api http transport", () => {
 
   it("serves dashboard projections over HTTP", async () => {
     const fixture = await createFixture();
-    const service = createWorkspaceService({
-      repository: createFileSystemWorkspaceRepository({ rootDirectory: fixture.directory }),
+    const service = createBookService({
+      repository: createFileSystemBookRepository({ rootDirectory: fixture.directory }),
     });
     const handler = createHttpHandler({ service });
 
     const response = await handler(
       new Request(
-        `http://localhost/api/workspaces/${fixture.workspace.id}/dashboard?from=2026-04-01&to=2026-04-30`,
+        `http://localhost/api/books/${fixture.book.id}/dashboard?from=2026-04-01&to=2026-04-30`,
       ),
     );
     const body = await response.json();
@@ -212,14 +212,14 @@ describe("api http transport", () => {
 
   it("serves reports and close summaries over HTTP", async () => {
     const fixture = await createFixture();
-    const service = createWorkspaceService({
-      repository: createFileSystemWorkspaceRepository({ rootDirectory: fixture.directory }),
+    const service = createBookService({
+      repository: createFileSystemBookRepository({ rootDirectory: fixture.directory }),
     });
     const handler = createHttpHandler({ service });
 
     const reportResponse = await handler(
       new Request(
-        `http://localhost/api/workspaces/${fixture.workspace.id}/reports/income-statement?from=2026-04-01&to=2026-04-30`,
+        `http://localhost/api/books/${fixture.book.id}/reports/income-statement?from=2026-04-01&to=2026-04-30`,
       ),
     );
     const reportBody = await reportResponse.json();
@@ -230,7 +230,7 @@ describe("api http transport", () => {
 
     const closeResponse = await handler(
       new Request(
-        `http://localhost/api/workspaces/${fixture.workspace.id}/close-summary?from=2026-04-01&to=2026-04-30`,
+        `http://localhost/api/books/${fixture.book.id}/close-summary?from=2026-04-01&to=2026-04-30`,
       ),
     );
     const closeBody = await closeResponse.json();
@@ -243,7 +243,7 @@ describe("api http transport", () => {
 
     const cashFlowResponse = await handler(
       new Request(
-        `http://localhost/api/workspaces/${fixture.workspace.id}/reports/cash-flow?from=2026-04-01&to=2026-04-30`,
+        `http://localhost/api/books/${fixture.book.id}/reports/cash-flow?from=2026-04-01&to=2026-04-30`,
       ),
     );
     const cashFlowBody = await cashFlowResponse.json();
@@ -256,13 +256,13 @@ describe("api http transport", () => {
 
   it("imports qif transactions over HTTP", async () => {
     const fixture = await createFixture();
-    const service = createWorkspaceService({
-      repository: createFileSystemWorkspaceRepository({ rootDirectory: fixture.directory }),
+    const service = createBookService({
+      repository: createFileSystemBookRepository({ rootDirectory: fixture.directory }),
     });
     const handler = createHttpHandler({ service });
 
     const response = await handler(
-      new Request(`http://localhost/api/workspaces/${fixture.workspace.id}/imports/qif`, {
+      new Request(`http://localhost/api/books/${fixture.book.id}/imports/qif`, {
         body: JSON.stringify({
           payload: {
             batchId: "http-qif-1",
@@ -287,23 +287,23 @@ Lacct-expense-utilities
     const body = await response.json();
 
     expect(response.status).toBe(201);
-    expect(body.workspace.transactions.some((item: { id: string }) => item.id === "http-qif-1:1")).toBe(
+    expect(body.book.transactions.some((item: { id: string }) => item.id === "http-qif-1:1")).toBe(
       true,
     );
-    expect(body.workspace.auditEvents.at(-1).eventType).toBe("import.qif.recorded");
+    expect(body.book.auditEvents.at(-1).eventType).toBe("import.qif.recorded");
 
     await fixture.cleanup();
   });
 
   it("imports ofx transactions over HTTP", async () => {
     const fixture = await createFixture();
-    const service = createWorkspaceService({
-      repository: createFileSystemWorkspaceRepository({ rootDirectory: fixture.directory }),
+    const service = createBookService({
+      repository: createFileSystemBookRepository({ rootDirectory: fixture.directory }),
     });
     const handler = createHttpHandler({ service });
 
     const response = await handler(
-      new Request(`http://localhost/api/workspaces/${fixture.workspace.id}/imports/ofx`, {
+      new Request(`http://localhost/api/books/${fixture.book.id}/imports/ofx`, {
         body: JSON.stringify({
           payload: {
             batchId: "http-ofx-1",
@@ -340,21 +340,21 @@ Lacct-expense-utilities
     const body = await response.json();
 
     expect(response.status).toBe(201);
-    expect(body.workspace.transactions.some((item: { id: string }) => item.id === "http-ofx-1:1")).toBe(true);
-    expect(body.workspace.auditEvents.at(-1).eventType).toBe("import.ofx.recorded");
+    expect(body.book.transactions.some((item: { id: string }) => item.id === "http-ofx-1:1")).toBe(true);
+    expect(body.book.auditEvents.at(-1).eventType).toBe("import.ofx.recorded");
 
     await fixture.cleanup();
   });
 
   it("records close periods over HTTP", async () => {
     const fixture = await createFixture();
-    const service = createWorkspaceService({
-      repository: createFileSystemWorkspaceRepository({ rootDirectory: fixture.directory }),
+    const service = createBookService({
+      repository: createFileSystemBookRepository({ rootDirectory: fixture.directory }),
     });
     const handler = createHttpHandler({ service });
 
     const response = await handler(
-      new Request(`http://localhost/api/workspaces/${fixture.workspace.id}/close-periods`, {
+      new Request(`http://localhost/api/books/${fixture.book.id}/close-periods`, {
         body: JSON.stringify({
           payload: {
             closedAt: "2026-04-01T00:00:00Z",
@@ -369,21 +369,21 @@ Lacct-expense-utilities
     const body = await response.json();
 
     expect(response.status).toBe(201);
-    expect(body.workspace.closePeriods).toHaveLength(1);
-    expect(body.workspace.auditEvents.at(-1).eventType).toBe("close.recorded");
+    expect(body.book.closePeriods).toHaveLength(1);
+    expect(body.book.auditEvents.at(-1).eventType).toBe("close.recorded");
 
     await fixture.cleanup();
   });
 
   it("creates, lists, and restores backups over HTTP", async () => {
     const fixture = await createFixture();
-    const service = createWorkspaceService({
-      repository: createFileSystemWorkspaceRepository({ rootDirectory: fixture.directory }),
+    const service = createBookService({
+      repository: createFileSystemBookRepository({ rootDirectory: fixture.directory }),
     });
     const handler = createHttpHandler({ service });
 
     const createResponse = await handler(
-      new Request(`http://localhost/api/workspaces/${fixture.workspace.id}/backups`, {
+      new Request(`http://localhost/api/books/${fixture.book.id}/backups`, {
         method: "POST",
       }),
     );
@@ -393,12 +393,12 @@ Lacct-expense-utilities
     expect(createBody.backup.id).toContain("backup-");
 
     const updateResponse = await handler(
-      new Request(`http://localhost/api/workspaces/${fixture.workspace.id}/imports/gnucash-xml`, {
+      new Request(`http://localhost/api/books/${fixture.book.id}/imports/gnucash-xml`, {
         body: JSON.stringify({
           payload: {
             importedAt: "2026-04-05T00:00:00Z",
-            sourceLabel: "workspace.gnucash.xml",
-            xml: buildGnuCashXmlExport({ workspace: fixture.workspace }).contents.replace(
+            sourceLabel: "book.gnucash.xml",
+            xml: buildGnuCashXmlExport({ book: fixture.book }).contents.replace(
               'name="Household Finance"',
               'name="Changed Before Restore"',
             ),
@@ -411,7 +411,7 @@ Lacct-expense-utilities
     expect(updateResponse.status).toBe(200);
 
     const listResponse = await handler(
-      new Request(`http://localhost/api/workspaces/${fixture.workspace.id}/backups`),
+      new Request(`http://localhost/api/books/${fixture.book.id}/backups`),
     );
     const listBody = await listResponse.json();
 
@@ -420,7 +420,7 @@ Lacct-expense-utilities
 
     const restoreResponse = await handler(
       new Request(
-        `http://localhost/api/workspaces/${fixture.workspace.id}/backups/${createBody.backup.id}/restore`,
+        `http://localhost/api/books/${fixture.book.id}/backups/${createBody.backup.id}/restore`,
         {
           method: "POST",
         },
@@ -429,27 +429,27 @@ Lacct-expense-utilities
     const restoreBody = await restoreResponse.json();
 
     expect(restoreResponse.status).toBe(200);
-    expect(restoreBody.workspace.name).toBe("Household Finance");
+    expect(restoreBody.book.name).toBe("Household Finance");
 
     await fixture.cleanup();
   });
 
   it("exports qif transactions over HTTP", async () => {
     const fixture = await createFixture();
-    const service = createWorkspaceService({
-      repository: createFileSystemWorkspaceRepository({ rootDirectory: fixture.directory }),
+    const service = createBookService({
+      repository: createFileSystemBookRepository({ rootDirectory: fixture.directory }),
     });
     const handler = createHttpHandler({ service });
 
     const response = await handler(
       new Request(
-        `http://localhost/api/workspaces/${fixture.workspace.id}/exports/qif?accountId=acct-checking&from=2026-04-01&to=2026-04-30`,
+        `http://localhost/api/books/${fixture.book.id}/exports/qif?accountId=acct-checking&from=2026-04-01&to=2026-04-30`,
       ),
     );
     const body = await response.json();
 
     expect(response.status).toBe(200);
-    expect(body.export.fileName).toBe("workspace-household-demo-acct-checking-2026-04-01-2026-04-30.qif");
+    expect(body.export.fileName).toBe("book-household-demo-acct-checking-2026-04-01-2026-04-30.qif");
     expect(body.export.transactionCount).toBeGreaterThan(0);
     expect(body.export.contents).toContain("!Type:Bank");
 
@@ -458,23 +458,23 @@ Lacct-expense-utilities
 
   it("exports ofx, qfx, and gnucash xml over HTTP", async () => {
     const fixture = await createFixture();
-    const service = createWorkspaceService({
-      repository: createFileSystemWorkspaceRepository({ rootDirectory: fixture.directory }),
+    const service = createBookService({
+      repository: createFileSystemBookRepository({ rootDirectory: fixture.directory }),
     });
     const handler = createHttpHandler({ service });
 
     const ofxResponse = await handler(
       new Request(
-        `http://localhost/api/workspaces/${fixture.workspace.id}/exports/ofx?accountId=acct-checking&from=2026-04-01&to=2026-04-30`,
+        `http://localhost/api/books/${fixture.book.id}/exports/ofx?accountId=acct-checking&from=2026-04-01&to=2026-04-30`,
       ),
     );
     const qfxResponse = await handler(
       new Request(
-        `http://localhost/api/workspaces/${fixture.workspace.id}/exports/qfx?accountId=acct-checking&from=2026-04-01&to=2026-04-30`,
+        `http://localhost/api/books/${fixture.book.id}/exports/qfx?accountId=acct-checking&from=2026-04-01&to=2026-04-30`,
       ),
     );
     const xmlResponse = await handler(
-      new Request(`http://localhost/api/workspaces/${fixture.workspace.id}/exports/gnucash-xml`),
+      new Request(`http://localhost/api/books/${fixture.book.id}/exports/gnucash-xml`),
     );
 
     const ofxBody = await ofxResponse.json();
@@ -486,20 +486,20 @@ Lacct-expense-utilities
     expect(qfxResponse.status).toBe(200);
     expect(qfxBody.export.format).toBe("qfx");
     expect(xmlResponse.status).toBe(200);
-    expect(xmlBody.export.fileName).toBe(`${fixture.workspace.id}.gnucash.xml`);
+    expect(xmlBody.export.fileName).toBe(`${fixture.book.id}.gnucash.xml`);
 
     await fixture.cleanup();
   });
 
   it("imports qfx and gnucash xml validation failures over HTTP", async () => {
     const fixture = await createFixture();
-    const service = createWorkspaceService({
-      repository: createFileSystemWorkspaceRepository({ rootDirectory: fixture.directory }),
+    const service = createBookService({
+      repository: createFileSystemBookRepository({ rootDirectory: fixture.directory }),
     });
     const handler = createHttpHandler({ service });
 
     const qfxResponse = await handler(
-      new Request(`http://localhost/api/workspaces/${fixture.workspace.id}/imports/qfx`, {
+      new Request(`http://localhost/api/books/${fixture.book.id}/imports/qfx`, {
         body: JSON.stringify({
           payload: {
             batchId: "http-qfx-bad-1",
@@ -516,12 +516,12 @@ Lacct-expense-utilities
       }),
     );
     const xmlResponse = await handler(
-      new Request(`http://localhost/api/workspaces/${fixture.workspace.id}/imports/gnucash-xml`, {
+      new Request(`http://localhost/api/books/${fixture.book.id}/imports/gnucash-xml`, {
         body: JSON.stringify({
           payload: {
             importedAt: "2026-04-05T00:00:00Z",
-            sourceLabel: "workspace.gnucash.xml",
-            xml: buildGnuCashXmlExport({ workspace: { ...fixture.workspace, id: "other-workspace" } }).contents,
+            sourceLabel: "book.gnucash.xml",
+            xml: buildGnuCashXmlExport({ book: { ...fixture.book, id: "other-book" } }).contents,
           },
         }),
         headers: { "content-type": "application/json" },
@@ -542,13 +542,13 @@ Lacct-expense-utilities
 
   it("accepts transaction posts over HTTP", async () => {
     const fixture = await createFixture();
-    const service = createWorkspaceService({
-      repository: createFileSystemWorkspaceRepository({ rootDirectory: fixture.directory }),
+    const service = createBookService({
+      repository: createFileSystemBookRepository({ rootDirectory: fixture.directory }),
     });
     const handler = createHttpHandler({ service });
 
     const response = await handler(
-      new Request(`http://localhost/api/workspaces/${fixture.workspace.id}/transactions`, {
+      new Request(`http://localhost/api/books/${fixture.book.id}/transactions`, {
         body: JSON.stringify({
           actor: "Primary",
           transaction: {
@@ -575,23 +575,23 @@ Lacct-expense-utilities
     const body = await response.json();
 
     expect(response.status).toBe(201);
-    expect(body.workspace.transactions.some((item: { id: string }) => item.id === "txn-http-1")).toBe(
+    expect(body.book.transactions.some((item: { id: string }) => item.id === "txn-http-1")).toBe(
       true,
     );
-    expect(body.workspace.auditEvents.at(-1).actor).toBe("local-admin");
+    expect(body.book.auditEvents.at(-1).actor).toBe("local-admin");
 
     await fixture.cleanup();
   });
 
   it("accepts transaction updates over HTTP", async () => {
     const fixture = await createFixture();
-    const service = createWorkspaceService({
-      repository: createFileSystemWorkspaceRepository({ rootDirectory: fixture.directory }),
+    const service = createBookService({
+      repository: createFileSystemBookRepository({ rootDirectory: fixture.directory }),
     });
     const handler = createHttpHandler({ service });
 
     const response = await handler(
-      new Request(`http://localhost/api/workspaces/${fixture.workspace.id}/transactions/txn-grocery-1`, {
+      new Request(`http://localhost/api/books/${fixture.book.id}/transactions/txn-grocery-1`, {
         body: JSON.stringify({
           actor: "Primary",
           transaction: {
@@ -619,45 +619,45 @@ Lacct-expense-utilities
 
     expect(response.status).toBe(200);
     expect(
-      body.workspace.transactions.find((item: { id: string }) => item.id === "txn-grocery-1").description,
+      body.book.transactions.find((item: { id: string }) => item.id === "txn-grocery-1").description,
     ).toBe("HTTP-updated groceries");
-    expect(body.workspace.auditEvents.at(-1).eventType).toBe("transaction.updated");
+    expect(body.book.auditEvents.at(-1).eventType).toBe("transaction.updated");
 
     await fixture.cleanup();
   });
 
   it("soft-deletes transactions over HTTP", async () => {
     const fixture = await createFixture();
-    const service = createWorkspaceService({
-      repository: createFileSystemWorkspaceRepository({ rootDirectory: fixture.directory }),
+    const service = createBookService({
+      repository: createFileSystemBookRepository({ rootDirectory: fixture.directory }),
     });
     const handler = createHttpHandler({ service });
 
     const response = await handler(
-      new Request(`http://localhost/api/workspaces/${fixture.workspace.id}/transactions/txn-grocery-1`, {
+      new Request(`http://localhost/api/books/${fixture.book.id}/transactions/txn-grocery-1`, {
         method: "DELETE",
       }),
     );
     const body = await response.json();
 
     expect(response.status).toBe(200);
-    expect(body.workspace.transactions.some((item: { id: string }) => item.id === "txn-grocery-1")).toBe(false);
-    expect(body.workspace.auditEvents.at(-1).eventType).toBe("transaction.deleted");
+    expect(body.book.transactions.some((item: { id: string }) => item.id === "txn-grocery-1")).toBe(false);
+    expect(body.book.auditEvents.at(-1).eventType).toBe("transaction.deleted");
 
     await fixture.cleanup();
   });
 
   it("requires privileged authority to destroy transactions over HTTP", async () => {
     const fixture = await createFixture();
-    fixture.workspace.householdMembers = [...fixture.workspace.householdMembers, "Admin"];
-    fixture.workspace.householdMemberRoles = {
-      ...(fixture.workspace.householdMemberRoles ?? {}),
+    fixture.book.householdMembers = [...fixture.book.householdMembers, "Admin"];
+    fixture.book.householdMemberRoles = {
+      ...(fixture.book.householdMemberRoles ?? {}),
       Admin: "admin",
     };
-    await saveWorkspaceToFile(fixture.workspacePath, fixture.workspace);
+    await saveBookToFile(fixture.bookPath, fixture.book);
 
-    const service = createWorkspaceService({
-      repository: createFileSystemWorkspaceRepository({ rootDirectory: fixture.directory }),
+    const service = createBookService({
+      repository: createFileSystemBookRepository({ rootDirectory: fixture.directory }),
     });
     const handler = createHttpHandler({
       authIdentities: [
@@ -669,7 +669,7 @@ Lacct-expense-utilities
 
     const forbidden = await handler(
       new Request(
-        `http://localhost/api/workspaces/${fixture.workspace.id}/transactions/txn-grocery-1/destroy`,
+        `http://localhost/api/books/${fixture.book.id}/transactions/txn-grocery-1/destroy`,
         {
           headers: {
             authorization: "Bearer member-token",
@@ -683,7 +683,7 @@ Lacct-expense-utilities
 
     const allowed = await handler(
       new Request(
-        `http://localhost/api/workspaces/${fixture.workspace.id}/transactions/txn-grocery-1/destroy`,
+        `http://localhost/api/books/${fixture.book.id}/transactions/txn-grocery-1/destroy`,
         {
           headers: {
             authorization: "Bearer admin-token",
@@ -695,23 +695,23 @@ Lacct-expense-utilities
     const allowedBody = await allowed.json();
 
     expect(allowed.status).toBe(200);
-    expect(allowedBody.workspace.transactions.some((item: { id: string }) => item.id === "txn-grocery-1")).toBe(
+    expect(allowedBody.book.transactions.some((item: { id: string }) => item.id === "txn-grocery-1")).toBe(
       false,
     );
-    expect(allowedBody.workspace.auditEvents.at(-1).eventType).toBe("transaction.destroyed");
+    expect(allowedBody.book.auditEvents.at(-1).eventType).toBe("transaction.destroyed");
 
     await fixture.cleanup();
   });
 
   it("accepts budget line and envelope writes over HTTP", async () => {
     const fixture = await createFixture();
-    const service = createWorkspaceService({
-      repository: createFileSystemWorkspaceRepository({ rootDirectory: fixture.directory }),
+    const service = createBookService({
+      repository: createFileSystemBookRepository({ rootDirectory: fixture.directory }),
     });
     const handler = createHttpHandler({ service });
 
     const budgetResponse = await handler(
-      new Request(`http://localhost/api/workspaces/${fixture.workspace.id}/budget-lines`, {
+      new Request(`http://localhost/api/books/${fixture.book.id}/budget-lines`, {
         body: JSON.stringify({
           line: {
             accountId: "acct-expense-groceries",
@@ -725,7 +725,7 @@ Lacct-expense-utilities
       }),
     );
     const envelopeResponse = await handler(
-      new Request(`http://localhost/api/workspaces/${fixture.workspace.id}/envelopes`, {
+      new Request(`http://localhost/api/books/${fixture.book.id}/envelopes`, {
         body: JSON.stringify({
           envelope: {
             availableAmount: { commodityCode: "USD", quantity: 150 },
@@ -750,13 +750,13 @@ Lacct-expense-utilities
 
   it("accepts envelope allocation and schedule writes over HTTP", async () => {
     const fixture = await createFixture();
-    const service = createWorkspaceService({
-      repository: createFileSystemWorkspaceRepository({ rootDirectory: fixture.directory }),
+    const service = createBookService({
+      repository: createFileSystemBookRepository({ rootDirectory: fixture.directory }),
     });
     const handler = createHttpHandler({ service });
 
     const allocationResponse = await handler(
-      new Request(`http://localhost/api/workspaces/${fixture.workspace.id}/envelope-allocations`, {
+      new Request(`http://localhost/api/books/${fixture.book.id}/envelope-allocations`, {
         body: JSON.stringify({
           allocation: {
             amount: { commodityCode: "USD", quantity: 50 },
@@ -771,7 +771,7 @@ Lacct-expense-utilities
       }),
     );
     const scheduleResponse = await handler(
-      new Request(`http://localhost/api/workspaces/${fixture.workspace.id}/schedules`, {
+      new Request(`http://localhost/api/books/${fixture.book.id}/schedules`, {
         body: JSON.stringify({
           schedule: {
             autoPost: false,
@@ -807,13 +807,13 @@ Lacct-expense-utilities
 
   it("executes due schedules over HTTP", async () => {
     const fixture = await createFixture();
-    const service = createWorkspaceService({
-      repository: createFileSystemWorkspaceRepository({ rootDirectory: fixture.directory }),
+    const service = createBookService({
+      repository: createFileSystemBookRepository({ rootDirectory: fixture.directory }),
     });
     const handler = createHttpHandler({ service });
 
     const response = await handler(
-      new Request(`http://localhost/api/workspaces/${fixture.workspace.id}/schedules/sched-rent/execute`, {
+      new Request(`http://localhost/api/books/${fixture.book.id}/schedules/sched-rent/execute`, {
         body: JSON.stringify({
           payload: {
             occurredOn: "2026-05-01",
@@ -826,10 +826,10 @@ Lacct-expense-utilities
     const body = await response.json();
 
     expect(response.status).toBe(201);
-    expect(body.workspace.transactions.some((item: { id: string }) => item.id === "sched-rent:2026-05-01")).toBe(
+    expect(body.book.transactions.some((item: { id: string }) => item.id === "sched-rent:2026-05-01")).toBe(
       true,
     );
-    expect(body.workspace.auditEvents.some((event: { eventType: string }) => event.eventType === "schedule.executed")).toBe(
+    expect(body.book.auditEvents.some((event: { eventType: string }) => event.eventType === "schedule.executed")).toBe(
       true,
     );
 
@@ -838,13 +838,13 @@ Lacct-expense-utilities
 
   it("applies schedule exceptions over HTTP", async () => {
     const fixture = await createFixture();
-    const service = createWorkspaceService({
-      repository: createFileSystemWorkspaceRepository({ rootDirectory: fixture.directory }),
+    const service = createBookService({
+      repository: createFileSystemBookRepository({ rootDirectory: fixture.directory }),
     });
     const handler = createHttpHandler({ service });
 
     const response = await handler(
-      new Request(`http://localhost/api/workspaces/${fixture.workspace.id}/schedules/sched-rent/exceptions`, {
+      new Request(`http://localhost/api/books/${fixture.book.id}/schedules/sched-rent/exceptions`, {
         body: JSON.stringify({
           payload: {
             action: "defer",
@@ -859,11 +859,11 @@ Lacct-expense-utilities
     const body = await response.json();
 
     expect(response.status).toBe(200);
-    expect(body.workspace.scheduledTransactions.find((item: { id: string }) => item.id === "sched-rent")?.nextDueOn).toBe(
+    expect(body.book.scheduledTransactions.find((item: { id: string }) => item.id === "sched-rent")?.nextDueOn).toBe(
       "2026-05-05",
     );
     expect(
-      body.workspace.auditEvents.some((event: { eventType: string }) => event.eventType === "schedule.exception.applied"),
+      body.book.auditEvents.some((event: { eventType: string }) => event.eventType === "schedule.exception.applied"),
     ).toBe(true);
 
     await fixture.cleanup();
@@ -871,13 +871,13 @@ Lacct-expense-utilities
 
   it("returns 400 for invalid json bodies", async () => {
     const fixture = await createFixture();
-    const service = createWorkspaceService({
-      repository: createFileSystemWorkspaceRepository({ rootDirectory: fixture.directory }),
+    const service = createBookService({
+      repository: createFileSystemBookRepository({ rootDirectory: fixture.directory }),
     });
     const handler = createHttpHandler({ service });
 
     const response = await handler(
-      new Request(`http://localhost/api/workspaces/${fixture.workspace.id}/transactions`, {
+      new Request(`http://localhost/api/books/${fixture.book.id}/transactions`, {
         body: "{",
         headers: { "content-type": "application/json" },
         method: "POST",
@@ -894,8 +894,8 @@ Lacct-expense-utilities
 
   it("returns 404 for unknown routes", async () => {
     const fixture = await createFixture();
-    const service = createWorkspaceService({
-      repository: createFileSystemWorkspaceRepository({ rootDirectory: fixture.directory }),
+    const service = createBookService({
+      repository: createFileSystemBookRepository({ rootDirectory: fixture.directory }),
     });
     const handler = createHttpHandler({ service });
 
@@ -910,8 +910,8 @@ Lacct-expense-utilities
 
   it("returns 401 when auth is required and no token is provided", async () => {
     const fixture = await createFixture();
-    const service = createWorkspaceService({
-      repository: createFileSystemWorkspaceRepository({ rootDirectory: fixture.directory }),
+    const service = createBookService({
+      repository: createFileSystemBookRepository({ rootDirectory: fixture.directory }),
     });
     const handler = createHttpHandler({
       authIdentities: [{ actor: "Primary", role: "member", token: "top-secret" }],
@@ -919,7 +919,7 @@ Lacct-expense-utilities
     });
 
     const response = await handler(
-      new Request(`http://localhost/api/workspaces/${fixture.workspace.id}`),
+      new Request(`http://localhost/api/books/${fixture.book.id}`),
     );
     const body = await response.json();
 
@@ -932,8 +932,8 @@ Lacct-expense-utilities
 
   it("allows authenticated household members and ignores caller-supplied actor spoofing", async () => {
     const fixture = await createFixture();
-    const service = createWorkspaceService({
-      repository: createFileSystemWorkspaceRepository({ rootDirectory: fixture.directory }),
+    const service = createBookService({
+      repository: createFileSystemBookRepository({ rootDirectory: fixture.directory }),
     });
     const handler = createHttpHandler({
       authIdentities: [{ actor: "Primary", role: "member", token: "top-secret" }],
@@ -941,7 +941,7 @@ Lacct-expense-utilities
     });
 
     const response = await handler(
-      new Request(`http://localhost/api/workspaces/${fixture.workspace.id}/transactions`, {
+      new Request(`http://localhost/api/books/${fixture.book.id}/transactions`, {
         body: JSON.stringify({
           actor: "Spoofed",
           transaction: {
@@ -971,15 +971,15 @@ Lacct-expense-utilities
     const body = await response.json();
 
     expect(response.status).toBe(201);
-    expect(body.workspace.auditEvents.at(-1).actor).toBe("Primary");
+    expect(body.book.auditEvents.at(-1).actor).toBe("Primary");
 
     await fixture.cleanup();
   });
 
   it("returns 403 for authenticated non-members", async () => {
     const fixture = await createFixture();
-    const service = createWorkspaceService({
-      repository: createFileSystemWorkspaceRepository({ rootDirectory: fixture.directory }),
+    const service = createBookService({
+      repository: createFileSystemBookRepository({ rootDirectory: fixture.directory }),
     });
     const handler = createHttpHandler({
       authIdentities: [{ actor: "Intruder", role: "member", token: "bad-token" }],
@@ -987,7 +987,7 @@ Lacct-expense-utilities
     });
 
     const response = await handler(
-      new Request(`http://localhost/api/workspaces/${fixture.workspace.id}`, {
+      new Request(`http://localhost/api/books/${fixture.book.id}`, {
         headers: {
           authorization: "Bearer bad-token",
         },
@@ -1004,13 +1004,13 @@ Lacct-expense-utilities
 
   it("returns 415 for non-json post bodies", async () => {
     const fixture = await createFixture();
-    const service = createWorkspaceService({
-      repository: createFileSystemWorkspaceRepository({ rootDirectory: fixture.directory }),
+    const service = createBookService({
+      repository: createFileSystemBookRepository({ rootDirectory: fixture.directory }),
     });
     const handler = createHttpHandler({ service });
 
     const response = await handler(
-      new Request(`http://localhost/api/workspaces/${fixture.workspace.id}/transactions`, {
+      new Request(`http://localhost/api/books/${fixture.book.id}/transactions`, {
         body: "actor=Primary",
         headers: { "content-type": "application/x-www-form-urlencoded" },
         method: "POST",
@@ -1027,13 +1027,13 @@ Lacct-expense-utilities
 
   it("returns 400 for malformed transaction payloads", async () => {
     const fixture = await createFixture();
-    const service = createWorkspaceService({
-      repository: createFileSystemWorkspaceRepository({ rootDirectory: fixture.directory }),
+    const service = createBookService({
+      repository: createFileSystemBookRepository({ rootDirectory: fixture.directory }),
     });
     const handler = createHttpHandler({ service });
 
     const response = await handler(
-      new Request(`http://localhost/api/workspaces/${fixture.workspace.id}/transactions`, {
+      new Request(`http://localhost/api/books/${fixture.book.id}/transactions`, {
         body: JSON.stringify({
           transaction: {
             id: "txn-bad-schema",
@@ -1064,16 +1064,16 @@ Lacct-expense-utilities
 
   it("returns 400 for malformed export requests and 404 for missing restores", async () => {
     const fixture = await createFixture();
-    const service = createWorkspaceService({
-      repository: createFileSystemWorkspaceRepository({ rootDirectory: fixture.directory }),
+    const service = createBookService({
+      repository: createFileSystemBookRepository({ rootDirectory: fixture.directory }),
     });
     const handler = createHttpHandler({ service });
 
     const exportResponse = await handler(
-      new Request(`http://localhost/api/workspaces/${fixture.workspace.id}/exports/ofx?from=2026-04-01&to=2026-04-30`),
+      new Request(`http://localhost/api/books/${fixture.book.id}/exports/ofx?from=2026-04-01&to=2026-04-30`),
     );
     const restoreResponse = await handler(
-      new Request(`http://localhost/api/workspaces/${fixture.workspace.id}/backups/backup-missing/restore`, {
+      new Request(`http://localhost/api/books/${fixture.book.id}/backups/backup-missing/restore`, {
         method: "POST",
       }),
     );
@@ -1084,20 +1084,20 @@ Lacct-expense-utilities
     expect(exportResponse.status).toBe(400);
     expect(exportBody.error.code).toBe("validation.failed");
     expect(restoreResponse.status).toBe(404);
-    expect(restoreBody.error.code).toBe("workspace.not_found");
+    expect(restoreBody.error.code).toBe("book.not_found");
 
     await fixture.cleanup();
   });
 
   it("returns 400 for malformed reconciliation payloads", async () => {
     const fixture = await createFixture();
-    const service = createWorkspaceService({
-      repository: createFileSystemWorkspaceRepository({ rootDirectory: fixture.directory }),
+    const service = createBookService({
+      repository: createFileSystemBookRepository({ rootDirectory: fixture.directory }),
     });
     const handler = createHttpHandler({ service });
 
     const response = await handler(
-      new Request(`http://localhost/api/workspaces/${fixture.workspace.id}/reconciliations`, {
+      new Request(`http://localhost/api/books/${fixture.book.id}/reconciliations`, {
         body: JSON.stringify({
           payload: {
             accountId: "",
@@ -1124,13 +1124,13 @@ Lacct-expense-utilities
 
   it("returns 400 for malformed csv import payloads", async () => {
     const fixture = await createFixture();
-    const service = createWorkspaceService({
-      repository: createFileSystemWorkspaceRepository({ rootDirectory: fixture.directory }),
+    const service = createBookService({
+      repository: createFileSystemBookRepository({ rootDirectory: fixture.directory }),
     });
     const handler = createHttpHandler({ service });
 
     const response = await handler(
-      new Request(`http://localhost/api/workspaces/${fixture.workspace.id}/imports/csv`, {
+      new Request(`http://localhost/api/books/${fixture.book.id}/imports/csv`, {
         body: JSON.stringify({
           payload: {
             batchId: "",
@@ -1168,13 +1168,13 @@ Lacct-expense-utilities
 
   it("returns 400 for malformed richer write payloads", async () => {
     const fixture = await createFixture();
-    const service = createWorkspaceService({
-      repository: createFileSystemWorkspaceRepository({ rootDirectory: fixture.directory }),
+    const service = createBookService({
+      repository: createFileSystemBookRepository({ rootDirectory: fixture.directory }),
     });
     const handler = createHttpHandler({ service });
 
     const budgetResponse = await handler(
-      new Request(`http://localhost/api/workspaces/${fixture.workspace.id}/budget-lines`, {
+      new Request(`http://localhost/api/books/${fixture.book.id}/budget-lines`, {
         body: JSON.stringify({
           line: {
             accountId: "",
@@ -1188,7 +1188,7 @@ Lacct-expense-utilities
       }),
     );
     const envelopeResponse = await handler(
-      new Request(`http://localhost/api/workspaces/${fixture.workspace.id}/envelopes`, {
+      new Request(`http://localhost/api/books/${fixture.book.id}/envelopes`, {
         body: JSON.stringify({
           envelope: {
             id: "",
@@ -1217,13 +1217,13 @@ Lacct-expense-utilities
 
   it("returns 413 for oversized request bodies", async () => {
     const fixture = await createFixture();
-    const service = createWorkspaceService({
-      repository: createFileSystemWorkspaceRepository({ rootDirectory: fixture.directory }),
+    const service = createBookService({
+      repository: createFileSystemBookRepository({ rootDirectory: fixture.directory }),
     });
     const handler = createHttpHandler({ maxBodyBytes: 10, service });
 
     const response = await handler(
-      new Request(`http://localhost/api/workspaces/${fixture.workspace.id}/transactions`, {
+      new Request(`http://localhost/api/books/${fixture.book.id}/transactions`, {
         body: JSON.stringify({ actor: "Primary", transaction: { id: "x" } }),
         headers: { "content-type": "application/json" },
         method: "POST",
@@ -1240,13 +1240,13 @@ Lacct-expense-utilities
 
   it("adds security headers to responses", async () => {
     const fixture = await createFixture();
-    const service = createWorkspaceService({
-      repository: createFileSystemWorkspaceRepository({ rootDirectory: fixture.directory }),
+    const service = createBookService({
+      repository: createFileSystemBookRepository({ rootDirectory: fixture.directory }),
     });
     const handler = createHttpHandler({ service });
 
     const response = await handler(
-      new Request(`http://localhost/api/workspaces/${fixture.workspace.id}`),
+      new Request(`http://localhost/api/books/${fixture.book.id}`),
     );
 
     expect(response.headers.get("cache-control")).toBe("no-store");
@@ -1260,13 +1260,13 @@ Lacct-expense-utilities
 
   it("echoes caller-supplied request ids on responses", async () => {
     const fixture = await createFixture();
-    const service = createWorkspaceService({
-      repository: createFileSystemWorkspaceRepository({ rootDirectory: fixture.directory }),
+    const service = createBookService({
+      repository: createFileSystemBookRepository({ rootDirectory: fixture.directory }),
     });
     const handler = createHttpHandler({ service });
 
     const response = await handler(
-      new Request(`http://localhost/api/workspaces/${fixture.workspace.id}`, {
+      new Request(`http://localhost/api/books/${fixture.book.id}`, {
         headers: {
           "x-request-id": "req-test-123",
         },
@@ -1280,8 +1280,8 @@ Lacct-expense-utilities
 
   it("returns 429 when read requests exceed the configured rate limit", async () => {
     const fixture = await createFixture();
-    const service = createWorkspaceService({
-      repository: createFileSystemWorkspaceRepository({ rootDirectory: fixture.directory }),
+    const service = createBookService({
+      repository: createFileSystemBookRepository({ rootDirectory: fixture.directory }),
     });
     const handler = createHttpHandler({
       rateLimiter: createInMemoryRateLimiter({ now: () => 1000 }),
@@ -1293,8 +1293,8 @@ Lacct-expense-utilities
       service,
     });
 
-    const first = await handler(new Request(`http://localhost/api/workspaces/${fixture.workspace.id}`));
-    const second = await handler(new Request(`http://localhost/api/workspaces/${fixture.workspace.id}`));
+    const first = await handler(new Request(`http://localhost/api/books/${fixture.book.id}`));
+    const second = await handler(new Request(`http://localhost/api/books/${fixture.book.id}`));
     const secondBody = await second.json();
 
     expect(first.status).toBe(200);
@@ -1310,8 +1310,8 @@ Lacct-expense-utilities
 
   it("returns 429 when import requests exceed the configured import throttle", async () => {
     const fixture = await createFixture();
-    const service = createWorkspaceService({
-      repository: createFileSystemWorkspaceRepository({ rootDirectory: fixture.directory }),
+    const service = createBookService({
+      repository: createFileSystemBookRepository({ rootDirectory: fixture.directory }),
     });
     const handler = createHttpHandler({
       rateLimiter: createInMemoryRateLimiter({ now: () => 1000 }),
@@ -1324,7 +1324,7 @@ Lacct-expense-utilities
     });
 
     const request = () =>
-      new Request(`http://localhost/api/workspaces/${fixture.workspace.id}/imports/csv`, {
+      new Request(`http://localhost/api/books/${fixture.book.id}/imports/csv`, {
         body: JSON.stringify({
           payload: {
             batchId: "import-rate-limit",
@@ -1359,23 +1359,23 @@ Lacct-expense-utilities
 
   it("returns household members for any authenticated member", async () => {
     const fixture = await createFixture();
-    fixture.workspace.householdMembers = ["Primary", "Partner", "Admin"];
-    fixture.workspace.householdMemberRoles = {
+    fixture.book.householdMembers = ["Primary", "Partner", "Admin"];
+    fixture.book.householdMemberRoles = {
       Primary: "guardian",
       Partner: "member",
       Admin: "admin",
     };
-    await saveWorkspaceToFile(fixture.workspacePath, fixture.workspace);
+    await saveBookToFile(fixture.bookPath, fixture.book);
 
     const handler = createHttpHandler({
       authIdentities: [{ actor: "Partner", role: "member", token: "tok-partner" }],
-      service: createWorkspaceService({
-        repository: createFileSystemWorkspaceRepository({ rootDirectory: fixture.directory }),
+      service: createBookService({
+        repository: createFileSystemBookRepository({ rootDirectory: fixture.directory }),
       }),
     });
 
     const response = await handler(
-      new Request(`http://localhost/api/workspaces/${fixture.workspace.id}/members`, {
+      new Request(`http://localhost/api/books/${fixture.book.id}/members`, {
         headers: { authorization: "Bearer tok-partner" },
       }),
     );
@@ -1392,13 +1392,13 @@ Lacct-expense-utilities
     const fixture = await createFixture();
     const handler = createHttpHandler({
       authIdentities: [{ actor: "Stranger", role: "member", token: "tok-stranger" }],
-      service: createWorkspaceService({
-        repository: createFileSystemWorkspaceRepository({ rootDirectory: fixture.directory }),
+      service: createBookService({
+        repository: createFileSystemBookRepository({ rootDirectory: fixture.directory }),
       }),
     });
 
     const response = await handler(
-      new Request(`http://localhost/api/workspaces/${fixture.workspace.id}/members`, {
+      new Request(`http://localhost/api/books/${fixture.book.id}/members`, {
         headers: { authorization: "Bearer tok-stranger" },
       }),
     );
@@ -1410,19 +1410,19 @@ Lacct-expense-utilities
 
   it("adds a household member for admin", async () => {
     const fixture = await createFixture();
-    fixture.workspace.householdMembers = ["Primary", "Admin"];
-    fixture.workspace.householdMemberRoles = { Primary: "guardian", Admin: "admin" };
-    await saveWorkspaceToFile(fixture.workspacePath, fixture.workspace);
+    fixture.book.householdMembers = ["Primary", "Admin"];
+    fixture.book.householdMemberRoles = { Primary: "guardian", Admin: "admin" };
+    await saveBookToFile(fixture.bookPath, fixture.book);
 
     const handler = createHttpHandler({
       authIdentities: [{ actor: "Admin", role: "admin", token: "tok-admin" }],
-      service: createWorkspaceService({
-        repository: createFileSystemWorkspaceRepository({ rootDirectory: fixture.directory }),
+      service: createBookService({
+        repository: createFileSystemBookRepository({ rootDirectory: fixture.directory }),
       }),
     });
 
     const response = await handler(
-      new Request(`http://localhost/api/workspaces/${fixture.workspace.id}/members`, {
+      new Request(`http://localhost/api/books/${fixture.book.id}/members`, {
         method: "POST",
         headers: { authorization: "Bearer tok-admin", "content-type": "application/json" },
         body: JSON.stringify({ payload: { actor: "NewMember", role: "member" } }),
@@ -1431,7 +1431,7 @@ Lacct-expense-utilities
     const body = await response.json();
 
     expect(response.status).toBe(200);
-    expect(body.workspace.householdMembers).toContain("NewMember");
+    expect(body.book.householdMembers).toContain("NewMember");
 
     await fixture.cleanup();
   });
@@ -1440,13 +1440,13 @@ Lacct-expense-utilities
     const fixture = await createFixture();
     const handler = createHttpHandler({
       authIdentities: [{ actor: "Primary", role: "member", token: "tok-primary" }],
-      service: createWorkspaceService({
-        repository: createFileSystemWorkspaceRepository({ rootDirectory: fixture.directory }),
+      service: createBookService({
+        repository: createFileSystemBookRepository({ rootDirectory: fixture.directory }),
       }),
     });
 
     const response = await handler(
-      new Request(`http://localhost/api/workspaces/${fixture.workspace.id}/members`, {
+      new Request(`http://localhost/api/books/${fixture.book.id}/members`, {
         method: "POST",
         headers: { authorization: "Bearer tok-primary", "content-type": "application/json" },
         body: JSON.stringify({ payload: { actor: "NewMember" } }),
@@ -1460,19 +1460,19 @@ Lacct-expense-utilities
 
   it("updates a household member role for admin", async () => {
     const fixture = await createFixture();
-    fixture.workspace.householdMembers = ["Primary", "Admin"];
-    fixture.workspace.householdMemberRoles = { Primary: "guardian", Admin: "admin" };
-    await saveWorkspaceToFile(fixture.workspacePath, fixture.workspace);
+    fixture.book.householdMembers = ["Primary", "Admin"];
+    fixture.book.householdMemberRoles = { Primary: "guardian", Admin: "admin" };
+    await saveBookToFile(fixture.bookPath, fixture.book);
 
     const handler = createHttpHandler({
       authIdentities: [{ actor: "Admin", role: "admin", token: "tok-admin" }],
-      service: createWorkspaceService({
-        repository: createFileSystemWorkspaceRepository({ rootDirectory: fixture.directory }),
+      service: createBookService({
+        repository: createFileSystemBookRepository({ rootDirectory: fixture.directory }),
       }),
     });
 
     const response = await handler(
-      new Request(`http://localhost/api/workspaces/${fixture.workspace.id}/members/Primary/role`, {
+      new Request(`http://localhost/api/books/${fixture.book.id}/members/Primary/role`, {
         method: "PUT",
         headers: { authorization: "Bearer tok-admin", "content-type": "application/json" },
         body: JSON.stringify({ payload: { role: "member" } }),
@@ -1481,26 +1481,26 @@ Lacct-expense-utilities
     const body = await response.json();
 
     expect(response.status).toBe(200);
-    expect(body.workspace.householdMemberRoles?.["Primary"]).toBe("member");
+    expect(body.book.householdMemberRoles?.["Primary"]).toBe("member");
 
     await fixture.cleanup();
   });
 
   it("removes a household member for admin", async () => {
     const fixture = await createFixture();
-    fixture.workspace.householdMembers = ["Primary", "Partner", "Admin"];
-    fixture.workspace.householdMemberRoles = { Primary: "guardian", Partner: "member", Admin: "admin" };
-    await saveWorkspaceToFile(fixture.workspacePath, fixture.workspace);
+    fixture.book.householdMembers = ["Primary", "Partner", "Admin"];
+    fixture.book.householdMemberRoles = { Primary: "guardian", Partner: "member", Admin: "admin" };
+    await saveBookToFile(fixture.bookPath, fixture.book);
 
     const handler = createHttpHandler({
       authIdentities: [{ actor: "Admin", role: "admin", token: "tok-admin" }],
-      service: createWorkspaceService({
-        repository: createFileSystemWorkspaceRepository({ rootDirectory: fixture.directory }),
+      service: createBookService({
+        repository: createFileSystemBookRepository({ rootDirectory: fixture.directory }),
       }),
     });
 
     const response = await handler(
-      new Request(`http://localhost/api/workspaces/${fixture.workspace.id}/members/Partner`, {
+      new Request(`http://localhost/api/books/${fixture.book.id}/members/Partner`, {
         method: "DELETE",
         headers: { authorization: "Bearer tok-admin" },
       }),
@@ -1508,26 +1508,26 @@ Lacct-expense-utilities
     const body = await response.json();
 
     expect(response.status).toBe(200);
-    expect(body.workspace.householdMembers).not.toContain("Partner");
+    expect(body.book.householdMembers).not.toContain("Partner");
 
     await fixture.cleanup();
   });
 
   it("returns 409 when removing the last admin", async () => {
     const fixture = await createFixture();
-    fixture.workspace.householdMembers = ["Primary", "Admin"];
-    fixture.workspace.householdMemberRoles = { Primary: "guardian", Admin: "admin" };
-    await saveWorkspaceToFile(fixture.workspacePath, fixture.workspace);
+    fixture.book.householdMembers = ["Primary", "Admin"];
+    fixture.book.householdMemberRoles = { Primary: "guardian", Admin: "admin" };
+    await saveBookToFile(fixture.bookPath, fixture.book);
 
     const handler = createHttpHandler({
       authIdentities: [{ actor: "Admin", role: "admin", token: "tok-admin" }],
-      service: createWorkspaceService({
-        repository: createFileSystemWorkspaceRepository({ rootDirectory: fixture.directory }),
+      service: createBookService({
+        repository: createFileSystemBookRepository({ rootDirectory: fixture.directory }),
       }),
     });
 
     const response = await handler(
-      new Request(`http://localhost/api/workspaces/${fixture.workspace.id}/members/Admin`, {
+      new Request(`http://localhost/api/books/${fixture.book.id}/members/Admin`, {
         method: "DELETE",
         headers: { authorization: "Bearer tok-admin" },
       }),
@@ -1540,19 +1540,19 @@ Lacct-expense-utilities
 
   it("returns 400 when POST household member body is invalid", async () => {
     const fixture = await createFixture();
-    fixture.workspace.householdMembers = ["Admin"];
-    fixture.workspace.householdMemberRoles = { Admin: "admin" };
-    await saveWorkspaceToFile(fixture.workspacePath, fixture.workspace);
+    fixture.book.householdMembers = ["Admin"];
+    fixture.book.householdMemberRoles = { Admin: "admin" };
+    await saveBookToFile(fixture.bookPath, fixture.book);
 
     const handler = createHttpHandler({
       authIdentities: [{ actor: "Admin", role: "admin", token: "tok-admin" }],
-      service: createWorkspaceService({
-        repository: createFileSystemWorkspaceRepository({ rootDirectory: fixture.directory }),
+      service: createBookService({
+        repository: createFileSystemBookRepository({ rootDirectory: fixture.directory }),
       }),
     });
 
     const response = await handler(
-      new Request(`http://localhost/api/workspaces/${fixture.workspace.id}/members`, {
+      new Request(`http://localhost/api/books/${fixture.book.id}/members`, {
         method: "POST",
         headers: { authorization: "Bearer tok-admin", "content-type": "application/json" },
         body: JSON.stringify({ payload: { role: "member" } }),
@@ -1568,19 +1568,19 @@ Lacct-expense-utilities
 
   it("returns 400 when PUT household member role body is invalid", async () => {
     const fixture = await createFixture();
-    fixture.workspace.householdMembers = ["Primary", "Admin"];
-    fixture.workspace.householdMemberRoles = { Primary: "guardian", Admin: "admin" };
-    await saveWorkspaceToFile(fixture.workspacePath, fixture.workspace);
+    fixture.book.householdMembers = ["Primary", "Admin"];
+    fixture.book.householdMemberRoles = { Primary: "guardian", Admin: "admin" };
+    await saveBookToFile(fixture.bookPath, fixture.book);
 
     const handler = createHttpHandler({
       authIdentities: [{ actor: "Admin", role: "admin", token: "tok-admin" }],
-      service: createWorkspaceService({
-        repository: createFileSystemWorkspaceRepository({ rootDirectory: fixture.directory }),
+      service: createBookService({
+        repository: createFileSystemBookRepository({ rootDirectory: fixture.directory }),
       }),
     });
 
     const response = await handler(
-      new Request(`http://localhost/api/workspaces/${fixture.workspace.id}/members/Primary/role`, {
+      new Request(`http://localhost/api/books/${fixture.book.id}/members/Primary/role`, {
         method: "PUT",
         headers: { authorization: "Bearer tok-admin", "content-type": "application/json" },
         body: JSON.stringify({ payload: { role: "superuser" } }),

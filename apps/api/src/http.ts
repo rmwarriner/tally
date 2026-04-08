@@ -18,7 +18,7 @@ import {
 } from "./http-routes";
 import { createInMemoryApiMetrics, type ApiMetrics } from "./metrics";
 import { createInMemoryRateLimiter, type RateLimiter, type RateLimitPolicy } from "./rate-limit";
-import type { WorkspaceService } from "./service";
+import type { BookService } from "./service";
 import {
   validateAccountRequestBody,
   validateAddHouseholdMemberBody,
@@ -128,7 +128,7 @@ export function createHttpHandler(params: {
     read: RateLimitPolicy;
   };
   runtimeMode?: string;
-  service: WorkspaceService;
+  service: BookService;
   trustedHeaderAuth?: {
     actorHeader: string;
     proxyKey: string;
@@ -156,8 +156,8 @@ export function createHttpHandler(params: {
       ok: true,
     }));
 
-  function isSafeWorkspaceId(workspaceId: string): boolean {
-    return /^[a-zA-Z0-9_-]+$/.test(workspaceId);
+  function isSafeBookId(bookId: string): boolean {
+    return /^[a-zA-Z0-9_-]+$/.test(bookId);
   }
 
   return async function handle(request: Request): Promise<Response> {
@@ -313,10 +313,10 @@ export function createHttpHandler(params: {
         qifExportMatch,
         reportMatch,
         statementExportMatch,
-        workspaceMatch,
+        bookMatch,
       } = matchHttpReadRoutes(path);
 
-      if (workspaceMatch) {
+      if (bookMatch) {
         const rateLimited = enforceRateLimit(rateLimitPolicy.read);
 
         if (rateLimited) {
@@ -327,9 +327,9 @@ export function createHttpHandler(params: {
           );
         }
 
-        const workspaceId = decodeURIComponent(workspaceMatch[1]);
+        const bookId = decodeURIComponent(bookMatch[1]);
 
-        if (!isSafeWorkspaceId(workspaceId)) {
+        if (!isSafeBookId(bookId)) {
           return completeJsonResponse(
             400,
             toErrorEnvelope(
@@ -342,10 +342,10 @@ export function createHttpHandler(params: {
           );
         }
 
-        const response = await params.service.getWorkspace({
+        const response = await params.service.getBook({
           auth: auth.context,
           logger: requestLogger,
-          workspaceId,
+          bookId,
         });
         return completeJsonResponse(response.status, response.body);
       }
@@ -361,11 +361,11 @@ export function createHttpHandler(params: {
           );
         }
 
-        const workspaceId = decodeURIComponent(dashboardMatch[1]);
+        const bookId = decodeURIComponent(dashboardMatch[1]);
         const from = url.searchParams.get("from");
         const to = url.searchParams.get("to");
 
-        if (!isSafeWorkspaceId(workspaceId)) {
+        if (!isSafeBookId(bookId)) {
           return completeJsonResponse(
             400,
             toErrorEnvelope(
@@ -399,7 +399,7 @@ export function createHttpHandler(params: {
           from,
           logger: requestLogger,
           to,
-          workspaceId,
+          bookId,
         });
         return completeJsonResponse(response.status, response.body);
       }
@@ -415,9 +415,9 @@ export function createHttpHandler(params: {
           );
         }
 
-        const workspaceId = decodeURIComponent(reportMatch[1]);
+        const bookId = decodeURIComponent(reportMatch[1]);
 
-        if (!isSafeWorkspaceId(workspaceId)) {
+        if (!isSafeBookId(bookId)) {
           return completeJsonResponse(
             400,
             toErrorEnvelope(
@@ -457,7 +457,7 @@ export function createHttpHandler(params: {
           kind: query.value.kind,
           logger: requestLogger,
           to: query.value.to,
-          workspaceId,
+          bookId,
         });
         return completeJsonResponse(response.status, response.body);
       }
@@ -473,9 +473,9 @@ export function createHttpHandler(params: {
           );
         }
 
-        const workspaceId = decodeURIComponent(closeSummaryMatch[1]);
+        const bookId = decodeURIComponent(closeSummaryMatch[1]);
 
-        if (!isSafeWorkspaceId(workspaceId)) {
+        if (!isSafeBookId(bookId)) {
           return completeJsonResponse(
             400,
             toErrorEnvelope(
@@ -513,7 +513,7 @@ export function createHttpHandler(params: {
           from: query.value.from,
           logger: requestLogger,
           to: query.value.to,
-          workspaceId,
+          bookId,
         });
         return completeJsonResponse(response.status, response.body);
       }
@@ -529,9 +529,9 @@ export function createHttpHandler(params: {
           );
         }
 
-        const workspaceId = decodeURIComponent(closePeriodsMatch[1]);
+        const bookId = decodeURIComponent(closePeriodsMatch[1]);
 
-        if (!isSafeWorkspaceId(workspaceId)) {
+        if (!isSafeBookId(bookId)) {
           return completeJsonResponse(
             400,
             toErrorEnvelope(
@@ -544,10 +544,10 @@ export function createHttpHandler(params: {
           );
         }
 
-        const response = await params.service.getWorkspace({
+        const response = await params.service.getBook({
           auth: auth.context,
           logger: requestLogger,
-          workspaceId,
+          bookId,
         });
         return completeJsonResponse(response.status, response.body);
       }
@@ -563,9 +563,9 @@ export function createHttpHandler(params: {
           );
         }
 
-        const workspaceId = decodeURIComponent(qifExportMatch[1]);
+        const bookId = decodeURIComponent(qifExportMatch[1]);
 
-        if (!isSafeWorkspaceId(workspaceId)) {
+        if (!isSafeBookId(bookId)) {
           return completeJsonResponse(
             400,
             toErrorEnvelope(
@@ -605,7 +605,7 @@ export function createHttpHandler(params: {
           from: query.value.from,
           logger: requestLogger,
           to: query.value.to,
-          workspaceId,
+          bookId,
         });
         return completeJsonResponse(response.status, response.body);
       }
@@ -621,9 +621,9 @@ export function createHttpHandler(params: {
           );
         }
 
-        const workspaceId = decodeURIComponent(statementExportMatch[1]);
+        const bookId = decodeURIComponent(statementExportMatch[1]);
 
-        if (!isSafeWorkspaceId(workspaceId)) {
+        if (!isSafeBookId(bookId)) {
           return completeJsonResponse(
             400,
             toErrorEnvelope(
@@ -665,7 +665,7 @@ export function createHttpHandler(params: {
           from: query.value.from,
           logger: requestLogger,
           to: query.value.to,
-          workspaceId,
+          bookId,
         });
         return completeJsonResponse(response.status, response.body);
       }
@@ -681,9 +681,9 @@ export function createHttpHandler(params: {
           );
         }
 
-        const workspaceId = decodeURIComponent(gnucashXmlExportMatch[1]);
+        const bookId = decodeURIComponent(gnucashXmlExportMatch[1]);
 
-        if (!isSafeWorkspaceId(workspaceId)) {
+        if (!isSafeBookId(bookId)) {
           return completeJsonResponse(
             400,
             toErrorEnvelope(
@@ -699,7 +699,7 @@ export function createHttpHandler(params: {
         const response = await params.service.getGnuCashXmlExport({
           auth: auth.context,
           logger: requestLogger,
-          workspaceId,
+          bookId,
         });
         return completeJsonResponse(response.status, response.body);
       }
@@ -715,9 +715,9 @@ export function createHttpHandler(params: {
           );
         }
 
-        const workspaceId = decodeURIComponent(backupsMatch[1]);
+        const bookId = decodeURIComponent(backupsMatch[1]);
 
-        if (!isSafeWorkspaceId(workspaceId)) {
+        if (!isSafeBookId(bookId)) {
           return completeJsonResponse(
             400,
             toErrorEnvelope(
@@ -733,7 +733,7 @@ export function createHttpHandler(params: {
         const response = await params.service.getBackups({
           auth: auth.context,
           logger: requestLogger,
-          workspaceId,
+          bookId,
         });
         return completeJsonResponse(response.status, response.body);
       }
@@ -749,9 +749,9 @@ export function createHttpHandler(params: {
           );
         }
 
-        const workspaceId = decodeURIComponent(householdMembersMatch[1]);
+        const bookId = decodeURIComponent(householdMembersMatch[1]);
 
-        if (!isSafeWorkspaceId(workspaceId)) {
+        if (!isSafeBookId(bookId)) {
           return completeJsonResponse(
             400,
             toErrorEnvelope(
@@ -767,7 +767,7 @@ export function createHttpHandler(params: {
         const response = await params.service.getHouseholdMembers({
           auth: auth.context,
           logger: requestLogger,
-          workspaceId,
+          bookId,
         });
         return completeJsonResponse(response.status, response.body);
       }
@@ -820,9 +820,9 @@ export function createHttpHandler(params: {
           );
         }
 
-        const workspaceId = decodeURIComponent(approvalsMatch[1]);
+        const bookId = decodeURIComponent(approvalsMatch[1]);
 
-        if (!isSafeWorkspaceId(workspaceId)) {
+        if (!isSafeBookId(bookId)) {
           return completeJsonResponse(
             400,
             toErrorEnvelope(
@@ -838,7 +838,7 @@ export function createHttpHandler(params: {
         const response = await params.service.getApprovals({
           auth: auth.context,
           logger: requestLogger,
-          workspaceId,
+          bookId,
         });
         return completeJsonResponse(response.status, response.body);
       }
@@ -957,9 +957,9 @@ export function createHttpHandler(params: {
           );
         }
 
-        const workspaceId = decodeURIComponent(transactionMatch[1]);
+        const bookId = decodeURIComponent(transactionMatch[1]);
 
-        if (!isSafeWorkspaceId(workspaceId)) {
+        if (!isSafeBookId(bookId)) {
           return completeJsonResponse(
             400,
             toErrorEnvelope(
@@ -993,7 +993,7 @@ export function createHttpHandler(params: {
           auth: auth.context,
           logger: requestLogger,
           transaction: payload.value.transaction,
-          workspaceId,
+          bookId,
         });
         return completeJsonResponse(response.status, response.body);
       }
@@ -1009,9 +1009,9 @@ export function createHttpHandler(params: {
           );
         }
 
-        const workspaceId = decodeURIComponent(backupsCreateMatch[1]);
+        const bookId = decodeURIComponent(backupsCreateMatch[1]);
 
-        if (!isSafeWorkspaceId(workspaceId)) {
+        if (!isSafeBookId(bookId)) {
           return completeJsonResponse(
             400,
             toErrorEnvelope(
@@ -1027,7 +1027,7 @@ export function createHttpHandler(params: {
         const response = await params.service.postBackup({
           auth: auth.context,
           logger: requestLogger,
-          workspaceId,
+          bookId,
         });
         return completeJsonResponse(response.status, response.body);
       }
@@ -1043,10 +1043,10 @@ export function createHttpHandler(params: {
           );
         }
 
-        const workspaceId = decodeURIComponent(backupRestoreMatch[1]);
+        const bookId = decodeURIComponent(backupRestoreMatch[1]);
         const backupId = decodeURIComponent(backupRestoreMatch[2]);
 
-        if (!isSafeWorkspaceId(workspaceId)) {
+        if (!isSafeBookId(bookId)) {
           return completeJsonResponse(
             400,
             toErrorEnvelope(
@@ -1063,7 +1063,7 @@ export function createHttpHandler(params: {
           auth: auth.context,
           backupId,
           logger: requestLogger,
-          workspaceId,
+          bookId,
         });
         return completeJsonResponse(response.status, response.body);
       }
@@ -1079,9 +1079,9 @@ export function createHttpHandler(params: {
           );
         }
 
-        const workspaceId = decodeURIComponent(closePeriodMatch[1]);
+        const bookId = decodeURIComponent(closePeriodMatch[1]);
 
-        if (!isSafeWorkspaceId(workspaceId)) {
+        if (!isSafeBookId(bookId)) {
           return completeJsonResponse(
             400,
             toErrorEnvelope(
@@ -1115,7 +1115,7 @@ export function createHttpHandler(params: {
           auth: auth.context,
           logger: requestLogger,
           payload: payload.value.payload,
-          workspaceId,
+          bookId,
         });
         return completeJsonResponse(response.status, response.body);
       }
@@ -1131,9 +1131,9 @@ export function createHttpHandler(params: {
           );
         }
 
-        const workspaceId = decodeURIComponent(budgetLineMatch[1]);
+        const bookId = decodeURIComponent(budgetLineMatch[1]);
 
-        if (!isSafeWorkspaceId(workspaceId)) {
+        if (!isSafeBookId(bookId)) {
           return completeJsonResponse(
             400,
             toErrorEnvelope(
@@ -1167,7 +1167,7 @@ export function createHttpHandler(params: {
           auth: auth.context,
           line: payload.value.line,
           logger: requestLogger,
-          workspaceId,
+          bookId,
         });
         return completeJsonResponse(response.status, response.body);
       }
@@ -1183,9 +1183,9 @@ export function createHttpHandler(params: {
           );
         }
 
-        const workspaceId = decodeURIComponent(envelopeMatch[1]);
+        const bookId = decodeURIComponent(envelopeMatch[1]);
 
-        if (!isSafeWorkspaceId(workspaceId)) {
+        if (!isSafeBookId(bookId)) {
           return completeJsonResponse(
             400,
             toErrorEnvelope(
@@ -1219,7 +1219,7 @@ export function createHttpHandler(params: {
           auth: auth.context,
           envelope: payload.value.envelope,
           logger: requestLogger,
-          workspaceId,
+          bookId,
         });
         return completeJsonResponse(response.status, response.body);
       }
@@ -1235,9 +1235,9 @@ export function createHttpHandler(params: {
           );
         }
 
-        const workspaceId = decodeURIComponent(statementImportMatch[1]);
+        const bookId = decodeURIComponent(statementImportMatch[1]);
 
-        if (!isSafeWorkspaceId(workspaceId)) {
+        if (!isSafeBookId(bookId)) {
           return completeJsonResponse(
             400,
             toErrorEnvelope(
@@ -1274,7 +1274,7 @@ export function createHttpHandler(params: {
             ...payload.value.payload,
             format: decodeURIComponent(statementImportMatch[2]) as "ofx" | "qfx",
           },
-          workspaceId,
+          bookId,
         });
         return completeJsonResponse(response.status, response.body);
       }
@@ -1290,9 +1290,9 @@ export function createHttpHandler(params: {
           );
         }
 
-        const workspaceId = decodeURIComponent(gnucashXmlImportMatch[1]);
+        const bookId = decodeURIComponent(gnucashXmlImportMatch[1]);
 
-        if (!isSafeWorkspaceId(workspaceId)) {
+        if (!isSafeBookId(bookId)) {
           return completeJsonResponse(
             400,
             toErrorEnvelope(
@@ -1326,7 +1326,7 @@ export function createHttpHandler(params: {
           auth: auth.context,
           logger: requestLogger,
           payload: payload.value.payload,
-          workspaceId,
+          bookId,
         });
         return completeJsonResponse(response.status, response.body);
       }
@@ -1342,9 +1342,9 @@ export function createHttpHandler(params: {
           );
         }
 
-        const workspaceId = decodeURIComponent(envelopeAllocationMatch[1]);
+        const bookId = decodeURIComponent(envelopeAllocationMatch[1]);
 
-        if (!isSafeWorkspaceId(workspaceId)) {
+        if (!isSafeBookId(bookId)) {
           return completeJsonResponse(
             400,
             toErrorEnvelope(
@@ -1378,7 +1378,7 @@ export function createHttpHandler(params: {
           allocation: payload.value.allocation,
           auth: auth.context,
           logger: requestLogger,
-          workspaceId,
+          bookId,
         });
         return completeJsonResponse(response.status, response.body);
       }
@@ -1394,9 +1394,9 @@ export function createHttpHandler(params: {
           );
         }
 
-        const workspaceId = decodeURIComponent(reconciliationMatch[1]);
+        const bookId = decodeURIComponent(reconciliationMatch[1]);
 
-        if (!isSafeWorkspaceId(workspaceId)) {
+        if (!isSafeBookId(bookId)) {
           return completeJsonResponse(
             400,
             toErrorEnvelope(
@@ -1430,7 +1430,7 @@ export function createHttpHandler(params: {
           auth: auth.context,
           logger: requestLogger,
           payload: payload.value.payload,
-          workspaceId,
+          bookId,
         });
         return completeJsonResponse(response.status, response.body);
       }
@@ -1446,9 +1446,9 @@ export function createHttpHandler(params: {
           );
         }
 
-        const workspaceId = decodeURIComponent(scheduleMatch[1]);
+        const bookId = decodeURIComponent(scheduleMatch[1]);
 
-        if (!isSafeWorkspaceId(workspaceId)) {
+        if (!isSafeBookId(bookId)) {
           return completeJsonResponse(
             400,
             toErrorEnvelope(
@@ -1482,7 +1482,7 @@ export function createHttpHandler(params: {
           auth: auth.context,
           logger: requestLogger,
           schedule: payload.value.schedule,
-          workspaceId,
+          bookId,
         });
         return completeJsonResponse(response.status, response.body);
       }
@@ -1498,10 +1498,10 @@ export function createHttpHandler(params: {
           );
         }
 
-        const workspaceId = decodeURIComponent(executeScheduleMatch[1]);
+        const bookId = decodeURIComponent(executeScheduleMatch[1]);
         const scheduleId = decodeURIComponent(executeScheduleMatch[2]);
 
-        if (!isSafeWorkspaceId(workspaceId) || !/^[a-zA-Z0-9:_-]+$/.test(scheduleId)) {
+        if (!isSafeBookId(bookId) || !/^[a-zA-Z0-9:_-]+$/.test(scheduleId)) {
           return completeJsonResponse(
             400,
             toErrorEnvelope(
@@ -1536,7 +1536,7 @@ export function createHttpHandler(params: {
           logger: requestLogger,
           payload: payload.value.payload,
           scheduleId,
-          workspaceId,
+          bookId,
         });
         return completeJsonResponse(response.status, response.body);
       }
@@ -1552,10 +1552,10 @@ export function createHttpHandler(params: {
           );
         }
 
-        const workspaceId = decodeURIComponent(exceptionScheduleMatch[1]);
+        const bookId = decodeURIComponent(exceptionScheduleMatch[1]);
         const scheduleId = decodeURIComponent(exceptionScheduleMatch[2]);
 
-        if (!isSafeWorkspaceId(workspaceId) || !/^[a-zA-Z0-9:_-]+$/.test(scheduleId)) {
+        if (!isSafeBookId(bookId) || !/^[a-zA-Z0-9:_-]+$/.test(scheduleId)) {
           return completeJsonResponse(
             400,
             toErrorEnvelope(
@@ -1590,7 +1590,7 @@ export function createHttpHandler(params: {
           logger: requestLogger,
           payload: payload.value.payload,
           scheduleId,
-          workspaceId,
+          bookId,
         });
         return completeJsonResponse(response.status, response.body);
       }
@@ -1606,9 +1606,9 @@ export function createHttpHandler(params: {
           );
         }
 
-        const workspaceId = decodeURIComponent(csvImportMatch[1]);
+        const bookId = decodeURIComponent(csvImportMatch[1]);
 
-        if (!isSafeWorkspaceId(workspaceId)) {
+        if (!isSafeBookId(bookId)) {
           return completeJsonResponse(
             400,
             toErrorEnvelope(
@@ -1642,7 +1642,7 @@ export function createHttpHandler(params: {
           auth: auth.context,
           logger: requestLogger,
           payload: payload.value.payload,
-          workspaceId,
+          bookId,
         });
         return completeJsonResponse(response.status, response.body);
       }
@@ -1658,9 +1658,9 @@ export function createHttpHandler(params: {
           );
         }
 
-        const workspaceId = decodeURIComponent(qifImportMatch[1]);
+        const bookId = decodeURIComponent(qifImportMatch[1]);
 
-        if (!isSafeWorkspaceId(workspaceId)) {
+        if (!isSafeBookId(bookId)) {
           return completeJsonResponse(
             400,
             toErrorEnvelope(
@@ -1694,7 +1694,7 @@ export function createHttpHandler(params: {
           auth: auth.context,
           logger: requestLogger,
           payload: payload.value.payload,
-          workspaceId,
+          bookId,
         });
         return completeJsonResponse(response.status, response.body);
       }
@@ -1762,9 +1762,9 @@ export function createHttpHandler(params: {
           );
         }
 
-        const workspaceId = decodeURIComponent(householdMemberMatch[1]);
+        const bookId = decodeURIComponent(householdMemberMatch[1]);
 
-        if (!isSafeWorkspaceId(workspaceId)) {
+        if (!isSafeBookId(bookId)) {
           return completeJsonResponse(
             400,
             toErrorEnvelope(
@@ -1798,7 +1798,7 @@ export function createHttpHandler(params: {
           auth: auth.context,
           logger: requestLogger,
           payload: parsed.value.payload,
-          workspaceId,
+          bookId,
         });
         return completeJsonResponse(response.status, response.body);
       }
@@ -1814,9 +1814,9 @@ export function createHttpHandler(params: {
           );
         }
 
-        const workspaceId = decodeURIComponent(approvalRequestMatch[1]);
+        const bookId = decodeURIComponent(approvalRequestMatch[1]);
 
-        if (!isSafeWorkspaceId(workspaceId)) {
+        if (!isSafeBookId(bookId)) {
           return completeJsonResponse(
             400,
             toErrorEnvelope(
@@ -1850,7 +1850,7 @@ export function createHttpHandler(params: {
           auth: auth.context,
           logger: requestLogger,
           payload: parsed.value.payload,
-          workspaceId,
+          bookId,
         });
         return completeJsonResponse(response.status, response.body);
       }
@@ -1866,10 +1866,10 @@ export function createHttpHandler(params: {
           );
         }
 
-        const workspaceId = decodeURIComponent(approvalGrantMatch[1]);
+        const bookId = decodeURIComponent(approvalGrantMatch[1]);
         const approvalId = decodeURIComponent(approvalGrantMatch[2]);
 
-        if (!isSafeWorkspaceId(workspaceId)) {
+        if (!isSafeBookId(bookId)) {
           return completeJsonResponse(
             400,
             toErrorEnvelope(
@@ -1886,7 +1886,7 @@ export function createHttpHandler(params: {
           approvalId,
           auth: auth.context,
           logger: requestLogger,
-          workspaceId,
+          bookId,
         });
         return completeJsonResponse(response.status, response.body);
       }
@@ -1902,10 +1902,10 @@ export function createHttpHandler(params: {
           );
         }
 
-        const workspaceId = decodeURIComponent(approvalDenyMatch[1]);
+        const bookId = decodeURIComponent(approvalDenyMatch[1]);
         const approvalId = decodeURIComponent(approvalDenyMatch[2]);
 
-        if (!isSafeWorkspaceId(workspaceId)) {
+        if (!isSafeBookId(bookId)) {
           return completeJsonResponse(
             400,
             toErrorEnvelope(
@@ -1922,7 +1922,7 @@ export function createHttpHandler(params: {
           approvalId,
           auth: auth.context,
           logger: requestLogger,
-          workspaceId,
+          bookId,
         });
         return completeJsonResponse(response.status, response.body);
       }
@@ -1963,10 +1963,10 @@ export function createHttpHandler(params: {
           );
         }
 
-        const workspaceId = decodeURIComponent(transactionMatch[1]);
+        const bookId = decodeURIComponent(transactionMatch[1]);
         const transactionId = decodeURIComponent(transactionMatch[2]);
 
-        if (!isSafeWorkspaceId(workspaceId) || !/^[a-zA-Z0-9:_-]+$/.test(transactionId)) {
+        if (!isSafeBookId(bookId) || !/^[a-zA-Z0-9:_-]+$/.test(transactionId)) {
           return completeJsonResponse(
             400,
             toErrorEnvelope(
@@ -2001,7 +2001,7 @@ export function createHttpHandler(params: {
           logger: requestLogger,
           transaction: payload.value.transaction,
           transactionId,
-          workspaceId,
+          bookId,
         });
         return completeJsonResponse(response.status, response.body);
       }
@@ -2017,10 +2017,10 @@ export function createHttpHandler(params: {
           );
         }
 
-        const workspaceId = decodeURIComponent(setHouseholdMemberRoleMatch[1]);
+        const bookId = decodeURIComponent(setHouseholdMemberRoleMatch[1]);
         const actor = decodeURIComponent(setHouseholdMemberRoleMatch[2]);
 
-        if (!isSafeWorkspaceId(workspaceId)) {
+        if (!isSafeBookId(bookId)) {
           return completeJsonResponse(
             400,
             toErrorEnvelope(
@@ -2055,7 +2055,7 @@ export function createHttpHandler(params: {
           auth: auth.context,
           logger: requestLogger,
           payload: parsed.value.payload,
-          workspaceId,
+          bookId,
         });
         return completeJsonResponse(response.status, response.body);
       }
@@ -2111,10 +2111,10 @@ export function createHttpHandler(params: {
           );
         }
 
-        const workspaceId = decodeURIComponent(removeHouseholdMemberMatch[1]);
+        const bookId = decodeURIComponent(removeHouseholdMemberMatch[1]);
         const actor = decodeURIComponent(removeHouseholdMemberMatch[2]);
 
-        if (!isSafeWorkspaceId(workspaceId)) {
+        if (!isSafeBookId(bookId)) {
           return completeJsonResponse(
             400,
             toErrorEnvelope(
@@ -2131,7 +2131,7 @@ export function createHttpHandler(params: {
           actor,
           auth: auth.context,
           logger: requestLogger,
-          workspaceId,
+          bookId,
         });
         return completeJsonResponse(response.status, response.body);
       }
@@ -2147,10 +2147,10 @@ export function createHttpHandler(params: {
           );
         }
 
-        const workspaceId = decodeURIComponent((destroyTransactionMatch ?? deleteTransactionMatch)?.[1] ?? "");
+        const bookId = decodeURIComponent((destroyTransactionMatch ?? deleteTransactionMatch)?.[1] ?? "");
         const transactionId = decodeURIComponent((destroyTransactionMatch ?? deleteTransactionMatch)?.[2] ?? "");
 
-        if (!isSafeWorkspaceId(workspaceId) || !/^[a-zA-Z0-9:_-]+$/.test(transactionId)) {
+        if (!isSafeBookId(bookId) || !/^[a-zA-Z0-9:_-]+$/.test(transactionId)) {
           return completeJsonResponse(
             400,
             toErrorEnvelope(
@@ -2168,13 +2168,13 @@ export function createHttpHandler(params: {
               auth: auth.context,
               logger: requestLogger,
               transactionId,
-              workspaceId,
+              bookId,
             })
           : await params.service.deleteTransaction({
               auth: auth.context,
               logger: requestLogger,
               transactionId,
-              workspaceId,
+              bookId,
             });
 
         return completeJsonResponse(response.status, response.body);

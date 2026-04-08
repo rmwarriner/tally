@@ -1,4 +1,4 @@
-import type { FinanceWorkspaceDocument } from "./types";
+import type { FinanceBookDocument } from "./types";
 
 function asStringArray(value: unknown): string[] {
   return Array.isArray(value) ? value.filter((item): item is string => typeof item === "string") : [];
@@ -6,7 +6,7 @@ function asStringArray(value: unknown): string[] {
 
 function asHouseholdMemberRoles(
   value: unknown,
-): FinanceWorkspaceDocument["householdMemberRoles"] {
+): FinanceBookDocument["householdMemberRoles"] {
   if (!value || typeof value !== "object" || Array.isArray(value)) {
     return undefined;
   }
@@ -30,23 +30,23 @@ function asHouseholdMemberRoles(
   return Object.fromEntries(entries);
 }
 
-export function migrateWorkspaceDocument(input: unknown): FinanceWorkspaceDocument {
+export function migrateBookDocument(input: unknown): FinanceBookDocument {
   if (!input || typeof input !== "object" || Array.isArray(input)) {
-    throw new Error("Workspace document must be an object.");
+    throw new Error("Book document must be an object.");
   }
 
-  const document = input as Partial<FinanceWorkspaceDocument> & Record<string, unknown>;
+  const document = input as Partial<FinanceBookDocument> & Record<string, unknown>;
 
   if (typeof document.id !== "string" || document.id.length === 0) {
-    throw new Error("Workspace document id is required.");
+    throw new Error("Book document id is required.");
   }
 
   if (typeof document.name !== "string" || document.name.length === 0) {
-    throw new Error("Workspace document name is required.");
+    throw new Error("Book document name is required.");
   }
 
   if (typeof document.baseCommodityCode !== "string" || document.baseCommodityCode.length === 0) {
-    throw new Error("Workspace document baseCommodityCode is required.");
+    throw new Error("Book document baseCommodityCode is required.");
   }
 
   const householdMemberRoles = asHouseholdMemberRoles(document.householdMemberRoles);

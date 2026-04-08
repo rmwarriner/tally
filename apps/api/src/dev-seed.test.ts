@@ -2,16 +2,16 @@ import { access, mkdtemp, readFile, rm } from "node:fs/promises";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
 import { describe, expect, it } from "vitest";
-import { ensureDemoWorkspaceFile } from "./dev-seed";
+import { ensureDemoBookFile } from "./dev-seed";
 
-describe("demo workspace seeding", () => {
-  it("creates the demo workspace file when it is missing", async () => {
+describe("demo book seeding", () => {
+  it("creates the demo book file when it is missing", async () => {
     const directory = await mkdtemp(join(tmpdir(), "tally-seed-"));
 
-    await ensureDemoWorkspaceFile({ dataDirectory: directory });
+    await ensureDemoBookFile({ dataDirectory: directory });
 
-    const workspacePath = join(directory, "workspace-household-demo.json");
-    const contents = JSON.parse(await readFile(workspacePath, "utf8")) as { id: string; name: string };
+    const bookPath = join(directory, "workspace-household-demo.json");
+    const contents = JSON.parse(await readFile(bookPath, "utf8")) as { id: string; name: string };
 
     expect(contents).toMatchObject({
       id: "workspace-household-demo",
@@ -21,18 +21,18 @@ describe("demo workspace seeding", () => {
     await rm(directory, { recursive: true, force: true });
   });
 
-  it("does not overwrite an existing workspace file", async () => {
+  it("does not overwrite an existing book file", async () => {
     const directory = await mkdtemp(join(tmpdir(), "tally-seed-"));
-    const workspacePath = join(directory, "workspace-household-demo.json");
+    const bookPath = join(directory, "workspace-household-demo.json");
 
-    await ensureDemoWorkspaceFile({ dataDirectory: directory });
-    const original = await readFile(workspacePath, "utf8");
+    await ensureDemoBookFile({ dataDirectory: directory });
+    const original = await readFile(bookPath, "utf8");
 
-    await ensureDemoWorkspaceFile({ dataDirectory: directory });
-    const afterSecondSeed = await readFile(workspacePath, "utf8");
+    await ensureDemoBookFile({ dataDirectory: directory });
+    const afterSecondSeed = await readFile(bookPath, "utf8");
 
     expect(afterSecondSeed).toBe(original);
-    await access(workspacePath);
+    await access(bookPath);
 
     await rm(directory, { recursive: true, force: true });
   });

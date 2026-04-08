@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { createDemoWorkspace } from "./factory";
+import { createDemoBook } from "./factory";
 import { buildOfxExport, parseOfxStatement } from "./ofx";
 
 describe("ofx statement adapter", () => {
@@ -40,13 +40,13 @@ describe("ofx statement adapter", () => {
   });
 
   it("exports account transactions to ofx", () => {
-    const workspace = createDemoWorkspace();
+    const book = createDemoBook();
     const result = buildOfxExport({
       accountId: "acct-checking",
       format: "ofx",
       from: "2026-04-01",
       to: "2026-04-30",
-      workspace,
+      book,
     });
 
     expect(result.fileName).toContain(".ofx");
@@ -88,8 +88,8 @@ describe("ofx statement adapter", () => {
   });
 
   it("exports qfx with sanitized fallbacks and escaped content", () => {
-    const workspace = createDemoWorkspace();
-    workspace.transactions.push({
+    const book = createDemoBook();
+    book.transactions.push({
       description: "  Transfer   to <Savings>  ",
       id: "txn-transfer-1",
       occurredOn: "2026-04-18",
@@ -118,7 +118,7 @@ describe("ofx statement adapter", () => {
       format: "qfx",
       from: "2026-04-01",
       to: "2026-04-30",
-      workspace,
+      book,
     });
 
     expect(result.fileName).toContain(".qfx");
@@ -135,7 +135,7 @@ describe("ofx statement adapter", () => {
         format: "ofx",
         from: "2026-04-01",
         to: "2026-04-30",
-        workspace: createDemoWorkspace(),
+        book: createDemoBook(),
       }),
     ).toThrow("Account acct-missing does not exist.");
   });

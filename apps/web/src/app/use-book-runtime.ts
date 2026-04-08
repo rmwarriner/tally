@@ -1,41 +1,41 @@
 import { useCallback, useEffect, useState } from "react";
-import { fetchDashboard, fetchWorkspace, type DashboardResponse, type WorkspaceResponse } from "./api";
+import { fetchDashboard, fetchBook, type DashboardResponse, type BookResponse } from "./api";
 
-interface UseWorkspaceRuntimeInput {
+interface UseBookRuntimeInput {
   range: { from: string; to: string };
-  workspaceId: string;
+  bookId: string;
 }
 
-export function useWorkspaceRuntime(input: UseWorkspaceRuntimeInput) {
+export function useBookRuntime(input: UseBookRuntimeInput) {
   const [dashboard, setDashboard] = useState<DashboardResponse["dashboard"] | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
-  const [workspace, setWorkspace] = useState<WorkspaceResponse["workspace"] | null>(null);
+  const [book, setBook] = useState<BookResponse["book"] | null>(null);
   const [busy, setBusy] = useState<string | null>(null);
   const [statusMessage, setStatusMessage] = useState<string | null>(null);
 
-  const loadWorkspaceData = useCallback(async () => {
+  const loadBookData = useCallback(async () => {
     setLoading(true);
     setError(null);
 
     try {
-      const [workspaceResponse, dashboardResponse] = await Promise.all([
-        fetchWorkspace(input.workspaceId),
-        fetchDashboard({ ...input.range, workspaceId: input.workspaceId }),
+      const [bookResponse, dashboardResponse] = await Promise.all([
+        fetchBook(input.bookId),
+        fetchDashboard({ ...input.range, bookId: input.bookId }),
       ]);
 
-      setWorkspace(workspaceResponse.workspace);
+      setBook(bookResponse.book);
       setDashboard(dashboardResponse.dashboard);
     } catch (loadError) {
-      setError(loadError instanceof Error ? loadError.message : "Failed to load workspace.");
+      setError(loadError instanceof Error ? loadError.message : "Failed to load book.");
     } finally {
       setLoading(false);
     }
-  }, [input.range, input.workspaceId]);
+  }, [input.range, input.bookId]);
 
   useEffect(() => {
-    void loadWorkspaceData();
-  }, [loadWorkspaceData]);
+    void loadBookData();
+  }, [loadBookData]);
 
   const runMutation = useCallback(
     async (label: string, operation: () => Promise<void>) => {
@@ -44,7 +44,7 @@ export function useWorkspaceRuntime(input: UseWorkspaceRuntimeInput) {
         setStatusMessage(null);
         setError(null);
         await operation();
-        await loadWorkspaceData();
+        await loadBookData();
         setStatusMessage(`${label} completed.`);
       } catch (mutationError) {
         setError(mutationError instanceof Error ? mutationError.message : `${label} failed.`);
@@ -52,16 +52,16 @@ export function useWorkspaceRuntime(input: UseWorkspaceRuntimeInput) {
         setBusy(null);
       }
     },
-    [loadWorkspaceData],
+    [loadBookData],
   );
 
   return {
+    book,
     busy,
     dashboard,
     error,
     loading,
     runMutation,
     statusMessage,
-    workspace,
   };
 }

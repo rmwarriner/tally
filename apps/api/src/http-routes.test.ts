@@ -15,15 +15,15 @@ describe("http routes", () => {
     expect(normalizeRouteLabel("GET", "/health/live")).toBe("/healthz");
     expect(normalizeRouteLabel("GET", "/health/ready")).toBe("/readyz");
     expect(normalizeRouteLabel("GET", "/metrics")).toBe("/metrics");
-    expect(normalizeRouteLabel("GET", "/api/workspaces/demo")).toBe("/api/workspaces/:workspaceId");
-    expect(normalizeRouteLabel("GET", "/api/workspaces/demo/audit-events")).toBe(
-      "/api/workspaces/:workspaceId/audit-events",
+    expect(normalizeRouteLabel("GET", "/api/books/demo")).toBe("/api/books/:bookId");
+    expect(normalizeRouteLabel("GET", "/api/books/demo/audit-events")).toBe(
+      "/api/books/:bookId/audit-events",
     );
-    expect(normalizeRouteLabel("POST", "/api/workspaces/demo/imports/ofx")).toBe(
-      "/api/workspaces/:workspaceId/imports/ofx",
+    expect(normalizeRouteLabel("POST", "/api/books/demo/imports/ofx")).toBe(
+      "/api/books/:bookId/imports/ofx",
     );
-    expect(normalizeRouteLabel("DELETE", "/api/workspaces/demo/transactions/txn-1/destroy")).toBe(
-      "/api/workspaces/:workspaceId/transactions/:transactionId/destroy",
+    expect(normalizeRouteLabel("DELETE", "/api/books/demo/transactions/txn-1/destroy")).toBe(
+      "/api/books/:bookId/transactions/:transactionId/destroy",
     );
   });
 
@@ -36,28 +36,28 @@ describe("http routes", () => {
     expect(isReadinessRoute("GET", "/readyz")).toBe(true);
     expect(isMetricsRoute("GET", "/metrics")).toBe(true);
     expect(isLivenessRoute("POST", "/healthz")).toBe(false);
-    expect(isReadinessRoute("GET", "/api/workspaces/demo")).toBe(false);
+    expect(isReadinessRoute("GET", "/api/books/demo")).toBe(false);
     expect(isMetricsRoute("GET", "/healthz")).toBe(false);
   });
 
   it("matches read route variants", () => {
-    const readWorkspace = matchHttpReadRoutes("/api/workspaces/demo");
-    const readReport = matchHttpReadRoutes("/api/workspaces/demo/reports/cash-flow");
-    const readAuditEvents = matchHttpReadRoutes("/api/workspaces/demo/audit-events");
+    const readWorkspace = matchHttpReadRoutes("/api/books/demo");
+    const readReport = matchHttpReadRoutes("/api/books/demo/reports/cash-flow");
+    const readAuditEvents = matchHttpReadRoutes("/api/books/demo/audit-events");
 
-    expect(readWorkspace.workspaceMatch?.[1]).toBe("demo");
+    expect(readWorkspace.bookMatch?.[1]).toBe("demo");
     expect(readWorkspace.reportMatch).toBeNull();
     expect(readWorkspace.auditEventsMatch).toBeNull();
-    expect(readReport.workspaceMatch).toBeNull();
+    expect(readReport.bookMatch).toBeNull();
     expect(readReport.reportMatch?.[1]).toBe("demo");
     expect(readReport.reportMatch?.[2]).toBe("cash-flow");
     expect(readAuditEvents.auditEventsMatch?.[1]).toBe("demo");
-    expect(readAuditEvents.workspaceMatch).toBeNull();
+    expect(readAuditEvents.bookMatch).toBeNull();
   });
 
   it("matches post route variants and bodyless routes", () => {
-    const postTransactions = matchHttpPostRoutes("/api/workspaces/demo/transactions");
-    const postRestore = matchHttpPostRoutes("/api/workspaces/demo/backups/backup-1/restore");
+    const postTransactions = matchHttpPostRoutes("/api/books/demo/transactions");
+    const postRestore = matchHttpPostRoutes("/api/books/demo/backups/backup-1/restore");
 
     expect(postTransactions.transactionMatch?.[1]).toBe("demo");
     expect(postTransactions.bodylessPostRoute).toBe(false);
@@ -67,8 +67,8 @@ describe("http routes", () => {
   });
 
   it("matches put and delete transaction routes", () => {
-    const putRoutes = matchHttpPutRoutes("/api/workspaces/demo/transactions/txn-42");
-    const deleteRoutes = matchHttpDeleteRoutes("/api/workspaces/demo/transactions/txn-42/destroy");
+    const putRoutes = matchHttpPutRoutes("/api/books/demo/transactions/txn-42");
+    const deleteRoutes = matchHttpDeleteRoutes("/api/books/demo/transactions/txn-42/destroy");
 
     expect(putRoutes.putTransactionMatch?.[1]).toBe("demo");
     expect(putRoutes.putTransactionMatch?.[2]).toBe("txn-42");
@@ -79,10 +79,10 @@ describe("http routes", () => {
   });
 
   it("matches household member routes", () => {
-    const getMembers = matchHttpReadRoutes("/api/workspaces/demo/members");
-    const postMember = matchHttpPostRoutes("/api/workspaces/demo/members");
-    const putRole = matchHttpPutRoutes("/api/workspaces/demo/members/Alice/role");
-    const deleteMember = matchHttpDeleteRoutes("/api/workspaces/demo/members/Alice");
+    const getMembers = matchHttpReadRoutes("/api/books/demo/members");
+    const postMember = matchHttpPostRoutes("/api/books/demo/members");
+    const putRole = matchHttpPutRoutes("/api/books/demo/members/Alice/role");
+    const deleteMember = matchHttpDeleteRoutes("/api/books/demo/members/Alice");
 
     expect(getMembers.householdMembersMatch?.[1]).toBe("demo");
     expect(postMember.householdMemberMatch?.[1]).toBe("demo");

@@ -1,20 +1,20 @@
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { dirname, resolve } from "node:path";
 import { createLogger, type Logger } from "@tally/logging";
-import { migrateWorkspaceDocument, type FinanceWorkspaceDocument } from "@tally/workspace";
+import { migrateBookDocument, type FinanceBookDocument } from "@tally/book";
 import { ConfigValidationError } from "./errors";
 import {
-  copyAllWorkspacesBetweenBackends,
-  copyWorkspaceBetweenBackends,
-  createWorkspacePersistenceBackendFromOptions,
-  exportWorkspaceDocument,
-  importWorkspaceDocument,
+  copyAllBooksBetweenBackends,
+  copyBookBetweenBackends,
+  createBookPersistenceBackendFromOptions,
+  exportBookDocument,
+  importBookDocument,
   type PersistenceCopyManyOnError,
   type PersistenceCopyManyResult,
   type PersistenceCopyResult,
   type PersistenceExportResult,
   type PersistenceImportResult,
-  type WorkspacePersistenceOptions,
+  type BookPersistenceOptions,
 } from "./persistence";
 
 interface ParsedFlags {
@@ -30,10 +30,10 @@ export type PersistenceAdminCommand =
       reportPath?: string;
       rollbackOnFailure: boolean;
       skipValidation: boolean;
-      source: WorkspacePersistenceOptions;
-      target: WorkspacePersistenceOptions;
-      targetWorkspaceId?: string;
-      workspaceId: string;
+      source: BookPersistenceOptions;
+      target: BookPersistenceOptions;
+      targetBookId?: string;
+      bookId: string;
     }
   | {
       backupTarget: boolean;
@@ -43,8 +43,8 @@ export type PersistenceAdminCommand =
       reportPath?: string;
       rollbackOnFailure: boolean;
       skipValidation: boolean;
-      source: WorkspacePersistenceOptions;
-      target: WorkspacePersistenceOptions;
+      source: BookPersistenceOptions;
+      target: BookPersistenceOptions;
     }
   | {
       backupTarget: boolean;
@@ -55,8 +55,8 @@ export type PersistenceAdminCommand =
       retryReportPath: string;
       rollbackOnFailure: boolean;
       skipValidation: boolean;
-      source: WorkspacePersistenceOptions;
-      target: WorkspacePersistenceOptions;
+      source: BookPersistenceOptions;
+      target: BookPersistenceOptions;
     }
   | {
       command: "export";
@@ -64,8 +64,8 @@ export type PersistenceAdminCommand =
       outputPath: string;
       reportPath?: string;
       skipValidation: boolean;
-      source: WorkspacePersistenceOptions;
-      workspaceId: string;
+      source: BookPersistenceOptions;
+      bookId: string;
     }
   | {
       backupTarget: boolean;
@@ -75,9 +75,9 @@ export type PersistenceAdminCommand =
       reportPath?: string;
       rollbackOnFailure: boolean;
       skipValidation: boolean;
-      target: WorkspacePersistenceOptions;
-      targetWorkspaceId?: string;
-      workspaceId: string;
+      target: BookPersistenceOptions;
+      targetBookId?: string;
+      bookId: string;
     };
 
 function parseFlags(argv: string[]): ParsedFlags {
@@ -119,7 +119,7 @@ function readRequired(flags: ParsedFlags, key: string): string {
   return value;
 }
 
-function readBackendOptions(flags: ParsedFlags, prefix: "source" | "target" | "backend"): WorkspacePersistenceOptions {
+function readBackendOptions(flags: ParsedFlags, prefix: "source" | "target" | "backend"): BookPersistenceOptions {
   const backendKey = prefix === "backend" ? "backend" : `${prefix}-backend`;
   const dataDirKey = prefix === "backend" ? "data-dir" : `${prefix}-data-dir`;
   const sqlitePathKey = prefix === "backend" ? "sqlite-path" : `${prefix}-sqlite-path`;
@@ -184,7 +184,7 @@ function buildAdminReport(params: {
   };
 }
 
-function extractFailedWorkspaceIds(report: unknown): string[] {
+function extractFailedBookIds(report: unknown): string[] {
   if (!report || typeof report !== "object" || Array.isArray(report)) {
     throw new ConfigValidationError(["Retry report must be a JSON object."]);
   }
@@ -202,19 +202,19 @@ function extractFailedWorkspaceIds(report: unknown): string[] {
     throw new ConfigValidationError(["Retry report must contain a failures array."]);
   }
 
-  const workspaceIds = candidate.failures
+  const bookIds = candidate.failures
     .map((failure) =>
-      typeof failure === "object" && failure !== null && "workspaceId" in failure
-        ? failure.workspaceId
+      typeof failure === "object" && failure !== null && "bookId" in failure
+        ? failure.bookId
         : undefined,
     )
-    .filter((workspaceId): workspaceId is string => typeof workspaceId === "string" && workspaceId.length > 0);
+    .filter((bookId): bookId is string => typeof bookId === "string" && bookId.length > 0);
 
-  if (workspaceIds.length === 0) {
-    throw new ConfigValidationError(["Retry report does not contain any failed workspace ids."]);
+  if (bookIds.length === 0) {
+    throw new ConfigValidationError(["Retry report does not contain any failed book ids."]);
   }
 
-  return [...new Set(workspaceIds)].sort((left, right) => left.localeCompare(right));
+  return [...new Set(bookIds)].sort((left, right) => left.localeCompare(right));
 }
 
 export function parsePersistenceAdminCommand(argv: string[]): PersistenceAdminCommand {
@@ -243,8 +243,8 @@ export function parsePersistenceAdminCommand(argv: string[]): PersistenceAdminCo
       skipValidation: readBooleanFlag(flags, "skip-validation"),
       source: readBackendOptions(flags, "source"),
       target: readBackendOptions(flags, "target"),
-      targetWorkspaceId: flags.values.get("target-workspace-id"),
-      workspaceId: readRequired(flags, "workspace-id"),
+      targetBookId: flags.values.get("target-book-id"),
+      bookId: readRequired(flags, "book-id"),
     };
   }
 
@@ -285,7 +285,7 @@ export function parsePersistenceAdminCommand(argv: string[]): PersistenceAdminCo
       reportPath: flags.values.get("report-path") ? resolve(flags.values.get("report-path") as string) : undefined,
       skipValidation: readBooleanFlag(flags, "skip-validation"),
       source: readBackendOptions(flags, "backend"),
-      workspaceId: readRequired(flags, "workspace-id"),
+      bookId: readRequired(flags, "book-id"),
     };
   }
 
@@ -298,8 +298,8 @@ export function parsePersistenceAdminCommand(argv: string[]): PersistenceAdminCo
     rollbackOnFailure: readBooleanFlag(flags, "rollback-on-failure"),
     skipValidation: readBooleanFlag(flags, "skip-validation"),
     target: readBackendOptions(flags, "backend"),
-    targetWorkspaceId: flags.values.get("target-workspace-id"),
-    workspaceId: readRequired(flags, "workspace-id"),
+    targetBookId: flags.values.get("target-book-id"),
+    bookId: readRequired(flags, "book-id"),
   };
 }
 
@@ -320,24 +320,24 @@ export async function runPersistenceAdminCommand(params: {
     command.command === "copy-all" ||
     command.command === "retry-failures"
   ) {
-    const source = createWorkspacePersistenceBackendFromOptions({
+    const source = createBookPersistenceBackendFromOptions({
       logger,
       options: command.source,
     });
-    const target = createWorkspacePersistenceBackendFromOptions({
+    const target = createBookPersistenceBackendFromOptions({
       logger,
       options: command.target,
     });
 
     try {
       if (command.command === "copy-all" || command.command === "retry-failures") {
-        const workspaceIds =
+        const bookIds =
           command.command === "retry-failures"
-            ? extractFailedWorkspaceIds(
+            ? extractFailedBookIds(
                 JSON.parse(await readFile(command.retryReportPath, "utf8")) as unknown,
               )
             : undefined;
-        const result = await copyAllWorkspacesBetweenBackends({
+        const result = await copyAllBooksBetweenBackends({
           backupTarget: command.backupTarget,
           dryRun: command.dryRun,
           logger,
@@ -346,13 +346,13 @@ export async function runPersistenceAdminCommand(params: {
           source,
           target,
           validate: !command.skipValidation,
-          workspaceIds,
+          bookIds,
         });
         await writeReportFile(command.reportPath, buildAdminReport({ command: command.command, result }));
         logger.info(
           command.command === "retry-failures"
-            ? "persistence workspace retry-failures completed"
-            : "persistence workspace copy-all completed",
+            ? "persistence book retry-failures completed"
+            : "persistence book copy-all completed",
           {
           dryRun: result.dryRun,
           failureCount: result.failureCount,
@@ -361,38 +361,38 @@ export async function runPersistenceAdminCommand(params: {
           sourceBackend: command.source.persistenceBackend,
           successCount: result.successCount,
           targetBackend: command.target.persistenceBackend,
-          workspaceCount: result.workspaceIds.length,
+          bookCount: result.bookIds.length,
           },
         );
 
         if (result.failureCount > 0) {
           throw new Error(
-            `Persistence ${command.command} completed with ${result.failureCount} failure(s) out of ${result.workspaceIds.length} workspace(s).`,
+            `Persistence ${command.command} completed with ${result.failureCount} failure(s) out of ${result.bookIds.length} book(s).`,
           );
         }
       } else {
-        const result = await copyWorkspaceBetweenBackends({
+        const result = await copyBookBetweenBackends({
           backupTarget: command.backupTarget,
           dryRun: command.dryRun,
           logger,
           rollbackOnFailure: command.rollbackOnFailure,
           source,
-          sourceWorkspaceId: command.workspaceId,
+          sourceBookId: command.bookId,
           target,
-          targetWorkspaceId: command.targetWorkspaceId,
+          targetBookId: command.targetBookId,
           validate: !command.skipValidation,
         });
         await writeReportFile(command.reportPath, buildAdminReport({ command: command.command, result }));
-        logger.info("persistence workspace copy completed", {
+        logger.info("persistence book copy completed", {
           dryRun: result.dryRun,
           sourceValidationOk: result.sourceValidation?.ok,
           sourceBackend: command.source.persistenceBackend,
           targetBackupId: result.targetBackupId,
           targetBackend: command.target.persistenceBackend,
-          targetWorkspaceId: command.targetWorkspaceId ?? command.workspaceId,
-          targetValidationOk: result.targetWorkspaceValidation?.ok,
-          targetWorkspaceWasPresent: result.targetWorkspaceWasPresent,
-          workspaceId: command.workspaceId,
+          targetBookId: command.targetBookId ?? command.bookId,
+          targetValidationOk: result.targetBookValidation?.ok,
+          targetBookWasPresent: result.targetBookWasPresent,
+          bookId: command.bookId,
         });
       }
     } finally {
@@ -403,18 +403,18 @@ export async function runPersistenceAdminCommand(params: {
   }
 
   if (command.command === "export") {
-    const source = createWorkspacePersistenceBackendFromOptions({
+    const source = createBookPersistenceBackendFromOptions({
       logger,
       options: command.source,
     });
 
     try {
-      const result = await exportWorkspaceDocument({
+      const result = await exportBookDocument({
         backend: source,
         dryRun: command.dryRun,
         logger,
         validate: !command.skipValidation,
-        workspaceId: command.workspaceId,
+        bookId: command.bookId,
       });
       await writeReportFile(command.reportPath, buildAdminReport({ command: "export", result }));
 
@@ -423,12 +423,12 @@ export async function runPersistenceAdminCommand(params: {
         await writeFile(command.outputPath, `${JSON.stringify(result.document, null, 2)}\n`, "utf8");
       }
 
-      logger.info("persistence workspace export completed", {
+      logger.info("persistence book export completed", {
         dryRun: result.dryRun,
         outputPath: command.outputPath,
         sourceBackend: command.source.persistenceBackend,
         validationOk: result.validation?.ok,
-        workspaceId: command.workspaceId,
+        bookId: command.bookId,
       });
     } finally {
       await source.close?.();
@@ -437,22 +437,22 @@ export async function runPersistenceAdminCommand(params: {
     return;
   }
 
-  const target = createWorkspacePersistenceBackendFromOptions({
+  const target = createBookPersistenceBackendFromOptions({
     logger,
     options: command.target,
   });
 
   try {
     const raw = await readFile(command.inputPath, "utf8");
-    const importedDocument = migrateWorkspaceDocument(JSON.parse(raw) as unknown);
+    const importedDocument = migrateBookDocument(JSON.parse(raw) as unknown);
     const document =
-      command.targetWorkspaceId && command.targetWorkspaceId !== importedDocument.id
+      command.targetBookId && command.targetBookId !== importedDocument.id
         ? {
             ...importedDocument,
-            id: command.targetWorkspaceId,
+            id: command.targetBookId,
           }
         : importedDocument;
-    const result = await importWorkspaceDocument({
+    const result = await importBookDocument({
       backend: target,
       backupTarget: command.backupTarget,
       document,
@@ -462,16 +462,16 @@ export async function runPersistenceAdminCommand(params: {
       validate: !command.skipValidation,
     });
     await writeReportFile(command.reportPath, buildAdminReport({ command: "import", result }));
-    logger.info("persistence workspace import completed", {
+    logger.info("persistence book import completed", {
       dryRun: result.dryRun,
       inputPath: command.inputPath,
       targetBackupId: result.targetBackupId,
       targetBackend: command.target.persistenceBackend,
-      targetWorkspaceId: document.id,
-      targetValidationOk: result.targetWorkspaceValidation?.ok,
-      targetWorkspaceWasPresent: result.targetWorkspaceWasPresent,
+      targetBookId: document.id,
+      targetValidationOk: result.targetBookValidation?.ok,
+      targetBookWasPresent: result.targetBookWasPresent,
       validationOk: result.validation?.ok,
-      workspaceId: command.workspaceId,
+      bookId: command.bookId,
     });
   } finally {
     await target.close?.();

@@ -15,7 +15,7 @@ export default defineConfig({
         "apps/api/src/**/*.ts",
         "packages/domain/src/**/*.ts",
         "packages/logging/src/**/*.ts",
-        "packages/workspace/src/**/*.ts",
+        "packages/book/src/**/*.ts",
       ],
     },
     environment: "node",

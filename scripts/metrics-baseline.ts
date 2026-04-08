@@ -6,12 +6,12 @@ import { tmpdir } from "node:os";
 import process from "node:process";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
-import { createDemoWorkspace } from "@tally/workspace/src/factory";
-import { loadWorkspaceFromFile, saveWorkspaceToFile } from "@tally/workspace/src/storage-node";
+import { createDemoBook } from "@tally/book/src/factory";
+import { loadBookFromFile, saveBookToFile } from "@tally/book/src/node";
 import {
-  createFileSystemWorkspaceRepository,
+  createFileSystemBookRepository,
   createHttpHandler,
-  createWorkspaceService,
+  createBookService,
 } from "../apps/api/src/index.ts";
 
 interface ApiLatencySummary {
@@ -23,7 +23,7 @@ interface ApiLatencySummary {
   warmup: number;
 }
 
-interface WorkspaceTimingSummary {
+interface BookTimingSummary {
   dataset: "small" | "medium" | "large";
   sizeTransactions: number;
   loadMedianMs: number;
@@ -53,8 +53,8 @@ function median(samples: number[]): number {
   return percentile(samples, 50);
 }
 
-function duplicateWorkspaceTransactions(transactionCount: number) {
-  const base = createDemoWorkspace();
+function duplicateBookTransactions(transactionCount: number) {
+  const base = createDemoBook();
   const baseTransactions = base.transactions.length > 0 ? base.transactions : [];
   const generated = [];
 
@@ -90,12 +90,12 @@ async function timeRequest(requestFactory: () => Request, handler: (request: Req
 }
 
 async function runApiLatencyBaseline(rootDirectory: string): Promise<ApiLatencySummary[]> {
-  const workspace = duplicateWorkspaceTransactions(1000);
-  const workspacePath = join(rootDirectory, `${workspace.id}.json`);
-  await saveWorkspaceToFile(workspacePath, workspace);
+  const book = duplicateBookTransactions(1000);
+  const bookPath = join(rootDirectory, `${book.id}.json`);
+  await saveBookToFile(bookPath, book);
 
-  const service = createWorkspaceService({
-    repository: createFileSystemWorkspaceRepository({ rootDirectory }),
+  const service = createBookService({
+    repository: createFileSystemBookRepository({ rootDirectory }),
   });
   const handlerWithWideLimits = createHttpHandler({
     rateLimitPolicy: {
@@ -111,9 +111,9 @@ async function runApiLatencyBaseline(rootDirectory: string): Promise<ApiLatencyS
   const readSamples: number[] = [];
   const writeSamples: number[] = [];
 
-  const makeReadRequest = () => new Request(`http://localhost-core/api-core/workspaces/${workspace.id}`);
+  const makeReadRequest = () => new Request(`http://localhost-core/api-core/books/${book.id}`);
   const makeWriteRequest = (txnId: string) =>
-    new Request(`http://localhost-core/api-core/workspaces/${workspace.id}/transactions`, {
+    new Request(`http://localhost-core/api-core/books/${book.id}/transactions`, {
       body: JSON.stringify({
         actor: "Primary",
         transaction: {
@@ -151,7 +151,7 @@ async function runApiLatencyBaseline(rootDirectory: string): Promise<ApiLatencyS
 
   return [
     {
-      endpoint: "-core/api-core/workspaces/:workspaceId",
+      endpoint: "-core/api-core/books/:bookId",
       method: "GET",
       p50Ms: roundMs(median(readSamples)),
       p95Ms: roundMs(percentile(readSamples, 95)),
@@ -159,7 +159,7 @@ async function runApiLatencyBaseline(rootDirectory: string): Promise<ApiLatencyS
       warmup,
     },
     {
-      endpoint: "-core/api-core/workspaces/:workspaceId/transactions",
+      endpoint: "-core/api-core/books/:bookId/transactions",
       method: "POST",
       p50Ms: roundMs(median(writeSamples)),
       p95Ms: roundMs(percentile(writeSamples, 95)),
@@ -169,29 +169,29 @@ async function runApiLatencyBaseline(rootDirectory: string): Promise<ApiLatencyS
   ];
 }
 
-async function runWorkspaceLoadSaveBaseline(rootDirectory: string): Promise<WorkspaceTimingSummary[]> {
+async function runBookLoadSaveBaseline(rootDirectory: string): Promise<BookTimingSummary[]> {
   const datasetSizes = [
     { name: "small" as const, transactions: 1000 },
     { name: "medium" as const, transactions: 10000 },
     { name: "large" as const, transactions: 50000 },
   ];
   const iterations = 10;
-  const results: WorkspaceTimingSummary[] = [];
+  const results: BookTimingSummary[] = [];
 
   for (const dataset of datasetSizes) {
-    const workspace = duplicateWorkspaceTransactions(dataset.transactions);
-    const workspacePath = join(rootDirectory, `${workspace.id}.json`);
+    const book = duplicateBookTransactions(dataset.transactions);
+    const bookPath = join(rootDirectory, `${book.id}.json`);
 
     const saveSamples: number[] = [];
     const loadSamples: number[] = [];
 
     for (let index = 0; index < iterations; index += 1) {
       const saveStart = performance.now();
-      await saveWorkspaceToFile(workspacePath, workspace);
+      await saveBookToFile(bookPath, book);
       saveSamples.push(performance.now() - saveStart);
 
       const loadStart = performance.now();
-      await loadWorkspaceFromFile(workspacePath);
+      await loadBookFromFile(bookPath);
       loadSamples.push(performance.now() - loadStart);
     }
 
@@ -245,7 +245,7 @@ async function main(): Promise<void> {
 
   try {
     const apiLatency = await runApiLatencyBaseline(tempDirectory);
-    const workspaceTimings = await runWorkspaceLoadSaveBaseline(tempDirectory);
+    const bookTimings = await runWorkspaceLoadSaveBaseline(tempDirectory);
     const testRuntime = await runTestRuntimeBaseline();
 
     const output = {
@@ -259,18 +259,18 @@ async function main(): Promise<void> {
       },
       protocol: {
         apiLatency: { samples: 30, warmup: 5 },
-        workspaceLoadSave: { iterations: 10 },
+        bookLoadSave: { iterations: 10 },
         testRuntime: { runs: 3 },
       },
       results: {
         apiLatency,
         testRuntime,
-        workspaceLoadSave: workspaceTimings,
+        bookLoadSave: bookTimings,
       },
       thresholds: {
         apiP95RegressionPercent: 10,
         testRuntimeMedianRegressionPercent: 15,
-        workspaceLoadSaveP95RegressionPercent: 10,
+        bookLoadSaveP95RegressionPercent: 10,
       },
     };
 

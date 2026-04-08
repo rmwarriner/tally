@@ -10,8 +10,8 @@ import {
   applyScheduledTransactionException,
   archiveAccount,
   buildDashboardSnapshot,
-  closeWorkspacePeriod,
-  createDemoWorkspace,
+  closeBookPeriod,
+  createDemoBook,
   deleteTransaction,
   denyApproval,
   destroyTransaction,
@@ -19,7 +19,7 @@ import {
   grantApproval,
   importTransactionsFromCsvRows,
   importTransactionsFromStatement,
-  importWorkspaceFromGnuCashXml,
+  importBookFromGnuCashXml,
   importTransactionsFromQif,
   recordEnvelopeAllocation,
   reconcileAccount,
@@ -32,23 +32,23 @@ import {
   updateTransaction,
 } from "./index";
 import { buildGnuCashXmlExport } from "./gnucash-xml";
-import { loadWorkspaceFromFile, saveWorkspaceToFile } from "./storage-node";
+import { loadBookFromFile, saveBookToFile } from "./storage-node";
 
-describe("workspace commands", () => {
+describe("book commands", () => {
   function createTestLogger(records: LogRecord[]) {
     return createLogger({
       minLevel: "debug",
-      service: "workspace-tests",
+      service: "book-tests",
       sink(record) {
         records.push(record);
       },
     });
   }
 
-  it("adds a valid transaction to the workspace", () => {
-    const workspace = createDemoWorkspace();
+  it("adds a valid transaction to the book", () => {
+    const book = createDemoBook();
     const records: LogRecord[] = [];
-    const result = addTransaction(workspace, {
+    const result = addTransaction(book, {
       id: "txn-utilities-1",
       occurredOn: "2026-04-03",
       description: "Electric bill",
@@ -63,14 +63,14 @@ describe("workspace commands", () => {
     expect(result.document.transactions.at(-1)?.id).toBe("txn-utilities-1");
     expect(result.document.auditEvents).toHaveLength(1);
     expect(records.map((record) => record.message)).toEqual([
-      "workspace command started",
-      "workspace command completed",
+      "book command started",
+      "book command completed",
     ]);
   });
 
   it("reconciles an account and marks cleared postings", () => {
-    const workspace = createDemoWorkspace();
-    const result = reconcileAccount(workspace, {
+    const book = createDemoBook();
+    const result = reconcileAccount(book, {
       accountId: "acct-checking",
       statementDate: "2026-04-02",
       statementBalance: 3051.58,
@@ -90,9 +90,9 @@ describe("workspace commands", () => {
   });
 
   it("updates an existing transaction and records an audit event", () => {
-    const workspace = createDemoWorkspace();
+    const book = createDemoBook();
     const result = updateTransaction(
-      workspace,
+      book,
       "txn-grocery-1",
       {
         id: "txn-grocery-1",
@@ -121,9 +121,9 @@ describe("workspace commands", () => {
   });
 
   it("rejects updates for missing transactions", () => {
-    const workspace = createDemoWorkspace();
+    const book = createDemoBook();
     const result = updateTransaction(
-      workspace,
+      book,
       "txn-missing",
       {
         id: "txn-missing",
@@ -144,13 +144,13 @@ describe("workspace commands", () => {
   });
 
   it("soft-deletes transactions without leaving them in operational balances", () => {
-    const workspace = createDemoWorkspace();
-    const before = buildDashboardSnapshot(workspace, {
+    const book = createDemoBook();
+    const before = buildDashboardSnapshot(book, {
       from: "2026-04-01",
       to: "2026-04-30",
     });
     const result = deleteTransaction(
-      workspace,
+      book,
       "txn-grocery-1",
       {
         deletedAt: "2026-04-03T12:00:00Z",
@@ -177,8 +177,8 @@ describe("workspace commands", () => {
   });
 
   it("destroys unreferenced transactions and records a durable destroy audit event", () => {
-    const workspace = createDemoWorkspace();
-    const result = destroyTransaction(workspace, "txn-grocery-1", {
+    const book = createDemoBook();
+    const result = destroyTransaction(book, "txn-grocery-1", {
       audit: { actor: "Primary", occurredAt: "2026-04-03T12:05:00Z" },
     });
 
@@ -192,7 +192,7 @@ describe("workspace commands", () => {
   });
 
   it("imports csv transactions and skips duplicates by fingerprint", () => {
-    const workspace = createDemoWorkspace();
+    const book = createDemoBook();
     const records: LogRecord[] = [];
     const rows = [
       {
@@ -213,7 +213,7 @@ describe("workspace commands", () => {
       },
     ];
 
-    const result = importTransactionsFromCsvRows(workspace, rows, {
+    const result = importTransactionsFromCsvRows(book, rows, {
       batchId: "import-1",
       sourceLabel: "checking.csv",
       importedAt: "2026-04-05T00:00:00Z",
@@ -228,16 +228,16 @@ describe("workspace commands", () => {
     expect(
       records.some(
         (record) =>
-          record.message === "workspace command completed" &&
+          record.message === "book command completed" &&
           record.fields.skippedDuplicates === 1,
       ),
     ).toBe(true);
   });
 
   it("imports qif transactions with category mappings", () => {
-    const workspace = createDemoWorkspace();
+    const book = createDemoBook();
     const result = importTransactionsFromQif(
-      workspace,
+      book,
       {
         batchId: "qif-import-1",
         cashAccountId: "acct-checking",
@@ -290,9 +290,9 @@ LSalary
   });
 
   it("imports ofx transactions with name mappings", () => {
-    const workspace = createDemoWorkspace();
+    const book = createDemoBook();
     const result = importTransactionsFromStatement(
-      workspace,
+      book,
       {
         batchId: "ofx-import-1",
         cashAccountId: "acct-checking",
@@ -346,9 +346,9 @@ LSalary
   });
 
   it("imports qfx transactions and records the qfx audit event", () => {
-    const workspace = createDemoWorkspace();
+    const book = createDemoBook();
     const result = importTransactionsFromStatement(
-      workspace,
+      book,
       {
         batchId: "qfx-import-1",
         cashAccountId: "acct-checking",
@@ -385,7 +385,7 @@ LSalary
   });
 
   it("skips duplicate fingerprints in qif imports", () => {
-    const workspace = createDemoWorkspace();
+    const book = createDemoBook();
     const qifStatement = "!Type:Bank\nD04/04/2026\nT100.00\nPPaycheck\n^\n";
     const params = {
       batchId: "qif-dup-1",
@@ -395,7 +395,7 @@ LSalary
       qif: qifStatement,
       sourceLabel: "checking.qif",
     };
-    const first = importTransactionsFromQif(workspace, params, { audit: { actor: "Primary" } });
+    const first = importTransactionsFromQif(book, params, { audit: { actor: "Primary" } });
     expect(first.ok).toBe(true);
     const count = first.document.transactions.length;
     const second = importTransactionsFromQif(first.document, { ...params, batchId: "qif-dup-2" }, { audit: { actor: "Primary" } });
@@ -404,9 +404,9 @@ LSalary
   });
 
   it("rejects ofx imports with invalid account references", () => {
-    const workspace = createDemoWorkspace();
+    const book = createDemoBook();
     const result = importTransactionsFromStatement(
-      workspace,
+      book,
       {
         batchId: "ofx-bad-1",
         cashAccountId: "acct-nonexistent",
@@ -441,9 +441,9 @@ LSalary
   });
 
   it("rejects malformed statement imports before creating transactions", () => {
-    const workspace = createDemoWorkspace();
+    const book = createDemoBook();
     const result = importTransactionsFromStatement(
-      workspace,
+      book,
       {
         batchId: "bad-statement-1",
         cashAccountId: "acct-checking",
@@ -462,17 +462,17 @@ LSalary
     expect(result.errors).toEqual(["statement: no STMTTRN entries were found."]);
   });
 
-  it("replaces a workspace from gnucash xml", () => {
-    const workspace = createDemoWorkspace();
-    const xml = buildGnuCashXmlExport({ workspace }).contents.replace(
+  it("replaces a book from gnucash xml", () => {
+    const book = createDemoBook();
+    const xml = buildGnuCashXmlExport({ book }).contents.replace(
       'name="Household Finance"',
       'name="Imported Household Finance"',
     );
-    const result = importWorkspaceFromGnuCashXml(
-      workspace,
+    const result = importBookFromGnuCashXml(
+      book,
       {
         importedAt: "2026-04-05T00:00:00Z",
-        sourceLabel: "workspace.gnucash.xml",
+        sourceLabel: "book.gnucash.xml",
         xml,
       },
       {
@@ -485,19 +485,19 @@ LSalary
     expect(result.document.auditEvents.at(-1)?.eventType).toBe("import.gnucash-xml.recorded");
   });
 
-  it("rejects gnucash xml imports for a different workspace id", () => {
-    const workspace = createDemoWorkspace();
+  it("rejects gnucash xml imports for a different book id", () => {
+    const book = createDemoBook();
     const xml = buildGnuCashXmlExport({
-      workspace: {
-        ...workspace,
-        id: "other-workspace",
+      book: {
+        ...book,
+        id: "other-book",
       },
     }).contents;
-    const result = importWorkspaceFromGnuCashXml(
-      workspace,
+    const result = importBookFromGnuCashXml(
+      book,
       {
         importedAt: "2026-04-05T00:00:00Z",
-        sourceLabel: "workspace.gnucash.xml",
+        sourceLabel: "book.gnucash.xml",
         xml,
       },
       {
@@ -507,15 +507,15 @@ LSalary
 
     expect(result.ok).toBe(false);
     expect(result.errors).toEqual([
-      `Workspace XML id other-workspace does not match target workspace ${workspace.id}.`,
+      `Workspace XML id other-book does not match target book ${book.id}.`,
     ]);
   });
 
   it("rejects ofx import when transaction date falls in a locked period", () => {
-    const workspace = createDemoWorkspace();
-    // Close March (demo workspace has no unreconciled transactions in March)
-    const closed = closeWorkspacePeriod(
-      workspace,
+    const book = createDemoBook();
+    // Close March (demo book has no unreconciled transactions in March)
+    const closed = closeBookPeriod(
+      book,
       { closedAt: "2026-04-01T00:00:00Z", closedBy: "Primary", from: "2026-03-01", to: "2026-03-31" },
       { audit: { actor: "Primary" } },
     );
@@ -556,12 +556,12 @@ LSalary
   });
 
   it("rejects gnucash xml imports with invalid xml", () => {
-    const workspace = createDemoWorkspace();
-    const result = importWorkspaceFromGnuCashXml(
-      workspace,
+    const book = createDemoBook();
+    const result = importBookFromGnuCashXml(
+      book,
       {
         importedAt: "2026-04-05T00:00:00Z",
-        sourceLabel: "workspace.gnucash.xml",
+        sourceLabel: "book.gnucash.xml",
         xml: "<gnc-v2 />",
       },
       { audit: { actor: "Primary" } },
@@ -572,7 +572,7 @@ LSalary
   });
 
   it("skips duplicate fingerprints in ofx imports", () => {
-    const workspace = createDemoWorkspace();
+    const book = createDemoBook();
     const ofxStatement = `OFXHEADER:100
 <OFX>
 <BANKMSGSRSV1>
@@ -601,7 +601,7 @@ LSalary
       statement: ofxStatement,
     };
     // First import succeeds
-    const first = importTransactionsFromStatement(workspace, params, { audit: { actor: "Primary" } });
+    const first = importTransactionsFromStatement(book, params, { audit: { actor: "Primary" } });
     expect(first.ok).toBe(true);
     const transactionCount = first.document.transactions.length;
 
@@ -612,9 +612,9 @@ LSalary
   });
 
   it("records closed periods and blocks locked transactions", () => {
-    const workspace = createDemoWorkspace();
-    const closed = closeWorkspacePeriod(
-      workspace,
+    const book = createDemoBook();
+    const closed = closeBookPeriod(
+      book,
       {
         closedAt: "2026-04-01T00:00:00Z",
         closedBy: "Primary",
@@ -650,12 +650,12 @@ LSalary
     expect(lockedTransaction.errors[0]).toContain("locked by closed period 2026-03-01 through 2026-03-31");
   });
 
-  it("rejects a close period when the workspace is not ready to close", () => {
-    // Demo workspace has transactions on 2026-04-01 with an unreconciled checking account,
+  it("rejects a close period when the book is not ready to close", () => {
+    // Demo book has transactions on 2026-04-01 with an unreconciled checking account,
     // which causes the reconciliation readiness check to fail.
-    const workspace = createDemoWorkspace();
-    const result = closeWorkspacePeriod(
-      workspace,
+    const book = createDemoBook();
+    const result = closeBookPeriod(
+      book,
       {
         closedAt: "2026-04-07T00:00:00Z",
         closedBy: "Primary",
@@ -670,10 +670,10 @@ LSalary
   });
 
   it("sorts close periods when more than one period is added", () => {
-    const workspace = createDemoWorkspace();
+    const book = createDemoBook();
     // Close an earlier period first
-    const first = closeWorkspacePeriod(
-      workspace,
+    const first = closeBookPeriod(
+      book,
       {
         closedAt: "2026-03-01T00:00:00Z",
         closedBy: "Primary",
@@ -685,7 +685,7 @@ LSalary
     expect(first.ok).toBe(true);
 
     // Close a later period — the sort comparator at line 1514 will run with 2 periods
-    const second = closeWorkspacePeriod(
+    const second = closeBookPeriod(
       first.document,
       {
         closedAt: "2026-04-01T00:00:00Z",
@@ -703,10 +703,10 @@ LSalary
   });
 
   it("rejects invalid or overlapping close periods", () => {
-    const workspace = createDemoWorkspace();
+    const book = createDemoBook();
 
-    const badDates = closeWorkspacePeriod(
-      workspace,
+    const badDates = closeBookPeriod(
+      book,
       {
         closedAt: "2026-04-01T00:00:00Z",
         closedBy: "Primary",
@@ -719,8 +719,8 @@ LSalary
     expect(badDates.errors).toContain("Close period from must use ISO date format YYYY-MM-DD.");
     expect(badDates.errors).toContain("Close period to must use ISO date format YYYY-MM-DD.");
 
-    const invalid = closeWorkspacePeriod(
-      workspace,
+    const invalid = closeBookPeriod(
+      book,
       {
         closedAt: "not-a-timestamp",
         closedBy: "Primary",
@@ -736,8 +736,8 @@ LSalary
     expect(invalid.errors).toContain("Close period closedAt must be a valid ISO timestamp.");
     expect(invalid.errors).toContain("Close period from must be less than or equal to to.");
 
-    const closed = closeWorkspacePeriod(
-      workspace,
+    const closed = closeBookPeriod(
+      book,
       {
         closedAt: "2026-04-01T00:00:00Z",
         closedBy: "Primary",
@@ -751,7 +751,7 @@ LSalary
 
     expect(closed.ok).toBe(true);
 
-    const overlapping = closeWorkspacePeriod(
+    const overlapping = closeBookPeriod(
       closed.document,
       {
         closedAt: "2026-04-02T00:00:00Z",
@@ -769,9 +769,9 @@ LSalary
   });
 
   it("executes due scheduled transactions and advances the schedule", () => {
-    const workspace = createDemoWorkspace();
+    const book = createDemoBook();
     const result = executeScheduledTransaction(
-      workspace,
+      book,
       {
         occurredOn: "2026-05-01",
         scheduleId: "sched-rent",
@@ -795,11 +795,11 @@ LSalary
   });
 
   it("rejects scheduled transaction execution when missing, malformed, locked, or not due", () => {
-    const workspace = createDemoWorkspace();
+    const book = createDemoBook();
 
     expect(
       executeScheduledTransaction(
-        workspace,
+        book,
         {
           occurredOn: "2026-05-01",
           scheduleId: "sched-missing",
@@ -815,7 +815,7 @@ LSalary
 
     expect(
       executeScheduledTransaction(
-        workspace,
+        book,
         {
           occurredOn: "05/01/2026",
           scheduleId: "sched-rent",
@@ -831,7 +831,7 @@ LSalary
 
     expect(
       executeScheduledTransaction(
-        workspace,
+        book,
         {
           occurredOn: "2026-04-01",
           scheduleId: "sched-rent",
@@ -846,7 +846,7 @@ LSalary
     });
 
     const closedDocument = {
-      ...workspace,
+      ...book,
       closePeriods: [
         {
           closedAt: "2026-06-01T00:00:00Z",
@@ -872,10 +872,10 @@ LSalary
   });
 
   it("applies schedule exceptions for skips and deferrals", () => {
-    const workspace = createDemoWorkspace();
+    const book = createDemoBook();
 
     const skipped = applyScheduledTransactionException(
-      workspace,
+      book,
       {
         action: "skip-next",
         effectiveOn: "2026-05-01",
@@ -893,7 +893,7 @@ LSalary
     );
 
     const deferred = applyScheduledTransactionException(
-      workspace,
+      book,
       {
         action: "defer",
         nextDueOn: "2026-05-05",
@@ -915,11 +915,11 @@ LSalary
   });
 
   it("rejects invalid schedule exceptions and budget or envelope writes", () => {
-    const workspace = createDemoWorkspace();
+    const book = createDemoBook();
 
     expect(
       applyScheduledTransactionException(
-        workspace,
+        book,
         {
           action: "skip-next",
           effectiveOn: "05/01/2026",
@@ -936,7 +936,7 @@ LSalary
 
     expect(
       applyScheduledTransactionException(
-        workspace,
+        book,
         {
           action: "defer",
           nextDueOn: "2026-05-01",
@@ -953,7 +953,7 @@ LSalary
 
     expect(
       upsertBaselineBudgetLine(
-        workspace,
+        book,
         {
           accountId: "acct-checking",
           budgetPeriod: "monthly",
@@ -970,7 +970,7 @@ LSalary
     });
 
     const invalidEnvelope = upsertEnvelope(
-      workspace,
+      book,
       {
         availableAmount: createMoney("USD", -10),
         expenseAccountId: "acct-checking",
@@ -989,11 +989,11 @@ LSalary
   });
 
   it("rejects invalid envelope allocations and reconciliation requests", () => {
-    const workspace = createDemoWorkspace();
+    const book = createDemoBook();
 
     expect(
       recordEnvelopeAllocation(
-        workspace,
+        book,
         {
           amount: createMoney("USD", 50),
           envelopeId: "env-missing",
@@ -1012,7 +1012,7 @@ LSalary
 
     expect(
       recordEnvelopeAllocation(
-        workspace,
+        book,
         {
           amount: createMoney("EUR", 50),
           envelopeId: "env-groceries",
@@ -1031,7 +1031,7 @@ LSalary
 
     expect(
       reconcileAccount(
-        workspace,
+        book,
         {
           accountId: "acct-missing",
           clearedTransactionIds: [],
@@ -1048,7 +1048,7 @@ LSalary
     });
 
     const warningResult = reconcileAccount(
-      workspace,
+      book,
       {
         accountId: "acct-checking",
         clearedTransactionIds: ["txn-paycheck-1"],
@@ -1064,30 +1064,30 @@ LSalary
     expect(warningResult.errors).toEqual(["Reconciliation difference is not zero."]);
   });
 
-  it("saves and loads workspace documents through the file adapter", async () => {
+  it("saves and loads book documents through the file adapter", async () => {
     const dir = await mkdtemp(join(tmpdir(), "tally-"));
-    const path = join(dir, "workspace.json");
-    const workspace = createDemoWorkspace();
+    const path = join(dir, "book.json");
+    const book = createDemoBook();
     const records: LogRecord[] = [];
     const logger = createTestLogger(records);
 
-    await saveWorkspaceToFile(path, workspace, { logger });
-    const loaded = await loadWorkspaceFromFile(path, { logger });
+    await saveBookToFile(path, book, { logger });
+    const loaded = await loadBookFromFile(path, { logger });
 
-    expect(loaded.id).toBe(workspace.id);
-    expect(loaded.transactions).toHaveLength(workspace.transactions.length);
+    expect(loaded.id).toBe(book.id);
+    expect(loaded.transactions).toHaveLength(book.transactions.length);
     expect(loaded.auditEvents).toHaveLength(0);
-    expect(records.map((record) => record.message)).toContain("workspace storage save completed");
-    expect(records.map((record) => record.message)).toContain("workspace storage load completed");
+    expect(records.map((record) => record.message)).toContain("book storage save completed");
+    expect(records.map((record) => record.message)).toContain("book storage load completed");
 
     await rm(dir, { recursive: true, force: true });
   });
 
   describe("addHouseholdMember", () => {
-    it("adds a new member to the workspace", () => {
-      const workspace = createDemoWorkspace();
+    it("adds a new member to the book", () => {
+      const book = createDemoBook();
       const result = addHouseholdMember(
-        workspace,
+        book,
         { actor: "Child" },
         { audit: { actor: "Primary" } },
       );
@@ -1102,9 +1102,9 @@ LSalary
     });
 
     it("adds a new member with an explicit role", () => {
-      const workspace = createDemoWorkspace();
+      const book = createDemoBook();
       const result = addHouseholdMember(
-        workspace,
+        book,
         { actor: "Child", role: "guardian" },
         { audit: { actor: "Primary" } },
       );
@@ -1114,26 +1114,26 @@ LSalary
     });
 
     it("rejects an empty actor string", () => {
-      const workspace = createDemoWorkspace();
-      const result = addHouseholdMember(workspace, { actor: "" });
+      const book = createDemoBook();
+      const result = addHouseholdMember(book, { actor: "" });
 
       expect(result.ok).toBe(false);
       expect(result.errors).toEqual(["Household member actor is required."]);
-      expect(result.document.householdMembers).toEqual(workspace.householdMembers);
+      expect(result.document.householdMembers).toEqual(book.householdMembers);
     });
 
     it("rejects a whitespace-only actor string", () => {
-      const workspace = createDemoWorkspace();
-      const result = addHouseholdMember(workspace, { actor: "   " });
+      const book = createDemoBook();
+      const result = addHouseholdMember(book, { actor: "   " });
 
       expect(result.ok).toBe(false);
       expect(result.errors).toEqual(["Household member actor is required."]);
     });
 
     it("rejects a duplicate actor", () => {
-      const workspace = createDemoWorkspace();
-      const existing = workspace.householdMembers[0];
-      const result = addHouseholdMember(workspace, { actor: existing });
+      const book = createDemoBook();
+      const existing = book.householdMembers[0];
+      const result = addHouseholdMember(book, { actor: existing });
 
       expect(result.ok).toBe(false);
       expect(result.errors[0]).toContain("already a household member");
@@ -1142,8 +1142,8 @@ LSalary
 
   describe("removeHouseholdMember", () => {
     it("removes an existing member", () => {
-      const workspace = {
-        ...createDemoWorkspace(),
+      const book = {
+        ...createDemoBook(),
         householdMembers: ["Primary", "Partner", "Admin"],
         householdMemberRoles: {
           Primary: "guardian" as const,
@@ -1152,7 +1152,7 @@ LSalary
         },
       };
       const result = removeHouseholdMember(
-        workspace,
+        book,
         { actor: "Partner" },
         { audit: { actor: "Admin" } },
       );
@@ -1164,38 +1164,38 @@ LSalary
     });
 
     it("rejects removal of a non-member", () => {
-      const workspace = createDemoWorkspace();
-      const result = removeHouseholdMember(workspace, { actor: "Nobody" });
+      const book = createDemoBook();
+      const result = removeHouseholdMember(book, { actor: "Nobody" });
 
       expect(result.ok).toBe(false);
       expect(result.errors[0]).toContain("not a household member");
     });
 
     it("rejects removal of the last admin", () => {
-      const workspace = {
-        ...createDemoWorkspace(),
+      const book = {
+        ...createDemoBook(),
         householdMembers: ["Primary", "Admin"],
         householdMemberRoles: {
           Primary: "guardian" as const,
           Admin: "admin" as const,
         },
       };
-      const result = removeHouseholdMember(workspace, { actor: "Admin" });
+      const result = removeHouseholdMember(book, { actor: "Admin" });
 
       expect(result.ok).toBe(false);
       expect(result.errors[0]).toContain("last admin");
     });
 
     it("allows removal of an admin when another admin remains", () => {
-      const workspace = {
-        ...createDemoWorkspace(),
+      const book = {
+        ...createDemoBook(),
         householdMembers: ["Admin1", "Admin2"],
         householdMemberRoles: {
           Admin1: "admin" as const,
           Admin2: "admin" as const,
         },
       };
-      const result = removeHouseholdMember(workspace, { actor: "Admin1" });
+      const result = removeHouseholdMember(book, { actor: "Admin1" });
 
       expect(result.ok).toBe(true);
       expect(result.document.householdMembers).not.toContain("Admin1");
@@ -1204,8 +1204,8 @@ LSalary
 
   describe("setHouseholdMemberRole", () => {
     it("updates the role of an existing member", () => {
-      const workspace = {
-        ...createDemoWorkspace(),
+      const book = {
+        ...createDemoBook(),
         householdMembers: ["Primary", "Partner", "Admin"],
         householdMemberRoles: {
           Primary: "guardian" as const,
@@ -1214,7 +1214,7 @@ LSalary
         },
       };
       const result = setHouseholdMemberRole(
-        workspace,
+        book,
         { actor: "Partner", role: "guardian" },
         { audit: { actor: "Admin" } },
       );
@@ -1230,62 +1230,62 @@ LSalary
     });
 
     it("rejects role change for a non-member", () => {
-      const workspace = createDemoWorkspace();
-      const result = setHouseholdMemberRole(workspace, { actor: "Nobody", role: "guardian" });
+      const book = createDemoBook();
+      const result = setHouseholdMemberRole(book, { actor: "Nobody", role: "guardian" });
 
       expect(result.ok).toBe(false);
       expect(result.errors[0]).toContain("not a household member");
     });
 
     it("rejects demotion of the last admin", () => {
-      const workspace = {
-        ...createDemoWorkspace(),
+      const book = {
+        ...createDemoBook(),
         householdMembers: ["Primary", "Admin"],
         householdMemberRoles: {
           Primary: "guardian" as const,
           Admin: "admin" as const,
         },
       };
-      const result = setHouseholdMemberRole(workspace, { actor: "Admin", role: "guardian" });
+      const result = setHouseholdMemberRole(book, { actor: "Admin", role: "guardian" });
 
       expect(result.ok).toBe(false);
       expect(result.errors[0]).toContain("last admin");
     });
 
     it("allows demotion of an admin when another admin remains", () => {
-      const workspace = {
-        ...createDemoWorkspace(),
+      const book = {
+        ...createDemoBook(),
         householdMembers: ["Admin1", "Admin2"],
         householdMemberRoles: {
           Admin1: "admin" as const,
           Admin2: "admin" as const,
         },
       };
-      const result = setHouseholdMemberRole(workspace, { actor: "Admin1", role: "guardian" });
+      const result = setHouseholdMemberRole(book, { actor: "Admin1", role: "guardian" });
 
       expect(result.ok).toBe(true);
       expect(result.document.householdMemberRoles?.["Admin1"]).toBe("guardian");
     });
 
     it("keeps admin role when setting admin to admin", () => {
-      const workspace = {
-        ...createDemoWorkspace(),
+      const book = {
+        ...createDemoBook(),
         householdMembers: ["Admin"],
         householdMemberRoles: { Admin: "admin" as const },
       };
-      const result = setHouseholdMemberRole(workspace, { actor: "Admin", role: "admin" });
+      const result = setHouseholdMemberRole(book, { actor: "Admin", role: "admin" });
 
       expect(result.ok).toBe(true);
       expect(result.document.householdMemberRoles?.["Admin"]).toBe("admin");
     });
 
     it("adds a role entry for a member with no previous role entry", () => {
-      const workspace = {
-        ...createDemoWorkspace(),
+      const book = {
+        ...createDemoBook(),
         householdMembers: ["Primary", "NoRole"],
         householdMemberRoles: { Primary: "guardian" as const },
       };
-      const result = setHouseholdMemberRole(workspace, { actor: "NoRole", role: "guardian" });
+      const result = setHouseholdMemberRole(book, { actor: "NoRole", role: "guardian" });
 
       expect(result.ok).toBe(true);
       expect(result.document.auditEvents.at(-1)?.summary).toMatchObject({
@@ -1301,8 +1301,8 @@ LSalary
     const requestedAt = "2026-04-08T10:00:00.000Z";
 
     it("requestApproval creates a pending approval for a destroy-transaction", () => {
-      const workspace = createDemoWorkspace();
-      const result = requestApproval(workspace, {
+      const book = createDemoBook();
+      const result = requestApproval(book, {
         approvalId,
         kind: "destroy-transaction",
         entityId: transactionId,
@@ -1324,8 +1324,8 @@ LSalary
     });
 
     it("requestApproval rejects a duplicate approval id", () => {
-      const workspace = createDemoWorkspace();
-      const first = requestApproval(workspace, {
+      const book = createDemoBook();
+      const first = requestApproval(book, {
         approvalId,
         kind: "destroy-transaction",
         entityId: transactionId,
@@ -1345,8 +1345,8 @@ LSalary
     });
 
     it("requestApproval rejects a missing transaction", () => {
-      const workspace = createDemoWorkspace();
-      const result = requestApproval(workspace, {
+      const book = createDemoBook();
+      const result = requestApproval(book, {
         approvalId,
         kind: "destroy-transaction",
         entityId: "txn-does-not-exist",
@@ -1359,8 +1359,8 @@ LSalary
     });
 
     it("grantApproval destroys the transaction and records audit events", () => {
-      const workspace = createDemoWorkspace();
-      const afterRequest = requestApproval(workspace, {
+      const book = createDemoBook();
+      const afterRequest = requestApproval(book, {
         approvalId,
         kind: "destroy-transaction",
         entityId: transactionId,
@@ -1383,8 +1383,8 @@ LSalary
     });
 
     it("grantApproval rejects self-approval", () => {
-      const workspace = createDemoWorkspace();
-      const afterRequest = requestApproval(workspace, {
+      const book = createDemoBook();
+      const afterRequest = requestApproval(book, {
         approvalId,
         kind: "destroy-transaction",
         entityId: transactionId,
@@ -1403,8 +1403,8 @@ LSalary
     });
 
     it("grantApproval rejects an expired approval", () => {
-      const workspace = createDemoWorkspace();
-      const afterRequest = requestApproval(workspace, {
+      const book = createDemoBook();
+      const afterRequest = requestApproval(book, {
         approvalId,
         kind: "destroy-transaction",
         entityId: transactionId,
@@ -1423,8 +1423,8 @@ LSalary
     });
 
     it("grantApproval rejects an already-reviewed approval", () => {
-      const workspace = createDemoWorkspace();
-      const afterRequest = requestApproval(workspace, {
+      const book = createDemoBook();
+      const afterRequest = requestApproval(book, {
         approvalId,
         kind: "destroy-transaction",
         entityId: transactionId,
@@ -1448,8 +1448,8 @@ LSalary
     });
 
     it("denyApproval marks approval denied and records audit event", () => {
-      const workspace = createDemoWorkspace();
-      const afterRequest = requestApproval(workspace, {
+      const book = createDemoBook();
+      const afterRequest = requestApproval(book, {
         approvalId,
         kind: "destroy-transaction",
         entityId: transactionId,
@@ -1473,8 +1473,8 @@ LSalary
     });
 
     it("denyApproval rejects an already-reviewed approval", () => {
-      const workspace = createDemoWorkspace();
-      const afterRequest = requestApproval(workspace, {
+      const book = createDemoBook();
+      const afterRequest = requestApproval(book, {
         approvalId,
         kind: "destroy-transaction",
         entityId: transactionId,

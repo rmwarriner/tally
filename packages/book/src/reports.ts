@@ -12,9 +12,9 @@ import {
 } from "@tally/domain";
 import { buildDashboardSnapshot } from "./selectors";
 import { listActiveTransactions } from "./transaction-lifecycle";
-import type { FinanceWorkspaceDocument, WorkspaceClosePeriod } from "./types";
+import type { FinanceBookDocument, BookClosePeriod } from "./types";
 
-export type WorkspaceReportKind =
+export type BookReportKind =
   | "budget-vs-actual"
   | "cash-flow"
   | "envelope-summary"
@@ -91,7 +91,7 @@ export interface EnvelopeSummaryReport {
   };
 }
 
-export type WorkspaceReport =
+export type BookReport =
   | BudgetVsActualReport
   | CashFlowReport
   | EnvelopeSummaryReport
@@ -109,7 +109,7 @@ export interface CloseSummary {
   checks: CloseSummaryCheck[];
   from: string;
   importedTransactionCount: number;
-  latestClosePeriod?: WorkspaceClosePeriod;
+  latestClosePeriod?: BookClosePeriod;
   netIncome: MoneyAmount;
   netWorth: MoneyAmount;
   readyToClose: boolean;
@@ -137,7 +137,7 @@ function sumMoneyAmounts(lines: MoneyAmount[], commodityCode: string): MoneyAmou
   );
 }
 
-function hasActivityInRange(document: FinanceWorkspaceDocument, accountId: string, from: string, to: string): boolean {
+function hasActivityInRange(document: FinanceBookDocument, accountId: string, from: string, to: string): boolean {
   return listActiveTransactions(document.transactions).some(
     (transaction) =>
       transaction.occurredOn >= from &&
@@ -146,62 +146,62 @@ function hasActivityInRange(document: FinanceWorkspaceDocument, accountId: strin
   );
 }
 
-export function buildWorkspaceReport(
-  document: FinanceWorkspaceDocument,
+export function buildBookReport(
+  document: FinanceBookDocument,
   range: {
     from: string;
     kind: "net-worth";
     to: string;
   },
 ): NetWorthReport;
-export function buildWorkspaceReport(
-  document: FinanceWorkspaceDocument,
+export function buildBookReport(
+  document: FinanceBookDocument,
   range: {
     from: string;
     kind: "income-statement";
     to: string;
   },
 ): IncomeStatementReport;
-export function buildWorkspaceReport(
-  document: FinanceWorkspaceDocument,
+export function buildBookReport(
+  document: FinanceBookDocument,
   range: {
     from: string;
     kind: "budget-vs-actual";
     to: string;
   },
 ): BudgetVsActualReport;
-export function buildWorkspaceReport(
-  document: FinanceWorkspaceDocument,
+export function buildBookReport(
+  document: FinanceBookDocument,
   range: {
     from: string;
     kind: "cash-flow";
     to: string;
   },
 ): CashFlowReport;
-export function buildWorkspaceReport(
-  document: FinanceWorkspaceDocument,
+export function buildBookReport(
+  document: FinanceBookDocument,
   range: {
     from: string;
     kind: "envelope-summary";
     to: string;
   },
 ): EnvelopeSummaryReport;
-export function buildWorkspaceReport(
-  document: FinanceWorkspaceDocument,
+export function buildBookReport(
+  document: FinanceBookDocument,
   range: {
     from: string;
-    kind: WorkspaceReportKind;
+    kind: BookReportKind;
     to: string;
   },
-): WorkspaceReport;
-export function buildWorkspaceReport(
-  document: FinanceWorkspaceDocument,
+): BookReport;
+export function buildBookReport(
+  document: FinanceBookDocument,
   range: {
     from: string;
-    kind: WorkspaceReportKind;
+    kind: BookReportKind;
     to: string;
   },
-): WorkspaceReport {
+): BookReport {
   const commodityCode = document.baseCommodityCode;
   const transactions = listActiveTransactions(document.transactions);
 
@@ -366,7 +366,7 @@ export function buildWorkspaceReport(
 }
 
 export function buildCloseSummary(
-  document: FinanceWorkspaceDocument,
+  document: FinanceBookDocument,
   range: {
     from: string;
     to: string;
@@ -374,12 +374,12 @@ export function buildCloseSummary(
 ): CloseSummary {
   const transactions = listActiveTransactions(document.transactions);
   const dashboard = buildDashboardSnapshot(document, range);
-  const incomeStatement = buildWorkspaceReport(document, {
+  const incomeStatement = buildBookReport(document, {
     from: range.from,
     kind: "income-statement",
     to: range.to,
   });
-  const netWorth = buildWorkspaceReport(document, {
+  const netWorth = buildBookReport(document, {
     from: range.from,
     kind: "net-worth",
     to: range.to,

@@ -11,7 +11,7 @@ export type ApiErrorCode =
   | "request.unsupported_media_type"
   | "security.rate_limited"
   | "validation.failed"
-  | "workspace.not_found";
+  | "book.not_found";
 
 export interface ApiErrorDetails {
   [key: string]: string | number | boolean | string[] | number[] | boolean[] | undefined;

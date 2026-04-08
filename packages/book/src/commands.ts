@@ -30,13 +30,13 @@ import {
 import type {
   ApprovalKind,
   CsvImportRow,
-  FinanceWorkspaceDocument,
+  FinanceBookDocument,
   ImportBatch,
   PendingApproval,
   ReconciliationSession,
 } from "./types";
 
-export interface CommandResult<TDocument = FinanceWorkspaceDocument> {
+export interface CommandResult<TDocument = FinanceBookDocument> {
   ok: boolean;
   errors: string[];
   document: TDocument;
@@ -87,7 +87,7 @@ function fingerprintForTransaction(transaction: Transaction): string {
   ].join("|");
 }
 
-function duplicateImportFingerprints(document: FinanceWorkspaceDocument): Set<string> {
+function duplicateImportFingerprints(document: FinanceBookDocument): Set<string> {
   return new Set(
     document.transactions
       .map((transaction) => transaction.source?.fingerprint)
@@ -96,15 +96,15 @@ function duplicateImportFingerprints(document: FinanceWorkspaceDocument): Set<st
 }
 
 function findLockingClosePeriod(
-  document: FinanceWorkspaceDocument,
+  document: FinanceBookDocument,
   date: string,
-): NonNullable<FinanceWorkspaceDocument["closePeriods"]>[number] | undefined {
+): NonNullable<FinanceBookDocument["closePeriods"]>[number] | undefined {
   return (document.closePeriods ?? []).find(
     (period) => date >= period.from && date <= period.to,
   );
 }
 
-function lockErrorForDate(document: FinanceWorkspaceDocument, date: string): string | undefined {
+function lockErrorForDate(document: FinanceBookDocument, date: string): string | undefined {
   const lockingPeriod = findLockingClosePeriod(document, date);
 
   if (!lockingPeriod) {
@@ -118,7 +118,7 @@ function actorForMutation(options: CommandOptions): string {
   return options.audit?.actor ?? "system";
 }
 
-function referencedTransactionErrors(document: FinanceWorkspaceDocument, transactionId: string): string[] {
+function referencedTransactionErrors(document: FinanceBookDocument, transactionId: string): string[] {
   const errors: string[] = [];
 
   const importBatch = document.importBatches.find((batch) => batch.transactionIds.includes(transactionId));
@@ -151,7 +151,7 @@ function buildImportedTransaction(params: {
   externalReference?: string;
   sourceFingerprintParts: string[];
   tags?: string[];
-  workspace: FinanceWorkspaceDocument;
+  book: FinanceBookDocument;
 }): Transaction {
   const absoluteAmount = Math.abs(params.amount);
   const cashQuantity = params.amount >= 0 ? absoluteAmount : -absoluteAmount;
@@ -165,12 +165,12 @@ function buildImportedTransaction(params: {
     postings: [
       {
         accountId: params.counterpartAccountId,
-        amount: createMoney(params.workspace.baseCommodityCode, counterpartQuantity),
+        amount: createMoney(params.book.baseCommodityCode, counterpartQuantity),
         memo: params.memo,
       },
       {
         accountId: params.cashAccountId,
-        amount: createMoney(params.workspace.baseCommodityCode, cashQuantity),
+        amount: createMoney(params.book.baseCommodityCode, cashQuantity),
         memo: params.memo,
         cleared: true,
       },
@@ -187,7 +187,7 @@ function buildImportedTransaction(params: {
 
 function finalizeImportedTransactions(params: {
   batchId: string;
-  document: FinanceWorkspaceDocument;
+  document: FinanceBookDocument;
   eventType:
     | "import.csv.recorded"
     | "import.gnucash-xml.recorded"
@@ -211,7 +211,7 @@ function finalizeImportedTransactions(params: {
     });
 
     if (!result.ok) {
-      params.logger.warn("workspace command failed while posting imported transactions", {
+      params.logger.warn("book command failed while posting imported transactions", {
         errors: result.errors,
       });
       return result;
@@ -229,7 +229,7 @@ function finalizeImportedTransactions(params: {
     fingerprint: params.transactionsToImport.map(fingerprintForTransaction).join("||"),
   };
 
-  params.logger.info("workspace command completed", {
+  params.logger.info("book command completed", {
     importedTransactionCount: params.transactionsToImport.length,
     skippedDuplicates: params.skippedDuplicates,
   });
@@ -258,27 +258,27 @@ function finalizeImportedTransactions(params: {
 }
 
 export function addTransaction(
-  document: FinanceWorkspaceDocument,
+  document: FinanceBookDocument,
   transaction: Transaction,
   options: CommandOptions = {},
 ): CommandResult {
   const logger = (options.logger ?? createNoopLogger()).child({
     command: "addTransaction",
     transactionId: transaction.id,
-    workspaceId: document.id,
+    bookId: document.id,
   });
-  logger.info("workspace command started");
+  logger.info("book command started");
   const lockError = lockErrorForDate(document, transaction.occurredOn);
 
   if (lockError) {
-    logger.warn("workspace command validation failed", { errors: [lockError] });
+    logger.warn("book command validation failed", { errors: [lockError] });
     return { ok: false, errors: [lockError], document };
   }
 
   const validation = validateTransactionForLedger(transaction, document.accounts);
 
   if (!validation.ok) {
-    logger.warn("workspace command validation failed", { errors: validation.errors });
+    logger.warn("book command validation failed", { errors: validation.errors });
     return { ok: false, errors: validation.errors, document };
   }
 
@@ -288,11 +288,11 @@ export function addTransaction(
   );
 
   if (!posted.ok) {
-    logger.warn("workspace command failed", { errors: posted.errors });
+    logger.warn("book command failed", { errors: posted.errors });
     return { ok: false, errors: posted.errors, document };
   }
 
-  logger.info("workspace command completed", {
+  logger.info("book command completed", {
     transactionCount: posted.ledger.transactions.length,
   });
   const nextDocument = appendAuditEvent(
@@ -320,7 +320,7 @@ export function addTransaction(
 }
 
 export function updateTransaction(
-  document: FinanceWorkspaceDocument,
+  document: FinanceBookDocument,
   transactionId: string,
   transaction: Transaction,
   options: CommandOptions = {},
@@ -328,13 +328,13 @@ export function updateTransaction(
   const logger = (options.logger ?? createNoopLogger()).child({
     command: "updateTransaction",
     transactionId,
-    workspaceId: document.id,
+    bookId: document.id,
   });
-  logger.info("workspace command started");
+  logger.info("book command started");
 
   if (transaction.id !== transactionId) {
     const errors = ["Transaction id in payload must match the route identifier."];
-    logger.warn("workspace command validation failed", { errors });
+    logger.warn("book command validation failed", { errors });
     return { ok: false, errors, document };
   }
 
@@ -342,34 +342,34 @@ export function updateTransaction(
 
   if (!existingTransaction) {
     const errors = [`Transaction ${transactionId} does not exist.`];
-    logger.warn("workspace command validation failed", { errors });
+    logger.warn("book command validation failed", { errors });
     return { ok: false, errors, document };
   }
 
   if (isTransactionDeleted(existingTransaction)) {
     const errors = [`Transaction ${transactionId} is soft-deleted and cannot be updated.`];
-    logger.warn("workspace command validation failed", { errors });
+    logger.warn("book command validation failed", { errors });
     return { ok: false, errors, document };
   }
 
   const existingLockError = lockErrorForDate(document, existingTransaction.occurredOn);
 
   if (existingLockError) {
-    logger.warn("workspace command validation failed", { errors: [existingLockError] });
+    logger.warn("book command validation failed", { errors: [existingLockError] });
     return { ok: false, errors: [existingLockError], document };
   }
 
   const nextLockError = lockErrorForDate(document, transaction.occurredOn);
 
   if (nextLockError) {
-    logger.warn("workspace command validation failed", { errors: [nextLockError] });
+    logger.warn("book command validation failed", { errors: [nextLockError] });
     return { ok: false, errors: [nextLockError], document };
   }
 
   const validation = validateTransactionForLedger(transaction, document.accounts);
 
   if (!validation.ok) {
-    logger.warn("workspace command validation failed", { errors: validation.errors });
+    logger.warn("book command validation failed", { errors: validation.errors });
     return { ok: false, errors: validation.errors, document };
   }
 
@@ -377,7 +377,7 @@ export function updateTransaction(
     candidate.id === transactionId ? transaction : candidate,
   );
 
-  logger.info("workspace command completed", {
+  logger.info("book command completed", {
     postingCount: transaction.postings.length,
     transactionCount: nextTransactions.length,
   });
@@ -408,7 +408,7 @@ export function updateTransaction(
 }
 
 export function deleteTransaction(
-  document: FinanceWorkspaceDocument,
+  document: FinanceBookDocument,
   transactionId: string,
   input: DeleteTransactionInput = {},
   options: CommandOptions = {},
@@ -416,27 +416,27 @@ export function deleteTransaction(
   const logger = (options.logger ?? createNoopLogger()).child({
     command: "deleteTransaction",
     transactionId,
-    workspaceId: document.id,
+    bookId: document.id,
   });
-  logger.info("workspace command started");
+  logger.info("book command started");
 
   const existingTransaction = document.transactions.find((candidate) => candidate.id === transactionId);
 
   if (!existingTransaction) {
     const errors = [`Transaction ${transactionId} does not exist.`];
-    logger.warn("workspace command validation failed", { errors });
+    logger.warn("book command validation failed", { errors });
     return { ok: false, errors, document };
   }
 
   if (isTransactionDeleted(existingTransaction)) {
     const errors = [`Transaction ${transactionId} is already soft-deleted.`];
-    logger.warn("workspace command validation failed", { errors });
+    logger.warn("book command validation failed", { errors });
     return { ok: false, errors, document };
   }
 
   const lockError = lockErrorForDate(document, existingTransaction.occurredOn);
   if (lockError) {
-    logger.warn("workspace command validation failed", { errors: [lockError] });
+    logger.warn("book command validation failed", { errors: [lockError] });
     return { ok: false, errors: [lockError], document };
   }
 
@@ -454,7 +454,7 @@ export function deleteTransaction(
       : candidate,
   );
 
-  logger.info("workspace command completed", {
+  logger.info("book command completed", {
     deletedAt,
     deletedBy,
     transactionCount: nextTransactions.length,
@@ -487,40 +487,40 @@ export function deleteTransaction(
 }
 
 export function destroyTransaction(
-  document: FinanceWorkspaceDocument,
+  document: FinanceBookDocument,
   transactionId: string,
   options: CommandOptions = {},
 ): CommandResult {
   const logger = (options.logger ?? createNoopLogger()).child({
     command: "destroyTransaction",
     transactionId,
-    workspaceId: document.id,
+    bookId: document.id,
   });
-  logger.info("workspace command started");
+  logger.info("book command started");
 
   const existingTransaction = document.transactions.find((candidate) => candidate.id === transactionId);
 
   if (!existingTransaction) {
     const errors = [`Transaction ${transactionId} does not exist.`];
-    logger.warn("workspace command validation failed", { errors });
+    logger.warn("book command validation failed", { errors });
     return { ok: false, errors, document };
   }
 
   const lockError = lockErrorForDate(document, existingTransaction.occurredOn);
   if (lockError) {
-    logger.warn("workspace command validation failed", { errors: [lockError] });
+    logger.warn("book command validation failed", { errors: [lockError] });
     return { ok: false, errors: [lockError], document };
   }
 
   const referenceErrors = referencedTransactionErrors(document, transactionId);
   if (referenceErrors.length > 0) {
-    logger.warn("workspace command validation failed", { errors: referenceErrors });
+    logger.warn("book command validation failed", { errors: referenceErrors });
     return { ok: false, errors: referenceErrors, document };
   }
 
   const nextTransactions = document.transactions.filter((candidate) => candidate.id !== transactionId);
 
-  logger.info("workspace command completed", {
+  logger.info("book command completed", {
     destroyedPreviouslyDeleted: isTransactionDeleted(existingTransaction),
     transactionCount: nextTransactions.length,
   });
@@ -552,16 +552,16 @@ export function destroyTransaction(
 }
 
 export function upsertScheduledTransaction(
-  document: FinanceWorkspaceDocument,
+  document: FinanceBookDocument,
   schedule: ScheduledTransaction,
   options: CommandOptions = {},
 ): CommandResult {
   const logger = (options.logger ?? createNoopLogger()).child({
     command: "upsertScheduledTransaction",
     scheduleId: schedule.id,
-    workspaceId: document.id,
+    bookId: document.id,
   });
-  logger.info("workspace command started");
+  logger.info("book command started");
   const validation = validateTransactionForLedger(
     {
       ...schedule.templateTransaction,
@@ -572,11 +572,11 @@ export function upsertScheduledTransaction(
   );
 
   if (!validation.ok) {
-    logger.warn("workspace command validation failed", { errors: validation.errors });
+    logger.warn("book command validation failed", { errors: validation.errors });
     return { ok: false, errors: validation.errors, document };
   }
 
-  logger.info("workspace command completed");
+  logger.info("book command completed");
   const nextDocument = appendAuditEvent(
     {
       ...document,
@@ -602,7 +602,7 @@ export function upsertScheduledTransaction(
 }
 
 export function executeScheduledTransaction(
-  document: FinanceWorkspaceDocument,
+  document: FinanceBookDocument,
   input: ExecuteScheduledTransactionInput,
   options: CommandOptions = {},
 ): CommandResult {
@@ -610,34 +610,34 @@ export function executeScheduledTransaction(
     command: "executeScheduledTransaction",
     occurredOn: input.occurredOn,
     scheduleId: input.scheduleId,
-    workspaceId: document.id,
+    bookId: document.id,
   });
-  logger.info("workspace command started");
+  logger.info("book command started");
 
   const schedule = document.scheduledTransactions.find((candidate) => candidate.id === input.scheduleId);
 
   if (!schedule) {
     const errors = [`Scheduled transaction ${input.scheduleId} does not exist.`];
-    logger.warn("workspace command validation failed", { errors });
+    logger.warn("book command validation failed", { errors });
     return { ok: false, errors, document };
   }
 
   if (!/^\d{4}-\d{2}-\d{2}$/.test(input.occurredOn)) {
     const errors = ["Scheduled transaction occurredOn must use ISO date format YYYY-MM-DD."];
-    logger.warn("workspace command validation failed", { errors });
+    logger.warn("book command validation failed", { errors });
     return { ok: false, errors, document };
   }
 
   const lockError = lockErrorForDate(document, input.occurredOn);
 
   if (lockError) {
-    logger.warn("workspace command validation failed", { errors: [lockError] });
+    logger.warn("book command validation failed", { errors: [lockError] });
     return { ok: false, errors: [lockError], document };
   }
 
   if (!isScheduleDue(schedule, input.occurredOn)) {
     const errors = [`Scheduled transaction ${input.scheduleId} is not due on ${input.occurredOn}.`];
-    logger.warn("workspace command validation failed", { errors });
+    logger.warn("book command validation failed", { errors });
     return { ok: false, errors, document };
   }
 
@@ -649,7 +649,7 @@ export function executeScheduledTransaction(
   const posted = addTransaction(document, transaction, options);
 
   if (!posted.ok) {
-    logger.warn("workspace command failed", { errors: posted.errors });
+    logger.warn("book command failed", { errors: posted.errors });
     return posted;
   }
 
@@ -673,7 +673,7 @@ export function executeScheduledTransaction(
     options.audit,
   );
 
-  logger.info("workspace command completed", {
+  logger.info("book command completed", {
     nextDueOn: nextSchedule.nextDueOn,
     transactionId: transaction.id,
   });
@@ -686,7 +686,7 @@ export function executeScheduledTransaction(
 }
 
 export function applyScheduledTransactionException(
-  document: FinanceWorkspaceDocument,
+  document: FinanceBookDocument,
   input: ApplyScheduledTransactionExceptionInput,
   options: CommandOptions = {},
 ): CommandResult {
@@ -694,15 +694,15 @@ export function applyScheduledTransactionException(
     action: input.action,
     command: "applyScheduledTransactionException",
     scheduleId: input.scheduleId,
-    workspaceId: document.id,
+    bookId: document.id,
   });
-  logger.info("workspace command started");
+  logger.info("book command started");
 
   const schedule = document.scheduledTransactions.find((candidate) => candidate.id === input.scheduleId);
 
   if (!schedule) {
     const errors = [`Scheduled transaction ${input.scheduleId} does not exist.`];
-    logger.warn("workspace command validation failed", { errors });
+    logger.warn("book command validation failed", { errors });
     return { ok: false, errors, document };
   }
 
@@ -735,7 +735,7 @@ export function applyScheduledTransactionException(
   }
 
   if (errors.length > 0 || !nextSchedule) {
-    logger.warn("workspace command validation failed", { errors });
+    logger.warn("book command validation failed", { errors });
     return { ok: false, errors, document };
   }
 
@@ -759,7 +759,7 @@ export function applyScheduledTransactionException(
     options.audit,
   );
 
-  logger.info("workspace command completed", {
+  logger.info("book command completed", {
     nextDueOn: nextSchedule.nextDueOn,
     previousDueOn: schedule.nextDueOn,
   });
@@ -772,7 +772,7 @@ export function applyScheduledTransactionException(
 }
 
 export function upsertBaselineBudgetLine(
-  document: FinanceWorkspaceDocument,
+  document: FinanceBookDocument,
   line: BaselineBudgetLine,
   options: CommandOptions = {},
 ): CommandResult {
@@ -780,15 +780,15 @@ export function upsertBaselineBudgetLine(
     accountId: line.accountId,
     command: "upsertBaselineBudgetLine",
     period: line.period,
-    workspaceId: document.id,
+    bookId: document.id,
   });
-  logger.info("workspace command started");
+  logger.info("book command started");
   const lines = document.baselineBudgetLines.filter(
     (candidate) =>
       !(candidate.accountId === line.accountId && candidate.period === line.period),
   );
 
-  const nextDocument: FinanceWorkspaceDocument = {
+  const nextDocument: FinanceBookDocument = {
     ...document,
     baselineBudgetLines: [...lines, line].sort((left, right) =>
       `${left.period}:${left.accountId}`.localeCompare(`${right.period}:${right.accountId}`),
@@ -802,11 +802,11 @@ export function upsertBaselineBudgetLine(
   );
 
   if (errors.length > 0) {
-    logger.warn("workspace command validation failed", { errors });
+    logger.warn("book command validation failed", { errors });
     return { ok: false, errors, document };
   }
 
-  logger.info("workspace command completed", {
+  logger.info("book command completed", {
     baselineBudgetLineCount: nextDocument.baselineBudgetLines.length,
   });
 
@@ -829,24 +829,24 @@ export function upsertBaselineBudgetLine(
 }
 
 export function upsertEnvelope(
-  document: FinanceWorkspaceDocument,
+  document: FinanceBookDocument,
   envelope: Envelope,
   options: CommandOptions = {},
 ): CommandResult {
   const logger = (options.logger ?? createNoopLogger()).child({
     command: "upsertEnvelope",
     envelopeId: envelope.id,
-    workspaceId: document.id,
+    bookId: document.id,
   });
-  logger.info("workspace command started");
+  logger.info("book command started");
   const envelopeValidation = validateEnvelope(envelope, document.accounts);
 
   if (!envelopeValidation.ok) {
-    logger.warn("workspace command validation failed", { errors: envelopeValidation.errors });
+    logger.warn("book command validation failed", { errors: envelopeValidation.errors });
     return { ok: false, errors: envelopeValidation.errors, document };
   }
 
-  const nextDocument: FinanceWorkspaceDocument = {
+  const nextDocument: FinanceBookDocument = {
     ...document,
     envelopes: upsertById(document.envelopes, envelope),
   };
@@ -857,11 +857,11 @@ export function upsertEnvelope(
   );
 
   if (configErrors.length > 0) {
-    logger.warn("workspace command validation failed", { errors: configErrors });
+    logger.warn("book command validation failed", { errors: configErrors });
     return { ok: false, errors: configErrors, document };
   }
 
-  logger.info("workspace command completed", {
+  logger.info("book command completed", {
     envelopeCount: nextDocument.envelopes.length,
   });
 
@@ -884,7 +884,7 @@ export function upsertEnvelope(
 }
 
 export function recordEnvelopeAllocation(
-  document: FinanceWorkspaceDocument,
+  document: FinanceBookDocument,
   allocation: EnvelopeAllocation,
   options: CommandOptions = {},
 ): CommandResult {
@@ -892,13 +892,13 @@ export function recordEnvelopeAllocation(
     allocationId: allocation.id,
     command: "recordEnvelopeAllocation",
     envelopeId: allocation.envelopeId,
-    workspaceId: document.id,
+    bookId: document.id,
   });
-  logger.info("workspace command started");
+  logger.info("book command started");
   const lockError = lockErrorForDate(document, allocation.occurredOn);
 
   if (lockError) {
-    logger.warn("workspace command validation failed", { errors: [lockError] });
+    logger.warn("book command validation failed", { errors: [lockError] });
     return {
       ok: false,
       errors: [lockError],
@@ -909,7 +909,7 @@ export function recordEnvelopeAllocation(
   const envelope = document.envelopes.find((candidate) => candidate.id === allocation.envelopeId);
 
   if (!envelope) {
-    logger.warn("workspace command validation failed", {
+    logger.warn("book command validation failed", {
       errors: [`Unknown envelope ${allocation.envelopeId}.`],
     });
     return {
@@ -920,7 +920,7 @@ export function recordEnvelopeAllocation(
   }
 
   if (allocation.amount.commodityCode !== envelope.availableAmount.commodityCode) {
-    logger.warn("workspace command validation failed", {
+    logger.warn("book command validation failed", {
       errors: ["Envelope allocation commodity must match the envelope commodity."],
     });
     return {
@@ -930,7 +930,7 @@ export function recordEnvelopeAllocation(
     };
   }
 
-  logger.info("workspace command completed", {
+  logger.info("book command completed", {
     envelopeAllocationCount: document.envelopeAllocations.length + 1,
   });
   const nextDocument = appendAuditEvent(
@@ -960,7 +960,7 @@ export function recordEnvelopeAllocation(
 }
 
 export function reconcileAccount(
-  document: FinanceWorkspaceDocument,
+  document: FinanceBookDocument,
   params: {
     accountId: string;
     statementDate: string;
@@ -974,22 +974,22 @@ export function reconcileAccount(
     accountId: params.accountId,
     command: "reconcileAccount",
     statementDate: params.statementDate,
-    workspaceId: document.id,
+    bookId: document.id,
   });
-  logger.info("workspace command started", {
+  logger.info("book command started", {
     clearedTransactionIds: params.clearedTransactionIds,
   });
   const lockError = lockErrorForDate(document, params.statementDate);
 
   if (lockError) {
-    logger.warn("workspace command validation failed", { errors: [lockError] });
+    logger.warn("book command validation failed", { errors: [lockError] });
     return { ok: false, errors: [lockError], document };
   }
 
   const account = document.accounts.find((candidate) => candidate.id === params.accountId);
 
   if (!account) {
-    logger.warn("workspace command validation failed", {
+    logger.warn("book command validation failed", {
       errors: [`Unknown account ${params.accountId}.`],
     });
     return { ok: false, errors: [`Unknown account ${params.accountId}.`], document };
@@ -1005,7 +1005,7 @@ export function reconcileAccount(
     const errors = missingTransactionIds.map(
       (transactionId) => `Transaction ${transactionId} does not exist or is soft-deleted.`,
     );
-    logger.warn("workspace command validation failed", { errors });
+    logger.warn("book command validation failed", { errors });
     return { ok: false, errors, document };
   }
 
@@ -1049,12 +1049,12 @@ export function reconcileAccount(
 
   const errors = difference.quantity === 0 ? [] : ["Reconciliation difference is not zero."];
   if (errors.length > 0) {
-    logger.warn("workspace command completed with warnings", {
+    logger.warn("book command completed with warnings", {
       difference: difference.quantity,
       errors,
     });
   } else {
-    logger.info("workspace command completed", {
+    logger.info("book command completed", {
       difference: difference.quantity,
       reconciledTransactionCount: params.clearedTransactionIds.length,
     });
@@ -1086,7 +1086,7 @@ export function reconcileAccount(
 }
 
 export function importTransactionsFromCsvRows(
-  document: FinanceWorkspaceDocument,
+  document: FinanceBookDocument,
   rows: CsvImportRow[],
   metadata: {
     batchId: string;
@@ -1100,9 +1100,9 @@ export function importTransactionsFromCsvRows(
     command: "importTransactionsFromCsvRows",
     provider: "csv",
     sourceLabel: metadata.sourceLabel,
-    workspaceId: document.id,
+    bookId: document.id,
   });
-  logger.info("workspace command started", { rowCount: rows.length });
+  logger.info("book command started", { rowCount: rows.length });
   const seenFingerprints = duplicateImportFingerprints(document);
   const transactionsToImport: Transaction[] = [];
   const errors: string[] = [];
@@ -1137,7 +1137,7 @@ export function importTransactionsFromCsvRows(
         row.counterpartAccountId,
       ],
       tags: row.tags,
-      workspace: document,
+      book: document,
     });
     const validation = validateTransactionForLedger(transaction, document.accounts);
 
@@ -1156,7 +1156,7 @@ export function importTransactionsFromCsvRows(
   }
 
   if (errors.length > 0) {
-    logger.warn("workspace command validation failed", { errors });
+    logger.warn("book command validation failed", { errors });
     return { ok: false, errors, document };
   }
 
@@ -1175,7 +1175,7 @@ export function importTransactionsFromCsvRows(
 }
 
 export function importTransactionsFromQif(
-  document: FinanceWorkspaceDocument,
+  document: FinanceBookDocument,
   params: {
     batchId: string;
     cashAccountId: string;
@@ -1192,13 +1192,13 @@ export function importTransactionsFromQif(
     command: "importTransactionsFromQif",
     provider: "qif",
     sourceLabel: params.sourceLabel,
-    workspaceId: document.id,
+    bookId: document.id,
   });
-  logger.info("workspace command started");
+  logger.info("book command started");
   const parsed = parseQif(params.qif);
 
   if (parsed.errors.length > 0) {
-    logger.warn("workspace command validation failed", { errors: parsed.errors });
+    logger.warn("book command validation failed", { errors: parsed.errors });
     return { ok: false, errors: parsed.errors, document };
   }
 
@@ -1211,7 +1211,7 @@ export function importTransactionsFromQif(
 
     if (lockError) {
       const errors = [`entry ${index + 1}: ${lockError}`];
-      logger.warn("workspace command validation failed", { errors });
+      logger.warn("book command validation failed", { errors });
       return { ok: false, errors, document };
     }
 
@@ -1239,13 +1239,13 @@ export function importTransactionsFromQif(
         counterpartAccountId,
         category ?? "",
       ],
-      workspace: document,
+      book: document,
     });
     const validation = validateTransactionForLedger(transaction, document.accounts);
 
     if (!validation.ok) {
       const errors = validation.errors.map((error) => `entry ${index + 1}: ${error}`);
-      logger.warn("workspace command validation failed", { errors });
+      logger.warn("book command validation failed", { errors });
       return { ok: false, errors, document };
     }
 
@@ -1273,7 +1273,7 @@ export function importTransactionsFromQif(
 }
 
 export function importTransactionsFromStatement(
-  document: FinanceWorkspaceDocument,
+  document: FinanceBookDocument,
   params: {
     batchId: string;
     cashAccountId: string;
@@ -1291,13 +1291,13 @@ export function importTransactionsFromStatement(
     command: "importTransactionsFromStatement",
     provider: params.format,
     sourceLabel: params.sourceLabel,
-    workspaceId: document.id,
+    bookId: document.id,
   });
-  logger.info("workspace command started");
+  logger.info("book command started");
   const parsed = parseOfxStatement(params.statement);
 
   if (parsed.errors.length > 0) {
-    logger.warn("workspace command validation failed", { errors: parsed.errors });
+    logger.warn("book command validation failed", { errors: parsed.errors });
     return { ok: false, errors: parsed.errors, document };
   }
 
@@ -1310,7 +1310,7 @@ export function importTransactionsFromStatement(
 
     if (lockError) {
       const errors = [`entry ${index + 1}: ${lockError}`];
-      logger.warn("workspace command validation failed", { errors });
+      logger.warn("book command validation failed", { errors });
       return { ok: false, errors, document };
     }
 
@@ -1341,13 +1341,13 @@ export function importTransactionsFromStatement(
       payee: entry.name,
       provider: params.format,
       sourceFingerprintParts: fingerprintParts,
-      workspace: document,
+      book: document,
     });
     const validation = validateTransactionForLedger(transaction, document.accounts);
 
     if (!validation.ok) {
       const errors = validation.errors.map((error) => `entry ${index + 1}: ${error}`);
-      logger.warn("workspace command validation failed", { errors });
+      logger.warn("book command validation failed", { errors });
       return { ok: false, errors, document };
     }
 
@@ -1374,8 +1374,8 @@ export function importTransactionsFromStatement(
   });
 }
 
-export function importWorkspaceFromGnuCashXml(
-  document: FinanceWorkspaceDocument,
+export function importBookFromGnuCashXml(
+  document: FinanceBookDocument,
   params: {
     importedAt: string;
     sourceLabel: string;
@@ -1384,33 +1384,33 @@ export function importWorkspaceFromGnuCashXml(
   options: CommandOptions = {},
 ): CommandResult {
   const logger = (options.logger ?? createNoopLogger()).child({
-    command: "importWorkspaceFromGnuCashXml",
+    command: "importBookFromGnuCashXml",
     provider: "gnucash-xml",
     sourceLabel: params.sourceLabel,
-    workspaceId: document.id,
+    bookId: document.id,
   });
-  logger.info("workspace command started");
+  logger.info("book command started");
   const parsed = parseGnuCashXml(params.xml);
 
   if (parsed.errors.length > 0 || !parsed.document) {
-    const errors = parsed.errors.length > 0 ? parsed.errors : ["workspace XML could not be parsed."];
-    logger.warn("workspace command validation failed", { errors });
+    const errors = parsed.errors.length > 0 ? parsed.errors : ["book XML could not be parsed."];
+    logger.warn("book command validation failed", { errors });
     return { ok: false, errors, document };
   }
 
   if (parsed.document.id !== document.id) {
-    const errors = [`Workspace XML id ${parsed.document.id} does not match target workspace ${document.id}.`];
-    logger.warn("workspace command validation failed", { errors });
+    const errors = [`Book XML id ${parsed.document.id} does not match target book ${document.id}.`];
+    logger.warn("book command validation failed", { errors });
     return { ok: false, errors, document };
   }
 
-  const importedDocument: FinanceWorkspaceDocument = {
+  const importedDocument: FinanceBookDocument = {
     ...parsed.document,
     auditEvents: parsed.document.auditEvents,
     closePeriods: parsed.document.closePeriods ?? document.closePeriods ?? [],
   };
 
-  logger.info("workspace command completed", {
+  logger.info("book command completed", {
     transactionCount: importedDocument.transactions.length,
   });
 
@@ -1433,8 +1433,8 @@ export function importWorkspaceFromGnuCashXml(
   };
 }
 
-export function closeWorkspacePeriod(
-  document: FinanceWorkspaceDocument,
+export function closeBookPeriod(
+  document: FinanceBookDocument,
   params: {
     closedAt: string;
     closedBy: string;
@@ -1446,12 +1446,12 @@ export function closeWorkspacePeriod(
   options: CommandOptions = {},
 ): CommandResult {
   const logger = (options.logger ?? createNoopLogger()).child({
-    command: "closeWorkspacePeriod",
+    command: "closeBookPeriod",
     from: params.from,
     to: params.to,
-    workspaceId: document.id,
+    bookId: document.id,
   });
-  logger.info("workspace command started");
+  logger.info("book command started");
   const errors: string[] = [];
 
   if (!/^\d{4}-\d{2}-\d{2}$/.test(params.from)) {
@@ -1471,7 +1471,7 @@ export function closeWorkspacePeriod(
   }
 
   if (errors.length > 0) {
-    logger.warn("workspace command validation failed", { errors });
+    logger.warn("book command validation failed", { errors });
     return { ok: false, errors, document };
   }
 
@@ -1483,7 +1483,7 @@ export function closeWorkspacePeriod(
     const overlapErrors = [
       `Close period ${params.from} through ${params.to} overlaps existing closed period ${overlapping.from} through ${overlapping.to}.`,
     ];
-    logger.warn("workspace command validation failed", { errors: overlapErrors });
+    logger.warn("book command validation failed", { errors: overlapErrors });
     return { ok: false, errors: overlapErrors, document };
   }
 
@@ -1499,7 +1499,7 @@ export function closeWorkspacePeriod(
     const summaryErrors = [
       `Period ${params.from} through ${params.to} is not ready to close: ${blockingChecks.join(", ")}.`,
     ];
-    logger.warn("workspace command validation failed", { errors: summaryErrors });
+    logger.warn("book command validation failed", { errors: summaryErrors });
     return { ok: false, errors: summaryErrors, document };
   }
 
@@ -1531,7 +1531,7 @@ export function closeWorkspacePeriod(
     options.audit,
   );
 
-  logger.info("workspace command completed", {
+  logger.info("book command completed", {
     closePeriodCount: nextDocument.closePeriods?.length ?? 0,
   });
 
@@ -1543,7 +1543,7 @@ export function closeWorkspacePeriod(
 }
 
 export function addHouseholdMember(
-  document: FinanceWorkspaceDocument,
+  document: FinanceBookDocument,
   params: {
     actor: string;
     role?: "admin" | "guardian" | "member";
@@ -1553,23 +1553,23 @@ export function addHouseholdMember(
   const logger = (options.logger ?? createNoopLogger()).child({
     command: "addHouseholdMember",
     targetActor: params.actor,
-    workspaceId: document.id,
+    bookId: document.id,
   });
-  logger.info("workspace command started");
+  logger.info("book command started");
 
   if (!params.actor || params.actor.trim().length === 0) {
     const errors = ["Household member actor is required."];
-    logger.warn("workspace command validation failed", { errors });
+    logger.warn("book command validation failed", { errors });
     return { ok: false, errors, document };
   }
 
   if (document.householdMembers.includes(params.actor)) {
     const errors = [`Actor ${params.actor} is already a household member.`];
-    logger.warn("workspace command validation failed", { errors });
+    logger.warn("book command validation failed", { errors });
     return { ok: false, errors, document };
   }
 
-  const nextRoles: FinanceWorkspaceDocument["householdMemberRoles"] = params.role
+  const nextRoles: FinanceBookDocument["householdMemberRoles"] = params.role
     ? { ...(document.householdMemberRoles ?? {}), [params.actor]: params.role }
     : document.householdMemberRoles;
 
@@ -1590,7 +1590,7 @@ export function addHouseholdMember(
     options.audit,
   );
 
-  logger.info("workspace command completed", {
+  logger.info("book command completed", {
     householdMemberCount: nextDocument.householdMembers.length,
   });
 
@@ -1598,7 +1598,7 @@ export function addHouseholdMember(
 }
 
 export function removeHouseholdMember(
-  document: FinanceWorkspaceDocument,
+  document: FinanceBookDocument,
   params: {
     actor: string;
   },
@@ -1607,13 +1607,13 @@ export function removeHouseholdMember(
   const logger = (options.logger ?? createNoopLogger()).child({
     command: "removeHouseholdMember",
     targetActor: params.actor,
-    workspaceId: document.id,
+    bookId: document.id,
   });
-  logger.info("workspace command started");
+  logger.info("book command started");
 
   if (!document.householdMembers.includes(params.actor)) {
     const errors = [`Actor ${params.actor} is not a household member.`];
-    logger.warn("workspace command validation failed", { errors });
+    logger.warn("book command validation failed", { errors });
     return { ok: false, errors, document };
   }
 
@@ -1625,8 +1625,8 @@ export function removeHouseholdMember(
       (member) => member !== params.actor && roles[member] === "admin",
     );
     if (remainingAdmins.length === 0) {
-      const errors = [`Cannot remove ${params.actor}: they are the last admin of this workspace.`];
-      logger.warn("workspace command validation failed", { errors });
+      const errors = [`Cannot remove ${params.actor}: they are the last admin of this book.`];
+      logger.warn("book command validation failed", { errors });
       return { ok: false, errors, document };
     }
   }
@@ -1650,7 +1650,7 @@ export function removeHouseholdMember(
     options.audit,
   );
 
-  logger.info("workspace command completed", {
+  logger.info("book command completed", {
     householdMemberCount: nextDocument.householdMembers.length,
   });
 
@@ -1658,7 +1658,7 @@ export function removeHouseholdMember(
 }
 
 export function setHouseholdMemberRole(
-  document: FinanceWorkspaceDocument,
+  document: FinanceBookDocument,
   params: {
     actor: string;
     role: "admin" | "guardian" | "member";
@@ -1668,13 +1668,13 @@ export function setHouseholdMemberRole(
   const logger = (options.logger ?? createNoopLogger()).child({
     command: "setHouseholdMemberRole",
     targetActor: params.actor,
-    workspaceId: document.id,
+    bookId: document.id,
   });
-  logger.info("workspace command started");
+  logger.info("book command started");
 
   if (!document.householdMembers.includes(params.actor)) {
     const errors = [`Actor ${params.actor} is not a household member.`];
-    logger.warn("workspace command validation failed", { errors });
+    logger.warn("book command validation failed", { errors });
     return { ok: false, errors, document };
   }
 
@@ -1688,9 +1688,9 @@ export function setHouseholdMemberRole(
     );
     if (remainingAdmins.length === 0) {
       const errors = [
-        `Cannot change role of ${params.actor}: they are the last admin of this workspace.`,
+        `Cannot change role of ${params.actor}: they are the last admin of this book.`,
       ];
-      logger.warn("workspace command validation failed", { errors });
+      logger.warn("book command validation failed", { errors });
       return { ok: false, errors, document };
     }
   }
@@ -1714,7 +1714,7 @@ export function setHouseholdMemberRole(
     options.audit,
   );
 
-  logger.info("workspace command completed");
+  logger.info("book command completed");
 
   return { ok: true, errors: [], document: nextDocument };
 }
@@ -1722,7 +1722,7 @@ export function setHouseholdMemberRole(
 const APPROVAL_TTL_MS = 24 * 60 * 60 * 1000; // 24 hours
 
 export function requestApproval(
-  document: FinanceWorkspaceDocument,
+  document: FinanceBookDocument,
   params: {
     approvalId: string;
     entityId: string;
@@ -1736,32 +1736,32 @@ export function requestApproval(
     command: "requestApproval",
     approvalId: params.approvalId,
     kind: params.kind,
-    workspaceId: document.id,
+    bookId: document.id,
   });
-  logger.info("workspace command started");
+  logger.info("book command started");
 
   if (!params.approvalId || params.approvalId.trim().length === 0) {
     const errors = ["Approval id is required."];
-    logger.warn("workspace command validation failed", { errors });
+    logger.warn("book command validation failed", { errors });
     return { ok: false, errors, document };
   }
 
   if (!params.entityId || params.entityId.trim().length === 0) {
     const errors = ["Entity id is required."];
-    logger.warn("workspace command validation failed", { errors });
+    logger.warn("book command validation failed", { errors });
     return { ok: false, errors, document };
   }
 
   if (!params.requestedBy || params.requestedBy.trim().length === 0) {
     const errors = ["requestedBy is required."];
-    logger.warn("workspace command validation failed", { errors });
+    logger.warn("book command validation failed", { errors });
     return { ok: false, errors, document };
   }
 
   const existing = (document.pendingApprovals ?? []).find((a) => a.id === params.approvalId);
   if (existing) {
     const errors = [`Approval ${params.approvalId} already exists.`];
-    logger.warn("workspace command validation failed", { errors });
+    logger.warn("book command validation failed", { errors });
     return { ok: false, errors, document };
   }
 
@@ -1769,7 +1769,7 @@ export function requestApproval(
     const transaction = document.transactions.find((t) => t.id === params.entityId);
     if (!transaction) {
       const errors = [`Transaction ${params.entityId} not found.`];
-      logger.warn("workspace command validation failed", { errors });
+      logger.warn("book command validation failed", { errors });
       return { ok: false, errors, document };
     }
   }
@@ -1806,13 +1806,13 @@ export function requestApproval(
     options.audit,
   );
 
-  logger.info("workspace command completed", { approvalId: params.approvalId });
+  logger.info("book command completed", { approvalId: params.approvalId });
 
   return { ok: true, errors: [], document: nextDocument };
 }
 
 export function grantApproval(
-  document: FinanceWorkspaceDocument,
+  document: FinanceBookDocument,
   params: {
     approvalId: string;
     reviewedBy: string;
@@ -1823,21 +1823,21 @@ export function grantApproval(
   const logger = (options.logger ?? createNoopLogger()).child({
     command: "grantApproval",
     approvalId: params.approvalId,
-    workspaceId: document.id,
+    bookId: document.id,
   });
-  logger.info("workspace command started");
+  logger.info("book command started");
 
   const approval = (document.pendingApprovals ?? []).find((a) => a.id === params.approvalId);
 
   if (!approval) {
     const errors = [`Approval ${params.approvalId} not found.`];
-    logger.warn("workspace command validation failed", { errors });
+    logger.warn("book command validation failed", { errors });
     return { ok: false, errors, document };
   }
 
   if (approval.status !== "pending") {
     const errors = [`Approval ${params.approvalId} is already ${approval.status}.`];
-    logger.warn("workspace command validation failed", { errors });
+    logger.warn("book command validation failed", { errors });
     return { ok: false, errors, document };
   }
 
@@ -1845,13 +1845,13 @@ export function grantApproval(
 
   if (new Date(reviewedAt) > new Date(approval.expiresAt)) {
     const errors = [`Approval ${params.approvalId} has expired.`];
-    logger.warn("workspace command validation failed", { errors });
+    logger.warn("book command validation failed", { errors });
     return { ok: false, errors, document };
   }
 
   if (approval.requestedBy === params.reviewedBy) {
     const errors = [`Approval ${params.approvalId} must be reviewed by a different actor than the requester.`];
-    logger.warn("workspace command validation failed", { errors });
+    logger.warn("book command validation failed", { errors });
     return { ok: false, errors, document };
   }
 
@@ -1862,7 +1862,7 @@ export function grantApproval(
     reviewedAt,
   };
 
-  let nextDoc: FinanceWorkspaceDocument = {
+  let nextDoc: FinanceBookDocument = {
     ...document,
     pendingApprovals: (document.pendingApprovals ?? []).map((a) =>
       a.id === params.approvalId ? updatedApproval : a,
@@ -1876,7 +1876,7 @@ export function grantApproval(
       logger: options.logger,
     });
     if (!destroyResult.ok) {
-      logger.warn("workspace command validation failed — destroy failed after grant", {
+      logger.warn("book command validation failed — destroy failed after grant", {
         errors: destroyResult.errors,
       });
       return { ok: false, errors: destroyResult.errors, document };
@@ -1900,13 +1900,13 @@ export function grantApproval(
     options.audit,
   );
 
-  logger.info("workspace command completed", { approvalId: params.approvalId });
+  logger.info("book command completed", { approvalId: params.approvalId });
 
   return { ok: true, errors: [], document: nextDocument };
 }
 
 export function denyApproval(
-  document: FinanceWorkspaceDocument,
+  document: FinanceBookDocument,
   params: {
     approvalId: string;
     reviewedBy: string;
@@ -1917,21 +1917,21 @@ export function denyApproval(
   const logger = (options.logger ?? createNoopLogger()).child({
     command: "denyApproval",
     approvalId: params.approvalId,
-    workspaceId: document.id,
+    bookId: document.id,
   });
-  logger.info("workspace command started");
+  logger.info("book command started");
 
   const approval = (document.pendingApprovals ?? []).find((a) => a.id === params.approvalId);
 
   if (!approval) {
     const errors = [`Approval ${params.approvalId} not found.`];
-    logger.warn("workspace command validation failed", { errors });
+    logger.warn("book command validation failed", { errors });
     return { ok: false, errors, document };
   }
 
   if (approval.status !== "pending") {
     const errors = [`Approval ${params.approvalId} is already ${approval.status}.`];
-    logger.warn("workspace command validation failed", { errors });
+    logger.warn("book command validation failed", { errors });
     return { ok: false, errors, document };
   }
 
@@ -1965,7 +1965,7 @@ export function denyApproval(
     options.audit,
   );
 
-  logger.info("workspace command completed", { approvalId: params.approvalId });
+  logger.info("book command completed", { approvalId: params.approvalId });
 
   return { ok: true, errors: [], document: nextDocument };
 }

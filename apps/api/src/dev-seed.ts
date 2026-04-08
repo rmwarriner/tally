@@ -1,29 +1,29 @@
 import { access, mkdir } from "node:fs/promises";
 import { join } from "node:path";
 import { createNoopLogger, type Logger } from "@tally/logging";
-import { createDemoWorkspace } from "@tally/workspace";
-import { saveWorkspaceToFile } from "@tally/workspace/src/node";
+import { createDemoBook } from "@tally/book";
+import { saveBookToFile } from "@tally/book/src/node";
 
-export async function ensureDemoWorkspaceFile(params: {
+export async function ensureDemoBookFile(params: {
   dataDirectory: string;
   logger?: Logger;
 }): Promise<void> {
   const logger = (params.logger ?? createNoopLogger()).child({
-    component: "demoWorkspaceSeed",
+    component: "demoBookSeed",
     dataDirectory: params.dataDirectory,
   });
-  const workspace = createDemoWorkspace();
-  const workspacePath = join(params.dataDirectory, `${workspace.id}.json`);
+  const book = createDemoBook();
+  const bookPath = join(params.dataDirectory, `${book.id}.json`);
 
   try {
-    await access(workspacePath);
+    await access(bookPath);
     return;
   } catch {
     await mkdir(params.dataDirectory, { recursive: true });
-    await saveWorkspaceToFile(workspacePath, workspace, { logger });
-    logger.info("seeded demo workspace", {
-      workspaceId: workspace.id,
-      workspacePath,
+    await saveBookToFile(bookPath, book, { logger });
+    logger.info("seeded demo book", {
+      bookId: book.id,
+      bookPath,
     });
   }
 }

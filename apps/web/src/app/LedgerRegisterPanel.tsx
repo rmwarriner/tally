@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, type Dispatch, type RefObject, type SetStateAction } from "react";
-import type { WorkspaceResponse } from "./api";
+import type { BookResponse } from "./api";
 import {
   getInlineSplitAccountApplyKeyAction,
   getInlineSplitAccountGuidance,
@@ -14,7 +14,7 @@ import {
   findAccountSearchExactMatch,
   getAccountSearchMatches,
   getPreferredAccountTypesForPostingAmount,
-  type createLedgerWorkspaceModel,
+  type createLedgerBookModel,
 } from "./shell";
 
 interface InlineNewTransactionDraft {
@@ -37,7 +37,7 @@ interface InlineSplitDraft {
 interface LedgerRegisterPanelProps {
   activeLedgerRegisterTabId: string;
   busy: string | null;
-  expenseAccounts: WorkspaceResponse["workspace"]["accounts"];
+  expenseAccounts: BookResponse["book"]["accounts"];
   formatCurrency: (amount: number) => string;
   formatTransactionStatus: (status: "cleared" | "open" | "reconciled") => string;
   ledgerRange: { from: string; to: string };
@@ -49,8 +49,8 @@ interface LedgerRegisterPanelProps {
   ledgerSearchInputRef: RefObject<HTMLInputElement | null>;
   ledgerSearchText: string;
   ledgerStatusFilter: "all" | "cleared" | "open" | "reconciled";
-  ledgerWorkspace: ReturnType<typeof createLedgerWorkspaceModel>;
-  liquidAccounts: WorkspaceResponse["workspace"]["accounts"];
+  ledgerBook: ReturnType<typeof createLedgerBookModel>;
+  liquidAccounts: BookResponse["book"]["accounts"];
   onActivateLedgerRegisterTab: (tabId: string) => void;
   onCancelInlineEdit: () => void;
   onCloseLedgerRegisterTab: (tabId: string) => void;
@@ -62,7 +62,7 @@ interface LedgerRegisterPanelProps {
   onOpenAdvancedEditor: (transactionId: string) => void;
   onSaveInlineEdit: (transactionId: string) => void;
   onSaveInlineSplitEdit: (input: { splits: InlineSplitDraft[]; transactionId: string }) => void;
-  onStartInlineEdit: (transaction: ReturnType<typeof createLedgerWorkspaceModel>["filteredTransactions"][number]) => void;
+  onStartInlineEdit: (transaction: ReturnType<typeof createLedgerBookModel>["filteredTransactions"][number]) => void;
   onUpdateInlineEditField: (field: keyof LedgerInlineRowEditDraft, value: string) => void;
   inlineEditDraft: LedgerInlineRowEditDraft | null;
   inlineEditingTransactionId: string | null;
@@ -147,21 +147,21 @@ export function LedgerRegisterPanel(props: LedgerRegisterPanelProps) {
       return;
     }
 
-    const expandedRowStillVisible = props.ledgerWorkspace.filteredTransactions.some(
+    const expandedRowStillVisible = props.ledgerBook.filteredTransactions.some(
       (transaction) => transaction.id === expandedTransactionId,
     );
 
     if (!expandedRowStillVisible) {
       setExpandedTransactionId(null);
     }
-  }, [expandedTransactionId, props.ledgerWorkspace.filteredTransactions]);
+  }, [expandedTransactionId, props.ledgerBook.filteredTransactions]);
 
   useEffect(() => {
     if (!editingSplitTransactionId) {
       return;
     }
 
-    const editedSplitRowStillVisible = props.ledgerWorkspace.filteredTransactions.some(
+    const editedSplitRowStillVisible = props.ledgerBook.filteredTransactions.some(
       (transaction) => transaction.id === editingSplitTransactionId,
     );
 
@@ -171,14 +171,14 @@ export function LedgerRegisterPanel(props: LedgerRegisterPanelProps) {
       setActiveSplitAccountSearchIndex(null);
       setHighlightedSplitAccountMatchIndex(0);
     }
-  }, [editingSplitTransactionId, props.ledgerWorkspace.filteredTransactions]);
+  }, [editingSplitTransactionId, props.ledgerBook.filteredTransactions]);
 
-  function formatSplitAccountLabel(account: WorkspaceResponse["workspace"]["accounts"][number]): string {
+  function formatSplitAccountLabel(account: BookResponse["book"]["accounts"][number]): string {
     return account.code ? `${account.name} (${account.code})` : account.name;
   }
 
   function selectSplitAccount(splitIndex: number, accountId: string) {
-    const account = props.ledgerWorkspace.availableAccounts.find((candidate) => candidate.id === accountId);
+    const account = props.ledgerBook.availableAccounts.find((candidate) => candidate.id === accountId);
     if (!account) {
       return;
     }
@@ -321,10 +321,10 @@ export function LedgerRegisterPanel(props: LedgerRegisterPanelProps) {
                 }
               />
             </label>
-            {props.ledgerWorkspace.selectedAccountBalance ? (
+            {props.ledgerBook.selectedAccountBalance ? (
               <div className="ledger-balance-chip">
                 <span>Active balance</span>
-                <strong>{props.formatCurrency(props.ledgerWorkspace.selectedAccountBalance.balance)}</strong>
+                <strong>{props.formatCurrency(props.ledgerBook.selectedAccountBalance.balance)}</strong>
               </div>
             ) : null}
           </div>
@@ -481,8 +481,8 @@ export function LedgerRegisterPanel(props: LedgerRegisterPanelProps) {
                 </button>
               </td>
             </tr>
-            {props.ledgerWorkspace.filteredTransactions.length > 0 ? (
-              props.ledgerWorkspace.filteredTransactions.map((transaction) => {
+            {props.ledgerBook.filteredTransactions.length > 0 ? (
+              props.ledgerBook.filteredTransactions.map((transaction) => {
                 const isEditingRow = props.inlineEditingTransactionId === transaction.id;
                 const rowDraft = isEditingRow && props.inlineEditDraft ? props.inlineEditDraft : null;
                 const isExpandedRow = expandedTransactionId === transaction.id;
@@ -491,7 +491,7 @@ export function LedgerRegisterPanel(props: LedgerRegisterPanelProps) {
                 const splitRowCount = isEditingSplitRow ? isEditingSplitRow.length : transaction.postings.length;
                 const postingRows = isEditingSplitRow
                   ? isEditingSplitRow.map((split, postingIndex) => {
-                      const selectedAccount = props.ledgerWorkspace.availableAccounts.find(
+                      const selectedAccount = props.ledgerBook.availableAccounts.find(
                         (account) => account.id === split.accountId,
                       );
                       return {
@@ -746,7 +746,7 @@ export function LedgerRegisterPanel(props: LedgerRegisterPanelProps) {
                               const accountMatches =
                                 splitDraftRow !== null
                                   ? getAccountSearchMatches({
-                                      accounts: props.ledgerWorkspace.availableAccounts,
+                                      accounts: props.ledgerBook.availableAccounts,
                                       preferredAccountTypes: getPreferredAccountTypesForPostingAmount(
                                         splitDraftRow.amount,
                                       ),
@@ -795,7 +795,7 @@ export function LedgerRegisterPanel(props: LedgerRegisterPanelProps) {
                                             }
 
                                             const exactMatch = findAccountSearchExactMatch({
-                                              accounts: props.ledgerWorkspace.availableAccounts,
+                                              accounts: props.ledgerBook.availableAccounts,
                                               query: splitDraftRow.accountQuery,
                                             });
                                             if (exactMatch) {
@@ -900,7 +900,7 @@ export function LedgerRegisterPanel(props: LedgerRegisterPanelProps) {
                                         }}
                                           onChange={(event) => {
                                             const exactMatch = findAccountSearchExactMatch({
-                                              accounts: props.ledgerWorkspace.availableAccounts,
+                                              accounts: props.ledgerBook.availableAccounts,
                                               query: event.target.value,
                                             });
                                             setEditingSplitDraft((current) =>
@@ -1294,12 +1294,12 @@ export function LedgerRegisterPanel(props: LedgerRegisterPanelProps) {
                                       event.stopPropagation();
                                       const fallbackAccountId =
                                         props.selectedLedgerAccountId ??
-                                        props.ledgerWorkspace.availableAccounts[0]?.id ??
+                                        props.ledgerBook.availableAccounts[0]?.id ??
                                         "";
                                       if (!fallbackAccountId) {
                                         return;
                                       }
-                                      const fallbackAccount = props.ledgerWorkspace.availableAccounts.find(
+                                      const fallbackAccount = props.ledgerBook.availableAccounts.find(
                                         (account) => account.id === fallbackAccountId,
                                       );
                                       const fallbackAccountQuery = fallbackAccount
@@ -1442,7 +1442,7 @@ export function LedgerRegisterPanel(props: LedgerRegisterPanelProps) {
           <span>Balances</span>
           <span className="muted">As of 2026-04-30</span>
         </div>
-        {props.ledgerWorkspace.filteredBalances.map((balance) => (
+        {props.ledgerBook.filteredBalances.map((balance) => (
           <button
             key={`${balance.accountId}:${balance.commodityCode}`}
             className={`metric-button${props.selectedLedgerAccountId === balance.accountId ? " active" : ""}`}

@@ -7,7 +7,7 @@ import {
   starterChartOfAccounts,
   type Commodity,
 } from "@tally/domain";
-import type { FinanceWorkspaceDocument } from "./types";
+import type { FinanceBookDocument } from "./types";
 
 const defaultCommodities: Commodity[] = [
   {
@@ -18,7 +18,7 @@ const defaultCommodities: Commodity[] = [
   },
 ];
 
-export function createDemoWorkspace(): FinanceWorkspaceDocument {
+export function createDemoBook(): FinanceBookDocument {
   return {
     schemaVersion: 1,
     id: "workspace-household-demo",

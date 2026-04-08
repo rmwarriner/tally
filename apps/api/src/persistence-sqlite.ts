@@ -2,11 +2,11 @@ import { mkdir } from "node:fs/promises";
 import { dirname, resolve } from "node:path";
 import { DatabaseSync } from "node:sqlite";
 import { createNoopLogger, type Logger } from "@tally/logging";
-import { migrateWorkspaceDocument, type FinanceWorkspaceDocument } from "@tally/workspace";
+import { migrateBookDocument, type FinanceBookDocument } from "@tally/book";
 import { ApiError } from "./errors";
-import type { WorkspaceBackup, WorkspacePersistenceBackend } from "./persistence";
+import type { BookBackup, BookPersistenceBackend } from "./persistence";
 
-interface WorkspaceRow {
+interface BookRow {
   document_json: string;
 }
 
@@ -18,11 +18,11 @@ interface BackupRow {
   workspace_id: string;
 }
 
-function validateWorkspaceIdentifier(workspaceId: string): void {
-  if (!/^[a-zA-Z0-9_-]+$/.test(workspaceId)) {
+function validateBookIdentifier(bookId: string): void {
+  if (!/^[a-zA-Z0-9_-]+$/.test(bookId)) {
     throw new ApiError({
       code: "repository.invalid_identifier",
-      message: "Workspace identifier is invalid.",
+      message: "Book identifier is invalid.",
       status: 400,
     });
   }
@@ -38,13 +38,13 @@ function validateBackupIdentifier(backupId: string): void {
   }
 }
 
-export function createSqliteWorkspacePersistenceBackend(params: {
+export function createSqliteBookPersistenceBackend(params: {
   databasePath: string;
   logger?: Logger;
-}): WorkspacePersistenceBackend {
+}): BookPersistenceBackend {
   const databasePath = resolve(params.databasePath);
   const logger = (params.logger ?? createNoopLogger()).child({
-    component: "sqliteWorkspacePersistenceBackend",
+    component: "sqliteBookPersistenceBackend",
     databasePath,
     persistenceBackend: "sqlite",
   });
@@ -81,17 +81,17 @@ export function createSqliteWorkspacePersistenceBackend(params: {
     return database;
   }
 
-  function parseWorkspaceDocument(raw: string): FinanceWorkspaceDocument {
-    return migrateWorkspaceDocument(JSON.parse(raw) as unknown);
+  function parseBookDocument(raw: string): FinanceBookDocument {
+    return migrateBookDocument(JSON.parse(raw) as unknown);
   }
 
-  function toBackupEnvelope(row: BackupRow): WorkspaceBackup {
+  function toBackupEnvelope(row: BackupRow): BookBackup {
     return {
       createdAt: row.created_at,
       fileName: `${row.id}.json`,
       id: row.id,
       sizeBytes: row.size_bytes,
-      workspaceId: row.workspace_id,
+      bookId: row.workspace_id,
     };
   }
 
@@ -105,11 +105,11 @@ export function createSqliteWorkspacePersistenceBackend(params: {
       }
     },
 
-    async listWorkspaceIds(options: { logger?: Logger } = {}): Promise<string[]> {
+    async listBookIds(options: { logger?: Logger } = {}): Promise<string[]> {
       const requestLogger = (options.logger ?? logger).child({
-        component: "sqliteWorkspacePersistenceBackend",
+        component: "sqliteBookPersistenceBackend",
         databasePath,
-        operation: "listWorkspaceIds",
+        operation: "listBookIds",
         persistenceBackend: "sqlite",
       });
 
@@ -118,12 +118,12 @@ export function createSqliteWorkspacePersistenceBackend(params: {
         const rows = db
           .prepare("SELECT id FROM workspaces ORDER BY id ASC")
           .all() as unknown as Array<{ id: string }>;
-        const workspaceIds = rows.map((row) => row.id);
+        const bookIds = rows.map((row) => row.id);
 
-        requestLogger.info("workspace id list completed", {
-          workspaceCount: workspaceIds.length,
+        requestLogger.info("book id list completed", {
+          bookCount: bookIds.length,
         });
-        return workspaceIds;
+        return bookIds;
       } catch (error) {
         if (error instanceof ApiError) {
           throw error;
@@ -133,40 +133,40 @@ export function createSqliteWorkspacePersistenceBackend(params: {
           cause: error,
           code: "repository.unavailable",
           expose: false,
-          message: "Workspace storage is unavailable.",
+          message: "Book storage is unavailable.",
           status: 500,
         });
       }
     },
 
-    async load(workspaceId: string, options: { logger?: Logger } = {}): Promise<FinanceWorkspaceDocument> {
-      validateWorkspaceIdentifier(workspaceId);
+    async load(bookId: string, options: { logger?: Logger } = {}): Promise<FinanceBookDocument> {
+      validateBookIdentifier(bookId);
       const requestLogger = (options.logger ?? logger).child({
-        component: "sqliteWorkspacePersistenceBackend",
+        component: "sqliteBookPersistenceBackend",
         databasePath,
-        operation: "loadWorkspace",
+        operation: "loadBook",
         persistenceBackend: "sqlite",
-        workspaceId,
+        bookId,
       });
 
       try {
         const db = await ensureDatabase();
         const row = db
           .prepare("SELECT document_json FROM workspaces WHERE id = ?")
-          .get(workspaceId) as WorkspaceRow | undefined;
+          .get(bookId) as BookRow | undefined;
 
         if (!row) {
           throw new ApiError({
-            code: "workspace.not_found",
-            message: `Workspace ${workspaceId} was not found.`,
+            code: "book.not_found",
+            message: `Workspace ${bookId} was not found.`,
             status: 404,
           });
         }
 
-        const document = parseWorkspaceDocument(row.document_json);
-        requestLogger.info("workspace storage load completed", {
+        const document = parseBookDocument(row.document_json);
+        requestLogger.info("book storage load completed", {
           transactionCount: document.transactions.length,
-          workspaceId: document.id,
+          bookId: document.id,
         });
         return document;
       } catch (error) {
@@ -178,20 +178,20 @@ export function createSqliteWorkspacePersistenceBackend(params: {
           cause: error,
           code: "repository.unavailable",
           expose: false,
-          message: "Workspace storage is unavailable.",
+          message: "Book storage is unavailable.",
           status: 500,
         });
       }
     },
 
-    async save(document: FinanceWorkspaceDocument, options: { logger?: Logger } = {}): Promise<void> {
-      validateWorkspaceIdentifier(document.id);
+    async save(document: FinanceBookDocument, options: { logger?: Logger } = {}): Promise<void> {
+      validateBookIdentifier(document.id);
       const requestLogger = (options.logger ?? logger).child({
-        component: "sqliteWorkspacePersistenceBackend",
+        component: "sqliteBookPersistenceBackend",
         databasePath,
-        operation: "saveWorkspace",
+        operation: "saveBook",
         persistenceBackend: "sqlite",
-        workspaceId: document.id,
+        bookId: document.id,
       });
 
       try {
@@ -205,9 +205,9 @@ export function createSqliteWorkspacePersistenceBackend(params: {
             updated_at = excluded.updated_at
         `).run(document.id, serialized, new Date().toISOString());
 
-        requestLogger.info("workspace storage save completed", {
+        requestLogger.info("book storage save completed", {
           transactionCount: document.transactions.length,
-          workspaceId: document.id,
+          bookId: document.id,
         });
       } catch (error) {
         if (error instanceof ApiError) {
@@ -218,20 +218,20 @@ export function createSqliteWorkspacePersistenceBackend(params: {
           cause: error,
           code: "repository.unavailable",
           expose: false,
-          message: "Workspace storage is unavailable.",
+          message: "Book storage is unavailable.",
           status: 500,
         });
       }
     },
 
-    async listBackups(workspaceId: string, options: { logger?: Logger } = {}): Promise<WorkspaceBackup[]> {
-      validateWorkspaceIdentifier(workspaceId);
+    async listBackups(bookId: string, options: { logger?: Logger } = {}): Promise<BookBackup[]> {
+      validateBookIdentifier(bookId);
       const requestLogger = (options.logger ?? logger).child({
-        component: "sqliteWorkspacePersistenceBackend",
+        component: "sqliteBookPersistenceBackend",
         databasePath,
         operation: "listBackups",
         persistenceBackend: "sqlite",
-        workspaceId,
+        bookId,
       });
 
       try {
@@ -243,9 +243,9 @@ export function createSqliteWorkspacePersistenceBackend(params: {
             WHERE workspace_id = ?
             ORDER BY id DESC
           `)
-          .all(workspaceId) as unknown as BackupRow[];
+          .all(bookId) as unknown as BackupRow[];
 
-        requestLogger.info("workspace backup list completed", {
+        requestLogger.info("book backup list completed", {
           backupCount: rows.length,
         });
         return rows.map(toBackupEnvelope);
@@ -258,40 +258,40 @@ export function createSqliteWorkspacePersistenceBackend(params: {
           cause: error,
           code: "repository.unavailable",
           expose: false,
-          message: "Workspace storage is unavailable.",
+          message: "Book storage is unavailable.",
           status: 500,
         });
       }
     },
 
-    async createBackup(workspaceId: string, options: { logger?: Logger } = {}): Promise<WorkspaceBackup> {
-      validateWorkspaceIdentifier(workspaceId);
+    async createBackup(bookId: string, options: { logger?: Logger } = {}): Promise<BookBackup> {
+      validateBookIdentifier(bookId);
       const requestLogger = (options.logger ?? logger).child({
-        component: "sqliteWorkspacePersistenceBackend",
+        component: "sqliteBookPersistenceBackend",
         databasePath,
         operation: "createBackup",
         persistenceBackend: "sqlite",
-        workspaceId,
+        bookId,
       });
 
-      const workspace = await this.load(workspaceId, { logger: requestLogger });
+      const book = await this.load(bookId, { logger: requestLogger });
       const createdAt = new Date().toISOString();
       const backupId = `backup-${createdAt.replace(/:/g, "_")}`;
-      const serialized = `${JSON.stringify(workspace)}\n`;
+      const serialized = `${JSON.stringify(book)}\n`;
 
       try {
         const db = await ensureDatabase();
         db.prepare(`
           INSERT INTO workspace_backups (id, workspace_id, created_at, document_json, size_bytes)
           VALUES (?, ?, ?, ?, ?)
-        `).run(backupId, workspaceId, createdAt, serialized, Buffer.byteLength(serialized, "utf8"));
+        `).run(backupId, bookId, createdAt, serialized, Buffer.byteLength(serialized, "utf8"));
 
         return {
           createdAt,
           fileName: `${backupId}.json`,
           id: backupId,
           sizeBytes: Buffer.byteLength(serialized, "utf8"),
-          workspaceId,
+          bookId,
         };
       } catch (error) {
         if (error instanceof ApiError) {
@@ -302,26 +302,26 @@ export function createSqliteWorkspacePersistenceBackend(params: {
           cause: error,
           code: "repository.unavailable",
           expose: false,
-          message: "Workspace storage is unavailable.",
+          message: "Book storage is unavailable.",
           status: 500,
         });
       }
     },
 
     async restoreBackup(
-      workspaceId: string,
+      bookId: string,
       backupId: string,
       options: { logger?: Logger } = {},
-    ): Promise<FinanceWorkspaceDocument> {
-      validateWorkspaceIdentifier(workspaceId);
+    ): Promise<FinanceBookDocument> {
+      validateBookIdentifier(bookId);
       validateBackupIdentifier(backupId);
       const requestLogger = (options.logger ?? logger).child({
         backupId,
-        component: "sqliteWorkspacePersistenceBackend",
+        component: "sqliteBookPersistenceBackend",
         databasePath,
         operation: "restoreBackup",
         persistenceBackend: "sqlite",
-        workspaceId,
+        bookId,
       });
 
       try {
@@ -332,22 +332,22 @@ export function createSqliteWorkspacePersistenceBackend(params: {
             FROM workspace_backups
             WHERE workspace_id = ? AND id = ?
           `)
-          .get(workspaceId, backupId) as BackupRow | undefined;
+          .get(bookId, backupId) as BackupRow | undefined;
 
         if (!row) {
           throw new ApiError({
-            code: "workspace.not_found",
-            message: `Backup ${backupId} was not found for workspace ${workspaceId}.`,
+            code: "book.not_found",
+            message: `Backup ${backupId} was not found for book ${bookId}.`,
             status: 404,
           });
         }
 
-        const document = parseWorkspaceDocument(row.document_json);
+        const document = parseBookDocument(row.document_json);
 
-        if (document.id !== workspaceId) {
+        if (document.id !== bookId) {
           throw new ApiError({
             code: "repository.invalid_identifier",
-            message: "Backup workspace identifier does not match the requested workspace.",
+            message: "Backup book identifier does not match the requested book.",
             status: 400,
           });
         }
@@ -363,7 +363,7 @@ export function createSqliteWorkspacePersistenceBackend(params: {
           cause: error,
           code: "repository.unavailable",
           expose: false,
-          message: "Workspace storage is unavailable.",
+          message: "Book storage is unavailable.",
           status: 500,
         });
       }

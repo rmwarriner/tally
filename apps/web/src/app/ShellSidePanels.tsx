@@ -1,31 +1,31 @@
 import type { Dispatch, SetStateAction } from "react";
 import { LedgerSidebar } from "./LedgerSidebar";
-import type { DashboardResponse, WorkspaceResponse } from "./api";
+import type { DashboardResponse, BookResponse } from "./api";
 import { formatCurrency } from "./app-format";
 import type {
-  LedgerWorkspaceModel,
+  LedgerBookModel,
   OverviewCard,
-  WorkspaceView,
-  WorkspaceViewDefinition,
+  BookView,
+  BookViewDefinition,
 } from "./shell";
 
 interface ShellSidePanelsProps {
-  activeView: WorkspaceView;
+  activeView: BookView;
   baselineSnapshot: DashboardResponse["dashboard"]["budgetSnapshot"];
   budgetConfigurationErrors: string[];
   dueTransactions: DashboardResponse["dashboard"]["dueTransactions"];
-  getWorkspaceViewDefinition: (view: WorkspaceView) => WorkspaceViewDefinition;
+  getBookViewDefinition: (view: BookView) => BookViewDefinition;
   ledgerValidationErrors: string[];
-  ledgerWorkspace: LedgerWorkspaceModel;
+  ledgerBook: LedgerBookModel;
   overviewCards: OverviewCard[];
   selectedLedgerAccountId: string | null;
   selectedLedgerTransactionId: string | null;
-  setActiveView: (view: WorkspaceView) => void;
+  setActiveView: (view: BookView) => void;
   setSelectedLedgerAccountId: Dispatch<SetStateAction<string | null>>;
   setSelectedLedgerTransactionId: Dispatch<SetStateAction<string | null>>;
-  workspaceAccounts: WorkspaceResponse["workspace"]["accounts"];
-  workspaceEnvelopes: WorkspaceResponse["workspace"]["envelopes"];
-  workspaceSchedules: WorkspaceResponse["workspace"]["scheduledTransactions"];
+  bookAccounts: BookResponse["book"]["accounts"];
+  bookEnvelopes: BookResponse["book"]["envelopes"];
+  bookSchedules: BookResponse["book"]["scheduledTransactions"];
 }
 
 export function ShellSidebarContent(props: ShellSidePanelsProps) {
@@ -36,7 +36,7 @@ export function ShellSidebarContent(props: ShellSidePanelsProps) {
           <div className="tree-section">
             <h3>Focus queues</h3>
             {props.overviewCards.map((card) => {
-              const targetView = props.getWorkspaceViewDefinition(card.id);
+              const targetView = props.getBookViewDefinition(card.id);
 
               return (
                 <button
@@ -54,7 +54,7 @@ export function ShellSidebarContent(props: ShellSidePanelsProps) {
 
           <div className="tree-section">
             <h3>Accounts</h3>
-            {props.workspaceAccounts.slice(0, 8).map((account) => (
+            {props.bookAccounts.slice(0, 8).map((account) => (
               <div key={account.id} className="tree-item">
                 <span>{account.name}</span>
                 <span className="muted">{account.code}</span>
@@ -66,7 +66,7 @@ export function ShellSidebarContent(props: ShellSidePanelsProps) {
     case "ledger":
       return (
         <LedgerSidebar
-          ledgerWorkspace={props.ledgerWorkspace}
+          ledgerBook={props.ledgerBook}
           selectedLedgerAccountId={props.selectedLedgerAccountId}
           selectedLedgerTransactionId={props.selectedLedgerTransactionId}
           setSelectedLedgerAccountId={props.setSelectedLedgerAccountId}
@@ -89,7 +89,7 @@ export function ShellSidebarContent(props: ShellSidePanelsProps) {
       return (
         <div className="tree-section">
           <h3>Envelopes</h3>
-          {props.workspaceEnvelopes.map((envelope) => (
+          {props.bookEnvelopes.map((envelope) => (
             <div key={envelope.id} className="tree-item">
               <span>{envelope.name}</span>
               <span className="muted">{formatCurrency(envelope.availableAmount.quantity)}</span>
@@ -113,7 +113,7 @@ export function ShellSidebarContent(props: ShellSidePanelsProps) {
       return (
         <div className="tree-section">
           <h3>Schedules</h3>
-          {props.workspaceSchedules.map((schedule) => (
+          {props.bookSchedules.map((schedule) => (
             <div key={schedule.id} className="tree-item">
               <span>{schedule.name}</span>
               <span className="muted">{schedule.nextDueOn}</span>
@@ -183,19 +183,19 @@ export function ShellInspectorContent(props: ShellSidePanelsProps) {
 
           <div className="inspector-section">
             <h3>Account drill-down</h3>
-            {props.ledgerWorkspace.selectedAccount ? (
+            {props.ledgerBook.selectedAccount ? (
               <div className="detail-stack">
                 <div className="status-item">
                   <span>Account</span>
-                  <strong>{props.ledgerWorkspace.selectedAccount.name}</strong>
+                  <strong>{props.ledgerBook.selectedAccount.name}</strong>
                 </div>
                 <div className="status-item">
                   <span>Type</span>
-                  <strong>{props.ledgerWorkspace.selectedAccount.type}</strong>
+                  <strong>{props.ledgerBook.selectedAccount.type}</strong>
                 </div>
                 <div className="status-item">
                   <span>Register matches</span>
-                  <strong>{props.ledgerWorkspace.selectedAccount.transactionCount}</strong>
+                  <strong>{props.ledgerBook.selectedAccount.transactionCount}</strong>
                 </div>
               </div>
             ) : (
@@ -205,29 +205,29 @@ export function ShellInspectorContent(props: ShellSidePanelsProps) {
 
           <div className="inspector-section">
             <h3>Selected transaction</h3>
-            {props.ledgerWorkspace.selectedTransaction ? (
+            {props.ledgerBook.selectedTransaction ? (
               <div className="detail-stack">
                 <div className="status-item">
                   <span>Description</span>
-                  <strong>{props.ledgerWorkspace.selectedTransaction.description}</strong>
+                  <strong>{props.ledgerBook.selectedTransaction.description}</strong>
                 </div>
                 <div className="status-item">
                   <span>Date</span>
-                  <strong>{props.ledgerWorkspace.selectedTransaction.occurredOn}</strong>
+                  <strong>{props.ledgerBook.selectedTransaction.occurredOn}</strong>
                 </div>
                 <div className="status-item">
                   <span>Payee</span>
-                  <strong>{props.ledgerWorkspace.selectedTransaction.payee ?? "Unassigned"}</strong>
+                  <strong>{props.ledgerBook.selectedTransaction.payee ?? "Unassigned"}</strong>
                 </div>
                 <div className="status-item">
                   <span>Splits</span>
-                  <strong>{props.ledgerWorkspace.selectedTransaction.postings.length}</strong>
+                  <strong>{props.ledgerBook.selectedTransaction.postings.length}</strong>
                 </div>
                 <div className="status-item">
                   <span>Tags</span>
                   <strong>
-                    {props.ledgerWorkspace.selectedTransaction.tags.length > 0
-                      ? props.ledgerWorkspace.selectedTransaction.tags.join(", ")
+                    {props.ledgerBook.selectedTransaction.tags.length > 0
+                      ? props.ledgerBook.selectedTransaction.tags.join(", ")
                       : "None"}
                   </strong>
                 </div>

@@ -2,14 +2,14 @@ import { createElement } from "react";
 import { describe, expect, it, vi } from "vitest";
 import { renderToStaticMarkup } from "react-dom/server";
 import { ShellInspectorContent, ShellSidebarContent } from "./ShellSidePanels";
-import { createLedgerWorkspaceModel, getWorkspaceViewDefinition } from "./shell";
+import { createLedgerBookModel, getBookViewDefinition } from "./shell";
 
-const ledgerWorkspace = createLedgerWorkspaceModel({
+const ledgerBook = createLedgerBookModel({
   accountBalances: [],
   searchText: "",
   selectedAccountId: "acct-checking",
   selectedTransactionId: "txn-1",
-  workspace: {
+  book: {
     accounts: [
       { code: "1000", id: "acct-checking", name: "Checking", type: "asset" },
       { code: "6100", id: "acct-expense-groceries", name: "Groceries", type: "expense" },
@@ -73,17 +73,17 @@ const sharedProps = {
   baselineSnapshot: [],
   budgetConfigurationErrors: [],
   dueTransactions: [],
-  getWorkspaceViewDefinition,
+  getBookViewDefinition,
   ledgerValidationErrors: [],
-  ledgerWorkspace,
+  ledgerBook,
   overviewCards: [],
   selectedLedgerAccountId: "acct-checking" as string | null,
   selectedLedgerTransactionId: "txn-1" as string | null,
   setActiveView: vi.fn(),
   setSelectedLedgerAccountId: vi.fn(),
   setSelectedLedgerTransactionId: vi.fn(),
-  workspaceAccounts: ledgerWorkspace.availableAccounts,
-  workspaceEnvelopes: [
+  bookAccounts: ledgerBook.availableAccounts,
+  bookEnvelopes: [
     {
       availableAmount: { commodityCode: "USD", quantity: 100 },
       expenseAccountId: "acct-expense-groceries",
@@ -94,7 +94,7 @@ const sharedProps = {
       targetAmount: { commodityCode: "USD", quantity: 200 },
     },
   ],
-  workspaceSchedules: [
+  bookSchedules: [
     {
       autoPost: false,
       frequency: "monthly" as const,

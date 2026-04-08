@@ -4,20 +4,20 @@ import { tmpdir } from "node:os";
 import { describe, expect, it } from "vitest";
 import { createMoney } from "@tally/domain";
 import { createLogger, type LogRecord } from "@tally/logging";
-import { buildGnuCashXmlExport, createDemoWorkspace } from "@tally/workspace";
-import { saveWorkspaceToFile } from "@tally/workspace/src/node";
+import { buildGnuCashXmlExport, createDemoBook } from "@tally/book";
+import { saveBookToFile } from "@tally/book/src/node";
 import { ApiError } from "./errors";
 import {
-  createFileSystemWorkspaceRepository,
-  createWorkspaceService,
+  createFileSystemBookRepository,
+  createBookService,
 } from "./index";
-import type { DashboardEnvelope, ErrorEnvelope, WorkspaceEnvelope } from "./index";
+import type { DashboardEnvelope, ErrorEnvelope, BookEnvelope } from "./index";
 
-describe("workspace service", () => {
-  function expectWorkspaceBody(
-    body: WorkspaceEnvelope | ErrorEnvelope,
-  ): asserts body is WorkspaceEnvelope {
-    expect("workspace" in body).toBe(true);
+describe("book service", () => {
+  function expectBookBody(
+    body: BookEnvelope | ErrorEnvelope,
+  ): asserts body is BookEnvelope {
+    expect("book" in body).toBe(true);
   }
 
   function expectDashboardBody(
@@ -26,7 +26,7 @@ describe("workspace service", () => {
     expect("dashboard" in body).toBe(true);
   }
 
-  function expectErrorBody(body: WorkspaceEnvelope | ErrorEnvelope): asserts body is ErrorEnvelope {
+  function expectErrorBody(body: BookEnvelope | ErrorEnvelope): asserts body is ErrorEnvelope {
     expect("errors" in body).toBe(true);
     expect("error" in body).toBe(true);
   }
@@ -40,16 +40,16 @@ describe("workspace service", () => {
 
   async function createFixture() {
     const directory = await mkdtemp(join(tmpdir(), "tally-api-"));
-    const workspace = createDemoWorkspace();
-    const workspacePath = join(directory, `${workspace.id}.json`);
+    const book = createDemoBook();
+    const bookPath = join(directory, `${book.id}.json`);
 
-    await saveWorkspaceToFile(workspacePath, workspace);
+    await saveBookToFile(bookPath, book);
 
     return {
       cleanup: async () => rm(directory, { recursive: true, force: true }),
       directory,
-      workspace,
-      workspacePath,
+      book,
+      bookPath,
     };
   }
 
@@ -63,37 +63,37 @@ describe("workspace service", () => {
     });
   }
 
-  it("loads a workspace document through the service read path", async () => {
+  it("loads a book document through the service read path", async () => {
     const fixture = await createFixture();
-    const service = createWorkspaceService({
+    const service = createBookService({
       logger: createTestLogger([]),
-      repository: createFileSystemWorkspaceRepository({ rootDirectory: fixture.directory }),
+      repository: createFileSystemBookRepository({ rootDirectory: fixture.directory }),
     });
 
-    const response = await service.getWorkspace({
+    const response = await service.getBook({
       auth: { actor: "local-admin", kind: "local", role: "local-admin" },
-      workspaceId: fixture.workspace.id,
+      bookId: fixture.book.id,
     });
 
     expect(response.status).toBe(200);
-    expectWorkspaceBody(response.body);
-    expect(response.body.workspace.id).toBe(fixture.workspace.id);
+    expectBookBody(response.body);
+    expect(response.body.book.id).toBe(fixture.book.id);
 
     await fixture.cleanup();
   });
 
   it("returns a dashboard projection for the requested date range", async () => {
     const fixture = await createFixture();
-    const service = createWorkspaceService({
+    const service = createBookService({
       logger: createTestLogger([]),
-      repository: createFileSystemWorkspaceRepository({ rootDirectory: fixture.directory }),
+      repository: createFileSystemBookRepository({ rootDirectory: fixture.directory }),
     });
 
     const response = await service.getDashboard({
       auth: { actor: "local-admin", kind: "local", role: "local-admin" },
       from: "2026-04-01",
       to: "2026-04-30",
-      workspaceId: fixture.workspace.id,
+      bookId: fixture.book.id,
     });
 
     expect(response.status).toBe(200);
@@ -106,9 +106,9 @@ describe("workspace service", () => {
 
   it("returns a cash-flow report for the requested date range", async () => {
     const fixture = await createFixture();
-    const service = createWorkspaceService({
+    const service = createBookService({
       logger: createTestLogger([]),
-      repository: createFileSystemWorkspaceRepository({ rootDirectory: fixture.directory }),
+      repository: createFileSystemBookRepository({ rootDirectory: fixture.directory }),
     });
 
     const response = await service.getReport({
@@ -116,7 +116,7 @@ describe("workspace service", () => {
       from: "2026-04-01",
       kind: "cash-flow",
       to: "2026-04-30",
-      workspaceId: fixture.workspace.id,
+      bookId: fixture.book.id,
     });
 
     expect(response.status).toBe(200);
@@ -128,11 +128,11 @@ describe("workspace service", () => {
     await fixture.cleanup();
   });
 
-  it("rejects read access for actors outside the workspace household", async () => {
+  it("rejects read access for actors outside the book household", async () => {
     const fixture = await createFixture();
-    const service = createWorkspaceService({
+    const service = createBookService({
       logger: createTestLogger([]),
-      repository: createFileSystemWorkspaceRepository({ rootDirectory: fixture.directory }),
+      repository: createFileSystemBookRepository({ rootDirectory: fixture.directory }),
     });
 
     const response = await service.getReport({
@@ -140,7 +140,7 @@ describe("workspace service", () => {
       from: "2026-04-01",
       kind: "cash-flow",
       to: "2026-04-30",
-      workspaceId: fixture.workspace.id,
+      bookId: fixture.book.id,
     });
 
     expect(response.status).toBe(403);
@@ -152,33 +152,33 @@ describe("workspace service", () => {
 
   it("rejects protected read endpoints for non-member actors", async () => {
     const fixture = await createFixture();
-    const service = createWorkspaceService({
+    const service = createBookService({
       logger: createTestLogger([]),
-      repository: createFileSystemWorkspaceRepository({ rootDirectory: fixture.directory }),
+      repository: createFileSystemBookRepository({ rootDirectory: fixture.directory }),
     });
     const auth = { actor: "Outside User", kind: "token" as const, role: "member" as const, token: "token-2" };
 
     const responses = await Promise.all([
-      service.getWorkspace({ auth, workspaceId: fixture.workspace.id }),
+      service.getBook({ auth, bookId: fixture.book.id }),
       service.getDashboard({
         auth,
         from: "2026-04-01",
         to: "2026-04-30",
-        workspaceId: fixture.workspace.id,
+        bookId: fixture.book.id,
       }),
-      service.getBackups({ auth, workspaceId: fixture.workspace.id }),
+      service.getBackups({ auth, bookId: fixture.book.id }),
       service.getCloseSummary({
         auth,
         from: "2026-04-01",
         to: "2026-04-30",
-        workspaceId: fixture.workspace.id,
+        bookId: fixture.book.id,
       }),
       service.getQifExport({
         accountId: "acct-checking",
         auth,
         from: "2026-04-01",
         to: "2026-04-30",
-        workspaceId: fixture.workspace.id,
+        bookId: fixture.book.id,
       }),
       service.getStatementExport({
         accountId: "acct-checking",
@@ -186,9 +186,9 @@ describe("workspace service", () => {
         format: "qfx",
         from: "2026-04-01",
         to: "2026-04-30",
-        workspaceId: fixture.workspace.id,
+        bookId: fixture.book.id,
       }),
-      service.getGnuCashXmlExport({ auth, workspaceId: fixture.workspace.id }),
+      service.getGnuCashXmlExport({ auth, bookId: fixture.book.id }),
     ]);
 
     for (const response of responses) {
@@ -203,9 +203,9 @@ describe("workspace service", () => {
   it("persists a posted transaction and records an audit event", async () => {
     const records: LogRecord[] = [];
     const fixture = await createFixture();
-    const service = createWorkspaceService({
+    const service = createBookService({
       logger: createTestLogger(records),
-      repository: createFileSystemWorkspaceRepository({ rootDirectory: fixture.directory }),
+      repository: createFileSystemBookRepository({ rootDirectory: fixture.directory }),
     });
 
     const response = await service.postTransaction({
@@ -220,36 +220,36 @@ describe("workspace service", () => {
           { accountId: "acct-checking", amount: createMoney("USD", -82.49), cleared: true },
         ],
       },
-      workspaceId: fixture.workspace.id,
+      bookId: fixture.book.id,
     });
 
     expect(response.status).toBe(201);
-    expectWorkspaceBody(response.body);
-    expect(response.body.workspace.transactions.some((item) => item.id === "txn-cell-1")).toBe(true);
-    expect(response.body.workspace.auditEvents.at(-1)?.eventType).toBe("transaction.created");
-    expect(response.body.workspace.auditEvents.at(-1)?.summary.actorRole).toBe("guardian");
-    expect(response.body.workspace.auditEvents.at(-1)?.summary.authorization).toMatchObject({
+    expectBookBody(response.body);
+    expect(response.body.book.transactions.some((item) => item.id === "txn-cell-1")).toBe(true);
+    expect(response.body.book.auditEvents.at(-1)?.eventType).toBe("transaction.created");
+    expect(response.body.book.auditEvents.at(-1)?.summary.actorRole).toBe("guardian");
+    expect(response.body.book.auditEvents.at(-1)?.summary.authorization).toMatchObject({
       access: "write",
       effectiveRole: "guardian",
-      grantedBy: "workspace-role",
+      grantedBy: "book-role",
     });
     expect(records.some((record) => record.message === "service command completed")).toBe(true);
 
-    const refreshed = await service.getWorkspace({
+    const refreshed = await service.getBook({
       auth: { actor: "local-admin", kind: "local", role: "local-admin" },
-      workspaceId: fixture.workspace.id,
+      bookId: fixture.book.id,
     });
-    expectWorkspaceBody(refreshed.body);
-    expect(refreshed.body.workspace.transactions.some((item) => item.id === "txn-cell-1")).toBe(true);
+    expectBookBody(refreshed.body);
+    expect(refreshed.body.book.transactions.some((item) => item.id === "txn-cell-1")).toBe(true);
 
     await fixture.cleanup();
   });
 
   it("imports ofx statements through the service layer", async () => {
     const fixture = await createFixture();
-    const service = createWorkspaceService({
+    const service = createBookService({
       logger: createTestLogger([]),
-      repository: createFileSystemWorkspaceRepository({ rootDirectory: fixture.directory }),
+      repository: createFileSystemBookRepository({ rootDirectory: fixture.directory }),
     });
 
     const response = await service.postStatementImport({
@@ -281,21 +281,21 @@ describe("workspace service", () => {
 </BANKMSGSRSV1>
 </OFX>`,
       },
-      workspaceId: fixture.workspace.id,
+      bookId: fixture.book.id,
     });
 
     expect(response.status).toBe(201);
-    expectWorkspaceBody(response.body);
-    expect(response.body.workspace.auditEvents.at(-1)?.eventType).toBe("import.ofx.recorded");
+    expectBookBody(response.body);
+    expect(response.body.book.auditEvents.at(-1)?.eventType).toBe("import.ofx.recorded");
 
     await fixture.cleanup();
   });
 
   it("returns validation failures for malformed statement imports", async () => {
     const fixture = await createFixture();
-    const service = createWorkspaceService({
+    const service = createBookService({
       logger: createTestLogger([]),
-      repository: createFileSystemWorkspaceRepository({ rootDirectory: fixture.directory }),
+      repository: createFileSystemBookRepository({ rootDirectory: fixture.directory }),
     });
 
     const response = await service.postStatementImport({
@@ -309,7 +309,7 @@ describe("workspace service", () => {
         sourceLabel: "checking.qfx",
         statement: "<OFX><BANKTRANLIST><STMTTRN><DTPOSTED>bad</DTPOSTED><TRNAMT>x</TRNAMT></STMTTRN></BANKTRANLIST></OFX>",
       },
-      workspaceId: fixture.workspace.id,
+      bookId: fixture.book.id,
     });
 
     expect(response.status).toBe(422);
@@ -321,9 +321,9 @@ describe("workspace service", () => {
 
   it("rejects protected write endpoints for non-member actors", async () => {
     const fixture = await createFixture();
-    const service = createWorkspaceService({
+    const service = createBookService({
       logger: createTestLogger([]),
-      repository: createFileSystemWorkspaceRepository({ rootDirectory: fixture.directory }),
+      repository: createFileSystemBookRepository({ rootDirectory: fixture.directory }),
     });
     const auth = { actor: "Outside User", kind: "token" as const, role: "member" as const, token: "token-2" };
 
@@ -344,7 +344,7 @@ describe("workspace service", () => {
           ],
           sourceLabel: "checking.csv",
         },
-        workspaceId: fixture.workspace.id,
+        bookId: fixture.book.id,
       }),
       service.postQifImport({
         auth,
@@ -356,7 +356,7 @@ describe("workspace service", () => {
           qif: "!Type:Bank\nD04/03/2026\nT-45.12\nPCity Utilities\n^\n",
           sourceLabel: "checking.qif",
         },
-        workspaceId: fixture.workspace.id,
+        bookId: fixture.book.id,
       }),
       service.postTransaction({
         auth,
@@ -369,7 +369,7 @@ describe("workspace service", () => {
             { accountId: "acct-checking", amount: createMoney("USD", -45.12) },
           ],
         },
-        workspaceId: fixture.workspace.id,
+        bookId: fixture.book.id,
       }),
       service.updateTransaction({
         auth,
@@ -383,7 +383,7 @@ describe("workspace service", () => {
           ],
         },
         transactionId: "txn-grocery-1",
-        workspaceId: fixture.workspace.id,
+        bookId: fixture.book.id,
       }),
       service.postBaselineBudgetLine({
         auth,
@@ -393,7 +393,7 @@ describe("workspace service", () => {
           period: "2026-05",
           plannedAmount: createMoney("USD", 700),
         },
-        workspaceId: fixture.workspace.id,
+        bookId: fixture.book.id,
       }),
       service.postEnvelope({
         auth,
@@ -406,7 +406,7 @@ describe("workspace service", () => {
           rolloverEnabled: true,
           targetAmount: createMoney("USD", 150),
         },
-        workspaceId: fixture.workspace.id,
+        bookId: fixture.book.id,
       }),
       service.postEnvelopeAllocation({
         allocation: {
@@ -417,7 +417,7 @@ describe("workspace service", () => {
           type: "fund",
         },
         auth,
-        workspaceId: fixture.workspace.id,
+        bookId: fixture.book.id,
       }),
       service.postReconciliation({
         auth,
@@ -427,7 +427,7 @@ describe("workspace service", () => {
           statementBalance: 3051.58,
           statementDate: "2026-04-02",
         },
-        workspaceId: fixture.workspace.id,
+        bookId: fixture.book.id,
       }),
       service.postScheduledTransaction({
         auth,
@@ -445,13 +445,13 @@ describe("workspace service", () => {
             ],
           },
         },
-        workspaceId: fixture.workspace.id,
+        bookId: fixture.book.id,
       }),
       service.executeScheduledTransaction({
         auth,
         payload: { occurredOn: "2026-05-01" },
         scheduleId: "sched-rent",
-        workspaceId: fixture.workspace.id,
+        bookId: fixture.book.id,
       }),
       service.applyScheduledTransactionException({
         auth,
@@ -460,9 +460,9 @@ describe("workspace service", () => {
           nextDueOn: "2026-05-05",
         },
         scheduleId: "sched-rent",
-        workspaceId: fixture.workspace.id,
+        bookId: fixture.book.id,
       }),
-      service.postBackup({ auth, workspaceId: fixture.workspace.id }),
+      service.postBackup({ auth, bookId: fixture.book.id }),
     ]);
 
     for (const response of responses) {
@@ -476,20 +476,20 @@ describe("workspace service", () => {
 
   it("exports and reimports gnucash xml through the service layer", async () => {
     const fixture = await createFixture();
-    const service = createWorkspaceService({
+    const service = createBookService({
       logger: createTestLogger([]),
-      repository: createFileSystemWorkspaceRepository({ rootDirectory: fixture.directory }),
+      repository: createFileSystemBookRepository({ rootDirectory: fixture.directory }),
     });
 
     const exported = await service.getGnuCashXmlExport({
       auth: { actor: "local-admin", kind: "local", role: "local-admin" },
-      workspaceId: fixture.workspace.id,
+      bookId: fixture.book.id,
     });
 
     expect(exported.status).toBe(200);
     expect("export" in exported.body).toBe(true);
 
-    const xml = buildGnuCashXmlExport({ workspace: fixture.workspace }).contents.replace(
+    const xml = buildGnuCashXmlExport({ book: fixture.book }).contents.replace(
       'name="Household Finance"',
       'name="Imported Through Service"',
     );
@@ -497,34 +497,34 @@ describe("workspace service", () => {
       auth: { actor: "Primary", kind: "token", role: "member", token: "token-1" },
       payload: {
         importedAt: "2026-04-05T00:00:00Z",
-        sourceLabel: "workspace.gnucash.xml",
+        sourceLabel: "book.gnucash.xml",
         xml,
       },
-      workspaceId: fixture.workspace.id,
+      bookId: fixture.book.id,
     });
 
     expect(imported.status).toBe(200);
-    expectWorkspaceBody(imported.body);
-    expect(imported.body.workspace.name).toBe("Imported Through Service");
+    expectBookBody(imported.body);
+    expect(imported.body.book.name).toBe("Imported Through Service");
 
     await fixture.cleanup();
   });
 
-  it("returns validation failures for mismatched gnucash xml workspace ids", async () => {
+  it("returns validation failures for mismatched gnucash xml book ids", async () => {
     const fixture = await createFixture();
-    const service = createWorkspaceService({
+    const service = createBookService({
       logger: createTestLogger([]),
-      repository: createFileSystemWorkspaceRepository({ rootDirectory: fixture.directory }),
+      repository: createFileSystemBookRepository({ rootDirectory: fixture.directory }),
     });
 
     const imported = await service.postGnuCashXmlImport({
       auth: { actor: "Primary", kind: "token", role: "member", token: "token-1" },
       payload: {
         importedAt: "2026-04-05T00:00:00Z",
-        sourceLabel: "workspace.gnucash.xml",
-        xml: buildGnuCashXmlExport({ workspace: { ...fixture.workspace, id: "other-workspace" } }).contents,
+        sourceLabel: "book.gnucash.xml",
+        xml: buildGnuCashXmlExport({ book: { ...fixture.book, id: "other-book" } }).contents,
       },
-      workspaceId: fixture.workspace.id,
+      bookId: fixture.book.id,
     });
 
     expect(imported.status).toBe(422);
@@ -536,9 +536,9 @@ describe("workspace service", () => {
 
   it("persists close periods through the service layer", async () => {
     const fixture = await createFixture();
-    const service = createWorkspaceService({
+    const service = createBookService({
       logger: createTestLogger([]),
-      repository: createFileSystemWorkspaceRepository({ rootDirectory: fixture.directory }),
+      repository: createFileSystemBookRepository({ rootDirectory: fixture.directory }),
     });
 
     const response = await service.postClosePeriod({
@@ -548,21 +548,21 @@ describe("workspace service", () => {
         from: "2026-03-01",
         to: "2026-03-31",
       },
-      workspaceId: fixture.workspace.id,
+      bookId: fixture.book.id,
     });
 
     expect(response.status).toBe(201);
-    expectWorkspaceBody(response.body);
-    expect(response.body.workspace.closePeriods).toHaveLength(1);
+    expectBookBody(response.body);
+    expect(response.body.book.closePeriods).toHaveLength(1);
 
     await fixture.cleanup();
   });
 
   it("returns validation failures for overlapping close periods", async () => {
     const fixture = await createFixture();
-    const service = createWorkspaceService({
+    const service = createBookService({
       logger: createTestLogger([]),
-      repository: createFileSystemWorkspaceRepository({ rootDirectory: fixture.directory }),
+      repository: createFileSystemBookRepository({ rootDirectory: fixture.directory }),
     });
 
     const first = await service.postClosePeriod({
@@ -572,7 +572,7 @@ describe("workspace service", () => {
         from: "2026-03-01",
         to: "2026-03-31",
       },
-      workspaceId: fixture.workspace.id,
+      bookId: fixture.book.id,
     });
     expect(first.status).toBe(201);
 
@@ -583,7 +583,7 @@ describe("workspace service", () => {
         from: "2026-03-15",
         to: "2026-04-15",
       },
-      workspaceId: fixture.workspace.id,
+      bookId: fixture.book.id,
     });
 
     expect(second.status).toBe(422);
@@ -595,14 +595,14 @@ describe("workspace service", () => {
 
   it("creates, lists, and restores backups through the service layer", async () => {
     const fixture = await createFixture();
-    const service = createWorkspaceService({
+    const service = createBookService({
       logger: createTestLogger([]),
-      repository: createFileSystemWorkspaceRepository({ rootDirectory: fixture.directory }),
+      repository: createFileSystemBookRepository({ rootDirectory: fixture.directory }),
     });
 
     const backupResponse = await service.postBackup({
       auth: { actor: "Primary", kind: "token", role: "member", token: "token-1" },
-      workspaceId: fixture.workspace.id,
+      bookId: fixture.book.id,
     });
 
     expect(backupResponse.status).toBe(201);
@@ -612,19 +612,19 @@ describe("workspace service", () => {
       auth: { actor: "Primary", kind: "token", role: "member", token: "token-1" },
       payload: {
         importedAt: "2026-04-05T00:00:00Z",
-        sourceLabel: "workspace.gnucash.xml",
-        xml: buildGnuCashXmlExport({ workspace: fixture.workspace }).contents.replace(
+        sourceLabel: "book.gnucash.xml",
+        xml: buildGnuCashXmlExport({ book: fixture.book }).contents.replace(
           'name="Household Finance"',
           'name="Changed Before Restore"',
         ),
       },
-      workspaceId: fixture.workspace.id,
+      bookId: fixture.book.id,
     });
     expect(updateResponse.status).toBe(200);
 
     const listResponse = await service.getBackups({
       auth: { actor: "local-admin", kind: "local", role: "local-admin" },
-      workspaceId: fixture.workspace.id,
+      bookId: fixture.book.id,
     });
 
     expect(listResponse.status).toBe(200);
@@ -636,26 +636,26 @@ describe("workspace service", () => {
     const restoreResponse = await service.postBackupRestore({
       auth: { actor: "Primary", kind: "token", role: "member", token: "token-1" },
       backupId: backupResponse.body.backup.id,
-      workspaceId: fixture.workspace.id,
+      bookId: fixture.book.id,
     });
 
     expect(restoreResponse.status).toBe(200);
-    expectWorkspaceBody(restoreResponse.body);
-    expect(restoreResponse.body.workspace.name).toBe("Household Finance");
+    expectBookBody(restoreResponse.body);
+    expect(restoreResponse.body.book.name).toBe("Household Finance");
 
     await fixture.cleanup();
   });
 
-  it("forbids operate-level mutations for workspace members without guardian or admin role", async () => {
+  it("forbids operate-level mutations for book members without guardian or admin role", async () => {
     const fixture = await createFixture();
-    const service = createWorkspaceService({
+    const service = createBookService({
       logger: createTestLogger([]),
-      repository: createFileSystemWorkspaceRepository({ rootDirectory: fixture.directory }),
+      repository: createFileSystemBookRepository({ rootDirectory: fixture.directory }),
     });
 
     const response = await service.postBackup({
       auth: { actor: "Partner", kind: "token", role: "member", token: "token-2" },
-      workspaceId: fixture.workspace.id,
+      bookId: fixture.book.id,
     });
 
     expect(response.status).toBe(403);
@@ -667,29 +667,29 @@ describe("workspace service", () => {
 
   it("returns not found for missing backups during restore", async () => {
     const fixture = await createFixture();
-    const service = createWorkspaceService({
+    const service = createBookService({
       logger: createTestLogger([]),
-      repository: createFileSystemWorkspaceRepository({ rootDirectory: fixture.directory }),
+      repository: createFileSystemBookRepository({ rootDirectory: fixture.directory }),
     });
 
     const restoreResponse = await service.postBackupRestore({
       auth: { actor: "Primary", kind: "token", role: "member", token: "token-1" },
       backupId: "backup-missing",
-      workspaceId: fixture.workspace.id,
+      bookId: fixture.book.id,
     });
 
     expect(restoreResponse.status).toBe(404);
     expectErrorBody(restoreResponse.body);
-    expect(restoreResponse.body.error.code).toBe("workspace.not_found");
+    expect(restoreResponse.body.error.code).toBe("book.not_found");
 
     await fixture.cleanup();
   });
 
   it("returns export payloads for qif and ofx endpoints", async () => {
     const fixture = await createFixture();
-    const service = createWorkspaceService({
+    const service = createBookService({
       logger: createTestLogger([]),
-      repository: createFileSystemWorkspaceRepository({ rootDirectory: fixture.directory }),
+      repository: createFileSystemBookRepository({ rootDirectory: fixture.directory }),
     });
 
     const qif = await service.getQifExport({
@@ -697,7 +697,7 @@ describe("workspace service", () => {
       auth: { actor: "local-admin", kind: "local", role: "local-admin" },
       from: "2026-04-01",
       to: "2026-04-30",
-      workspaceId: fixture.workspace.id,
+      bookId: fixture.book.id,
     });
     const ofx = await service.getStatementExport({
       accountId: "acct-checking",
@@ -705,7 +705,7 @@ describe("workspace service", () => {
       format: "ofx",
       from: "2026-04-01",
       to: "2026-04-30",
-      workspaceId: fixture.workspace.id,
+      bookId: fixture.book.id,
     });
 
     expect(qif.status).toBe(200);
@@ -720,18 +720,18 @@ describe("workspace service", () => {
     const records: LogRecord[] = [];
     const fixture = await createFixture();
     const logger = createTestLogger(records);
-    const service = createWorkspaceService({
+    const service = createBookService({
       logger,
-      repository: createFileSystemWorkspaceRepository({
+      repository: createFileSystemBookRepository({
         logger,
         rootDirectory: fixture.directory,
       }),
     });
 
-    const response = await service.getWorkspace({
+    const response = await service.getBook({
       auth: { actor: "local-admin", kind: "local", role: "local-admin" },
       logger: logger.child({ requestId: "req-service-123" }),
-      workspaceId: fixture.workspace.id,
+      bookId: fixture.book.id,
     });
 
     expect(response.status).toBe(200);
@@ -740,15 +740,15 @@ describe("workspace service", () => {
         (record) =>
           record.message === "service command started" &&
           record.fields.requestId === "req-service-123" &&
-          record.fields.operation === "getWorkspace",
+          record.fields.operation === "getBook",
       ),
     ).toBe(true);
     expect(
       records.some(
         (record) =>
-          record.message === "workspace storage load started" &&
+          record.message === "book storage load started" &&
           record.fields.requestId === "req-service-123" &&
-          record.fields.workspaceId === fixture.workspace.id,
+          record.fields.bookId === fixture.book.id,
       ),
     ).toBe(true);
 
@@ -757,9 +757,9 @@ describe("workspace service", () => {
 
   it("returns validation errors without persisting invalid transactions", async () => {
     const fixture = await createFixture();
-    const service = createWorkspaceService({
+    const service = createBookService({
       logger: createTestLogger([]),
-      repository: createFileSystemWorkspaceRepository({ rootDirectory: fixture.directory }),
+      repository: createFileSystemBookRepository({ rootDirectory: fixture.directory }),
     });
 
     const response = await service.postTransaction({
@@ -773,28 +773,28 @@ describe("workspace service", () => {
           { accountId: "acct-checking", amount: createMoney("USD", -80), cleared: true },
         ],
       },
-      workspaceId: fixture.workspace.id,
+      bookId: fixture.book.id,
     });
 
     expect(response.status).toBe(422);
     expectErrorBody(response.body);
     expect(response.body.errors).toContain("Transaction is not balanced for commodity USD.");
 
-    const refreshed = await service.getWorkspace({
+    const refreshed = await service.getBook({
       auth: { actor: "local-admin", kind: "local", role: "local-admin" },
-      workspaceId: fixture.workspace.id,
+      bookId: fixture.book.id,
     });
-    expectWorkspaceBody(refreshed.body);
-    expect(refreshed.body.workspace.transactions.some((item) => item.id === "txn-bad-1")).toBe(false);
+    expectBookBody(refreshed.body);
+    expect(refreshed.body.book.transactions.some((item) => item.id === "txn-bad-1")).toBe(false);
 
     await fixture.cleanup();
   });
 
   it("updates an existing transaction through the service layer", async () => {
     const fixture = await createFixture();
-    const service = createWorkspaceService({
+    const service = createBookService({
       logger: createTestLogger([]),
-      repository: createFileSystemWorkspaceRepository({ rootDirectory: fixture.directory }),
+      repository: createFileSystemBookRepository({ rootDirectory: fixture.directory }),
     });
 
     const response = await service.updateTransaction({
@@ -811,61 +811,61 @@ describe("workspace service", () => {
         tags: ["household", "edited"],
       },
       transactionId: "txn-grocery-1",
-      workspaceId: fixture.workspace.id,
+      bookId: fixture.book.id,
     });
 
     expect(response.status).toBe(200);
-    expectWorkspaceBody(response.body);
+    expectBookBody(response.body);
     expect(
-      response.body.workspace.transactions.find((item) => item.id === "txn-grocery-1"),
+      response.body.book.transactions.find((item) => item.id === "txn-grocery-1"),
     ).toMatchObject({
       description: "Updated grocery run",
       tags: ["household", "edited"],
     });
-    expect(response.body.workspace.auditEvents.at(-1)?.eventType).toBe("transaction.updated");
+    expect(response.body.book.auditEvents.at(-1)?.eventType).toBe("transaction.updated");
 
     await fixture.cleanup();
   });
 
-  it("soft-deletes transactions through the service layer without returning them in workspace reads", async () => {
+  it("soft-deletes transactions through the service layer without returning them in book reads", async () => {
     const fixture = await createFixture();
-    const service = createWorkspaceService({
+    const service = createBookService({
       logger: createTestLogger([]),
-      repository: createFileSystemWorkspaceRepository({ rootDirectory: fixture.directory }),
+      repository: createFileSystemBookRepository({ rootDirectory: fixture.directory }),
     });
 
     const response = await service.deleteTransaction({
       auth: { actor: "Primary", kind: "token", role: "member", token: "token-1" },
       transactionId: "txn-grocery-1",
-      workspaceId: fixture.workspace.id,
+      bookId: fixture.book.id,
     });
 
     expect(response.status).toBe(200);
-    expectWorkspaceBody(response.body);
-    expect(response.body.workspace.transactions.some((item) => item.id === "txn-grocery-1")).toBe(false);
-    expect(response.body.workspace.auditEvents.at(-1)?.eventType).toBe("transaction.deleted");
+    expectBookBody(response.body);
+    expect(response.body.book.transactions.some((item) => item.id === "txn-grocery-1")).toBe(false);
+    expect(response.body.book.auditEvents.at(-1)?.eventType).toBe("transaction.deleted");
 
-    const refreshed = await service.getWorkspace({
+    const refreshed = await service.getBook({
       auth: { actor: "local-admin", kind: "local", role: "local-admin" },
-      workspaceId: fixture.workspace.id,
+      bookId: fixture.book.id,
     });
-    expectWorkspaceBody(refreshed.body);
-    expect(refreshed.body.workspace.transactions.some((item) => item.id === "txn-grocery-1")).toBe(false);
+    expectBookBody(refreshed.body);
+    expect(refreshed.body.book.transactions.some((item) => item.id === "txn-grocery-1")).toBe(false);
 
     await fixture.cleanup();
   });
 
   it("requires privileged authority for transaction destroy through the service layer", async () => {
     const fixture = await createFixture();
-    const service = createWorkspaceService({
+    const service = createBookService({
       logger: createTestLogger([]),
-      repository: createFileSystemWorkspaceRepository({ rootDirectory: fixture.directory }),
+      repository: createFileSystemBookRepository({ rootDirectory: fixture.directory }),
     });
 
     const forbidden = await service.destroyTransaction({
       auth: { actor: "Primary", kind: "token", role: "member", token: "token-1" },
       transactionId: "txn-grocery-1",
-      workspaceId: fixture.workspace.id,
+      bookId: fixture.book.id,
     });
 
     expect(forbidden.status).toBe(403);
@@ -875,22 +875,22 @@ describe("workspace service", () => {
     const allowed = await service.destroyTransaction({
       auth: { actor: "local-admin", kind: "local", role: "local-admin" },
       transactionId: "txn-grocery-1",
-      workspaceId: fixture.workspace.id,
+      bookId: fixture.book.id,
     });
 
     expect(allowed.status).toBe(200);
-    expectWorkspaceBody(allowed.body);
-    expect(allowed.body.workspace.transactions.some((item) => item.id === "txn-grocery-1")).toBe(false);
-    expect(allowed.body.workspace.auditEvents.at(-1)?.eventType).toBe("transaction.destroyed");
+    expectBookBody(allowed.body);
+    expect(allowed.body.book.transactions.some((item) => item.id === "txn-grocery-1")).toBe(false);
+    expect(allowed.body.book.auditEvents.at(-1)?.eventType).toBe("transaction.destroyed");
 
     await fixture.cleanup();
   });
 
   it("records reconciliations through the service layer", async () => {
     const fixture = await createFixture();
-    const service = createWorkspaceService({
+    const service = createBookService({
       logger: createTestLogger([]),
-      repository: createFileSystemWorkspaceRepository({ rootDirectory: fixture.directory }),
+      repository: createFileSystemBookRepository({ rootDirectory: fixture.directory }),
     });
 
     const response = await service.postReconciliation({
@@ -901,22 +901,22 @@ describe("workspace service", () => {
         statementBalance: 3051.58,
         statementDate: "2026-04-02",
       },
-      workspaceId: fixture.workspace.id,
+      bookId: fixture.book.id,
     });
 
     expect(response.status).toBe(200);
-    expectWorkspaceBody(response.body);
-    expect(response.body.workspace.reconciliationSessions).toHaveLength(1);
-    expect(response.body.workspace.auditEvents.at(-1)?.eventType).toBe("reconciliation.recorded");
+    expectBookBody(response.body);
+    expect(response.body.book.reconciliationSessions).toHaveLength(1);
+    expect(response.body.book.auditEvents.at(-1)?.eventType).toBe("reconciliation.recorded");
 
     await fixture.cleanup();
   });
 
   it("upserts baseline budget lines through the service layer", async () => {
     const fixture = await createFixture();
-    const service = createWorkspaceService({
+    const service = createBookService({
       logger: createTestLogger([]),
-      repository: createFileSystemWorkspaceRepository({ rootDirectory: fixture.directory }),
+      repository: createFileSystemBookRepository({ rootDirectory: fixture.directory }),
     });
 
     const response = await service.postBaselineBudgetLine({
@@ -927,13 +927,13 @@ describe("workspace service", () => {
         period: "2026-05",
         plannedAmount: createMoney("USD", 700),
       },
-      workspaceId: fixture.workspace.id,
+      bookId: fixture.book.id,
     });
 
     expect(response.status).toBe(200);
-    expectWorkspaceBody(response.body);
+    expectBookBody(response.body);
     expect(
-      response.body.workspace.baselineBudgetLines.some(
+      response.body.book.baselineBudgetLines.some(
         (item) => item.accountId === "acct-expense-groceries" && item.period === "2026-05",
       ),
     ).toBe(true);
@@ -943,9 +943,9 @@ describe("workspace service", () => {
 
   it("upserts envelopes and records allocations through the service layer", async () => {
     const fixture = await createFixture();
-    const service = createWorkspaceService({
+    const service = createBookService({
       logger: createTestLogger([]),
-      repository: createFileSystemWorkspaceRepository({ rootDirectory: fixture.directory }),
+      repository: createFileSystemBookRepository({ rootDirectory: fixture.directory }),
     });
 
     const envelopeResponse = await service.postEnvelope({
@@ -959,12 +959,12 @@ describe("workspace service", () => {
         rolloverEnabled: true,
         targetAmount: createMoney("USD", 150),
       },
-      workspaceId: fixture.workspace.id,
+      bookId: fixture.book.id,
     });
 
     expect(envelopeResponse.status).toBe(200);
-    expectWorkspaceBody(envelopeResponse.body);
-    expect(envelopeResponse.body.workspace.envelopes.some((item) => item.id === "env-housing")).toBe(true);
+    expectBookBody(envelopeResponse.body);
+    expect(envelopeResponse.body.book.envelopes.some((item) => item.id === "env-housing")).toBe(true);
 
     const allocationResponse = await service.postEnvelopeAllocation({
       allocation: {
@@ -975,13 +975,13 @@ describe("workspace service", () => {
         type: "fund",
       },
       auth: { actor: "Primary", kind: "token", role: "member", token: "token-1" },
-      workspaceId: fixture.workspace.id,
+      bookId: fixture.book.id,
     });
 
     expect(allocationResponse.status).toBe(200);
-    expectWorkspaceBody(allocationResponse.body);
+    expectBookBody(allocationResponse.body);
     expect(
-      allocationResponse.body.workspace.envelopeAllocations.some((item) => item.id === "alloc-housing-1"),
+      allocationResponse.body.book.envelopeAllocations.some((item) => item.id === "alloc-housing-1"),
     ).toBe(true);
 
     await fixture.cleanup();
@@ -989,9 +989,9 @@ describe("workspace service", () => {
 
   it("upserts scheduled transactions through the service layer", async () => {
     const fixture = await createFixture();
-    const service = createWorkspaceService({
+    const service = createBookService({
       logger: createTestLogger([]),
-      repository: createFileSystemWorkspaceRepository({ rootDirectory: fixture.directory }),
+      repository: createFileSystemBookRepository({ rootDirectory: fixture.directory }),
     });
 
     const response = await service.postScheduledTransaction({
@@ -1011,12 +1011,12 @@ describe("workspace service", () => {
           ],
         },
       },
-      workspaceId: fixture.workspace.id,
+      bookId: fixture.book.id,
     });
 
     expect(response.status).toBe(200);
-    expectWorkspaceBody(response.body);
-    expect(response.body.workspace.scheduledTransactions.some((item) => item.id === "sched-utilities")).toBe(
+    expectBookBody(response.body);
+    expect(response.body.book.scheduledTransactions.some((item) => item.id === "sched-utilities")).toBe(
       true,
     );
 
@@ -1025,9 +1025,9 @@ describe("workspace service", () => {
 
   it("executes due scheduled transactions through the service layer", async () => {
     const fixture = await createFixture();
-    const service = createWorkspaceService({
+    const service = createBookService({
       logger: createTestLogger([]),
-      repository: createFileSystemWorkspaceRepository({ rootDirectory: fixture.directory }),
+      repository: createFileSystemBookRepository({ rootDirectory: fixture.directory }),
     });
 
     const response = await service.executeScheduledTransaction({
@@ -1036,25 +1036,25 @@ describe("workspace service", () => {
         occurredOn: "2026-05-01",
       },
       scheduleId: "sched-rent",
-      workspaceId: fixture.workspace.id,
+      bookId: fixture.book.id,
     });
 
     expect(response.status).toBe(201);
-    expectWorkspaceBody(response.body);
-    expect(response.body.workspace.transactions.some((item) => item.id === "sched-rent:2026-05-01")).toBe(true);
-    expect(response.body.workspace.scheduledTransactions.find((item) => item.id === "sched-rent")?.nextDueOn).toBe(
+    expectBookBody(response.body);
+    expect(response.body.book.transactions.some((item) => item.id === "sched-rent:2026-05-01")).toBe(true);
+    expect(response.body.book.scheduledTransactions.find((item) => item.id === "sched-rent")?.nextDueOn).toBe(
       "2026-06-01",
     );
-    expect(response.body.workspace.auditEvents.some((event) => event.eventType === "schedule.executed")).toBe(true);
+    expect(response.body.book.auditEvents.some((event) => event.eventType === "schedule.executed")).toBe(true);
 
     await fixture.cleanup();
   });
 
   it("applies schedule exceptions through the service layer", async () => {
     const fixture = await createFixture();
-    const service = createWorkspaceService({
+    const service = createBookService({
       logger: createTestLogger([]),
-      repository: createFileSystemWorkspaceRepository({ rootDirectory: fixture.directory }),
+      repository: createFileSystemBookRepository({ rootDirectory: fixture.directory }),
     });
 
     const response = await service.applyScheduledTransactionException({
@@ -1065,16 +1065,16 @@ describe("workspace service", () => {
         note: "Landlord grace period",
       },
       scheduleId: "sched-rent",
-      workspaceId: fixture.workspace.id,
+      bookId: fixture.book.id,
     });
 
     expect(response.status).toBe(200);
-    expectWorkspaceBody(response.body);
-    expect(response.body.workspace.scheduledTransactions.find((item) => item.id === "sched-rent")?.nextDueOn).toBe(
+    expectBookBody(response.body);
+    expect(response.body.book.scheduledTransactions.find((item) => item.id === "sched-rent")?.nextDueOn).toBe(
       "2026-05-05",
     );
     expect(
-      response.body.workspace.auditEvents.some((event) => event.eventType === "schedule.exception.applied"),
+      response.body.book.auditEvents.some((event) => event.eventType === "schedule.exception.applied"),
     ).toBe(true);
 
     await fixture.cleanup();
@@ -1082,14 +1082,14 @@ describe("workspace service", () => {
 
   it("forbids access for actors outside the household", async () => {
     const fixture = await createFixture();
-    const service = createWorkspaceService({
+    const service = createBookService({
       logger: createTestLogger([]),
-      repository: createFileSystemWorkspaceRepository({ rootDirectory: fixture.directory }),
+      repository: createFileSystemBookRepository({ rootDirectory: fixture.directory }),
     });
 
-    const response = await service.getWorkspace({
+    const response = await service.getBook({
       auth: { actor: "Intruder", kind: "token", role: "member", token: "bad" },
-      workspaceId: fixture.workspace.id,
+      bookId: fixture.book.id,
     });
 
     expect(response.status).toBe(403);
@@ -1100,24 +1100,24 @@ describe("workspace service", () => {
     await fixture.cleanup();
   });
 
-  it("returns typed not found errors for missing workspaces", async () => {
-    const service = createWorkspaceService({
+  it("returns typed not found errors for missing books", async () => {
+    const service = createBookService({
       logger: createTestLogger([]),
-      repository: createFileSystemWorkspaceRepository({ rootDirectory: "/tmp/tally-missing" }),
+      repository: createFileSystemBookRepository({ rootDirectory: "/tmp/tally-missing" }),
     });
 
-    const response = await service.getWorkspace({
+    const response = await service.getBook({
       auth: { actor: "local-admin", kind: "local", role: "local-admin" },
-      workspaceId: "missing-workspace",
+      bookId: "missing-book",
     });
 
     expect(response.status).toBe(404);
     expectErrorBody(response.body);
-    expect(response.body.error.code).toBe("workspace.not_found");
+    expect(response.body.error.code).toBe("book.not_found");
   });
 
   it("masks unexpected repository failures as internal errors", async () => {
-    const service = createWorkspaceService({
+    const service = createBookService({
       logger: createTestLogger([]),
       repository: {
         async createBackup() {
@@ -1143,9 +1143,9 @@ describe("workspace service", () => {
       },
     });
 
-    const response = await service.getWorkspace({
+    const response = await service.getBook({
       auth: { actor: "local-admin", kind: "local", role: "local-admin" },
-      workspaceId: "workspace-household-demo",
+      bookId: "book-household-demo",
     });
 
     expect(response.status).toBe(500);

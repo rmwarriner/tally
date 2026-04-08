@@ -1,4 +1,4 @@
-import type { FinanceWorkspaceDocument, AuditEvent, AuditEventType } from "./types";
+import type { FinanceBookDocument, AuditEvent, AuditEventType } from "./types";
 
 export interface AuditContext {
   actor?: string;
@@ -6,7 +6,7 @@ export interface AuditContext {
   authorization?: {
     access: string;
     effectiveRole: string;
-    grantedBy: "local-admin" | "workspace-role";
+    grantedBy: "local-admin" | "book-role";
   };
   commandId?: string;
   disabled?: boolean;
@@ -24,7 +24,7 @@ function normalizeEntityIds(entityIds: string[]): string[] {
 }
 
 export function createAuditEvent(
-  document: FinanceWorkspaceDocument,
+  document: FinanceBookDocument,
   input: AuditEventInput,
   context: AuditContext = {},
 ): AuditEvent {
@@ -33,7 +33,7 @@ export function createAuditEvent(
 
   return {
     id: `audit:${input.eventType}:${commandId}:${occurredAt}`,
-    workspaceId: document.id,
+    bookId: document.id,
     actor: context.actor ?? "system",
     occurredAt,
     eventType: input.eventType,
@@ -47,10 +47,10 @@ export function createAuditEvent(
 }
 
 export function appendAuditEvent(
-  document: FinanceWorkspaceDocument,
+  document: FinanceBookDocument,
   input: AuditEventInput,
   context: AuditContext = {},
-): FinanceWorkspaceDocument {
+): FinanceBookDocument {
   if (context.disabled) {
     return document;
   }
