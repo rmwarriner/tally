@@ -73,6 +73,5 @@ The current service layer attaches authenticated actor identity and authorizatio
 
 Remaining extensions are:
 
-- a dedicated `GET /api/workspaces/:id/audit-events` HTTP endpoint (planned — see `docs/project-status.md`)
 - optional append-only audit streams for external retention
 - broader mutation coverage as account management and other new commands are added

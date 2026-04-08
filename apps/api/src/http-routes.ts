@@ -1,5 +1,6 @@
 export interface HttpReadRouteMatches {
   approvalsMatch: RegExpMatchArray | null;
+  auditEventsMatch: RegExpMatchArray | null;
   backupsMatch: RegExpMatchArray | null;
   closePeriodsMatch: RegExpMatchArray | null;
   closeSummaryMatch: RegExpMatchArray | null;
@@ -203,12 +204,17 @@ export function normalizeRouteLabel(method: string, path: string): string {
     return "/api/workspaces/:workspaceId/approvals/:approvalId/deny";
   }
 
+  if (/^\/api\/workspaces\/[^/]+\/audit-events$/.test(path)) {
+    return "/api/workspaces/:workspaceId/audit-events";
+  }
+
   return path;
 }
 
 export function matchHttpReadRoutes(path: string): HttpReadRouteMatches {
   return {
     approvalsMatch: path.match(/^\/api\/workspaces\/([^/]+)\/approvals$/),
+    auditEventsMatch: path.match(/^\/api\/workspaces\/([^/]+)\/audit-events$/),
     backupsMatch: path.match(/^\/api\/workspaces\/([^/]+)\/backups$/),
     closePeriodsMatch: path.match(/^\/api\/workspaces\/([^/]+)\/close-periods$/),
     closeSummaryMatch: path.match(/^\/api\/workspaces\/([^/]+)\/close-summary$/),

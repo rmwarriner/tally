@@ -1153,4 +1153,130 @@ describe("workspace service", () => {
     expect(response.body.error.code).toBe("internal.unexpected");
     expect(response.body.errors[0]).toBe("An unexpected error occurred.");
   });
+
+  it("returns audit events for the workspace", async () => {
+    const fixture = await createFixture();
+    const service = createWorkspaceService({
+      logger: createTestLogger([]),
+      repository: createFileSystemWorkspaceRepository({ rootDirectory: fixture.directory }),
+    });
+
+    // Seed a transaction so an audit event exists.
+    await service.postTransaction({
+      auth: { actor: "Primary", kind: "token", role: "member", token: "token-1" },
+      transaction: {
+        id: "txn-audit-test-1",
+        occurredOn: "2026-04-05",
+        description: "Audit test",
+        postings: [
+          { accountId: "acct-expense-utilities", amount: createMoney("USD", 10) },
+          { accountId: "acct-checking", amount: createMoney("USD", -10), cleared: true },
+        ],
+      },
+      workspaceId: fixture.workspace.id,
+    });
+
+    const response = await service.getAuditEvents({
+      auth: { actor: "local-admin", kind: "local", role: "local-admin" },
+      workspaceId: fixture.workspace.id,
+    });
+
+    expect(response.status).toBe(200);
+    expect("auditEvents" in response.body).toBe(true);
+    if ("auditEvents" in response.body) {
+      expect(response.body.auditEvents.some((e) => e.eventType === "transaction.created")).toBe(true);
+    }
+
+    await fixture.cleanup();
+  });
+
+  it("filters audit events by eventType", async () => {
+    const fixture = await createFixture();
+    const service = createWorkspaceService({
+      logger: createTestLogger([]),
+      repository: createFileSystemWorkspaceRepository({ rootDirectory: fixture.directory }),
+    });
+
+    await service.postTransaction({
+      auth: { actor: "Primary", kind: "token", role: "member", token: "token-1" },
+      transaction: {
+        id: "txn-audit-filter-1",
+        occurredOn: "2026-04-05",
+        description: "Filter test",
+        postings: [
+          { accountId: "acct-expense-utilities", amount: createMoney("USD", 5) },
+          { accountId: "acct-checking", amount: createMoney("USD", -5), cleared: true },
+        ],
+      },
+      workspaceId: fixture.workspace.id,
+    });
+
+    const response = await service.getAuditEvents({
+      auth: { actor: "local-admin", kind: "local", role: "local-admin" },
+      eventType: "transaction.created",
+      workspaceId: fixture.workspace.id,
+    });
+
+    expect(response.status).toBe(200);
+    if ("auditEvents" in response.body) {
+      expect(response.body.auditEvents.every((e) => e.eventType === "transaction.created")).toBe(true);
+    }
+
+    await fixture.cleanup();
+  });
+
+  it("limits audit events with the limit parameter", async () => {
+    const fixture = await createFixture();
+    const service = createWorkspaceService({
+      logger: createTestLogger([]),
+      repository: createFileSystemWorkspaceRepository({ rootDirectory: fixture.directory }),
+    });
+
+    // Post two transactions to ensure multiple events.
+    for (const id of ["txn-limit-a", "txn-limit-b", "txn-limit-c"]) {
+      await service.postTransaction({
+        auth: { actor: "Primary", kind: "token", role: "member", token: "token-1" },
+        transaction: {
+          id,
+          occurredOn: "2026-04-05",
+          description: "Limit test",
+          postings: [
+            { accountId: "acct-expense-utilities", amount: createMoney("USD", 1) },
+            { accountId: "acct-checking", amount: createMoney("USD", -1), cleared: true },
+          ],
+        },
+        workspaceId: fixture.workspace.id,
+      });
+    }
+
+    const response = await service.getAuditEvents({
+      auth: { actor: "local-admin", kind: "local", role: "local-admin" },
+      limit: 2,
+      workspaceId: fixture.workspace.id,
+    });
+
+    expect(response.status).toBe(200);
+    if ("auditEvents" in response.body) {
+      expect(response.body.auditEvents.length).toBeLessThanOrEqual(2);
+    }
+
+    await fixture.cleanup();
+  });
+
+  it("rejects audit event reads for actors outside the workspace", async () => {
+    const fixture = await createFixture();
+    const service = createWorkspaceService({
+      logger: createTestLogger([]),
+      repository: createFileSystemWorkspaceRepository({ rootDirectory: fixture.directory }),
+    });
+
+    const response = await service.getAuditEvents({
+      auth: { actor: "Outside User", kind: "token", role: "member", token: "token-2" },
+      workspaceId: fixture.workspace.id,
+    });
+
+    expect(response.status).toBe(403);
+
+    await fixture.cleanup();
+  });
 });

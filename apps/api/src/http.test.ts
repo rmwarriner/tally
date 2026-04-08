@@ -1705,4 +1705,81 @@ Lacct-expense-utilities
 
     await fixture.cleanup();
   });
+
+  it("serves audit events over HTTP", async () => {
+    const fixture = await createFixture();
+    const service = createWorkspaceService({
+      repository: createFileSystemWorkspaceRepository({ rootDirectory: fixture.directory }),
+    });
+    const handler = createHttpHandler({ service });
+
+    const response = await handler(
+      new Request(`http://localhost/api/workspaces/${fixture.workspace.id}/audit-events`),
+    );
+    const body = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(Array.isArray(body.auditEvents)).toBe(true);
+
+    await fixture.cleanup();
+  });
+
+  it("filters audit events by eventType over HTTP", async () => {
+    const fixture = await createFixture();
+    const service = createWorkspaceService({
+      repository: createFileSystemWorkspaceRepository({ rootDirectory: fixture.directory }),
+    });
+    const handler = createHttpHandler({ service });
+
+    const response = await handler(
+      new Request(
+        `http://localhost/api/workspaces/${fixture.workspace.id}/audit-events?eventType=transaction.created`,
+      ),
+    );
+    const body = await response.json();
+
+    expect(response.status).toBe(200);
+    for (const event of body.auditEvents) {
+      expect(event.eventType).toBe("transaction.created");
+    }
+
+    await fixture.cleanup();
+  });
+
+  it("rejects audit events with an invalid limit parameter", async () => {
+    const fixture = await createFixture();
+    const service = createWorkspaceService({
+      repository: createFileSystemWorkspaceRepository({ rootDirectory: fixture.directory }),
+    });
+    const handler = createHttpHandler({ service });
+
+    const response = await handler(
+      new Request(
+        `http://localhost/api/workspaces/${fixture.workspace.id}/audit-events?limit=notanumber`,
+      ),
+    );
+
+    expect(response.status).toBe(400);
+
+    await fixture.cleanup();
+  });
+
+  it("normalizes audit events route label for metrics", async () => {
+    const fixture = await createFixture();
+    const service = createWorkspaceService({
+      repository: createFileSystemWorkspaceRepository({ rootDirectory: fixture.directory }),
+    });
+    const handler = createHttpHandler({ service });
+
+    await handler(
+      new Request(`http://localhost/api/workspaces/${fixture.workspace.id}/audit-events`),
+    );
+
+    const metricsResponse = await handler(new Request("http://localhost/metrics"));
+    const body = await metricsResponse.text();
+
+    expect(body).toContain("/api/workspaces/:workspaceId/audit-events");
+
+    await fixture.cleanup();
+  });
 });

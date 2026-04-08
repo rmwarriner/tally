@@ -16,6 +16,9 @@ describe("http routes", () => {
     expect(normalizeRouteLabel("GET", "/health/ready")).toBe("/readyz");
     expect(normalizeRouteLabel("GET", "/metrics")).toBe("/metrics");
     expect(normalizeRouteLabel("GET", "/api/workspaces/demo")).toBe("/api/workspaces/:workspaceId");
+    expect(normalizeRouteLabel("GET", "/api/workspaces/demo/audit-events")).toBe(
+      "/api/workspaces/:workspaceId/audit-events",
+    );
     expect(normalizeRouteLabel("POST", "/api/workspaces/demo/imports/ofx")).toBe(
       "/api/workspaces/:workspaceId/imports/ofx",
     );
@@ -40,12 +43,16 @@ describe("http routes", () => {
   it("matches read route variants", () => {
     const readWorkspace = matchHttpReadRoutes("/api/workspaces/demo");
     const readReport = matchHttpReadRoutes("/api/workspaces/demo/reports/cash-flow");
+    const readAuditEvents = matchHttpReadRoutes("/api/workspaces/demo/audit-events");
 
     expect(readWorkspace.workspaceMatch?.[1]).toBe("demo");
     expect(readWorkspace.reportMatch).toBeNull();
+    expect(readWorkspace.auditEventsMatch).toBeNull();
     expect(readReport.workspaceMatch).toBeNull();
     expect(readReport.reportMatch?.[1]).toBe("demo");
     expect(readReport.reportMatch?.[2]).toBe("cash-flow");
+    expect(readAuditEvents.auditEventsMatch?.[1]).toBe("demo");
+    expect(readAuditEvents.workspaceMatch).toBeNull();
   });
 
   it("matches post route variants and bodyless routes", () => {

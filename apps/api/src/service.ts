@@ -40,6 +40,7 @@ import {
 import type {
   AddHouseholdMemberRequest,
   ApprovalsEnvelope,
+  AuditEventsEnvelope,
   BackupEnvelope,
   BackupsEnvelope,
   DeleteTransactionRequest,
@@ -47,6 +48,7 @@ import type {
   DestroyTransactionRequest,
   ErrorEnvelope,
   GetApprovalsRequest,
+  GetAuditEventsRequest,
   GetGnuCashXmlExportRequest,
   GetBackupsRequest,
   ApplyScheduledTransactionExceptionRequest,
@@ -172,6 +174,9 @@ export interface WorkspaceService {
   removeHouseholdMember(
     request: RemoveHouseholdMemberRequest,
   ): Promise<ServiceResponse<WorkspaceEnvelope | ErrorEnvelope>>;
+  getAuditEvents(
+    request: GetAuditEventsRequest,
+  ): Promise<ServiceResponse<AuditEventsEnvelope | ErrorEnvelope>>;
   getApprovals(
     request: GetApprovalsRequest,
   ): Promise<ServiceResponse<ApprovalsEnvelope | ErrorEnvelope>>;
@@ -724,6 +729,35 @@ export function createWorkspaceService(params: {
           await params.repository.save(result.document, { logger: requestLogger });
           requestLogger.info("service command completed");
           return success(200, { workspace: presentWorkspace(result.document) });
+        },
+      );
+    },
+
+    async getAuditEvents(request) {
+      const requestLogger = getRequestLogger(request.logger).child({
+        operation: "getAuditEvents",
+        workspaceId: request.workspaceId,
+      });
+      requestLogger.info("service command started");
+      return withWorkspace<AuditEventsEnvelope | ErrorEnvelope>(
+        serviceParams("read", request.auth, requestLogger, request.workspaceId),
+        async (workspace) => {
+          let auditEvents = workspace.auditEvents;
+
+          if (request.eventType) {
+            auditEvents = auditEvents.filter((e) => e.eventType === request.eventType);
+          }
+
+          if (request.since) {
+            auditEvents = auditEvents.filter((e) => e.occurredAt >= request.since!);
+          }
+
+          if (request.limit !== undefined && request.limit > 0) {
+            auditEvents = auditEvents.slice(-request.limit);
+          }
+
+          requestLogger.info("service command completed", { count: auditEvents.length });
+          return success(200, { auditEvents });
         },
       );
     },

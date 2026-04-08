@@ -158,29 +158,9 @@ The main remaining work falls into two categories:
 
 ## Next Suggested Restart Point
 
-Approval/review semantics are now implemented. The next three slices are queued and planned — implement them in order:
+CORS configuration and audit event read endpoint are now implemented. The next slice is queued and planned:
 
-### 1. CORS configuration
-**Goal:** Make the API usable in any cross-origin deployment topology.
-
-- Add `corsAllowedOrigins?: string[]` to `createHttpHandler` params and a `CORS_ORIGIN` env var to `config.ts`
-- Handle `OPTIONS` preflight requests — respond `204` with `Access-Control-Allow-*` headers, no auth required
-- Emit `Access-Control-Allow-Origin` on every response (exact-origin matching; wildcard only when unconfigured and `NODE_ENV !== "production"`)
-- Emit `Access-Control-Allow-Methods`, `Access-Control-Allow-Headers`, `Access-Control-Max-Age` on preflight
-- Add `normalizeRouteLabel` entry and `isOptionsRoute` helper
-- Tests: preflight returns correct headers; non-matching origin gets no ACAO header; configured origin is reflected back
-
-### 2. Audit event read endpoint
-**Goal:** Expose the audit trail as a queryable API surface.
-
-- Add `auditEventsMatch` to `matchHttpReadRoutes` → `GET /api/workspaces/:id/audit-events`
-- Query params: `?from=` (ISO date), `?to=` (ISO date), `?eventType=` (exact match); all optional
-- New service method `getAuditEvents(request: GetAuditEventsRequest)` — reads workspace at `read` access, filters `workspace.auditEvents` in-process
-- New request type `GetAuditEventsRequest` and response envelope `AuditEventsEnvelope`
-- Add `validateAuditEventsQuery` to `validation.ts`
-- Tests: unfiltered returns all events; date filters narrow correctly; eventType filter works; auth enforced
-
-### 3. Account management routes
+### Account management routes
 **Goal:** Full CRUD for chart-of-accounts without workspace roundtrips.
 
 **Domain changes:**

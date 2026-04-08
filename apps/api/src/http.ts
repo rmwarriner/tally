@@ -301,6 +301,7 @@ export function createHttpHandler(params: {
     if (request.method === "GET") {
       const {
         approvalsMatch,
+        auditEventsMatch,
         backupsMatch,
         closePeriodsMatch,
         closeSummaryMatch,
@@ -798,6 +799,62 @@ export function createHttpHandler(params: {
         const response = await params.service.getApprovals({
           auth: auth.context,
           logger: requestLogger,
+          workspaceId,
+        });
+        return completeJsonResponse(response.status, response.body);
+      }
+
+      if (auditEventsMatch) {
+        const rateLimited = enforceRateLimit(rateLimitPolicy.read);
+
+        if (rateLimited) {
+          return completeJsonResponse(
+            rateLimited.status,
+            await rateLimited.json(),
+            Object.fromEntries(rateLimited.headers.entries()),
+          );
+        }
+
+        const workspaceId = decodeURIComponent(auditEventsMatch[1]);
+
+        if (!isSafeWorkspaceId(workspaceId)) {
+          return completeJsonResponse(
+            400,
+            toErrorEnvelope(
+              new ApiError({
+                code: "repository.invalid_identifier",
+                message: "Workspace identifier is invalid.",
+                status: 400,
+              }),
+            ),
+          );
+        }
+
+        const rawLimit = url.searchParams.get("limit");
+        const limit = rawLimit !== null ? parseInt(rawLimit, 10) : undefined;
+
+        if (limit !== undefined && (isNaN(limit) || limit < 1)) {
+          return completeJsonResponse(
+            400,
+            toErrorEnvelope(
+              new ApiError({
+                code: "request.invalid",
+                message: "limit must be a positive integer.",
+                status: 400,
+              }),
+            ),
+          );
+        }
+
+        const since = url.searchParams.get("since") ?? undefined;
+        const eventType = url.searchParams.get("eventType") ?? undefined;
+
+        const response = await params.service.getAuditEvents({
+          auth: auth.context,
+          eventType,
+          limit,
+          logger: requestLogger,
+          since,
           workspaceId,
         });
         return completeJsonResponse(response.status, response.body);

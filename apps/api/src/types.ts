@@ -341,6 +341,19 @@ export interface HouseholdMembersEnvelope {
   }>;
 }
 
+export interface GetAuditEventsRequest {
+  auth: AuthContext;
+  eventType?: string;
+  limit?: number;
+  logger?: Logger;
+  since?: string;
+  workspaceId: string;
+}
+
+export interface AuditEventsEnvelope {
+  auditEvents: import("@tally/workspace").AuditEvent[];
+}
+
 export interface GetApprovalsRequest {
   auth: AuthContext;
   logger?: Logger;
