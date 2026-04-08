@@ -31,6 +31,17 @@ Parked until the team is ready to design this deliberately across domain, persis
 - Should backup creation and restore include integrity verification before acceptance?
 - How should this evolve if SQLite or Postgres backends are adopted?
 
+### Optional end-to-end encryption between clients and the API
+Add an optional E2E encryption layer so that sensitive financial data is encrypted on the client before transmission and decrypted only on the client after retrieval, preventing the API server from seeing plaintext payload data even in transit.
+
+Parked until the team is ready to define key management, the scope of encrypted fields, and the operational trade-offs around server-side search, audit, and backup/restore.
+
+**Key open questions:**
+- Which payloads or fields should be encrypted — full transaction bodies, specific sensitive fields, or everything?
+- How are encryption keys managed: user-held, device-derived, or a key management service?
+- How does E2E encryption interact with server-side audit events, search, and import/export?
+- What is the recovery path if a user loses their key?
+
 ---
 
 ## Track 2: Budgeting, Envelopes, Planning, and Forecasting
@@ -310,6 +321,17 @@ Parked — the identity layer is implemented; this is the next natural slice but
 
 ## Track 6: Operations and Infrastructure
 
+### Single-node deployment — everything on one machine
+Support a first-class single-node deployment target where the API, web client, and database all run on one computer (personal server, NAS, home lab). This is distinct from the current dev setup — it should be a supported, documented production mode with a stable startup story and no external dependencies.
+
+Parked until the SQLite-primary persistence work is settled, since SQLite is the natural backend for this deployment shape.
+
+**Key open questions:**
+- Should this be a single process (embedded API + static web assets served together) or coordinated processes with a simple launcher?
+- What is the intended host environment: bare metal, a NAS OS (Synology, TrueNAS), or a single-machine Docker/Podman stack?
+- How should upgrade and backup/restore work in this mode?
+- Does this subsume or replace the dev-containers idea for local non-developer users?
+
 ### Dev containers for reproducible local development
 A dev-container workflow would provide a reproducible development environment, reduce setup friction, and improve consistency between local validation and CI.
 
@@ -319,6 +341,17 @@ Parked until scope is bounded (single default container vs. role-specific varian
 - Which workflows should be first-class in-container: `pnpm dev:api`, tests, typecheck, web/mobile?
 - How should mobile/Expo ergonomics work with containerized development?
 - What is the maintenance cost of keeping devcontainer definitions aligned with CI and runtime?
+
+### Promote SQLite to primary persistence, retire JSON backend, support Postgres
+Remove the JSON persistence adapter as a runtime backend. Make SQLite the primary supported adapter. Add Postgres as a second supported runtime backend. Repurpose JSON as a pure import/export format rather than a live persistence target.
+
+Parked until the team is ready to define the migration path for existing JSON workspaces and scope the Postgres adapter work.
+
+**Key open questions:**
+- What is the migration path for users with existing JSON workspaces?
+- Should Postgres be a first-class equal to SQLite or a later addition once SQLite is stable?
+- How does removing JSON persistence affect the backup/restore runbook and CI fixtures?
+- Does the import/export JSON format stay identical to the current workspace schema or get redesigned as a portable exchange format?
 
 ### Production deployment in Docker or Podman containers
 A containerized production target would simplify deployment automation, standardize operational runbooks, and reduce environment drift. Supporting both Docker and Podman would broaden hosting options.
