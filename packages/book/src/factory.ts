@@ -39,6 +39,7 @@ export function createDemoBook(): FinanceBookDocument {
     importBatches: [],
     reconciliationSessions: [],
     closePeriods: [],
+    attachments: [],
     auditEvents: [],
   };
 }

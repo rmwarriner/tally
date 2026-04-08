@@ -1,5 +1,8 @@
+import { randomUUID } from "node:crypto";
+import { cp, mkdir, readFile, rm, stat, writeFile } from "node:fs/promises";
+import { join, resolve } from "node:path";
 import { createNoopLogger, type Logger } from "@tally/logging";
-import { starterChartOfAccounts } from "@tally/domain";
+import { starterChartOfAccounts, type Transaction } from "@tally/domain";
 import {
   addHouseholdMember,
   addTransaction,
@@ -25,6 +28,7 @@ import {
   reconcileAccount,
   recordEnvelopeAllocation,
   removeHouseholdMember,
+  restoreTransaction,
   requestApproval,
   setHouseholdMemberRole,
   upsertAccount,
@@ -45,11 +49,14 @@ import type {
   AddHouseholdMemberRequest,
   ApprovalsEnvelope,
   ArchiveAccountRequest,
+  AttachmentBinaryEnvelope,
+  AttachmentEnvelope,
   AuditEventsEnvelope,
   BackupEnvelope,
   BackupsEnvelope,
   BooksEnvelope,
   DeleteTransactionRequest,
+  GetAttachmentRequest,
   DenyApprovalRequest,
   DestroyTransactionRequest,
   ErrorEnvelope,
@@ -68,6 +75,7 @@ import type {
   GetQifExportRequest,
   GetStatementExportRequest,
   GetReportRequest,
+  GetTransactionsRequest,
   GetWorkspaceRequest,
   GnuCashXmlExportEnvelope,
   GrantApprovalRequest,
@@ -86,12 +94,17 @@ import type {
   PostReconciliationRequest,
   PostScheduledTransactionRequest,
   PostStatementImportRequest,
+  PostAttachmentRequest,
   PostTransactionRequest,
   RemoveHouseholdMemberRequest,
   RequestApprovalRequest,
   ServiceResponse,
   SetHouseholdMemberRoleRequest,
   StatementExportEnvelope,
+  RestoreTransactionRequest,
+  LinkTransactionAttachmentRequest,
+  UnlinkTransactionAttachmentRequest,
+  TransactionsEnvelope,
   UpdateTransactionRequest,
   DashboardEnvelope,
   QifExportEnvelope,
@@ -119,8 +132,17 @@ export interface BookService {
   ): Promise<ServiceResponse<StatementExportEnvelope | ErrorEnvelope>>;
   getReport(request: GetReportRequest): Promise<ServiceResponse<ReportEnvelope | ErrorEnvelope>>;
   getBook(request: GetWorkspaceRequest): Promise<ServiceResponse<BookEnvelope | ErrorEnvelope>>;
+  getTransactions(
+    request: GetTransactionsRequest,
+  ): Promise<ServiceResponse<TransactionsEnvelope | ErrorEnvelope>>;
+  getAttachment(
+    request: GetAttachmentRequest,
+  ): Promise<ServiceResponse<AttachmentBinaryEnvelope | ErrorEnvelope>>;
   deleteTransaction(
     request: DeleteTransactionRequest,
+  ): Promise<ServiceResponse<BookEnvelope | ErrorEnvelope>>;
+  restoreTransaction(
+    request: RestoreTransactionRequest,
   ): Promise<ServiceResponse<BookEnvelope | ErrorEnvelope>>;
   destroyTransaction(
     request: DestroyTransactionRequest,
@@ -152,6 +174,9 @@ export interface BookService {
   postBook(
     request: PostBookRequest,
   ): Promise<ServiceResponse<BookEnvelope | ErrorEnvelope>>;
+  postAttachment(
+    request: PostAttachmentRequest,
+  ): Promise<ServiceResponse<AttachmentEnvelope | ErrorEnvelope>>;
   postBackupRestore(
     request: PostBackupRestoreRequest,
   ): Promise<ServiceResponse<BookEnvelope | ErrorEnvelope>>;
@@ -172,6 +197,12 @@ export interface BookService {
   ): Promise<ServiceResponse<BookEnvelope | ErrorEnvelope>>;
   postTransaction(
     request: PostTransactionRequest,
+  ): Promise<ServiceResponse<BookEnvelope | ErrorEnvelope>>;
+  linkTransactionAttachment(
+    request: LinkTransactionAttachmentRequest,
+  ): Promise<ServiceResponse<BookEnvelope | ErrorEnvelope>>;
+  unlinkTransactionAttachment(
+    request: UnlinkTransactionAttachmentRequest,
   ): Promise<ServiceResponse<BookEnvelope | ErrorEnvelope>>;
   updateTransaction(
     request: UpdateTransactionRequest,
@@ -224,10 +255,14 @@ const DEFAULT_BOOK_COMMODITIES = [
 ];
 
 export function createBookService(params: {
+  dataDirectory?: string;
   logger?: Logger;
   repository: BookRepository;
 }): BookService {
   const logger = (params.logger ?? createNoopLogger()).child({ component: "bookService" });
+  const dataDirectory = resolve(params.dataDirectory ?? process.cwd());
+  const attachmentRoot = resolve(join(dataDirectory, "attachments"));
+  const attachmentBackupRoot = resolve(join(attachmentRoot, "_backups"));
 
   function getRequestLogger(requestLogger?: Logger): Logger {
     return requestLogger ?? logger;
@@ -239,6 +274,119 @@ export function createBookService(params: {
 
   function serviceParams(access: "destroy" | "manage" | "operate" | "read" | "write", auth: Parameters<BookService["getBook"]>[0]["auth"], requestLogger: Logger, bookId: string) {
     return { access, auth, logger: requestLogger, repository: params.repository, bookId };
+  }
+
+  function isSafeIdentifier(identifier: string): boolean {
+    return /^[a-zA-Z0-9:._-]+$/.test(identifier);
+  }
+
+  function requireSafeIdentifier(identifier: string, noun: string): void {
+    if (!isSafeIdentifier(identifier)) {
+      throw new ApiError({
+        code: "repository.invalid_identifier",
+        message: `${noun} identifier is invalid.`,
+        status: 400,
+      });
+    }
+  }
+
+  function attachmentPath(bookId: string, attachmentId: string): string {
+    requireSafeIdentifier(bookId, "Workspace");
+    requireSafeIdentifier(attachmentId, "Attachment");
+    return resolve(join(attachmentRoot, bookId, attachmentId));
+  }
+
+  function attachmentSnapshotDirectory(bookId: string, backupId: string): string {
+    requireSafeIdentifier(bookId, "Workspace");
+    requireSafeIdentifier(backupId, "Backup");
+    return resolve(join(attachmentBackupRoot, bookId, backupId));
+  }
+
+  async function createAttachmentBackupSnapshot(bookId: string, backupId: string): Promise<void> {
+    const sourceDirectory = resolve(join(attachmentRoot, bookId));
+    const destinationDirectory = attachmentSnapshotDirectory(bookId, backupId);
+    await rm(destinationDirectory, { force: true, recursive: true });
+
+    try {
+      await stat(sourceDirectory);
+    } catch (error) {
+      if (typeof error === "object" && error !== null && "code" in error && error.code === "ENOENT") {
+        return;
+      }
+
+      throw new ApiError({
+        cause: error,
+        code: "repository.unavailable",
+        expose: false,
+        message: "Book storage is unavailable.",
+        status: 500,
+      });
+    }
+
+    await mkdir(destinationDirectory, { recursive: true });
+    await cp(sourceDirectory, destinationDirectory, { force: true, recursive: true });
+  }
+
+  async function restoreAttachmentBackupSnapshot(bookId: string, backupId: string): Promise<void> {
+    const destinationDirectory = resolve(join(attachmentRoot, bookId));
+    const sourceDirectory = attachmentSnapshotDirectory(bookId, backupId);
+    await rm(destinationDirectory, { force: true, recursive: true });
+
+    try {
+      await stat(sourceDirectory);
+    } catch (error) {
+      if (typeof error === "object" && error !== null && "code" in error && error.code === "ENOENT") {
+        return;
+      }
+
+      throw new ApiError({
+        cause: error,
+        code: "repository.unavailable",
+        expose: false,
+        message: "Book storage is unavailable.",
+        status: 500,
+      });
+    }
+
+    await mkdir(destinationDirectory, { recursive: true });
+    await cp(sourceDirectory, destinationDirectory, { force: true, recursive: true });
+  }
+
+  function compareTransactionDesc(left: Transaction, right: Transaction): number {
+    return right.occurredOn.localeCompare(left.occurredOn) || right.id.localeCompare(left.id);
+  }
+
+  function encodeCursor(transaction: Transaction): string {
+    return Buffer.from(
+      JSON.stringify({ occurredOn: transaction.occurredOn, id: transaction.id }),
+      "utf8",
+    ).toString("base64url");
+  }
+
+  function decodeCursor(cursor: string): { id: string; occurredOn: string } {
+    try {
+      const decoded = JSON.parse(Buffer.from(cursor, "base64url").toString("utf8")) as {
+        id?: unknown;
+        occurredOn?: unknown;
+      };
+
+      if (
+        typeof decoded.id !== "string" ||
+        typeof decoded.occurredOn !== "string" ||
+        !/^\d{4}-\d{2}-\d{2}$/.test(decoded.occurredOn)
+      ) {
+        throw new Error("Invalid transaction cursor.");
+      }
+
+      return { id: decoded.id, occurredOn: decoded.occurredOn };
+    } catch {
+      throw new ApiError({
+        code: "validation.failed",
+        details: { issues: ["cursor must be a base64url JSON object with occurredOn and id."] },
+        message: "cursor must be a base64url JSON object with occurredOn and id.",
+        status: 400,
+      });
+    }
   }
 
   return {
@@ -304,6 +452,115 @@ export function createBookService(params: {
         async (book) => {
           requestLogger.info("service command completed");
           return success(200, { book: presentBook(book) });
+        },
+      );
+    },
+
+    async getTransactions(request) {
+      const requestLogger = getRequestLogger(request.logger).child({
+        operation: "getTransactions",
+        bookId: request.bookId,
+      });
+      requestLogger.info("service command started");
+      return withWorkspace<TransactionsEnvelope | ErrorEnvelope>(
+        serviceParams("read", request.auth, requestLogger, request.bookId),
+        async (book) => {
+          const cursor = request.payload.cursor ? decodeCursor(request.payload.cursor) : undefined;
+          let transactions = [...book.transactions];
+
+          if (request.payload.accountId) {
+            transactions = transactions.filter((transaction) =>
+              transaction.postings.some((posting) => posting.accountId === request.payload.accountId),
+            );
+          }
+
+          if (request.payload.from) {
+            transactions = transactions.filter((transaction) => transaction.occurredOn >= request.payload.from!);
+          }
+
+          if (request.payload.to) {
+            transactions = transactions.filter((transaction) => transaction.occurredOn <= request.payload.to!);
+          }
+
+          if (request.payload.status === "deleted") {
+            transactions = transactions.filter((transaction) => transaction.deletion !== undefined);
+          } else if (request.payload.status === "cleared") {
+            transactions = transactions.filter(
+              (transaction) =>
+                transaction.deletion === undefined &&
+                transaction.postings.every((posting) => posting.cleared === true),
+            );
+          } else if (request.payload.status === "pending") {
+            transactions = transactions.filter(
+              (transaction) =>
+                transaction.deletion === undefined &&
+                transaction.postings.some((posting) => posting.cleared !== true),
+            );
+          } else {
+            transactions = transactions.filter((transaction) => transaction.deletion === undefined);
+          }
+
+          transactions.sort(compareTransactionDesc);
+
+          if (cursor) {
+            transactions = transactions.filter(
+              (transaction) =>
+                transaction.occurredOn < cursor.occurredOn ||
+                (transaction.occurredOn === cursor.occurredOn && transaction.id < cursor.id),
+            );
+          }
+
+          const requestedLimit = request.payload.limit;
+          const page = transactions.slice(0, requestedLimit);
+          const hasMore = transactions.length > requestedLimit;
+          const nextCursor = hasMore && page.length > 0 ? encodeCursor(page[page.length - 1]!) : undefined;
+          requestLogger.info("service command completed", { transactionCount: page.length });
+          return success(200, { nextCursor, transactions: page });
+        },
+      );
+    },
+
+    async getAttachment(request) {
+      const requestLogger = getRequestLogger(request.logger).child({
+        operation: "getAttachment",
+        bookId: request.bookId,
+        attachmentId: request.attachmentId,
+      });
+      requestLogger.info("service command started");
+      return withWorkspace<AttachmentBinaryEnvelope | ErrorEnvelope>(
+        serviceParams("read", request.auth, requestLogger, request.bookId),
+        async (book) => {
+          requireSafeIdentifier(request.attachmentId, "Attachment");
+          const attachment = (book.attachments ?? []).find((candidate) => candidate.id === request.attachmentId);
+
+          if (!attachment) {
+            return failure(
+              new ApiError({
+                code: "request.not_found",
+                message: `Attachment ${request.attachmentId} was not found.`,
+                status: 404,
+              }),
+            );
+          }
+
+          try {
+            const bytes = await readFile(attachmentPath(request.bookId, request.attachmentId));
+            requestLogger.info("service command completed");
+            return success(200, { attachment, bytes });
+          } catch (error) {
+            if (typeof error === "object" && error !== null && "code" in error && error.code === "ENOENT") {
+              return failure(
+                new ApiError({
+                  cause: error,
+                  code: "request.not_found",
+                  message: `Attachment ${request.attachmentId} was not found.`,
+                  status: 404,
+                }),
+              );
+            }
+
+            throw error;
+          }
         },
       );
     },
@@ -483,6 +740,7 @@ export function createBookService(params: {
 
         const createdBook = {
           accounts: starterChartOfAccounts,
+          attachments: [],
           auditEvents: [],
           baseCommodityCode: "USD",
           baselineBudgetLines: [],
@@ -516,6 +774,40 @@ export function createBookService(params: {
       }
     },
 
+    async postAttachment(request) {
+      const requestLogger = getRequestLogger(request.logger).child({
+        operation: "postAttachment",
+        bookId: request.bookId,
+      });
+      requestLogger.info("service command started");
+      return withWorkspace<AttachmentEnvelope | ErrorEnvelope>(
+        serviceParams("write", request.auth, requestLogger, request.bookId),
+        async (book) => {
+          const attachmentId = randomUUID();
+          const createdAt = new Date().toISOString();
+          const nextAttachment = {
+            id: attachmentId,
+            fileName: request.payload.fileName,
+            contentType: request.payload.contentType,
+            sizeBytes: request.payload.sizeBytes,
+            createdAt,
+            createdBy: request.auth.actor,
+            storageKey: `attachments/${request.bookId}/${attachmentId}`,
+          };
+          const nextDocument = {
+            ...book,
+            attachments: [...(book.attachments ?? []), nextAttachment],
+          };
+
+          await mkdir(resolve(join(attachmentRoot, request.bookId)), { recursive: true });
+          await writeFile(attachmentPath(request.bookId, attachmentId), request.payload.bytes);
+          await params.repository.save(nextDocument, { logger: requestLogger });
+          requestLogger.info("service command completed", { attachmentId });
+          return success(201, { attachment: nextAttachment });
+        },
+      );
+    },
+
     async postBackup(request) {
       const requestLogger = getRequestLogger(request.logger).child({
         operation: "postBackup",
@@ -526,6 +818,7 @@ export function createBookService(params: {
         serviceParams("operate", request.auth, requestLogger, request.bookId),
         async () => {
           const backup = await params.repository.createBackup(request.bookId, { logger: requestLogger });
+          await createAttachmentBackupSnapshot(request.bookId, backup.id);
           requestLogger.info("service command completed", { backupId: backup.id });
           return success(201, { backup });
         },
@@ -543,6 +836,7 @@ export function createBookService(params: {
         serviceParams("operate", request.auth, requestLogger, request.bookId),
         async () => {
           const restored = await params.repository.restoreBackup(request.bookId, request.backupId, { logger: requestLogger });
+          await restoreAttachmentBackupSnapshot(request.bookId, request.backupId);
           requestLogger.info("service command completed", { backupId: request.backupId });
           return success(200, { book: presentBook(restored) });
         },
@@ -561,6 +855,136 @@ export function createBookService(params: {
       return withMutation(
         { ...serviceParams("write", request.auth, requestLogger, request.bookId), successStatus: 201 },
         (book, audit) => addTransaction(book, request.transaction, { audit, logger: requestLogger }),
+      );
+    },
+
+    async linkTransactionAttachment(request) {
+      const requestLogger = getRequestLogger(request.logger).child({
+        operation: "linkTransactionAttachment",
+        transactionId: request.transactionId,
+        attachmentId: request.attachmentId,
+        bookId: request.bookId,
+      });
+      requestLogger.info("service command started");
+      return withWorkspace<BookEnvelope | ErrorEnvelope>(
+        serviceParams("write", request.auth, requestLogger, request.bookId),
+        async (book) => {
+          const transaction = book.transactions.find((candidate) => candidate.id === request.transactionId);
+          if (!transaction) {
+            return failure(
+              new ApiError({
+                code: "request.not_found",
+                message: `Transaction ${request.transactionId} was not found.`,
+                status: 404,
+              }),
+            );
+          }
+
+          const attachment = (book.attachments ?? []).find((candidate) => candidate.id === request.attachmentId);
+          if (!attachment) {
+            return failure(
+              new ApiError({
+                code: "request.not_found",
+                message: `Attachment ${request.attachmentId} was not found.`,
+                status: 404,
+              }),
+            );
+          }
+
+          if ((transaction.attachmentIds ?? []).includes(attachment.id)) {
+            return failure(
+              new ApiError({
+                code: "validation.failed",
+                details: { issues: [`Attachment ${attachment.id} is already linked to transaction ${transaction.id}.`] },
+                message: `Attachment ${attachment.id} is already linked to transaction ${transaction.id}.`,
+                status: 409,
+              }),
+            );
+          }
+
+          const nextDocument = {
+            ...book,
+            transactions: book.transactions.map((candidate) =>
+              candidate.id === request.transactionId
+                ? {
+                    ...candidate,
+                    attachmentIds: [...(candidate.attachmentIds ?? []), request.attachmentId],
+                  }
+                : candidate,
+            ),
+          };
+
+          await params.repository.save(nextDocument, { logger: requestLogger });
+          requestLogger.info("service command completed");
+          return success(200, { book: presentBook(nextDocument) });
+        },
+      );
+    },
+
+    async unlinkTransactionAttachment(request) {
+      const requestLogger = getRequestLogger(request.logger).child({
+        operation: "unlinkTransactionAttachment",
+        transactionId: request.transactionId,
+        attachmentId: request.attachmentId,
+        bookId: request.bookId,
+      });
+      requestLogger.info("service command started");
+      return withWorkspace<BookEnvelope | ErrorEnvelope>(
+        serviceParams("write", request.auth, requestLogger, request.bookId),
+        async (book) => {
+          const transaction = book.transactions.find((candidate) => candidate.id === request.transactionId);
+          if (!transaction) {
+            return failure(
+              new ApiError({
+                code: "request.not_found",
+                message: `Transaction ${request.transactionId} was not found.`,
+                status: 404,
+              }),
+            );
+          }
+
+          const attachment = (book.attachments ?? []).find((candidate) => candidate.id === request.attachmentId);
+          if (!attachment) {
+            return failure(
+              new ApiError({
+                code: "request.not_found",
+                message: `Attachment ${request.attachmentId} was not found.`,
+                status: 404,
+              }),
+            );
+          }
+
+          const currentAttachmentIds = transaction.attachmentIds ?? [];
+          if (!currentAttachmentIds.includes(attachment.id)) {
+            return failure(
+              new ApiError({
+                code: "validation.failed",
+                details: { issues: [`Attachment ${attachment.id} is not linked to transaction ${transaction.id}.`] },
+                message: `Attachment ${attachment.id} is not linked to transaction ${transaction.id}.`,
+                status: 409,
+              }),
+            );
+          }
+
+          const nextDocument = {
+            ...book,
+            transactions: book.transactions.map((candidate) => {
+              if (candidate.id !== request.transactionId) {
+                return candidate;
+              }
+
+              const nextAttachmentIds = (candidate.attachmentIds ?? []).filter((id) => id !== request.attachmentId);
+              return {
+                ...candidate,
+                attachmentIds: nextAttachmentIds.length > 0 ? nextAttachmentIds : undefined,
+              };
+            }),
+          };
+
+          await params.repository.save(nextDocument, { logger: requestLogger });
+          requestLogger.info("service command completed");
+          return success(200, { book: presentBook(nextDocument) });
+        },
       );
     },
 
@@ -587,6 +1011,19 @@ export function createBookService(params: {
       return withMutation(
         { ...serviceParams("write", request.auth, requestLogger, request.bookId), successStatus: 200 },
         (book, audit) => deleteTransaction(book, request.transactionId, {}, { audit, logger: requestLogger }),
+      );
+    },
+
+    async restoreTransaction(request) {
+      const requestLogger = getRequestLogger(request.logger).child({
+        operation: "restoreTransaction",
+        transactionId: request.transactionId,
+        bookId: request.bookId,
+      });
+      requestLogger.info("service command started");
+      return withMutation(
+        { ...serviceParams("write", request.auth, requestLogger, request.bookId), successStatus: 200 },
+        (book, audit) => restoreTransaction(book, request.transactionId, { audit, logger: requestLogger }),
       );
     },
 

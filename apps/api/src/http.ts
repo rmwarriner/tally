@@ -25,6 +25,7 @@ import {
   validateRequestApprovalBody,
   validateCloseSummaryQuery,
   validateClosePeriodRequestBody,
+  validateGetTransactionsQuery,
   validateApplyScheduledTransactionExceptionRequestBody,
   validateExecuteScheduledTransactionRequestBody,
   validateBaselineBudgetLineRequestBody,
@@ -41,6 +42,7 @@ import {
   validateEnvelopeRequestBody,
   validateReconciliationRequestBody,
   validateScheduledTransactionRequestBody,
+  validateLinkTransactionAttachmentBody,
   validateTransactionRequestBody,
 } from "./validation";
 
@@ -114,6 +116,24 @@ function textResponse(
   });
 }
 
+function binaryResponse(
+  status: number,
+  body: Uint8Array,
+  extraHeaders: Record<string, string> = {},
+): Response {
+  return new Response(body, {
+    headers: {
+      "cache-control": "no-store",
+      "content-security-policy": "default-src 'none'; frame-ancestors 'none'; base-uri 'none'",
+      "referrer-policy": "no-referrer",
+      "x-content-type-options": "nosniff",
+      "x-frame-options": "DENY",
+      ...extraHeaders,
+    },
+    status,
+  });
+}
+
 export function createHttpHandler(params: {
   authRequired?: boolean;
   authIdentities?: AuthIdentity[];
@@ -163,13 +183,15 @@ export function createHttpHandler(params: {
 
   return async function handle(request: Request): Promise<Response> {
     const url = new URL(request.url);
-    const path = url.pathname.replace(/\/+$/, "");
+    const rawPath = url.pathname.replace(/\/+$/, "") || "/";
+    const path = rawPath.replace(/^\/api\/v1(?=\/|$)/, "/api");
     const route = normalizeRouteLabel(request.method, path);
     const startedAt = Date.now();
     const requestId = request.headers.get("x-request-id")?.trim() || randomUUID();
     const requestLogger = logger.child({
       method: request.method,
-      path,
+      path: rawPath,
+      canonicalPath: path,
       requestId,
       route,
     });
@@ -206,6 +228,23 @@ export function createHttpHandler(params: {
       });
 
       return textResponse(status, body, {
+        "x-request-id": requestId,
+        ...corsHeaders,
+        ...extraHeaders,
+      });
+    }
+
+    function completeBinaryResponse(status: number, body: Uint8Array, extraHeaders: Record<string, string> = {}): Response {
+      recordHttpCompletion({
+        method: request.method,
+        metrics,
+        requestLogger,
+        route,
+        startedAt,
+        status,
+      });
+
+      return binaryResponse(status, body, {
         "x-request-id": requestId,
         ...corsHeaders,
         ...extraHeaders,
@@ -315,6 +354,8 @@ export function createHttpHandler(params: {
         qifExportMatch,
         reportMatch,
         statementExportMatch,
+        transactionsMatch,
+        attachmentDownloadMatch,
         bookMatch,
       } = matchHttpReadRoutes(path);
 
@@ -368,6 +409,109 @@ export function createHttpHandler(params: {
           bookId,
         });
         return completeJsonResponse(response.status, response.body);
+      }
+
+      if (transactionsMatch) {
+        const rateLimited = enforceRateLimit(rateLimitPolicy.read);
+
+        if (rateLimited) {
+          return completeJsonResponse(
+            rateLimited.status,
+            await rateLimited.json(),
+            Object.fromEntries(rateLimited.headers.entries()),
+          );
+        }
+
+        const bookId = decodeURIComponent(transactionsMatch[1]);
+
+        if (!isSafeBookId(bookId)) {
+          return completeJsonResponse(
+            400,
+            toErrorEnvelope(
+              new ApiError({
+                code: "repository.invalid_identifier",
+                message: "Workspace identifier is invalid.",
+                status: 400,
+              }),
+            ),
+          );
+        }
+
+        const query = validateGetTransactionsQuery({
+          accountId: url.searchParams.get("accountId"),
+          cursor: url.searchParams.get("cursor"),
+          from: url.searchParams.get("from"),
+          limit: url.searchParams.get("limit"),
+          status: url.searchParams.get("status"),
+          to: url.searchParams.get("to"),
+        });
+
+        if (query.errors.length > 0 || !query.value) {
+          requestLogger.warn("http request validation failed", { errors: query.errors });
+          return completeJsonResponse(
+            400,
+            toErrorEnvelope(
+              new ApiError({
+                code: "validation.failed",
+                details: { issues: query.errors },
+                message: query.errors[0] ?? "Request validation failed.",
+                status: 400,
+              }),
+            ),
+          );
+        }
+
+        const response = await params.service.getTransactions({
+          auth: auth.context,
+          logger: requestLogger,
+          payload: query.value,
+          bookId,
+        });
+        return completeJsonResponse(response.status, response.body);
+      }
+
+      if (attachmentDownloadMatch) {
+        const rateLimited = enforceRateLimit(rateLimitPolicy.read);
+
+        if (rateLimited) {
+          return completeJsonResponse(
+            rateLimited.status,
+            await rateLimited.json(),
+            Object.fromEntries(rateLimited.headers.entries()),
+          );
+        }
+
+        const bookId = decodeURIComponent(attachmentDownloadMatch[1]);
+        const attachmentId = decodeURIComponent(attachmentDownloadMatch[2]);
+
+        if (!isSafeBookId(bookId) || !/^[a-zA-Z0-9:_-]+$/.test(attachmentId)) {
+          return completeJsonResponse(
+            400,
+            toErrorEnvelope(
+              new ApiError({
+                code: "repository.invalid_identifier",
+                message: "Workspace or attachment identifier is invalid.",
+                status: 400,
+              }),
+            ),
+          );
+        }
+
+        const response = await params.service.getAttachment({
+          attachmentId,
+          auth: auth.context,
+          logger: requestLogger,
+          bookId,
+        });
+
+        if ("error" in response.body) {
+          return completeJsonResponse(response.status, response.body);
+        }
+
+        return completeBinaryResponse(response.status, response.body.bytes, {
+          "content-disposition": `attachment; filename="${response.body.attachment.fileName.replace(/"/g, "")}"`,
+          "content-type": response.body.attachment.contentType,
+        });
       }
 
       if (dashboardMatch) {
@@ -941,30 +1085,37 @@ export function createHttpHandler(params: {
         householdMemberMatch,
         qifImportMatch,
         reconciliationMatch,
+        restoreTransactionMatch,
         scheduleMatch,
         statementImportMatch,
+        attachmentUploadMatch,
+        transactionAttachmentLinkMatch,
         transactionMatch,
       } = matchHttpPostRoutes(path);
 
-      const parsedPostBody = await parsePostRequestBody({
-        bodylessPostRoute,
-        maxBodyBytes,
-        request,
-        requestLogger,
-      });
-      const body = parsedPostBody.body;
+      let body: unknown;
 
-      if (parsedPostBody.errorCode && parsedPostBody.errorMessage && parsedPostBody.status) {
-        return completeJsonResponse(
-          parsedPostBody.status,
-          toErrorEnvelope(
-            new ApiError({
-              code: parsedPostBody.errorCode,
-              message: parsedPostBody.errorMessage,
-              status: parsedPostBody.status,
-            }),
-          ),
-        );
+      if (attachmentUploadMatch === null) {
+        const parsedPostBody = await parsePostRequestBody({
+          bodylessPostRoute,
+          maxBodyBytes,
+          request,
+          requestLogger,
+        });
+        body = parsedPostBody.body;
+
+        if (parsedPostBody.errorCode && parsedPostBody.errorMessage && parsedPostBody.status) {
+          return completeJsonResponse(
+            parsedPostBody.status,
+            toErrorEnvelope(
+              new ApiError({
+                code: parsedPostBody.errorCode,
+                message: parsedPostBody.errorMessage,
+                status: parsedPostBody.status,
+              }),
+            ),
+          );
+        }
       }
 
       if (booksCreateMatch) {
@@ -1050,6 +1201,194 @@ export function createHttpHandler(params: {
           auth: auth.context,
           logger: requestLogger,
           transaction: payload.value.transaction,
+          bookId,
+        });
+        return completeJsonResponse(response.status, response.body);
+      }
+
+      if (restoreTransactionMatch) {
+        const rateLimited = enforceRateLimit(rateLimitPolicy.mutation);
+
+        if (rateLimited) {
+          return completeJsonResponse(
+            rateLimited.status,
+            await rateLimited.json(),
+            Object.fromEntries(rateLimited.headers.entries()),
+          );
+        }
+
+        const bookId = decodeURIComponent(restoreTransactionMatch[1]);
+        const transactionId = decodeURIComponent(restoreTransactionMatch[2]);
+
+        if (!isSafeBookId(bookId) || !/^[a-zA-Z0-9:_-]+$/.test(transactionId)) {
+          return completeJsonResponse(
+            400,
+            toErrorEnvelope(
+              new ApiError({
+                code: "repository.invalid_identifier",
+                message: "Workspace or transaction identifier is invalid.",
+                status: 400,
+              }),
+            ),
+          );
+        }
+
+        const response = await params.service.restoreTransaction({
+          auth: auth.context,
+          logger: requestLogger,
+          transactionId,
+          bookId,
+        });
+        return completeJsonResponse(response.status, response.body);
+      }
+
+      if (attachmentUploadMatch) {
+        const rateLimited = enforceRateLimit(rateLimitPolicy.mutation);
+
+        if (rateLimited) {
+          return completeJsonResponse(
+            rateLimited.status,
+            await rateLimited.json(),
+            Object.fromEntries(rateLimited.headers.entries()),
+          );
+        }
+
+        const bookId = decodeURIComponent(attachmentUploadMatch[1]);
+
+        if (!isSafeBookId(bookId)) {
+          return completeJsonResponse(
+            400,
+            toErrorEnvelope(
+              new ApiError({
+                code: "repository.invalid_identifier",
+                message: "Workspace identifier is invalid.",
+                status: 400,
+              }),
+            ),
+          );
+        }
+
+        if (!request.headers.get("content-type")?.includes("multipart/form-data")) {
+          return completeJsonResponse(
+            415,
+            toErrorEnvelope(
+              new ApiError({
+                code: "request.unsupported_media_type",
+                message: "Attachment uploads must use multipart/form-data.",
+                status: 415,
+              }),
+            ),
+          );
+        }
+
+        const formData = await request.formData();
+        const file = formData.get("file");
+
+        if (!(file instanceof File)) {
+          return completeJsonResponse(
+            400,
+            toErrorEnvelope(
+              new ApiError({
+                code: "validation.failed",
+                details: { issues: ["file is required."] },
+                message: "file is required.",
+                status: 400,
+              }),
+            ),
+          );
+        }
+
+        const arrayBuffer = await file.arrayBuffer();
+        if (arrayBuffer.byteLength > maxBodyBytes) {
+          return completeJsonResponse(
+            413,
+            toErrorEnvelope(
+              new ApiError({
+                code: "request.too_large",
+                message: "Request body exceeds the configured size limit.",
+                status: 413,
+              }),
+            ),
+          );
+        }
+
+        const response = await params.service.postAttachment({
+          auth: auth.context,
+          logger: requestLogger,
+          payload: {
+            bytes: new Uint8Array(arrayBuffer),
+            contentType: file.type || "application/octet-stream",
+            fileName: file.name,
+            sizeBytes: file.size,
+          },
+          bookId,
+        });
+
+        return completeJsonResponse(response.status, response.body);
+      }
+
+      if (transactionAttachmentLinkMatch) {
+        const rateLimited = enforceRateLimit(rateLimitPolicy.mutation);
+
+        if (rateLimited) {
+          return completeJsonResponse(
+            rateLimited.status,
+            await rateLimited.json(),
+            Object.fromEntries(rateLimited.headers.entries()),
+          );
+        }
+
+        const bookId = decodeURIComponent(transactionAttachmentLinkMatch[1]);
+        const transactionId = decodeURIComponent(transactionAttachmentLinkMatch[2]);
+
+        if (!isSafeBookId(bookId) || !/^[a-zA-Z0-9:_-]+$/.test(transactionId)) {
+          return completeJsonResponse(
+            400,
+            toErrorEnvelope(
+              new ApiError({
+                code: "repository.invalid_identifier",
+                message: "Workspace or transaction identifier is invalid.",
+                status: 400,
+              }),
+            ),
+          );
+        }
+
+        const parsed = validateLinkTransactionAttachmentBody(body);
+
+        if ("errors" in parsed) {
+          requestLogger.warn("http request validation failed", { errors: parsed.errors });
+          return completeJsonResponse(
+            400,
+            toErrorEnvelope(
+              new ApiError({
+                code: "validation.failed",
+                details: { issues: parsed.errors },
+                message: parsed.errors[0] ?? "Request validation failed.",
+                status: 400,
+              }),
+            ),
+          );
+        }
+
+        if (!/^[a-zA-Z0-9:_-]+$/.test(parsed.value.attachmentId)) {
+          return completeJsonResponse(
+            400,
+            toErrorEnvelope(
+              new ApiError({
+                code: "repository.invalid_identifier",
+                message: "Attachment identifier is invalid.",
+                status: 400,
+              }),
+            ),
+          );
+        }
+
+        const response = await params.service.linkTransactionAttachment({
+          attachmentId: parsed.value.attachmentId,
+          auth: auth.context,
+          logger: requestLogger,
+          transactionId,
           bookId,
         });
         return completeJsonResponse(response.status, response.body);
@@ -2119,7 +2458,13 @@ export function createHttpHandler(params: {
     }
 
     if (request.method === "DELETE") {
-      const { archiveAccountMatch, deleteTransactionMatch, destroyTransactionMatch, removeHouseholdMemberMatch } = matchHttpDeleteRoutes(path);
+      const {
+        archiveAccountMatch,
+        deleteTransactionMatch,
+        destroyTransactionMatch,
+        removeHouseholdMemberMatch,
+        transactionAttachmentUnlinkMatch,
+      } = matchHttpDeleteRoutes(path);
 
       if (archiveAccountMatch) {
         const rateLimited = enforceRateLimit(rateLimitPolicy.mutation);
@@ -2233,6 +2578,45 @@ export function createHttpHandler(params: {
               transactionId,
               bookId,
             });
+
+        return completeJsonResponse(response.status, response.body);
+      }
+
+      if (transactionAttachmentUnlinkMatch) {
+        const rateLimited = enforceRateLimit(rateLimitPolicy.mutation);
+
+        if (rateLimited) {
+          return completeJsonResponse(
+            rateLimited.status,
+            await rateLimited.json(),
+            Object.fromEntries(rateLimited.headers.entries()),
+          );
+        }
+
+        const bookId = decodeURIComponent(transactionAttachmentUnlinkMatch[1]);
+        const transactionId = decodeURIComponent(transactionAttachmentUnlinkMatch[2]);
+        const attachmentId = decodeURIComponent(transactionAttachmentUnlinkMatch[3]);
+
+        if (!isSafeBookId(bookId) || !/^[a-zA-Z0-9:_-]+$/.test(transactionId) || !/^[a-zA-Z0-9:_-]+$/.test(attachmentId)) {
+          return completeJsonResponse(
+            400,
+            toErrorEnvelope(
+              new ApiError({
+                code: "repository.invalid_identifier",
+                message: "Workspace, transaction, or attachment identifier is invalid.",
+                status: 400,
+              }),
+            ),
+          );
+        }
+
+        const response = await params.service.unlinkTransactionAttachment({
+          attachmentId,
+          auth: auth.context,
+          logger: requestLogger,
+          transactionId,
+          bookId,
+        });
 
         return completeJsonResponse(response.status, response.body);
       }

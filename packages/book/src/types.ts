@@ -33,6 +33,7 @@ export type AuditEventType =
   | "transaction.created"
   | "transaction.updated"
   | "transaction.deleted"
+  | "transaction.restored"
   | "transaction.destroyed"
   | "schedule.upserted"
   | "schedule.executed"
@@ -91,6 +92,16 @@ export interface AuditEvent {
   summary: Record<string, unknown>;
 }
 
+export interface Attachment {
+  id: string;
+  fileName: string;
+  contentType: string;
+  sizeBytes: number;
+  createdAt: string;
+  createdBy: string;
+  storageKey: string;
+}
+
 export interface FinanceBookDocument {
   schemaVersion: 1;
   id: string;
@@ -109,6 +120,7 @@ export interface FinanceBookDocument {
   reconciliationSessions: ReconciliationSession[];
   closePeriods?: BookClosePeriod[];
   pendingApprovals?: PendingApproval[];
+  attachments?: Attachment[];
   auditEvents: AuditEvent[];
 }
 

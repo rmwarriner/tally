@@ -11,11 +11,13 @@ import {
   validateEnvelopeRequestBody,
   validateExecuteScheduledTransactionRequestBody,
   validateCloseSummaryQuery,
+  validateGetTransactionsQuery,
   validateQifExportQuery,
   validateQifImportRequestBody,
   validateReconciliationRequestBody,
   validateReportQuery,
   validateScheduledTransactionRequestBody,
+  validateLinkTransactionAttachmentBody,
   validateSetHouseholdMemberRoleBody,
   validateStatementExportQuery,
   validateStatementImportRequestBody,
@@ -635,5 +637,46 @@ describe("api request validation", () => {
     expect(invalidType.errors).toContain(
       "account.type must be asset, liability, equity, income, or expense.",
     );
+  });
+
+  it("validates transaction list query params", () => {
+    const valid = validateGetTransactionsQuery({
+      accountId: "acct-checking",
+      cursor: "abc123",
+      from: "2026-04-01",
+      limit: "100",
+      status: "pending",
+      to: "2026-04-30",
+    });
+
+    expect(valid.errors).toEqual([]);
+    expect(valid.value?.limit).toBe(100);
+
+    const invalid = validateGetTransactionsQuery({
+      accountId: "",
+      cursor: "",
+      from: "2026/04/01",
+      limit: "500",
+      status: "bad-status",
+      to: "2026/04/30",
+    });
+
+    expect(invalid.errors).toContain("accountId must be a non-empty string when provided.");
+    expect(invalid.errors).toContain("from must use YYYY-MM-DD format.");
+    expect(invalid.errors).toContain("to must use YYYY-MM-DD format.");
+    expect(invalid.errors).toContain("status must be one of cleared, pending, or deleted.");
+    expect(invalid.errors).toContain("limit must be an integer between 1 and 200.");
+    expect(invalid.errors).toContain("cursor must be a non-empty string when provided.");
+  });
+
+  it("validates transaction attachment link payload", () => {
+    const valid = validateLinkTransactionAttachmentBody({ payload: { attachmentId: "att-1" } });
+    expect("errors" in valid).toBe(false);
+
+    const missing = validateLinkTransactionAttachmentBody({});
+    expect("errors" in missing).toBe(true);
+    if ("errors" in missing) {
+      expect(missing.errors).toContain("payload is required.");
+    }
   });
 });

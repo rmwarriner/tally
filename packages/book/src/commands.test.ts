@@ -15,6 +15,7 @@ import {
   deleteTransaction,
   denyApproval,
   destroyTransaction,
+  restoreTransaction,
   executeScheduledTransaction,
   grantApproval,
   importTransactionsFromCsvRows,
@@ -189,6 +190,64 @@ describe("book commands", () => {
       entityIds: ["txn-grocery-1"],
       eventType: "transaction.destroyed",
     });
+  });
+
+  it("restores soft-deleted transactions and records a restore audit event", () => {
+    const book = createDemoBook();
+    const deleted = deleteTransaction(
+      book,
+      "txn-grocery-1",
+      { deletedAt: "2026-04-03T12:00:00Z" },
+      { audit: { actor: "Primary", occurredAt: "2026-04-03T12:00:00Z" } },
+    );
+    expect(deleted.ok).toBe(true);
+
+    const restored = restoreTransaction(deleted.document, "txn-grocery-1", {
+      audit: { actor: "Primary", occurredAt: "2026-04-03T12:10:00Z" },
+    });
+
+    expect(restored.ok).toBe(true);
+    expect(restored.document.transactions.find((transaction) => transaction.id === "txn-grocery-1")?.deletion).toBe(
+      undefined,
+    );
+    expect(restored.document.auditEvents.at(-1)?.eventType).toBe("transaction.restored");
+  });
+
+  it("rejects restoring an active or missing transaction", () => {
+    const book = createDemoBook();
+
+    const active = restoreTransaction(book, "txn-grocery-1", { audit: { actor: "Primary" } });
+    expect(active.ok).toBe(false);
+    expect(active.errors).toEqual(["Transaction txn-grocery-1 is not soft-deleted."]);
+
+    const missing = restoreTransaction(book, "txn-missing", { audit: { actor: "Primary" } });
+    expect(missing.ok).toBe(false);
+    expect(missing.errors).toEqual(["Transaction txn-missing does not exist."]);
+  });
+
+  it("rejects restore when the deleted transaction is in a locked close period", () => {
+    const book = createDemoBook();
+    const deleted = deleteTransaction(book, "txn-grocery-1", {}, { audit: { actor: "Primary" } });
+    expect(deleted.ok).toBe(true);
+    const locked = {
+      ...deleted.document,
+      closePeriods: [
+        {
+          closedAt: "2026-04-30T00:00:00Z",
+          closedBy: "Primary",
+          from: "2026-04-01",
+          id: "close-1",
+          to: "2026-04-30",
+        },
+      ],
+    };
+
+    const restored = restoreTransaction(locked, "txn-grocery-1", {
+      audit: { actor: "Primary" },
+    });
+
+    expect(restored.ok).toBe(false);
+    expect(restored.errors[0]).toContain("is locked by closed period");
   });
 
   it("imports csv transactions and skips duplicates by fingerprint", () => {

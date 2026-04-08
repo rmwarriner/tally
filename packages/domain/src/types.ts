@@ -54,6 +54,7 @@ export interface Transaction {
   source?: ImportSource;
   tags?: string[];
   scheduleId?: UUID;
+  attachmentIds?: UUID[];
   deletion?: TransactionDeletion;
 }
 

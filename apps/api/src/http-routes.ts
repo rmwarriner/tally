@@ -12,6 +12,8 @@ export interface HttpReadRouteMatches {
   qifExportMatch: RegExpMatchArray | null;
   reportMatch: RegExpMatchArray | null;
   statementExportMatch: RegExpMatchArray | null;
+  transactionsMatch: RegExpMatchArray | null;
+  attachmentDownloadMatch: RegExpMatchArray | null;
   bookMatch: RegExpMatchArray | null;
 }
 
@@ -37,6 +39,9 @@ export interface HttpPostRouteMatches {
   reconciliationMatch: RegExpMatchArray | null;
   scheduleMatch: RegExpMatchArray | null;
   statementImportMatch: RegExpMatchArray | null;
+  restoreTransactionMatch: RegExpMatchArray | null;
+  attachmentUploadMatch: RegExpMatchArray | null;
+  transactionAttachmentLinkMatch: RegExpMatchArray | null;
   transactionMatch: RegExpMatchArray | null;
 }
 
@@ -45,6 +50,7 @@ export interface HttpDeleteRouteMatches {
   deleteTransactionMatch: RegExpMatchArray | null;
   destroyTransactionMatch: RegExpMatchArray | null;
   removeHouseholdMemberMatch: RegExpMatchArray | null;
+  transactionAttachmentUnlinkMatch: RegExpMatchArray | null;
 }
 
 export interface HttpPutRouteMatches {
@@ -69,163 +75,185 @@ export function isMetricsRoute(method: string, path: string): boolean {
 }
 
 export function normalizeRouteLabel(method: string, path: string): string {
-  if (isLivenessRoute(method, path)) {
+  const normalizedPath = path.replace(/^\/api\/v1(?=\/|$)/, "/api");
+
+  if (isLivenessRoute(method, normalizedPath)) {
     return "/healthz";
   }
 
-  if (isReadinessRoute(method, path)) {
+  if (isReadinessRoute(method, normalizedPath)) {
     return "/readyz";
   }
 
-  if (isMetricsRoute(method, path)) {
+  if (isMetricsRoute(method, normalizedPath)) {
     return "/metrics";
   }
 
-  if (path === "/api/books") {
+  if (normalizedPath === "/api/books") {
     return "/api/books";
   }
 
-  if (/^\/api\/books\/[^/]+$/.test(path)) {
+  if (/^\/api\/books\/[^/]+$/.test(normalizedPath)) {
     return "/api/books/:bookId";
   }
 
-  if (/^\/api\/books\/[^/]+\/dashboard$/.test(path)) {
+  if (/^\/api\/books\/[^/]+\/dashboard$/.test(normalizedPath)) {
     return "/api/books/:bookId/dashboard";
   }
 
-  if (/^\/api\/books\/[^/]+\/reports\/[^/]+$/.test(path)) {
+  if (/^\/api\/books\/[^/]+\/reports\/[^/]+$/.test(normalizedPath)) {
     return "/api/books/:bookId/reports/:kind";
   }
 
-  if (/^\/api\/books\/[^/]+\/close-summary$/.test(path)) {
+  if (/^\/api\/books\/[^/]+\/close-summary$/.test(normalizedPath)) {
     return "/api/books/:bookId/close-summary";
   }
 
-  if (/^\/api\/books\/[^/]+\/close-periods$/.test(path)) {
+  if (/^\/api\/books\/[^/]+\/close-periods$/.test(normalizedPath)) {
     return "/api/books/:bookId/close-periods";
   }
 
-  if (/^\/api\/books\/[^/]+\/backups$/.test(path)) {
+  if (/^\/api\/books\/[^/]+\/backups$/.test(normalizedPath)) {
     return "/api/books/:bookId/backups";
   }
 
-  if (/^\/api\/books\/[^/]+\/backups\/[^/]+\/restore$/.test(path)) {
+  if (/^\/api\/books\/[^/]+\/backups\/[^/]+\/restore$/.test(normalizedPath)) {
     return "/api/books/:bookId/backups/:backupId/restore";
   }
 
-  if (/^\/api\/books\/[^/]+\/transactions$/.test(path)) {
+  if (/^\/api\/books\/[^/]+\/transactions$/.test(normalizedPath)) {
     return "/api/books/:bookId/transactions";
   }
 
-  if (/^\/api\/books\/[^/]+\/transactions\/[^/]+\/destroy$/.test(path)) {
+  if (/^\/api\/books\/[^/]+\/transactions\/[^/]+\/restore$/.test(normalizedPath)) {
+    return "/api/books/:bookId/transactions/:transactionId/restore";
+  }
+
+  if (/^\/api\/books\/[^/]+\/transactions\/[^/]+\/destroy$/.test(normalizedPath)) {
     return "/api/books/:bookId/transactions/:transactionId/destroy";
   }
 
-  if (/^\/api\/books\/[^/]+\/transactions\/[^/]+$/.test(path)) {
+  if (/^\/api\/books\/[^/]+\/transactions\/[^/]+\/attachments$/.test(normalizedPath)) {
+    return "/api/books/:bookId/transactions/:transactionId/attachments";
+  }
+
+  if (/^\/api\/books\/[^/]+\/transactions\/[^/]+\/attachments\/[^/]+$/.test(normalizedPath)) {
+    return "/api/books/:bookId/transactions/:transactionId/attachments/:attachmentId";
+  }
+
+  if (/^\/api\/books\/[^/]+\/attachments$/.test(normalizedPath)) {
+    return "/api/books/:bookId/attachments";
+  }
+
+  if (/^\/api\/books\/[^/]+\/attachments\/[^/]+$/.test(normalizedPath)) {
+    return "/api/books/:bookId/attachments/:attachmentId";
+  }
+
+  if (/^\/api\/books\/[^/]+\/transactions\/[^/]+$/.test(normalizedPath)) {
     return "/api/books/:bookId/transactions/:transactionId";
   }
 
-  if (/^\/api\/books\/[^/]+\/budget-lines$/.test(path)) {
+  if (/^\/api\/books\/[^/]+\/budget-lines$/.test(normalizedPath)) {
     return "/api/books/:bookId/budget-lines";
   }
 
-  if (/^\/api\/books\/[^/]+\/envelopes$/.test(path)) {
+  if (/^\/api\/books\/[^/]+\/envelopes$/.test(normalizedPath)) {
     return "/api/books/:bookId/envelopes";
   }
 
-  if (/^\/api\/books\/[^/]+\/envelope-allocations$/.test(path)) {
+  if (/^\/api\/books\/[^/]+\/envelope-allocations$/.test(normalizedPath)) {
     return "/api/books/:bookId/envelope-allocations";
   }
 
-  if (/^\/api\/books\/[^/]+\/reconciliations$/.test(path)) {
+  if (/^\/api\/books\/[^/]+\/reconciliations$/.test(normalizedPath)) {
     return "/api/books/:bookId/reconciliations";
   }
 
-  if (/^\/api\/books\/[^/]+\/schedules$/.test(path)) {
+  if (/^\/api\/books\/[^/]+\/schedules$/.test(normalizedPath)) {
     return "/api/books/:bookId/schedules";
   }
 
-  if (/^\/api\/books\/[^/]+\/schedules\/[^/]+\/execute$/.test(path)) {
+  if (/^\/api\/books\/[^/]+\/schedules\/[^/]+\/execute$/.test(normalizedPath)) {
     return "/api/books/:bookId/schedules/:scheduleId/execute";
   }
 
-  if (/^\/api\/books\/[^/]+\/schedules\/[^/]+\/exceptions$/.test(path)) {
+  if (/^\/api\/books\/[^/]+\/schedules\/[^/]+\/exceptions$/.test(normalizedPath)) {
     return "/api/books/:bookId/schedules/:scheduleId/exceptions";
   }
 
-  if (/^\/api\/books\/[^/]+\/imports\/csv$/.test(path)) {
+  if (/^\/api\/books\/[^/]+\/imports\/csv$/.test(normalizedPath)) {
     return "/api/books/:bookId/imports/csv";
   }
 
-  if (/^\/api\/books\/[^/]+\/imports\/qif$/.test(path)) {
+  if (/^\/api\/books\/[^/]+\/imports\/qif$/.test(normalizedPath)) {
     return "/api/books/:bookId/imports/qif";
   }
 
-  if (/^\/api\/books\/[^/]+\/imports\/ofx$/.test(path)) {
+  if (/^\/api\/books\/[^/]+\/imports\/ofx$/.test(normalizedPath)) {
     return "/api/books/:bookId/imports/ofx";
   }
 
-  if (/^\/api\/books\/[^/]+\/imports\/qfx$/.test(path)) {
+  if (/^\/api\/books\/[^/]+\/imports\/qfx$/.test(normalizedPath)) {
     return "/api/books/:bookId/imports/qfx";
   }
 
-  if (/^\/api\/books\/[^/]+\/imports\/gnucash-xml$/.test(path)) {
+  if (/^\/api\/books\/[^/]+\/imports\/gnucash-xml$/.test(normalizedPath)) {
     return "/api/books/:bookId/imports/gnucash-xml";
   }
 
-  if (/^\/api\/books\/[^/]+\/exports\/qif$/.test(path)) {
+  if (/^\/api\/books\/[^/]+\/exports\/qif$/.test(normalizedPath)) {
     return "/api/books/:bookId/exports/qif";
   }
 
-  if (/^\/api\/books\/[^/]+\/exports\/ofx$/.test(path)) {
+  if (/^\/api\/books\/[^/]+\/exports\/ofx$/.test(normalizedPath)) {
     return "/api/books/:bookId/exports/ofx";
   }
 
-  if (/^\/api\/books\/[^/]+\/exports\/qfx$/.test(path)) {
+  if (/^\/api\/books\/[^/]+\/exports\/qfx$/.test(normalizedPath)) {
     return "/api/books/:bookId/exports/qfx";
   }
 
-  if (/^\/api\/books\/[^/]+\/exports\/gnucash-xml$/.test(path)) {
+  if (/^\/api\/books\/[^/]+\/exports\/gnucash-xml$/.test(normalizedPath)) {
     return "/api/books/:bookId/exports/gnucash-xml";
   }
 
-  if (/^\/api\/books\/[^/]+\/members$/.test(path)) {
+  if (/^\/api\/books\/[^/]+\/members$/.test(normalizedPath)) {
     return "/api/books/:bookId/members";
   }
 
-  if (/^\/api\/books\/[^/]+\/members\/[^/]+\/role$/.test(path)) {
+  if (/^\/api\/books\/[^/]+\/members\/[^/]+\/role$/.test(normalizedPath)) {
     return "/api/books/:bookId/members/:actor/role";
   }
 
-  if (/^\/api\/books\/[^/]+\/members\/[^/]+$/.test(path)) {
+  if (/^\/api\/books\/[^/]+\/members\/[^/]+$/.test(normalizedPath)) {
     return "/api/books/:bookId/members/:actor";
   }
 
-  if (/^\/api\/books\/[^/]+\/approvals$/.test(path)) {
+  if (/^\/api\/books\/[^/]+\/approvals$/.test(normalizedPath)) {
     return "/api/books/:bookId/approvals";
   }
 
-  if (/^\/api\/books\/[^/]+\/approvals\/[^/]+\/grant$/.test(path)) {
+  if (/^\/api\/books\/[^/]+\/approvals\/[^/]+\/grant$/.test(normalizedPath)) {
     return "/api/books/:bookId/approvals/:approvalId/grant";
   }
 
-  if (/^\/api\/books\/[^/]+\/approvals\/[^/]+\/deny$/.test(path)) {
+  if (/^\/api\/books\/[^/]+\/approvals\/[^/]+\/deny$/.test(normalizedPath)) {
     return "/api/books/:bookId/approvals/:approvalId/deny";
   }
 
-  if (/^\/api\/books\/[^/]+\/audit-events$/.test(path)) {
+  if (/^\/api\/books\/[^/]+\/audit-events$/.test(normalizedPath)) {
     return "/api/books/:bookId/audit-events";
   }
 
-  if (/^\/api\/books\/[^/]+\/accounts$/.test(path)) {
+  if (/^\/api\/books\/[^/]+\/accounts$/.test(normalizedPath)) {
     return "/api/books/:bookId/accounts";
   }
 
-  if (/^\/api\/books\/[^/]+\/accounts\/[^/]+$/.test(path)) {
+  if (/^\/api\/books\/[^/]+\/accounts\/[^/]+$/.test(normalizedPath)) {
     return "/api/books/:bookId/accounts/:accountId";
   }
 
-  return path;
+  return normalizedPath;
 }
 
 export function matchHttpReadRoutes(path: string): HttpReadRouteMatches {
@@ -243,6 +271,8 @@ export function matchHttpReadRoutes(path: string): HttpReadRouteMatches {
     qifExportMatch: path.match(/^\/api\/books\/([^/]+)\/exports\/qif$/),
     reportMatch: path.match(/^\/api\/books\/([^/]+)\/reports\/([^/]+)$/),
     statementExportMatch: path.match(/^\/api\/books\/([^/]+)\/exports\/(ofx|qfx)$/),
+    transactionsMatch: path.match(/^\/api\/books\/([^/]+)\/transactions$/),
+    attachmentDownloadMatch: path.match(/^\/api\/books\/([^/]+)\/attachments\/([^/]+)$/),
     bookMatch: path.match(/^\/api\/books\/([^/]+)$/),
   };
 }
@@ -262,7 +292,13 @@ export function matchHttpPostRoutes(path: string): HttpPostRouteMatches {
     backupRestoreMatch,
     backupsCreateMatch,
     booksCreateMatch,
-    bodylessPostRoute: Boolean(backupsCreateMatch || backupRestoreMatch || approvalGrantMatch || approvalDenyMatch),
+    bodylessPostRoute: Boolean(
+      backupsCreateMatch ||
+      backupRestoreMatch ||
+      approvalGrantMatch ||
+      approvalDenyMatch ||
+      path.match(/^\/api\/books\/([^/]+)\/transactions\/([^/]+)\/restore$/),
+    ),
     budgetLineMatch: path.match(/^\/api\/books\/([^/]+)\/budget-lines$/),
     closePeriodMatch: path.match(/^\/api\/books\/([^/]+)\/close-periods$/),
     csvImportMatch: path.match(/^\/api\/books\/([^/]+)\/imports\/csv$/),
@@ -276,6 +312,9 @@ export function matchHttpPostRoutes(path: string): HttpPostRouteMatches {
     reconciliationMatch: path.match(/^\/api\/books\/([^/]+)\/reconciliations$/),
     scheduleMatch: path.match(/^\/api\/books\/([^/]+)\/schedules$/),
     statementImportMatch: path.match(/^\/api\/books\/([^/]+)\/imports\/(ofx|qfx)$/),
+    restoreTransactionMatch: path.match(/^\/api\/books\/([^/]+)\/transactions\/([^/]+)\/restore$/),
+    attachmentUploadMatch: path.match(/^\/api\/books\/([^/]+)\/attachments$/),
+    transactionAttachmentLinkMatch: path.match(/^\/api\/books\/([^/]+)\/transactions\/([^/]+)\/attachments$/),
     transactionMatch: path.match(/^\/api\/books\/([^/]+)\/transactions$/),
   };
 }
@@ -293,5 +332,6 @@ export function matchHttpDeleteRoutes(path: string): HttpDeleteRouteMatches {
     deleteTransactionMatch: path.match(/^\/api\/books\/([^/]+)\/transactions\/([^/]+)$/),
     destroyTransactionMatch: path.match(/^\/api\/books\/([^/]+)\/transactions\/([^/]+)\/destroy$/),
     removeHouseholdMemberMatch: path.match(/^\/api\/books\/([^/]+)\/members\/([^/]+)$/),
+    transactionAttachmentUnlinkMatch: path.match(/^\/api\/books\/([^/]+)\/transactions\/([^/]+)\/attachments\/([^/]+)$/),
   };
 }

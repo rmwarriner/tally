@@ -19,6 +19,8 @@ import type {
   PostStatementImportRequest,
   PostBookRequest,
   PostTransactionRequest,
+  GetTransactionsRequest,
+  LinkTransactionAttachmentRequest,
   RequestApprovalRequest,
   SetHouseholdMemberRoleRequest,
 } from "./types";
@@ -1022,4 +1024,95 @@ export function validatePostBookRequestBody(body: unknown):
   return errors.length > 0
     ? { errors }
     : { value: body as Pick<PostBookRequest, "payload"> };
+}
+
+export function validateGetTransactionsQuery(query: {
+  accountId: string | null;
+  cursor: string | null;
+  from: string | null;
+  limit: string | null;
+  status: string | null;
+  to: string | null;
+}): {
+  errors: string[];
+  value?: GetTransactionsRequest["payload"];
+} {
+  const errors: string[] = [];
+  const payload: GetTransactionsRequest["payload"] = {
+    limit: 50,
+  };
+
+  if (query.accountId !== null) {
+    if (!isNonEmptyString(query.accountId)) {
+      errors.push("accountId must be a non-empty string when provided.");
+    } else {
+      payload.accountId = query.accountId;
+    }
+  }
+
+  if (query.from !== null) {
+    if (!isIsoDate(query.from)) {
+      errors.push("from must use YYYY-MM-DD format.");
+    } else {
+      payload.from = query.from;
+    }
+  }
+
+  if (query.to !== null) {
+    if (!isIsoDate(query.to)) {
+      errors.push("to must use YYYY-MM-DD format.");
+    } else {
+      payload.to = query.to;
+    }
+  }
+
+  if (query.from !== null && query.to !== null && isIsoDate(query.from) && isIsoDate(query.to) && query.from > query.to) {
+    errors.push("from must be less than or equal to to.");
+  }
+
+  if (query.status !== null) {
+    if (query.status === "cleared" || query.status === "deleted" || query.status === "pending") {
+      payload.status = query.status;
+    } else {
+      errors.push("status must be one of cleared, pending, or deleted.");
+    }
+  }
+
+  if (query.limit !== null) {
+    const parsedLimit = Number.parseInt(query.limit, 10);
+    if (!Number.isFinite(parsedLimit) || parsedLimit < 1 || parsedLimit > 200) {
+      errors.push("limit must be an integer between 1 and 200.");
+    } else {
+      payload.limit = parsedLimit;
+    }
+  }
+
+  if (query.cursor !== null) {
+    if (!isNonEmptyString(query.cursor)) {
+      errors.push("cursor must be a non-empty string when provided.");
+    } else {
+      payload.cursor = query.cursor;
+    }
+  }
+
+  return errors.length > 0 ? { errors } : { errors: [], value: payload };
+}
+
+export function validateLinkTransactionAttachmentBody(body: unknown):
+  | { errors: string[] }
+  | { value: Pick<LinkTransactionAttachmentRequest, "attachmentId"> } {
+  if (!isObject(body) || !isObject(body.payload)) {
+    return { errors: ["payload is required."] };
+  }
+
+  const attachmentId = body.payload.attachmentId;
+  if (!isNonEmptyString(attachmentId)) {
+    return { errors: ["payload.attachmentId is required."] };
+  }
+
+  return {
+    value: {
+      attachmentId,
+    },
+  };
 }

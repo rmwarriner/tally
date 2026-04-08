@@ -6,7 +6,7 @@ import type {
   ScheduledTransaction,
   Transaction,
 } from "@tally/domain";
-import type { CsvImportRow, FinanceBookDocument } from "@tally/book";
+import type { Attachment, CsvImportRow, FinanceBookDocument } from "@tally/book";
 import type { Logger } from "@tally/logging";
 import type { AuthContext } from "./auth";
 import type { ErrorEnvelope } from "./errors";
@@ -140,7 +140,63 @@ export interface DeleteTransactionRequest {
   bookId: string;
 }
 
+export interface RestoreTransactionRequest {
+  auth: AuthContext;
+  logger?: Logger;
+  transactionId: string;
+  bookId: string;
+}
+
 export interface DestroyTransactionRequest {
+  auth: AuthContext;
+  logger?: Logger;
+  transactionId: string;
+  bookId: string;
+}
+
+export interface GetTransactionsRequest {
+  auth: AuthContext;
+  logger?: Logger;
+  payload: {
+    accountId?: string;
+    cursor?: string;
+    from?: string;
+    limit: number;
+    status?: "cleared" | "deleted" | "pending";
+    to?: string;
+  };
+  bookId: string;
+}
+
+export interface PostAttachmentRequest {
+  auth: AuthContext;
+  logger?: Logger;
+  payload: {
+    bytes: Uint8Array;
+    contentType: string;
+    fileName: string;
+    sizeBytes: number;
+  };
+  bookId: string;
+}
+
+export interface GetAttachmentRequest {
+  attachmentId: string;
+  auth: AuthContext;
+  logger?: Logger;
+  bookId: string;
+}
+
+export interface LinkTransactionAttachmentRequest {
+  attachmentId: string;
+  auth: AuthContext;
+  logger?: Logger;
+  transactionId: string;
+  bookId: string;
+}
+
+export interface UnlinkTransactionAttachmentRequest {
+  attachmentId: string;
   auth: AuthContext;
   logger?: Logger;
   transactionId: string;
@@ -282,6 +338,11 @@ export interface DashboardEnvelope {
   dashboard: ReturnType<typeof import("@tally/book").buildDashboardSnapshot>;
 }
 
+export interface TransactionsEnvelope {
+  nextCursor?: string;
+  transactions: Transaction[];
+}
+
 export interface BackupsEnvelope {
   backups: import("./repository").BookBackup[];
 }
@@ -322,6 +383,15 @@ export interface GnuCashXmlExportEnvelope {
 
 export interface ReportEnvelope {
   report: import("@tally/book").BookReport;
+}
+
+export interface AttachmentEnvelope {
+  attachment: Attachment;
+}
+
+export interface AttachmentBinaryEnvelope {
+  attachment: Attachment;
+  bytes: Uint8Array;
 }
 
 export interface GetHouseholdMembersRequest {

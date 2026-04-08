@@ -23,6 +23,13 @@ describe("http routes", () => {
     expect(normalizeRouteLabel("POST", "/api/books/demo/imports/ofx")).toBe(
       "/api/books/:bookId/imports/ofx",
     );
+    expect(normalizeRouteLabel("POST", "/api/books/demo/transactions/txn-1/restore")).toBe(
+      "/api/books/:bookId/transactions/:transactionId/restore",
+    );
+    expect(normalizeRouteLabel("GET", "/api/books/demo/attachments/att-1")).toBe(
+      "/api/books/:bookId/attachments/:attachmentId",
+    );
+    expect(normalizeRouteLabel("GET", "/api/v1/books/demo")).toBe("/api/books/:bookId");
     expect(normalizeRouteLabel("DELETE", "/api/books/demo/transactions/txn-1/destroy")).toBe(
       "/api/books/:bookId/transactions/:transactionId/destroy",
     );
@@ -46,6 +53,8 @@ describe("http routes", () => {
     const readWorkspace = matchHttpReadRoutes("/api/books/demo");
     const readReport = matchHttpReadRoutes("/api/books/demo/reports/cash-flow");
     const readAuditEvents = matchHttpReadRoutes("/api/books/demo/audit-events");
+    const readTransactions = matchHttpReadRoutes("/api/books/demo/transactions");
+    const readAttachment = matchHttpReadRoutes("/api/books/demo/attachments/att-1");
 
     expect(readBooks.booksMatch?.[0]).toBe("/api/books");
     expect(readBooks.bookMatch).toBeNull();
@@ -57,12 +66,18 @@ describe("http routes", () => {
     expect(readReport.reportMatch?.[2]).toBe("cash-flow");
     expect(readAuditEvents.auditEventsMatch?.[1]).toBe("demo");
     expect(readAuditEvents.bookMatch).toBeNull();
+    expect(readTransactions.transactionsMatch?.[1]).toBe("demo");
+    expect(readAttachment.attachmentDownloadMatch?.[1]).toBe("demo");
+    expect(readAttachment.attachmentDownloadMatch?.[2]).toBe("att-1");
   });
 
   it("matches post route variants and bodyless routes", () => {
     const postBooks = matchHttpPostRoutes("/api/books");
     const postTransactions = matchHttpPostRoutes("/api/books/demo/transactions");
     const postRestore = matchHttpPostRoutes("/api/books/demo/backups/backup-1/restore");
+    const postTransactionRestore = matchHttpPostRoutes("/api/books/demo/transactions/txn-1/restore");
+    const postAttachmentUpload = matchHttpPostRoutes("/api/books/demo/attachments");
+    const postAttachmentLink = matchHttpPostRoutes("/api/books/demo/transactions/txn-1/attachments");
 
     expect(postBooks.booksCreateMatch?.[0]).toBe("/api/books");
     expect(postBooks.bodylessPostRoute).toBe(false);
@@ -71,6 +86,10 @@ describe("http routes", () => {
     expect(postRestore.backupRestoreMatch?.[1]).toBe("demo");
     expect(postRestore.backupRestoreMatch?.[2]).toBe("backup-1");
     expect(postRestore.bodylessPostRoute).toBe(true);
+    expect(postTransactionRestore.restoreTransactionMatch?.[2]).toBe("txn-1");
+    expect(postTransactionRestore.bodylessPostRoute).toBe(true);
+    expect(postAttachmentUpload.attachmentUploadMatch?.[1]).toBe("demo");
+    expect(postAttachmentLink.transactionAttachmentLinkMatch?.[2]).toBe("txn-1");
   });
 
   it("matches put and delete transaction routes", () => {
@@ -90,6 +109,7 @@ describe("http routes", () => {
     const postMember = matchHttpPostRoutes("/api/books/demo/members");
     const putRole = matchHttpPutRoutes("/api/books/demo/members/Alice/role");
     const deleteMember = matchHttpDeleteRoutes("/api/books/demo/members/Alice");
+    const deleteAttachment = matchHttpDeleteRoutes("/api/books/demo/transactions/txn-42/attachments/att-1");
 
     expect(getMembers.householdMembersMatch?.[1]).toBe("demo");
     expect(postMember.householdMemberMatch?.[1]).toBe("demo");
@@ -97,5 +117,7 @@ describe("http routes", () => {
     expect(putRole.setHouseholdMemberRoleMatch?.[2]).toBe("Alice");
     expect(deleteMember.removeHouseholdMemberMatch?.[1]).toBe("demo");
     expect(deleteMember.removeHouseholdMemberMatch?.[2]).toBe("Alice");
+    expect(deleteAttachment.transactionAttachmentUnlinkMatch?.[2]).toBe("txn-42");
+    expect(deleteAttachment.transactionAttachmentUnlinkMatch?.[3]).toBe("att-1");
   });
 });

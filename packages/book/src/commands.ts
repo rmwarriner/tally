@@ -551,6 +551,72 @@ export function destroyTransaction(
   };
 }
 
+export function restoreTransaction(
+  document: FinanceBookDocument,
+  transactionId: string,
+  options: CommandOptions = {},
+): CommandResult {
+  const logger = (options.logger ?? createNoopLogger()).child({
+    command: "restoreTransaction",
+    transactionId,
+    bookId: document.id,
+  });
+  logger.info("book command started");
+
+  const existingTransaction = document.transactions.find((candidate) => candidate.id === transactionId);
+
+  if (!existingTransaction) {
+    const errors = [`Transaction ${transactionId} does not exist.`];
+    logger.warn("book command validation failed", { errors });
+    return { ok: false, errors, document };
+  }
+
+  if (!isTransactionDeleted(existingTransaction)) {
+    const errors = [`Transaction ${transactionId} is not soft-deleted.`];
+    logger.warn("book command validation failed", { errors });
+    return { ok: false, errors, document };
+  }
+
+  const lockError = lockErrorForDate(document, existingTransaction.occurredOn);
+  if (lockError) {
+    logger.warn("book command validation failed", { errors: [lockError] });
+    return { ok: false, errors: [lockError], document };
+  }
+
+  const nextTransactions = document.transactions.map((candidate) =>
+    candidate.id === transactionId ? { ...candidate, deletion: undefined } : candidate,
+  );
+
+  logger.info("book command completed", {
+    transactionCount: nextTransactions.length,
+  });
+
+  const nextDocument = appendAuditEvent(
+    {
+      ...document,
+      transactions: nextTransactions,
+    },
+    {
+      entityIds: [transactionId],
+      eventType: "transaction.restored",
+      summary: {
+        description: existingTransaction.description,
+        occurredOn: existingTransaction.occurredOn,
+        postingCount: existingTransaction.postings.length,
+        previouslyDeletedAt: existingTransaction.deletion?.deletedAt,
+        previouslyDeletedBy: existingTransaction.deletion?.deletedBy,
+      },
+    },
+    options.audit,
+  );
+
+  return {
+    ok: true,
+    errors: [],
+    document: nextDocument,
+  };
+}
+
 export function upsertScheduledTransaction(
   document: FinanceBookDocument,
   schedule: ScheduledTransaction,

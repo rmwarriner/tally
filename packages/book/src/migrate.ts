@@ -68,6 +68,7 @@ export function migrateBookDocument(input: unknown): FinanceBookDocument {
     importBatches: Array.isArray(document.importBatches) ? document.importBatches : [],
     reconciliationSessions: Array.isArray(document.reconciliationSessions) ? document.reconciliationSessions : [],
     closePeriods: Array.isArray(document.closePeriods) ? document.closePeriods : [],
+    attachments: Array.isArray(document.attachments) ? document.attachments : [],
     auditEvents: Array.isArray(document.auditEvents) ? document.auditEvents : [],
   };
 }

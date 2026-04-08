@@ -204,6 +204,12 @@ The Tally API validates the proxy key before trusting any injected actor or role
 - request correlation is carried through logs with `requestId`
 - backup creation and restore are currently exposed through the same authenticated API process
 
+## API Versioning
+
+- `/api/v1/...` is the canonical versioned surface for the current API contract.
+- `/api/...` remains a compatibility alias with identical behavior, status codes, and payloads.
+- route metrics are canonicalized to non-versioned route labels to avoid cardinality splits during alias usage.
+
 ## Secret Handling Guidance
 
 - prefer `*_FILE` auth variables in production-oriented environments so token material stays out of shell history and process managers

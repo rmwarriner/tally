@@ -154,6 +154,149 @@ describe("api http transport", () => {
     await fixture.cleanup();
   });
 
+  it("supports /api and /api/v1 parity with canonical metrics labels", async () => {
+    const fixture = await createFixture();
+    const service = createBookService({
+      dataDirectory: fixture.directory,
+      repository: createFileSystemBookRepository({ rootDirectory: fixture.directory }),
+    });
+    const handler = createHttpHandler({
+      authIdentities: [{ actor: "Primary", role: "member", token: "top-secret" }],
+      service,
+    });
+
+    const v1Read = await handler(
+      new Request(`http://localhost/api/v1/books/${fixture.book.id}`, {
+        headers: { authorization: "Bearer top-secret" },
+      }),
+    );
+    expect(v1Read.status).toBe(200);
+
+    const v1Restore = await handler(
+      new Request(`http://localhost/api/v1/books/${fixture.book.id}/transactions/${fixture.book.transactions[0]!.id}/restore`, {
+        headers: { authorization: "Bearer top-secret" },
+        method: "POST",
+      }),
+    );
+    expect(v1Restore.status).toBe(422);
+
+    const metricsResponse = await handler(new Request("http://localhost/metrics"));
+    const metricsBody = await metricsResponse.text();
+    expect(metricsBody).toContain('route="/api/books/:bookId"');
+    expect(metricsBody).toContain('route="/api/books/:bookId/transactions/:transactionId/restore"');
+
+    await fixture.cleanup();
+  });
+
+  it("lists transactions with filtering and cursor paging over HTTP", async () => {
+    const fixture = await createFixture();
+    const service = createBookService({
+      repository: createFileSystemBookRepository({ rootDirectory: fixture.directory }),
+    });
+    const handler = createHttpHandler({
+      authIdentities: [{ actor: "Primary", role: "member", token: "top-secret" }],
+      service,
+    });
+
+    await handler(
+      new Request(`http://localhost/api/books/${fixture.book.id}/transactions`, {
+        body: JSON.stringify({
+          transaction: {
+            description: "Pending recent",
+            id: "txn-http-list-1",
+            occurredOn: "2026-04-06",
+            postings: [
+              { accountId: "acct-expense-groceries", amount: { commodityCode: "USD", quantity: 5 } },
+              { accountId: "acct-checking", amount: { commodityCode: "USD", quantity: -5 } },
+            ],
+          },
+        }),
+        headers: {
+          authorization: "Bearer top-secret",
+          "content-type": "application/json",
+        },
+        method: "POST",
+      }),
+    );
+
+    const firstPage = await handler(
+      new Request(`http://localhost/api/books/${fixture.book.id}/transactions?limit=1&status=pending`, {
+        headers: { authorization: "Bearer top-secret" },
+      }),
+    );
+    const firstPageBody = await firstPage.json();
+    expect(firstPage.status).toBe(200);
+    expect(firstPageBody.transactions).toHaveLength(1);
+    expect(firstPageBody.nextCursor).toBeTruthy();
+
+    const secondPage = await handler(
+      new Request(`http://localhost/api/books/${fixture.book.id}/transactions?limit=2&cursor=${encodeURIComponent(firstPageBody.nextCursor)}`, {
+        headers: { authorization: "Bearer top-secret" },
+      }),
+    );
+    const secondPageBody = await secondPage.json();
+    expect(secondPage.status).toBe(200);
+    expect(Array.isArray(secondPageBody.transactions)).toBe(true);
+
+    await fixture.cleanup();
+  });
+
+  it("uploads, downloads, links, and unlinks attachments over HTTP", async () => {
+    const fixture = await createFixture();
+    const service = createBookService({
+      dataDirectory: fixture.directory,
+      repository: createFileSystemBookRepository({ rootDirectory: fixture.directory }),
+    });
+    const handler = createHttpHandler({
+      authIdentities: [{ actor: "Primary", role: "member", token: "top-secret" }],
+      service,
+    });
+
+    const formData = new FormData();
+    formData.append("file", new File([new Uint8Array(Buffer.from("http-attachment", "utf8"))], "receipt.txt", { type: "text/plain" }));
+
+    const uploaded = await handler(
+      new Request(`http://localhost/api/books/${fixture.book.id}/attachments`, {
+        body: formData,
+        headers: { authorization: "Bearer top-secret" },
+        method: "POST",
+      }),
+    );
+    const uploadedBody = await uploaded.json();
+    expect(uploaded.status).toBe(201);
+
+    const downloaded = await handler(
+      new Request(`http://localhost/api/books/${fixture.book.id}/attachments/${uploadedBody.attachment.id}`, {
+        headers: { authorization: "Bearer top-secret" },
+      }),
+    );
+    expect(downloaded.status).toBe(200);
+    expect(downloaded.headers.get("content-type")).toContain("text/plain");
+    expect(downloaded.headers.get("content-disposition")).toContain("receipt.txt");
+
+    const linked = await handler(
+      new Request(`http://localhost/api/books/${fixture.book.id}/transactions/${fixture.book.transactions[0]!.id}/attachments`, {
+        body: JSON.stringify({ payload: { attachmentId: uploadedBody.attachment.id } }),
+        headers: {
+          authorization: "Bearer top-secret",
+          "content-type": "application/json",
+        },
+        method: "POST",
+      }),
+    );
+    expect(linked.status).toBe(200);
+
+    const unlinked = await handler(
+      new Request(`http://localhost/api/books/${fixture.book.id}/transactions/${fixture.book.transactions[0]!.id}/attachments/${uploadedBody.attachment.id}`, {
+        headers: { authorization: "Bearer top-secret" },
+        method: "DELETE",
+      }),
+    );
+    expect(unlinked.status).toBe(200);
+
+    await fixture.cleanup();
+  });
+
   it("serves unauthenticated liveness and readiness checks over HTTP", async () => {
     const fixture = await createFixture();
     const service = createBookService({

@@ -23,6 +23,7 @@ Implemented event types:
 - `transaction.created`
 - `transaction.updated`
 - `transaction.deleted`
+- `transaction.restored`
 - `transaction.destroyed`
 - `schedule.upserted`
 - `schedule.executed`

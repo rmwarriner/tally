@@ -828,6 +828,236 @@ describe("book service", () => {
     await fixture.cleanup();
   });
 
+  it("restores soft-deleted transactions and records the restore audit event", async () => {
+    const fixture = await createFixture();
+    const service = createBookService({
+      logger: createTestLogger([]),
+      repository: createFileSystemBookRepository({ rootDirectory: fixture.directory }),
+    });
+
+    const deleted = await service.deleteTransaction({
+      auth: { actor: "Primary", kind: "token", role: "member", token: "token-1" },
+      transactionId: fixture.book.transactions[0]!.id,
+      bookId: fixture.book.id,
+    });
+    expect(deleted.status).toBe(200);
+
+    const restored = await service.restoreTransaction({
+      auth: { actor: "Primary", kind: "token", role: "member", token: "token-1" },
+      transactionId: fixture.book.transactions[0]!.id,
+      bookId: fixture.book.id,
+    });
+
+    expect(restored.status).toBe(200);
+    expectBookBody(restored.body);
+    expect(restored.body.book.transactions.some((transaction) => transaction.id === fixture.book.transactions[0]!.id)).toBe(true);
+    expect(restored.body.book.auditEvents.at(-1)?.eventType).toBe("transaction.restored");
+
+    await fixture.cleanup();
+  });
+
+  it("filters and paginates transactions", async () => {
+    const fixture = await createFixture();
+    const service = createBookService({
+      logger: createTestLogger([]),
+      repository: createFileSystemBookRepository({ rootDirectory: fixture.directory }),
+    });
+
+    await service.postTransaction({
+      auth: { actor: "Primary", kind: "token", role: "member", token: "token-1" },
+      transaction: {
+        description: "Pending newer",
+        id: "txn-list-pending-1",
+        occurredOn: "2026-04-06",
+        postings: [
+          { accountId: "acct-expense-groceries", amount: createMoney("USD", 10) },
+          { accountId: "acct-checking", amount: createMoney("USD", -10) },
+        ],
+      },
+      bookId: fixture.book.id,
+    });
+    await service.postTransaction({
+      auth: { actor: "Primary", kind: "token", role: "member", token: "token-1" },
+      transaction: {
+        description: "Cleared older",
+        id: "txn-list-cleared-1",
+        occurredOn: "2026-04-05",
+        postings: [
+          { accountId: "acct-expense-groceries", amount: createMoney("USD", 9), cleared: true },
+          { accountId: "acct-checking", amount: createMoney("USD", -9), cleared: true },
+        ],
+      },
+      bookId: fixture.book.id,
+    });
+
+    const firstPage = await service.getTransactions({
+      auth: { actor: "Primary", kind: "token", role: "member", token: "token-1" },
+      payload: { limit: 1 },
+      bookId: fixture.book.id,
+    });
+
+    expect(firstPage.status).toBe(200);
+    expect("transactions" in firstPage.body).toBe(true);
+    if (!("transactions" in firstPage.body)) {
+      throw new Error("expected transactions envelope");
+    }
+    expect(firstPage.body.transactions).toHaveLength(1);
+    expect(firstPage.body.transactions[0]?.id).toBe("txn-list-pending-1");
+    expect(firstPage.body.nextCursor).toBeTruthy();
+
+    const secondPage = await service.getTransactions({
+      auth: { actor: "Primary", kind: "token", role: "member", token: "token-1" },
+      payload: { cursor: firstPage.body.nextCursor, limit: 2 },
+      bookId: fixture.book.id,
+    });
+
+    expect(secondPage.status).toBe(200);
+    expect("transactions" in secondPage.body).toBe(true);
+    if (!("transactions" in secondPage.body)) {
+      throw new Error("expected transactions envelope");
+    }
+    expect(secondPage.body.transactions.some((transaction) => transaction.id === "txn-list-cleared-1")).toBe(true);
+
+    const clearedOnly = await service.getTransactions({
+      auth: { actor: "Primary", kind: "token", role: "member", token: "token-1" },
+      payload: { limit: 50, status: "cleared" },
+      bookId: fixture.book.id,
+    });
+
+    expect(clearedOnly.status).toBe(200);
+    expect("transactions" in clearedOnly.body).toBe(true);
+    if ("transactions" in clearedOnly.body) {
+      expect(clearedOnly.body.transactions.every((transaction) => transaction.postings.every((posting) => posting.cleared === true))).toBe(true);
+    }
+
+    await fixture.cleanup();
+  });
+
+  it("uploads, downloads, links, and unlinks attachments", async () => {
+    const fixture = await createFixture();
+    const service = createBookService({
+      dataDirectory: fixture.directory,
+      logger: createTestLogger([]),
+      repository: createFileSystemBookRepository({ rootDirectory: fixture.directory }),
+    });
+
+    const uploaded = await service.postAttachment({
+      auth: { actor: "Primary", kind: "token", role: "member", token: "token-1" },
+      payload: {
+        bytes: new Uint8Array(Buffer.from("hello-attachment", "utf8")),
+        contentType: "text/plain",
+        fileName: "note.txt",
+        sizeBytes: 16,
+      },
+      bookId: fixture.book.id,
+    });
+
+    expect(uploaded.status).toBe(201);
+    expect("attachment" in uploaded.body).toBe(true);
+    if (!("attachment" in uploaded.body)) {
+      throw new Error("expected attachment envelope");
+    }
+
+    const downloaded = await service.getAttachment({
+      attachmentId: uploaded.body.attachment.id,
+      auth: { actor: "Primary", kind: "token", role: "member", token: "token-1" },
+      bookId: fixture.book.id,
+    });
+
+    expect(downloaded.status).toBe(200);
+    expect("attachment" in downloaded.body).toBe(true);
+    if (!("attachment" in downloaded.body) || !("bytes" in downloaded.body)) {
+      throw new Error("expected attachment bytes envelope");
+    }
+    expect(Buffer.from(downloaded.body.bytes).toString("utf8")).toBe("hello-attachment");
+
+    const linked = await service.linkTransactionAttachment({
+      attachmentId: uploaded.body.attachment.id,
+      auth: { actor: "Primary", kind: "token", role: "member", token: "token-1" },
+      transactionId: fixture.book.transactions[0]!.id,
+      bookId: fixture.book.id,
+    });
+
+    expect(linked.status).toBe(200);
+    expectBookBody(linked.body);
+    expect(linked.body.book.transactions.find((transaction) => transaction.id === fixture.book.transactions[0]!.id)?.attachmentIds).toContain(uploaded.body.attachment.id);
+
+    const unlinked = await service.unlinkTransactionAttachment({
+      attachmentId: uploaded.body.attachment.id,
+      auth: { actor: "Primary", kind: "token", role: "member", token: "token-1" },
+      transactionId: fixture.book.transactions[0]!.id,
+      bookId: fixture.book.id,
+    });
+
+    expect(unlinked.status).toBe(200);
+    expectBookBody(unlinked.body);
+    expect(unlinked.body.book.transactions.find((transaction) => transaction.id === fixture.book.transactions[0]!.id)?.attachmentIds ?? []).toEqual([]);
+
+    await fixture.cleanup();
+  });
+
+  it("restores attachment files from backup snapshots", async () => {
+    const fixture = await createFixture();
+    const service = createBookService({
+      dataDirectory: fixture.directory,
+      logger: createTestLogger([]),
+      repository: createFileSystemBookRepository({ rootDirectory: fixture.directory }),
+    });
+
+    const uploaded = await service.postAttachment({
+      auth: { actor: "Primary", kind: "token", role: "member", token: "token-1" },
+      payload: {
+        bytes: new Uint8Array(Buffer.from("before-backup", "utf8")),
+        contentType: "text/plain",
+        fileName: "backup.txt",
+        sizeBytes: 13,
+      },
+      bookId: fixture.book.id,
+    });
+    if (!("attachment" in uploaded.body)) {
+      throw new Error("expected uploaded attachment");
+    }
+
+    const backup = await service.postBackup({
+      auth: { actor: "Primary", kind: "token", role: "member", token: "token-1" },
+      bookId: fixture.book.id,
+    });
+    if (!("backup" in backup.body)) {
+      throw new Error("expected backup");
+    }
+
+    await service.postAttachment({
+      auth: { actor: "Primary", kind: "token", role: "member", token: "token-1" },
+      payload: {
+        bytes: new Uint8Array(Buffer.from("after-backup", "utf8")),
+        contentType: "text/plain",
+        fileName: "after.txt",
+        sizeBytes: 12,
+      },
+      bookId: fixture.book.id,
+    });
+
+    const restored = await service.postBackupRestore({
+      auth: { actor: "Primary", kind: "token", role: "member", token: "token-1" },
+      backupId: backup.body.backup.id,
+      bookId: fixture.book.id,
+    });
+    expect(restored.status).toBe(200);
+
+    const reloadedAttachment = await service.getAttachment({
+      attachmentId: uploaded.body.attachment.id,
+      auth: { actor: "Primary", kind: "token", role: "member", token: "token-1" },
+      bookId: fixture.book.id,
+    });
+    expect(reloadedAttachment.status).toBe(200);
+    expect("bytes" in reloadedAttachment.body).toBe(true);
+    if ("bytes" in reloadedAttachment.body) {
+      expect(Buffer.from(reloadedAttachment.body.bytes).toString("utf8")).toBe("before-backup");
+    }
+
+    await fixture.cleanup();
+  });
+
   it("returns export payloads for qif and ofx endpoints", async () => {
     const fixture = await createFixture();
     const service = createBookService({

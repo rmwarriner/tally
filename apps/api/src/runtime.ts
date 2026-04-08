@@ -95,7 +95,7 @@ export function createApiRuntime(params: {
     backend: persistenceBackend,
     logger,
   });
-  const service = createBookService({ logger, repository });
+  const service = createBookService({ dataDirectory: params.config.dataDirectory, logger, repository });
   const handler = createHttpHandler({
     authRequired: params.config.authStrategy !== "none",
     authIdentities: params.config.authIdentities,
