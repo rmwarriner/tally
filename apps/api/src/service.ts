@@ -751,11 +751,11 @@ export function createBookService(params: {
     async getAuditEvents(request) {
       const requestLogger = getRequestLogger(request.logger).child({
         operation: "getAuditEvents",
-        workspaceId: request.workspaceId,
+        bookId: request.bookId,
       });
       requestLogger.info("service command started");
       return withWorkspace<AuditEventsEnvelope | ErrorEnvelope>(
-        serviceParams("read", request.auth, requestLogger, request.workspaceId),
+        serviceParams("read", request.auth, requestLogger, request.bookId),
         async (workspace) => {
           let auditEvents = workspace.auditEvents;
 
@@ -853,7 +853,7 @@ export function createBookService(params: {
     async getAccounts(request) {
       const requestLogger = getRequestLogger(request.logger);
       return withWorkspace<AccountsEnvelope | ErrorEnvelope>(
-        serviceParams("read", request.auth, requestLogger, request.workspaceId),
+        serviceParams("read", request.auth, requestLogger, request.bookId),
         async (workspace) => {
           const accounts = request.includeArchived
             ? workspace.accounts
@@ -866,15 +866,15 @@ export function createBookService(params: {
     async postAccount(request) {
       const requestLogger = getRequestLogger(request.logger);
       return withMutation(
-        { ...serviceParams("manage", request.auth, requestLogger, request.workspaceId), successStatus: 200 },
+        { ...serviceParams("manage", request.auth, requestLogger, request.bookId), successStatus: 200 },
         (workspace, audit) => upsertAccount(workspace, request.account, { audit, logger: requestLogger }),
       );
     },
 
     async archiveAccount(request) {
       const requestLogger = getRequestLogger(request.logger);
-      return withWorkspace<WorkspaceEnvelope | ErrorEnvelope>(
-        serviceParams("manage", request.auth, requestLogger, request.workspaceId),
+      return withWorkspace<BookEnvelope | ErrorEnvelope>(
+        serviceParams("manage", request.auth, requestLogger, request.bookId),
         async (workspace, authorization) => {
           const audit = buildAuthorizationAuditContext(request.auth.actor, authorization);
           const result = archiveAccount(
@@ -897,7 +897,7 @@ export function createBookService(params: {
 
           await params.repository.save(result.document, { logger: requestLogger });
           requestLogger.info("service command completed");
-          return success(200, { workspace: presentWorkspace(result.document) });
+          return success(200, { book: presentBook(result.document) });
         },
       );
     },

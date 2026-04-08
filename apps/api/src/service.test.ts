@@ -1156,9 +1156,9 @@ describe("book service", () => {
 
   it("returns audit events for the workspace", async () => {
     const fixture = await createFixture();
-    const service = createWorkspaceService({
+    const service = createBookService({
       logger: createTestLogger([]),
-      repository: createFileSystemWorkspaceRepository({ rootDirectory: fixture.directory }),
+      repository: createFileSystemBookRepository({ rootDirectory: fixture.directory }),
     });
 
     // Seed a transaction so an audit event exists.
@@ -1173,12 +1173,12 @@ describe("book service", () => {
           { accountId: "acct-checking", amount: createMoney("USD", -10), cleared: true },
         ],
       },
-      workspaceId: fixture.workspace.id,
+      bookId: fixture.book.id,
     });
 
     const response = await service.getAuditEvents({
       auth: { actor: "local-admin", kind: "local", role: "local-admin" },
-      workspaceId: fixture.workspace.id,
+      bookId: fixture.book.id,
     });
 
     expect(response.status).toBe(200);
@@ -1192,9 +1192,9 @@ describe("book service", () => {
 
   it("filters audit events by eventType", async () => {
     const fixture = await createFixture();
-    const service = createWorkspaceService({
+    const service = createBookService({
       logger: createTestLogger([]),
-      repository: createFileSystemWorkspaceRepository({ rootDirectory: fixture.directory }),
+      repository: createFileSystemBookRepository({ rootDirectory: fixture.directory }),
     });
 
     await service.postTransaction({
@@ -1208,13 +1208,13 @@ describe("book service", () => {
           { accountId: "acct-checking", amount: createMoney("USD", -5), cleared: true },
         ],
       },
-      workspaceId: fixture.workspace.id,
+      bookId: fixture.book.id,
     });
 
     const response = await service.getAuditEvents({
       auth: { actor: "local-admin", kind: "local", role: "local-admin" },
       eventType: "transaction.created",
-      workspaceId: fixture.workspace.id,
+      bookId: fixture.book.id,
     });
 
     expect(response.status).toBe(200);
@@ -1227,9 +1227,9 @@ describe("book service", () => {
 
   it("limits audit events with the limit parameter", async () => {
     const fixture = await createFixture();
-    const service = createWorkspaceService({
+    const service = createBookService({
       logger: createTestLogger([]),
-      repository: createFileSystemWorkspaceRepository({ rootDirectory: fixture.directory }),
+      repository: createFileSystemBookRepository({ rootDirectory: fixture.directory }),
     });
 
     // Post two transactions to ensure multiple events.
@@ -1245,14 +1245,14 @@ describe("book service", () => {
             { accountId: "acct-checking", amount: createMoney("USD", -1), cleared: true },
           ],
         },
-        workspaceId: fixture.workspace.id,
+        bookId: fixture.book.id,
       });
     }
 
     const response = await service.getAuditEvents({
       auth: { actor: "local-admin", kind: "local", role: "local-admin" },
       limit: 2,
-      workspaceId: fixture.workspace.id,
+      bookId: fixture.book.id,
     });
 
     expect(response.status).toBe(200);
@@ -1265,14 +1265,14 @@ describe("book service", () => {
 
   it("rejects audit event reads for actors outside the workspace", async () => {
     const fixture = await createFixture();
-    const service = createWorkspaceService({
+    const service = createBookService({
       logger: createTestLogger([]),
-      repository: createFileSystemWorkspaceRepository({ rootDirectory: fixture.directory }),
+      repository: createFileSystemBookRepository({ rootDirectory: fixture.directory }),
     });
 
     const response = await service.getAuditEvents({
       auth: { actor: "Outside User", kind: "token", role: "member", token: "token-2" },
-      workspaceId: fixture.workspace.id,
+      bookId: fixture.book.id,
     });
 
     expect(response.status).toBe(403);
@@ -1282,58 +1282,58 @@ describe("book service", () => {
 
   it("lists accounts without archived accounts by default", async () => {
     const fixture = await createFixture();
-    const service = createWorkspaceService({
-      repository: createFileSystemWorkspaceRepository({ rootDirectory: fixture.directory }),
+    const service = createBookService({
+      repository: createFileSystemBookRepository({ rootDirectory: fixture.directory }),
     });
 
     const response = await service.getAccounts({
       auth: { actor: "local-admin", kind: "local", role: "local-admin" },
-      workspaceId: fixture.workspace.id,
+      bookId: fixture.book.id,
     });
 
     expect(response.status).toBe(200);
     const body = response.body as { accounts: unknown[] };
     expect(Array.isArray(body.accounts)).toBe(true);
-    expect(body.accounts.length).toBe(fixture.workspace.accounts.length);
+    expect(body.accounts.length).toBe(fixture.book.accounts.length);
 
     await fixture.cleanup();
   });
 
   it("creates a new account via postAccount", async () => {
     const fixture = await createFixture();
-    const service = createWorkspaceService({
-      repository: createFileSystemWorkspaceRepository({ rootDirectory: fixture.directory }),
+    const service = createBookService({
+      repository: createFileSystemBookRepository({ rootDirectory: fixture.directory }),
     });
 
     const response = await service.postAccount({
       auth: { actor: "local-admin", kind: "local", role: "local-admin" },
       account: { id: "acct-new", code: "9999", name: "Test Account", type: "asset" },
-      workspaceId: fixture.workspace.id,
+      bookId: fixture.book.id,
     });
 
     expect(response.status).toBe(200);
-    expectWorkspaceBody(response.body);
+    expectBookBody(response.body);
 
     await fixture.cleanup();
   });
 
   it("archives an account with no transactions via archiveAccount", async () => {
     const fixture = await createFixture();
-    const service = createWorkspaceService({
-      repository: createFileSystemWorkspaceRepository({ rootDirectory: fixture.directory }),
+    const service = createBookService({
+      repository: createFileSystemBookRepository({ rootDirectory: fixture.directory }),
     });
 
     // First add an account with no transactions
     await service.postAccount({
       auth: { actor: "local-admin", kind: "local", role: "local-admin" },
       account: { id: "acct-archive-me", code: "8888", name: "To Archive", type: "asset" },
-      workspaceId: fixture.workspace.id,
+      bookId: fixture.book.id,
     });
 
     const response = await service.archiveAccount({
       auth: { actor: "local-admin", kind: "local", role: "local-admin" },
       accountId: "acct-archive-me",
-      workspaceId: fixture.workspace.id,
+      bookId: fixture.book.id,
     });
 
     expect(response.status).toBe(200);
@@ -1343,12 +1343,12 @@ describe("book service", () => {
 
   it("returns 409 when archiving an account with transactions", async () => {
     const fixture = await createFixture();
-    const service = createWorkspaceService({
-      repository: createFileSystemWorkspaceRepository({ rootDirectory: fixture.directory }),
+    const service = createBookService({
+      repository: createFileSystemBookRepository({ rootDirectory: fixture.directory }),
     });
 
-    const accountWithTransactions = fixture.workspace.accounts.find((a) =>
-      fixture.workspace.transactions.some(
+    const accountWithTransactions = fixture.book.accounts.find((a) =>
+      fixture.book.transactions.some(
         (t) => !t.deletion && t.postings.some((p) => p.accountId === a.id),
       ),
     );
@@ -1361,7 +1361,7 @@ describe("book service", () => {
     const response = await service.archiveAccount({
       auth: { actor: "local-admin", kind: "local", role: "local-admin" },
       accountId: accountWithTransactions.id,
-      workspaceId: fixture.workspace.id,
+      bookId: fixture.book.id,
     });
 
     expect(response.status).toBe(409);
@@ -1371,13 +1371,13 @@ describe("book service", () => {
 
   it("rejects getAccounts with insufficient access", async () => {
     const fixture = await createFixture();
-    const service = createWorkspaceService({
-      repository: createFileSystemWorkspaceRepository({ rootDirectory: fixture.directory }),
+    const service = createBookService({
+      repository: createFileSystemBookRepository({ rootDirectory: fixture.directory }),
     });
 
     const response = await service.getAccounts({
       auth: { actor: "stranger", kind: "token", role: "member", token: "wrong-token" },
-      workspaceId: fixture.workspace.id,
+      bookId: fixture.book.id,
     });
 
     expect(response.status).toBe(403);

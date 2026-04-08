@@ -783,9 +783,9 @@ export function createHttpHandler(params: {
           );
         }
 
-        const workspaceId = decodeURIComponent(accountsMatch[1]);
+        const bookId = decodeURIComponent(accountsMatch[1]);
 
-        if (!isSafeWorkspaceId(workspaceId)) {
+        if (!isSafeBookId(bookId)) {
           return completeJsonResponse(
             400,
             toErrorEnvelope(
@@ -804,7 +804,7 @@ export function createHttpHandler(params: {
           auth: auth.context,
           includeArchived,
           logger: requestLogger,
-          workspaceId,
+          bookId,
         });
         return completeJsonResponse(response.status, response.body);
       }
@@ -854,9 +854,9 @@ export function createHttpHandler(params: {
           );
         }
 
-        const workspaceId = decodeURIComponent(auditEventsMatch[1]);
+        const bookId = decodeURIComponent(auditEventsMatch[1]);
 
-        if (!isSafeWorkspaceId(workspaceId)) {
+        if (!isSafeBookId(bookId)) {
           return completeJsonResponse(
             400,
             toErrorEnvelope(
@@ -894,7 +894,7 @@ export function createHttpHandler(params: {
           limit,
           logger: requestLogger,
           since,
-          workspaceId,
+          bookId,
         });
         return completeJsonResponse(response.status, response.body);
       }
@@ -1710,9 +1710,9 @@ export function createHttpHandler(params: {
           );
         }
 
-        const workspaceId = decodeURIComponent(accountMatch[1]);
+        const bookId = decodeURIComponent(accountMatch[1]);
 
-        if (!isSafeWorkspaceId(workspaceId)) {
+        if (!isSafeBookId(bookId)) {
           return completeJsonResponse(
             400,
             toErrorEnvelope(
@@ -1746,7 +1746,7 @@ export function createHttpHandler(params: {
           account: parsed.value.account,
           auth: auth.context,
           logger: requestLogger,
-          workspaceId,
+          bookId,
         });
         return completeJsonResponse(response.status, response.body);
       }
@@ -2075,10 +2075,10 @@ export function createHttpHandler(params: {
           );
         }
 
-        const workspaceId = decodeURIComponent(archiveAccountMatch[1]);
+        const bookId = decodeURIComponent(archiveAccountMatch[1]);
         const accountId = decodeURIComponent(archiveAccountMatch[2]);
 
-        if (!isSafeWorkspaceId(workspaceId)) {
+        if (!isSafeBookId(bookId)) {
           return completeJsonResponse(
             400,
             toErrorEnvelope(
@@ -2095,7 +2095,7 @@ export function createHttpHandler(params: {
           accountId,
           auth: auth.context,
           logger: requestLogger,
-          workspaceId,
+          bookId,
         });
         return completeJsonResponse(response.status, response.body);
       }

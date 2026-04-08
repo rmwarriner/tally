@@ -1596,8 +1596,8 @@ Lacct-expense-utilities
 
   it("responds to OPTIONS preflight requests without requiring auth", async () => {
     const fixture = await createFixture();
-    const service = createWorkspaceService({
-      repository: createFileSystemWorkspaceRepository({ rootDirectory: fixture.directory }),
+    const service = createBookService({
+      repository: createFileSystemBookRepository({ rootDirectory: fixture.directory }),
     });
     const handler = createHttpHandler({
       authIdentities: [{ actor: "Primary", role: "admin", token: "top-secret" }],
@@ -1606,7 +1606,7 @@ Lacct-expense-utilities
     });
 
     const response = await handler(
-      new Request(`http://localhost/api/workspaces/${fixture.workspace.id}/transactions`, {
+      new Request(`http://localhost/api/books/${fixture.book.id}/transactions`, {
         method: "OPTIONS",
         headers: { origin: "https://app.example.com" },
       }),
@@ -1623,8 +1623,8 @@ Lacct-expense-utilities
 
   it("reflects configured allowed origin on cross-origin requests", async () => {
     const fixture = await createFixture();
-    const service = createWorkspaceService({
-      repository: createFileSystemWorkspaceRepository({ rootDirectory: fixture.directory }),
+    const service = createBookService({
+      repository: createFileSystemBookRepository({ rootDirectory: fixture.directory }),
     });
     const handler = createHttpHandler({
       corsAllowedOrigins: ["https://app.example.com"],
@@ -1632,7 +1632,7 @@ Lacct-expense-utilities
     });
 
     const response = await handler(
-      new Request(`http://localhost/api/workspaces/${fixture.workspace.id}`, {
+      new Request(`http://localhost/api/books/${fixture.book.id}`, {
         headers: { origin: "https://app.example.com" },
       }),
     );
@@ -1645,8 +1645,8 @@ Lacct-expense-utilities
 
   it("omits ACAO header when origin does not match configured allowed origins", async () => {
     const fixture = await createFixture();
-    const service = createWorkspaceService({
-      repository: createFileSystemWorkspaceRepository({ rootDirectory: fixture.directory }),
+    const service = createBookService({
+      repository: createFileSystemBookRepository({ rootDirectory: fixture.directory }),
     });
     const handler = createHttpHandler({
       corsAllowedOrigins: ["https://app.example.com"],
@@ -1654,7 +1654,7 @@ Lacct-expense-utilities
     });
 
     const response = await handler(
-      new Request(`http://localhost/api/workspaces/${fixture.workspace.id}`, {
+      new Request(`http://localhost/api/books/${fixture.book.id}`, {
         headers: { origin: "https://evil.example.com" },
       }),
     );
@@ -1666,8 +1666,8 @@ Lacct-expense-utilities
 
   it("emits wildcard ACAO in non-production when no origins are configured", async () => {
     const fixture = await createFixture();
-    const service = createWorkspaceService({
-      repository: createFileSystemWorkspaceRepository({ rootDirectory: fixture.directory }),
+    const service = createBookService({
+      repository: createFileSystemBookRepository({ rootDirectory: fixture.directory }),
     });
     const handler = createHttpHandler({
       runtimeMode: "development",
@@ -1675,7 +1675,7 @@ Lacct-expense-utilities
     });
 
     const response = await handler(
-      new Request(`http://localhost/api/workspaces/${fixture.workspace.id}`, {
+      new Request(`http://localhost/api/books/${fixture.book.id}`, {
         headers: { origin: "https://anything.example.com" },
       }),
     );
@@ -1687,8 +1687,8 @@ Lacct-expense-utilities
 
   it("omits ACAO header in production when no origins are configured", async () => {
     const fixture = await createFixture();
-    const service = createWorkspaceService({
-      repository: createFileSystemWorkspaceRepository({ rootDirectory: fixture.directory }),
+    const service = createBookService({
+      repository: createFileSystemBookRepository({ rootDirectory: fixture.directory }),
     });
     const handler = createHttpHandler({
       runtimeMode: "production",
@@ -1696,7 +1696,7 @@ Lacct-expense-utilities
     });
 
     const response = await handler(
-      new Request(`http://localhost/api/workspaces/${fixture.workspace.id}`, {
+      new Request(`http://localhost/api/books/${fixture.book.id}`, {
         headers: { origin: "https://anything.example.com" },
       }),
     );
@@ -1708,13 +1708,13 @@ Lacct-expense-utilities
 
   it("serves audit events over HTTP", async () => {
     const fixture = await createFixture();
-    const service = createWorkspaceService({
-      repository: createFileSystemWorkspaceRepository({ rootDirectory: fixture.directory }),
+    const service = createBookService({
+      repository: createFileSystemBookRepository({ rootDirectory: fixture.directory }),
     });
     const handler = createHttpHandler({ service });
 
     const response = await handler(
-      new Request(`http://localhost/api/workspaces/${fixture.workspace.id}/audit-events`),
+      new Request(`http://localhost/api/books/${fixture.book.id}/audit-events`),
     );
     const body = await response.json();
 
@@ -1726,14 +1726,14 @@ Lacct-expense-utilities
 
   it("filters audit events by eventType over HTTP", async () => {
     const fixture = await createFixture();
-    const service = createWorkspaceService({
-      repository: createFileSystemWorkspaceRepository({ rootDirectory: fixture.directory }),
+    const service = createBookService({
+      repository: createFileSystemBookRepository({ rootDirectory: fixture.directory }),
     });
     const handler = createHttpHandler({ service });
 
     const response = await handler(
       new Request(
-        `http://localhost/api/workspaces/${fixture.workspace.id}/audit-events?eventType=transaction.created`,
+        `http://localhost/api/books/${fixture.book.id}/audit-events?eventType=transaction.created`,
       ),
     );
     const body = await response.json();
@@ -1748,14 +1748,14 @@ Lacct-expense-utilities
 
   it("rejects audit events with an invalid limit parameter", async () => {
     const fixture = await createFixture();
-    const service = createWorkspaceService({
-      repository: createFileSystemWorkspaceRepository({ rootDirectory: fixture.directory }),
+    const service = createBookService({
+      repository: createFileSystemBookRepository({ rootDirectory: fixture.directory }),
     });
     const handler = createHttpHandler({ service });
 
     const response = await handler(
       new Request(
-        `http://localhost/api/workspaces/${fixture.workspace.id}/audit-events?limit=notanumber`,
+        `http://localhost/api/books/${fixture.book.id}/audit-events?limit=notanumber`,
       ),
     );
 
@@ -1766,13 +1766,13 @@ Lacct-expense-utilities
 
   it("normalizes audit events route label for metrics", async () => {
     const fixture = await createFixture();
-    const service = createWorkspaceService({
-      repository: createFileSystemWorkspaceRepository({ rootDirectory: fixture.directory }),
+    const service = createBookService({
+      repository: createFileSystemBookRepository({ rootDirectory: fixture.directory }),
     });
     const handler = createHttpHandler({ service });
 
     await handler(
-      new Request(`http://localhost/api/workspaces/${fixture.workspace.id}/audit-events`),
+      new Request(`http://localhost/api/books/${fixture.book.id}/audit-events`),
     );
 
     const metricsResponse = await handler(new Request("http://localhost/metrics"));
@@ -1785,32 +1785,32 @@ Lacct-expense-utilities
 
   it("serves account list via GET /api/workspaces/:id/accounts", async () => {
     const fixture = await createFixture();
-    const service = createWorkspaceService({
-      repository: createFileSystemWorkspaceRepository({ rootDirectory: fixture.directory }),
+    const service = createBookService({
+      repository: createFileSystemBookRepository({ rootDirectory: fixture.directory }),
     });
     const handler = createHttpHandler({ service });
 
     const response = await handler(
-      new Request(`http://localhost/api/workspaces/${fixture.workspace.id}/accounts`),
+      new Request(`http://localhost/api/books/${fixture.book.id}/accounts`),
     );
     const body = await response.json();
 
     expect(response.status).toBe(200);
     expect(Array.isArray(body.accounts)).toBe(true);
-    expect(body.accounts.length).toBe(fixture.workspace.accounts.length);
+    expect(body.accounts.length).toBe(fixture.book.accounts.length);
 
     await fixture.cleanup();
   });
 
   it("creates an account via POST /api/workspaces/:id/accounts", async () => {
     const fixture = await createFixture();
-    const service = createWorkspaceService({
-      repository: createFileSystemWorkspaceRepository({ rootDirectory: fixture.directory }),
+    const service = createBookService({
+      repository: createFileSystemBookRepository({ rootDirectory: fixture.directory }),
     });
     const handler = createHttpHandler({ service });
 
     const response = await handler(
-      new Request(`http://localhost/api/workspaces/${fixture.workspace.id}/accounts`, {
+      new Request(`http://localhost/api/books/${fixture.book.id}/accounts`, {
         method: "POST",
         headers: { "content-type": "application/json" },
         body: JSON.stringify({
@@ -1828,13 +1828,13 @@ Lacct-expense-utilities
 
   it("returns 400 for invalid account POST body", async () => {
     const fixture = await createFixture();
-    const service = createWorkspaceService({
-      repository: createFileSystemWorkspaceRepository({ rootDirectory: fixture.directory }),
+    const service = createBookService({
+      repository: createFileSystemBookRepository({ rootDirectory: fixture.directory }),
     });
     const handler = createHttpHandler({ service });
 
     const response = await handler(
-      new Request(`http://localhost/api/workspaces/${fixture.workspace.id}/accounts`, {
+      new Request(`http://localhost/api/books/${fixture.book.id}/accounts`, {
         method: "POST",
         headers: { "content-type": "application/json" },
         body: JSON.stringify({ account: { id: "x", code: "", name: "X", type: "asset" } }),
@@ -1848,14 +1848,14 @@ Lacct-expense-utilities
 
   it("archives an account via DELETE /api/workspaces/:id/accounts/:accountId", async () => {
     const fixture = await createFixture();
-    const service = createWorkspaceService({
-      repository: createFileSystemWorkspaceRepository({ rootDirectory: fixture.directory }),
+    const service = createBookService({
+      repository: createFileSystemBookRepository({ rootDirectory: fixture.directory }),
     });
     const handler = createHttpHandler({ service });
 
     // Create a fresh account with no transactions so we can archive it
     await handler(
-      new Request(`http://localhost/api/workspaces/${fixture.workspace.id}/accounts`, {
+      new Request(`http://localhost/api/books/${fixture.book.id}/accounts`, {
         method: "POST",
         headers: { "content-type": "application/json" },
         body: JSON.stringify({
@@ -1866,7 +1866,7 @@ Lacct-expense-utilities
 
     const response = await handler(
       new Request(
-        `http://localhost/api/workspaces/${fixture.workspace.id}/accounts/acct-to-delete`,
+        `http://localhost/api/books/${fixture.book.id}/accounts/acct-to-delete`,
         { method: "DELETE" },
       ),
     );
@@ -1878,13 +1878,13 @@ Lacct-expense-utilities
 
   it("returns 409 when archiving account with transactions", async () => {
     const fixture = await createFixture();
-    const service = createWorkspaceService({
-      repository: createFileSystemWorkspaceRepository({ rootDirectory: fixture.directory }),
+    const service = createBookService({
+      repository: createFileSystemBookRepository({ rootDirectory: fixture.directory }),
     });
     const handler = createHttpHandler({ service });
 
-    const accountWithTransactions = fixture.workspace.accounts.find((a) =>
-      fixture.workspace.transactions.some(
+    const accountWithTransactions = fixture.book.accounts.find((a) =>
+      fixture.book.transactions.some(
         (t) => !t.deletion && t.postings.some((p) => p.accountId === a.id),
       ),
     );
@@ -1896,7 +1896,7 @@ Lacct-expense-utilities
 
     const response = await handler(
       new Request(
-        `http://localhost/api/workspaces/${fixture.workspace.id}/accounts/${accountWithTransactions.id}`,
+        `http://localhost/api/books/${fixture.book.id}/accounts/${accountWithTransactions.id}`,
         { method: "DELETE" },
       ),
     );

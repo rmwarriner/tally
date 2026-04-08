@@ -1977,16 +1977,16 @@ function isAccountType(value: unknown): value is AccountType {
 }
 
 export function upsertAccount(
-  document: FinanceWorkspaceDocument,
+  document: FinanceBookDocument,
   account: Account,
   options: CommandOptions = {},
 ): CommandResult {
   const logger = (options.logger ?? createNoopLogger()).child({
     command: "upsertAccount",
     accountId: account.id,
-    workspaceId: document.id,
+    bookId: document.id,
   });
-  logger.info("workspace command started");
+  logger.info("book command started");
 
   const errors: string[] = [];
 
@@ -2046,7 +2046,7 @@ export function upsertAccount(
 }
 
 export function archiveAccount(
-  document: FinanceWorkspaceDocument,
+  document: FinanceBookDocument,
   params: {
     accountId: string;
     archivedAt?: string;
@@ -2056,9 +2056,9 @@ export function archiveAccount(
   const logger = (options.logger ?? createNoopLogger()).child({
     command: "archiveAccount",
     accountId: params.accountId,
-    workspaceId: document.id,
+    bookId: document.id,
   });
-  logger.info("workspace command started");
+  logger.info("book command started");
 
   const account = document.accounts.find((a) => a.id === params.accountId);
 

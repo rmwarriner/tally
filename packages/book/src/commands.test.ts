@@ -1500,7 +1500,7 @@ LSalary
 
   describe("upsertAccount", () => {
     it("creates a new account when the id does not exist", () => {
-      const workspace = createDemoWorkspace();
+      const workspace = createDemoBook();
       const result = upsertAccount(
         workspace,
         { id: "acct-new", code: "9000", name: "New Account", type: "asset" },
@@ -1517,7 +1517,7 @@ LSalary
     });
 
     it("updates an existing account", () => {
-      const workspace = createDemoWorkspace();
+      const workspace = createDemoBook();
       const existing = workspace.accounts[0];
       const result = upsertAccount(
         workspace,
@@ -1531,7 +1531,7 @@ LSalary
     });
 
     it("rejects an account with an empty id", () => {
-      const workspace = createDemoWorkspace();
+      const workspace = createDemoBook();
       const result = upsertAccount(workspace, { id: "", code: "9000", name: "X", type: "asset" });
 
       expect(result.ok).toBe(false);
@@ -1539,7 +1539,7 @@ LSalary
     });
 
     it("rejects an account with an empty code", () => {
-      const workspace = createDemoWorkspace();
+      const workspace = createDemoBook();
       const result = upsertAccount(workspace, { id: "x", code: "", name: "X", type: "asset" });
 
       expect(result.ok).toBe(false);
@@ -1547,7 +1547,7 @@ LSalary
     });
 
     it("rejects an account with an empty name", () => {
-      const workspace = createDemoWorkspace();
+      const workspace = createDemoBook();
       const result = upsertAccount(workspace, { id: "x", code: "9000", name: "", type: "asset" });
 
       expect(result.ok).toBe(false);
@@ -1555,7 +1555,7 @@ LSalary
     });
 
     it("rejects an account with an invalid type", () => {
-      const workspace = createDemoWorkspace();
+      const workspace = createDemoBook();
       const result = upsertAccount(workspace, {
         id: "x",
         code: "9000",
@@ -1570,7 +1570,7 @@ LSalary
     });
 
     it("rejects a parentAccountId that does not exist", () => {
-      const workspace = createDemoWorkspace();
+      const workspace = createDemoBook();
       const result = upsertAccount(workspace, {
         id: "x",
         code: "9000",
@@ -1584,7 +1584,7 @@ LSalary
     });
 
     it("accepts a valid parentAccountId", () => {
-      const workspace = createDemoWorkspace();
+      const workspace = createDemoBook();
       const parent = workspace.accounts[0];
       const result = upsertAccount(workspace, {
         id: "child-acct",
@@ -1600,7 +1600,7 @@ LSalary
 
   describe("archiveAccount", () => {
     it("archives an account with no transactions", () => {
-      const workspace = createDemoWorkspace();
+      const workspace = createDemoBook();
       // Use an account not referenced by any active transaction
       const unreferencedAccount = workspace.accounts.find(
         (a) => !workspace.transactions.some((t) => t.postings.some((p) => p.accountId === a.id)),
@@ -1623,7 +1623,7 @@ LSalary
     });
 
     it("rejects archiving a non-existent account", () => {
-      const workspace = createDemoWorkspace();
+      const workspace = createDemoBook();
       const result = archiveAccount(workspace, { accountId: "does-not-exist" });
 
       expect(result.ok).toBe(false);
@@ -1631,7 +1631,7 @@ LSalary
     });
 
     it("rejects archiving an already-archived account", () => {
-      const workspace = createDemoWorkspace();
+      const workspace = createDemoBook();
       const unreferencedAccount = workspace.accounts.find(
         (a) => !workspace.transactions.some((t) => t.postings.some((p) => p.accountId === a.id)),
       );
@@ -1646,7 +1646,7 @@ LSalary
     });
 
     it("rejects archiving an account that has undeleted transactions", () => {
-      const workspace = createDemoWorkspace();
+      const workspace = createDemoBook();
       const accountWithTransactions = workspace.accounts.find((a) =>
         workspace.transactions.some(
           (t) => !t.deletion && t.postings.some((p) => p.accountId === a.id),

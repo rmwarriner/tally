@@ -346,21 +346,21 @@ export interface GetAccountsRequest {
   auth: AuthContext;
   includeArchived?: boolean;
   logger?: Logger;
-  workspaceId: string;
+  bookId: string;
 }
 
 export interface PostAccountRequest {
   account: Account;
   auth: AuthContext;
   logger?: Logger;
-  workspaceId: string;
+  bookId: string;
 }
 
 export interface ArchiveAccountRequest {
   accountId: string;
   auth: AuthContext;
   logger?: Logger;
-  workspaceId: string;
+  bookId: string;
 }
 
 export interface AccountsEnvelope {
@@ -373,11 +373,11 @@ export interface GetAuditEventsRequest {
   limit?: number;
   logger?: Logger;
   since?: string;
-  workspaceId: string;
+  bookId: string;
 }
 
 export interface AuditEventsEnvelope {
-  auditEvents: import("@tally/workspace").AuditEvent[];
+  auditEvents: import("@tally/book").AuditEvent[];
 }
 
 export interface GetApprovalsRequest {
