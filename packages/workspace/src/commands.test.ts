@@ -12,8 +12,10 @@ import {
   closeWorkspacePeriod,
   createDemoWorkspace,
   deleteTransaction,
+  denyApproval,
   destroyTransaction,
   executeScheduledTransaction,
+  grantApproval,
   importTransactionsFromCsvRows,
   importTransactionsFromStatement,
   importWorkspaceFromGnuCashXml,
@@ -21,6 +23,7 @@ import {
   recordEnvelopeAllocation,
   reconcileAccount,
   removeHouseholdMember,
+  requestApproval,
   setHouseholdMemberRole,
   upsertBaselineBudgetLine,
   upsertEnvelope,
@@ -1287,6 +1290,209 @@ LSalary
         previousRole: "member",
         role: "guardian",
       });
+    });
+  });
+
+  describe("approval commands", () => {
+    const approvalId = "approval-1";
+    const transactionId = "txn-grocery-1";
+    const requestedAt = "2026-04-08T10:00:00.000Z";
+
+    it("requestApproval creates a pending approval for a destroy-transaction", () => {
+      const workspace = createDemoWorkspace();
+      const result = requestApproval(workspace, {
+        approvalId,
+        kind: "destroy-transaction",
+        entityId: transactionId,
+        requestedBy: "Admin",
+        requestedAt,
+      });
+
+      expect(result.ok).toBe(true);
+      const approval = result.document.pendingApprovals?.find((a) => a.id === approvalId);
+      expect(approval).toMatchObject({
+        id: approvalId,
+        kind: "destroy-transaction",
+        entityId: transactionId,
+        requestedBy: "Admin",
+        status: "pending",
+      });
+      expect(approval?.expiresAt).toBeDefined();
+      expect(result.document.auditEvents.at(-1)?.eventType).toBe("approval.requested");
+    });
+
+    it("requestApproval rejects a duplicate approval id", () => {
+      const workspace = createDemoWorkspace();
+      const first = requestApproval(workspace, {
+        approvalId,
+        kind: "destroy-transaction",
+        entityId: transactionId,
+        requestedBy: "Admin",
+        requestedAt,
+      });
+      const second = requestApproval(first.document, {
+        approvalId,
+        kind: "destroy-transaction",
+        entityId: transactionId,
+        requestedBy: "Admin",
+        requestedAt,
+      });
+
+      expect(second.ok).toBe(false);
+      expect(second.errors[0]).toContain("already exists");
+    });
+
+    it("requestApproval rejects a missing transaction", () => {
+      const workspace = createDemoWorkspace();
+      const result = requestApproval(workspace, {
+        approvalId,
+        kind: "destroy-transaction",
+        entityId: "txn-does-not-exist",
+        requestedBy: "Admin",
+        requestedAt,
+      });
+
+      expect(result.ok).toBe(false);
+      expect(result.errors[0]).toContain("not found");
+    });
+
+    it("grantApproval destroys the transaction and records audit events", () => {
+      const workspace = createDemoWorkspace();
+      const afterRequest = requestApproval(workspace, {
+        approvalId,
+        kind: "destroy-transaction",
+        entityId: transactionId,
+        requestedBy: "Admin1",
+        requestedAt,
+      });
+
+      const result = grantApproval(afterRequest.document, {
+        approvalId,
+        reviewedBy: "Admin2",
+        reviewedAt: "2026-04-08T11:00:00.000Z",
+      });
+
+      expect(result.ok).toBe(true);
+      expect(result.document.transactions.some((t) => t.id === transactionId)).toBe(false);
+      const approval = result.document.pendingApprovals?.find((a) => a.id === approvalId);
+      expect(approval?.status).toBe("approved");
+      expect(approval?.reviewedBy).toBe("Admin2");
+      expect(result.document.auditEvents.some((e) => e.eventType === "approval.granted")).toBe(true);
+    });
+
+    it("grantApproval rejects self-approval", () => {
+      const workspace = createDemoWorkspace();
+      const afterRequest = requestApproval(workspace, {
+        approvalId,
+        kind: "destroy-transaction",
+        entityId: transactionId,
+        requestedBy: "Admin",
+        requestedAt,
+      });
+
+      const result = grantApproval(afterRequest.document, {
+        approvalId,
+        reviewedBy: "Admin",
+        reviewedAt: "2026-04-08T11:00:00.000Z",
+      });
+
+      expect(result.ok).toBe(false);
+      expect(result.errors[0]).toContain("different actor");
+    });
+
+    it("grantApproval rejects an expired approval", () => {
+      const workspace = createDemoWorkspace();
+      const afterRequest = requestApproval(workspace, {
+        approvalId,
+        kind: "destroy-transaction",
+        entityId: transactionId,
+        requestedBy: "Admin1",
+        requestedAt,
+      });
+
+      const result = grantApproval(afterRequest.document, {
+        approvalId,
+        reviewedBy: "Admin2",
+        reviewedAt: "2026-04-10T10:00:00.000Z", // 2 days later, past 24h TTL
+      });
+
+      expect(result.ok).toBe(false);
+      expect(result.errors[0]).toContain("expired");
+    });
+
+    it("grantApproval rejects an already-reviewed approval", () => {
+      const workspace = createDemoWorkspace();
+      const afterRequest = requestApproval(workspace, {
+        approvalId,
+        kind: "destroy-transaction",
+        entityId: transactionId,
+        requestedBy: "Admin1",
+        requestedAt,
+      });
+      const afterGrant = grantApproval(afterRequest.document, {
+        approvalId,
+        reviewedBy: "Admin2",
+        reviewedAt: "2026-04-08T11:00:00.000Z",
+      });
+
+      const result = grantApproval(afterGrant.document, {
+        approvalId,
+        reviewedBy: "Admin2",
+        reviewedAt: "2026-04-08T12:00:00.000Z",
+      });
+
+      expect(result.ok).toBe(false);
+      expect(result.errors[0]).toContain("already approved");
+    });
+
+    it("denyApproval marks approval denied and records audit event", () => {
+      const workspace = createDemoWorkspace();
+      const afterRequest = requestApproval(workspace, {
+        approvalId,
+        kind: "destroy-transaction",
+        entityId: transactionId,
+        requestedBy: "Admin1",
+        requestedAt,
+      });
+
+      const result = denyApproval(afterRequest.document, {
+        approvalId,
+        reviewedBy: "Admin2",
+        reviewedAt: "2026-04-08T11:00:00.000Z",
+      });
+
+      expect(result.ok).toBe(true);
+      const approval = result.document.pendingApprovals?.find((a) => a.id === approvalId);
+      expect(approval?.status).toBe("denied");
+      expect(approval?.reviewedBy).toBe("Admin2");
+      // transaction should still exist
+      expect(result.document.transactions.some((t) => t.id === transactionId)).toBe(true);
+      expect(result.document.auditEvents.some((e) => e.eventType === "approval.denied")).toBe(true);
+    });
+
+    it("denyApproval rejects an already-reviewed approval", () => {
+      const workspace = createDemoWorkspace();
+      const afterRequest = requestApproval(workspace, {
+        approvalId,
+        kind: "destroy-transaction",
+        entityId: transactionId,
+        requestedBy: "Admin1",
+        requestedAt,
+      });
+      const afterDeny = denyApproval(afterRequest.document, {
+        approvalId,
+        reviewedBy: "Admin2",
+        reviewedAt: "2026-04-08T11:00:00.000Z",
+      });
+
+      const result = denyApproval(afterDeny.document, {
+        approvalId,
+        reviewedBy: "Admin2",
+        reviewedAt: "2026-04-08T12:00:00.000Z",
+      });
+
+      expect(result.ok).toBe(false);
+      expect(result.errors[0]).toContain("already denied");
     });
   });
 });

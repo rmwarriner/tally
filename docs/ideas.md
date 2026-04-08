@@ -20,6 +20,52 @@ Promote an idea to a GitHub Issue when:
 
 ## Track 1: Trust, Audit, Integrity, and Security
 
+### CORS configuration
+No CORS headers are emitted. In any production deployment where the web or mobile client runs on a different origin the API will reject preflight requests. This is a correctness gap, not a hardening gap — it blocks the product from working in its intended topology.
+
+**Next slice:** Add `CORS_ORIGIN` env-var config, handle `OPTIONS` preflight requests, and emit `Access-Control-*` headers on all responses. Allow wildcard for local dev, exact-origin matching for production.
+
+**Key open questions:**
+- Should multiple allowed origins be supported (e.g., web + mobile + CLI)?
+- How should preflight caching (`Access-Control-Max-Age`) be configured?
+
+### Audit event read endpoint
+Audit events are persisted in the workspace document but have no dedicated HTTP surface. Users and operators cannot query the audit trail without reading the entire workspace snapshot. Now that approval events add operational value to the audit log, a queryable endpoint is more important.
+
+**Next slice:** `GET /api/workspaces/:id/audit-events` with optional `?from=`, `?to=`, and `?eventType=` query params. Auth at `read` level.
+
+**Key open questions:**
+- Should this paginate or return all events in the range?
+- Should it be a separate endpoint or a filter on the workspace read?
+
+### Concurrent write safety (optimistic locking)
+No ETag or document-version conflict detection exists. Two household members writing simultaneously will silently produce a last-write-wins outcome. This is a data integrity risk in the multi-user household scenario the product is targeting.
+
+**Next slice:** Add a `version` integer to `FinanceWorkspaceDocument`, increment on every `save`, enforce `If-Match` header on write routes, return `409 Conflict` on mismatch.
+
+**Key open questions:**
+- Should version be per-workspace or per-resource (per-transaction, per-account)?
+- What is the client recovery flow when a conflict is detected?
+
+### Idempotency keys for mutations
+No idempotency mechanism on POST mutations. A network timeout followed by a client retry will create duplicate transactions. This is especially problematic for import endpoints and transaction creation.
+
+**Next slice:** Accept a client-supplied `Idempotency-Key` header on mutation endpoints. Store seen keys with a TTL (e.g., 24 hours) and return the cached response for duplicate requests.
+
+**Key open questions:**
+- Where is the idempotency key store — in-memory (per-process) or durable (per-workspace)?
+- Should all POST routes support idempotency or only specific high-risk ones?
+
+### Token and session management endpoints
+Tokens are configured at API startup and have no management surface. There is no way to issue, list, or revoke tokens via the API. In a household context where a member may lose a device or be removed from the workspace, revocation is a security gap.
+
+**Next slice:** Admin-only routes for `GET /tokens`, `POST /tokens` (issue a new token), and `DELETE /tokens/:tokenId` (revoke). Tie token identity to the workspace authorization model.
+
+**Key open questions:**
+- Should token management be workspace-scoped or global to the API instance?
+- How should token secrets be stored — hashed in workspace doc, or in a separate secrets store?
+- What is the revocation mechanism — denylist or signed token expiry?
+
 ### Cross-cutting data integrity hardening
 The project has several integrity mechanisms in place (domain validation, audit events, close-period locks, backup/restore) but lacks an explicit end-to-end integrity strategy that treats correctness as a cross-cutting architectural concern.
 
@@ -310,12 +356,18 @@ Parked until scoped for roadmap execution.
 ### Household collaboration controls and approval roles
 Household finance involves shared data but different comfort levels and authority levels for edits, approvals, and destructive actions. Approval/review workflows and clearer change attribution would complement the identity foundation already in place.
 
-Parked — the identity layer is implemented; this is the next natural slice but needs scoping around which actions require approval and what the data model looks like.
+Implemented — approval/review semantics for `destroyTransaction` are now in place. This idea is closed.
+
+### Webhook and change notification delivery
+In a multi-user household, polling is the only way for one client to learn about changes made by another. A webhook registration endpoint or server-sent events stream would enable real-time collaborative updates without continuous polling.
+
+Parked until the collaboration model is stable enough to define a durable notification contract.
 
 **Key open questions:**
-- What roles are needed beyond the current member roles?
-- Which actions need approval vs. just attribution?
-- How does approval interact with audit trails and destructive actions?
+- Webhook registration vs. SSE vs. WebSocket — which delivery model fits the single-host deployment shape?
+- What is the payload: full workspace snapshot, event list, or delta?
+- How should webhook delivery failures be handled (retries, dead-letter)?
+- How does this interact with the approval model — should approval requests trigger notifications?
 
 ---
 
@@ -362,3 +414,51 @@ Parked until scope is narrowed and the first production slice is defined (likely
 - What should be containerized first: API only vs. full stack components?
 - Should Docker and Podman both be first-class, or one primary with compatibility guidance?
 - What are the runtime requirements for persistence, secrets, and backup/restore in a containerized setup?
+
+### Account management routes
+The chart of accounts is central to the product but has no HTTP management surface. Accounts are only readable as part of the full workspace snapshot, and can only be modified by importing a workspace snapshot. Users need to create, rename, archive, and organize accounts without a full workspace roundtrip.
+
+**Next slice:** `GET /accounts` (list), `POST /accounts` (create), `PUT /accounts/:accountId` (update name/code/type/metadata), `DELETE /accounts/:accountId` (archive — set `archivedAt`, reject if active transactions exist). New workspace commands: `upsertAccount`, `archiveAccount`. Add `archivedAt?: string` to the `Account` type.
+
+**Key open questions:**
+- Should archive prevent new postings only, or also hide the account from UI views?
+- How does archiving interact with envelopes and budget lines that reference the account?
+- Should `parentAccountId` hierarchy changes be allowed after creation?
+
+### Soft-delete recovery (undelete transaction)
+Transactions can be soft-deleted but there is no route to undo that operation. The only recovery path today is a full backup restore. This is disproportionately destructive for a common mistake.
+
+**Next slice:** `POST /api/workspaces/:id/transactions/:transactionId/restore` — clears the `deletion` field and emits a `transaction.restored` audit event. Requires `write` access.
+
+**Key open questions:**
+- Should restore be available within a TTL window only, or always?
+- How should restore interact with locked close periods?
+
+### Server-side transaction filtering and pagination
+The workspace endpoint returns the full document. As transaction volumes grow this becomes a client-side performance problem. There is no way to fetch only the transactions for a given account, date range, or status without downloading and filtering everything locally.
+
+**Next slice:** `GET /api/workspaces/:id/transactions` with `?accountId=`, `?from=`, `?to=`, `?status=cleared|pending|deleted`, `?limit=`, and `?cursor=` query parameters. Returns a paginated transaction list, not the full workspace.
+
+**Key open questions:**
+- Should this be a separate endpoint alongside the workspace read, or replace it for client use?
+- How should the cursor be structured for stable pagination across concurrent writes?
+- Which indexes are needed for each filter combination in the SQLite and Postgres backends?
+
+### API versioning strategy
+All routes are at `/api/...` with no version segment. As account management, pagination, and other breaking changes land, clients need a stable migration path. The decision — URL versioning (`/api/v1/`), header-based, or something else — needs to be made before the API surface is too large to move.
+
+**Next slice:** Agree on a versioning policy and document it. Likely `/api/v1/` prefix with the current surface, leaving `/api/` as a redirect or alias during a transition window.
+
+**Key open questions:**
+- URL versioning vs. `Accept` header versioning vs. custom header?
+- Should old versions be supported simultaneously or deprecated on a schedule?
+
+### Transaction attachment and file linking
+Receipt scanning and document attachment are mentioned in the product vision but the API has no file storage or linking model. Before any OCR or AI-assist layer can land, there must be an attachment endpoint and a link from transaction to attached files.
+
+**Next slice:** `POST /api/workspaces/:id/attachments` (upload a file, returns an attachment id), `GET /api/workspaces/:id/attachments/:attachmentId` (download). `attachmentIds` field on `Transaction`. Storage backend TBD (local filesystem, object store).
+
+**Key open questions:**
+- Where do files live — local filesystem next to the workspace, or a separate object store?
+- What file types and size limits should be enforced?
+- How does attachment storage interact with backup/restore?

@@ -1,6 +1,6 @@
 # Project Status
 
-Last reviewed: 2026-04-07 (updated post family-scale identity and authorization implementation)
+Last reviewed: 2026-04-08 (updated post approval/review semantics; next three API slices planned)
 
 ## Current State
 
@@ -96,6 +96,19 @@ This repository currently includes:
 - CI and security quality gates
 - security baseline documentation and audited hardening for API/runtime boundaries
 
+### Approval And Review Semantics
+
+- `PendingApproval` model in workspace document (`kind`, `entityId`, `requestedBy`, `expiresAt`, `status`, `reviewedBy`)
+- 24-hour TTL on pending approvals
+- `requestApproval` command: admin creates a pending destroy-transaction approval
+- `grantApproval` command: second admin (must differ from requester) grants approval, immediately executes the destroy
+- `denyApproval` command: any admin denies the approval, leaving the transaction intact
+- Self-approval guard: requester cannot also be the reviewer
+- Expiry guard: grants after TTL are rejected
+- Audit events: `approval.requested`, `approval.granted`, `approval.denied`
+- Service methods: `getApprovals`, `requestApproval`, `grantApproval`, `denyApproval` — all at `destroy` access level
+- HTTP routes: `GET/POST /workspaces/:id/approvals`, `POST /workspaces/:id/approvals/:approvalId/grant`, `POST /workspaces/:id/approvals/:approvalId/deny`
+
 ### Family-Scale Identity And Authorization
 
 - workspace commands for household member management (add, remove, set role)
@@ -129,22 +142,62 @@ This repository currently includes:
 
 The repository is no longer mainly missing core backend foundations.
 
-The main remaining work is now product and architecture shaping across a growing idea backlog. The highest-value next areas are:
+The main remaining work falls into two categories:
 
-1. Continue trust and integrity hardening: approval/review semantics for high-trust operations (e.g., second-admin confirmation for destroy), encryption guidance, and broader review controls
+**Planned API layer completions (see Next Suggested Restart Point above):**
+- CORS configuration
+- Audit event read endpoint
+- Account management routes
+
+**Longer-horizon product and architecture work:**
+1. Trust and integrity hardening: concurrent write safety (optimistic locking), idempotency keys, token/session management endpoints
 2. Budgeting-model definition for remaining-to-budget, rollover, cleanup, and envelope funding semantics
 3. Review, automation, and ingestion workflows on top of the current import foundation
-4. Encryption-at-rest, key-handling, and broader trust-boundary guidance across supported persistence backends
+4. Encryption-at-rest, key-handling, and trust-boundary guidance across supported persistence backends
+5. API completions: soft-delete recovery, server-side transaction filtering/pagination, API versioning strategy, attachment/file linking
 
 ## Next Suggested Restart Point
 
-Family-scale identity and authorization is now implemented. The next recommended slice is **approval/review semantics for high-trust operations** — the remaining gap from the original family-scale auth intent.
+Approval/review semantics are now implemented. The next three slices are queued and planned — implement them in order:
 
-The goal of that pass is:
+### 1. CORS configuration
+**Goal:** Make the API usable in any cross-origin deployment topology.
 
-- a pending-approval model for destructive operations (e.g., a second admin must confirm `destroyTransaction`)
-- time-limited approval tokens or out-of-band confirmation flows
-- audit events for approval grants and denials
+- Add `corsAllowedOrigins?: string[]` to `createHttpHandler` params and a `CORS_ORIGIN` env var to `config.ts`
+- Handle `OPTIONS` preflight requests — respond `204` with `Access-Control-Allow-*` headers, no auth required
+- Emit `Access-Control-Allow-Origin` on every response (exact-origin matching; wildcard only when unconfigured and `NODE_ENV !== "production"`)
+- Emit `Access-Control-Allow-Methods`, `Access-Control-Allow-Headers`, `Access-Control-Max-Age` on preflight
+- Add `normalizeRouteLabel` entry and `isOptionsRoute` helper
+- Tests: preflight returns correct headers; non-matching origin gets no ACAO header; configured origin is reflected back
+
+### 2. Audit event read endpoint
+**Goal:** Expose the audit trail as a queryable API surface.
+
+- Add `auditEventsMatch` to `matchHttpReadRoutes` → `GET /api/workspaces/:id/audit-events`
+- Query params: `?from=` (ISO date), `?to=` (ISO date), `?eventType=` (exact match); all optional
+- New service method `getAuditEvents(request: GetAuditEventsRequest)` — reads workspace at `read` access, filters `workspace.auditEvents` in-process
+- New request type `GetAuditEventsRequest` and response envelope `AuditEventsEnvelope`
+- Add `validateAuditEventsQuery` to `validation.ts`
+- Tests: unfiltered returns all events; date filters narrow correctly; eventType filter works; auth enforced
+
+### 3. Account management routes
+**Goal:** Full CRUD for chart-of-accounts without workspace roundtrips.
+
+**Domain changes:**
+- Add `archivedAt?: string` to `Account` in `packages/domain/src/types.ts`
+
+**Workspace commands** (in `packages/workspace/src/commands.ts`):
+- `upsertAccount(document, account, options)` — validates id uniqueness on create, validates type/code/name, emits `account.upserted` audit event
+- `archiveAccount(document, { accountId }, options)` — rejects if account has undeleted transactions, sets `archivedAt`, emits `account.archived` audit event
+
+**New audit event types** in `types.ts`: `"account.upserted"`, `"account.archived"`
+
+**Service + HTTP:**
+- `GET /api/workspaces/:id/accounts` → `getAccounts` — lists all accounts (optionally filter archived with `?includeArchived=true`); `read` access
+- `POST /api/workspaces/:id/accounts` → `postAccount` — upsert; `manage` access
+- `DELETE /api/workspaces/:id/accounts/:accountId` → `archiveAccount`; `manage` access
+- Validation: `validateAccountRequestBody` — requires `id`, `code`, `name`, `type`; optional `parentAccountId`, `taxCategory`, `isEnvelopeFundingSource`
+- Tests: create/update/archive happy paths; archive-with-transactions rejection; auth enforcement
 
 ## Deferred Follow-Up
 

@@ -49,7 +49,26 @@ export type AuditEventType =
   | "close.recorded"
   | "household-member.added"
   | "household-member.removed"
-  | "household-member.role-changed";
+  | "household-member.role-changed"
+  | "approval.requested"
+  | "approval.granted"
+  | "approval.denied";
+
+export type ApprovalKind = "destroy-transaction";
+
+export type ApprovalStatus = "pending" | "approved" | "denied" | "expired";
+
+export interface PendingApproval {
+  id: string;
+  kind: ApprovalKind;
+  entityId: string;
+  requestedBy: string;
+  requestedAt: string;
+  expiresAt: string;
+  status: ApprovalStatus;
+  reviewedBy?: string;
+  reviewedAt?: string;
+}
 
 export interface WorkspaceClosePeriod {
   id: string;
@@ -87,6 +106,7 @@ export interface FinanceWorkspaceDocument {
   importBatches: ImportBatch[];
   reconciliationSessions: ReconciliationSession[];
   closePeriods?: WorkspaceClosePeriod[];
+  pendingApprovals?: PendingApproval[];
   auditEvents: AuditEvent[];
 }
 

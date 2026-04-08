@@ -341,4 +341,39 @@ export interface HouseholdMembersEnvelope {
   }>;
 }
 
+export interface GetApprovalsRequest {
+  auth: AuthContext;
+  logger?: Logger;
+  workspaceId: string;
+}
+
+export interface RequestApprovalRequest {
+  auth: AuthContext;
+  logger?: Logger;
+  payload: {
+    approvalId: string;
+    kind: import("@tally/workspace").ApprovalKind;
+    entityId: string;
+  };
+  workspaceId: string;
+}
+
+export interface GrantApprovalRequest {
+  approvalId: string;
+  auth: AuthContext;
+  logger?: Logger;
+  workspaceId: string;
+}
+
+export interface DenyApprovalRequest {
+  approvalId: string;
+  auth: AuthContext;
+  logger?: Logger;
+  workspaceId: string;
+}
+
+export interface ApprovalsEnvelope {
+  approvals: import("@tally/workspace").PendingApproval[];
+}
+
 export type { ErrorEnvelope };

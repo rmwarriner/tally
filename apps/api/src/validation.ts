@@ -17,6 +17,7 @@ import type {
   PostScheduledTransactionRequest,
   PostStatementImportRequest,
   PostTransactionRequest,
+  RequestApprovalRequest,
   SetHouseholdMemberRoleRequest,
 } from "./types";
 
@@ -910,4 +911,35 @@ export function validateSetHouseholdMemberRoleBody(body: unknown):
   return errors.length > 0
     ? { errors }
     : { value: body as Pick<SetHouseholdMemberRoleRequest, "payload"> };
+}
+
+function isApprovalKind(value: unknown): value is "destroy-transaction" {
+  return value === "destroy-transaction";
+}
+
+export function validateRequestApprovalBody(body: unknown):
+  | { errors: string[] }
+  | { value: Pick<RequestApprovalRequest, "payload"> } {
+  if (!isObject(body) || !isObject(body.payload)) {
+    return { errors: ["payload is required."] };
+  }
+
+  const errors: string[] = [];
+  const payload = body.payload;
+
+  if (!isNonEmptyString(payload.approvalId)) {
+    errors.push("payload.approvalId is required.");
+  }
+
+  if (!isApprovalKind(payload.kind)) {
+    errors.push("payload.kind must be destroy-transaction.");
+  }
+
+  if (!isNonEmptyString(payload.entityId)) {
+    errors.push("payload.entityId is required.");
+  }
+
+  return errors.length > 0
+    ? { errors }
+    : { value: body as Pick<RequestApprovalRequest, "payload"> };
 }

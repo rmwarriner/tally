@@ -1,6 +1,6 @@
 # Engineering Roadmap
 
-Last reviewed: 2026-04-07
+Last reviewed: 2026-04-08
 
 ## Roadmap Structure
 
@@ -37,7 +37,8 @@ The roadmap now separates work into:
 
 - external metrics, tracing, and alert routing beyond in-process foundations
 - encryption-at-rest and key-handling guidance across supported persistence backends
-- multi-user identity and authorization guidance for family-scale collaboration
+- CORS configuration standard for cross-origin deployment topologies
+- API versioning policy as the surface grows
 
 ## Phase 1 Completed
 
@@ -97,9 +98,9 @@ The next phase should be driven by a smaller set of explicit themes rather than 
 
 These are the next candidates for promotion into active delivery work.
 
-1. Continue trust and integrity hardening after the first soft-delete and privileged-destroy pass, especially encryption guidance and broader review controls
-2. Budgeting model definition for remaining-to-budget, rollover, and envelope funding rules
-3. Family-scale identity and authorization model, including external access providers such as Cloudflare Access and OpenID/OIDC
+1. **API layer completions** — CORS configuration, audit event read endpoint, account management routes (see `docs/project-status.md` for the detailed plan)
+2. Trust and integrity hardening — concurrent write safety (optimistic locking), idempotency keys, token/session management endpoints
+3. Budgeting model definition for remaining-to-budget, rollover, and envelope funding rules
 4. Transaction review and import-automation foundation
 5. External observability sinks and production security guidance beyond the single-node default
 
@@ -126,17 +127,13 @@ PR checklist mapping: each refactor PR should include a `structural impact` note
 
 ## Next Suggested Move
 
-The next recommended Phase 2 execution slice is:
+Family-scale identity, authorization, and approval semantics are now fully implemented.
 
-1. Family-scale identity and authorization design
+The next recommended Phase 2 execution slice is the **API layer completion pass** described in `docs/project-status.md`:
 
-Scope the first pass around:
-
-- household member roles and actor attribution rules
-- separation of ordinary write access from privileged destructive actions
-- review and approval semantics for high-trust operations such as transaction destroy
-- external identity integration boundaries for Cloudflare Access and OpenID/OIDC
-- the minimal service, auth, and document changes needed to support that model without broad UI churn yet
+1. CORS configuration — correctness gap for cross-origin deployments
+2. Audit event read endpoint — expose the audit trail as a queryable HTTP surface
+3. Account management routes — full CRUD for the chart of accounts
 
 ## Idea Backlog Policy
 

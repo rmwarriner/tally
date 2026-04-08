@@ -1,6 +1,6 @@
 # Audit Events
 
-Last reviewed: 2026-04-06
+Last reviewed: 2026-04-08
 
 ## Purpose
 
@@ -37,6 +37,12 @@ Implemented event types:
 - `import.qfx.recorded`
 - `import.gnucash-xml.recorded`
 - `close.recorded`
+- `household-member.added`
+- `household-member.removed`
+- `household-member.role-changed`
+- `approval.requested`
+- `approval.granted`
+- `approval.denied`
 
 ## Event Shape
 
@@ -63,10 +69,10 @@ Each event includes:
 
 Audit events are currently persisted inside the workspace document. This is enough for a local-first foundation and makes the history durable across save/load cycles.
 
-The current service layer now attaches authenticated actor identity before write commands.
+The current service layer attaches authenticated actor identity and authorization context before write commands. Household member mutations and approval operations are fully covered.
 
 Remaining extensions are:
 
-- broader mutation coverage beyond the current financial-write surface
+- a dedicated `GET /api/workspaces/:id/audit-events` HTTP endpoint (planned — see `docs/project-status.md`)
 - optional append-only audit streams for external retention
-- family-scale review and authorization semantics around destructive actions
+- broader mutation coverage as account management and other new commands are added

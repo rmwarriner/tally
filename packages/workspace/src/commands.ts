@@ -26,9 +26,11 @@ import {
   replaceActiveTransactions,
 } from "./transaction-lifecycle";
 import type {
+  ApprovalKind,
   CsvImportRow,
   FinanceWorkspaceDocument,
   ImportBatch,
+  PendingApproval,
   ReconciliationSession,
 } from "./types";
 
@@ -1711,6 +1713,257 @@ export function setHouseholdMemberRole(
   );
 
   logger.info("workspace command completed");
+
+  return { ok: true, errors: [], document: nextDocument };
+}
+
+const APPROVAL_TTL_MS = 24 * 60 * 60 * 1000; // 24 hours
+
+export function requestApproval(
+  document: FinanceWorkspaceDocument,
+  params: {
+    approvalId: string;
+    entityId: string;
+    kind: ApprovalKind;
+    requestedBy: string;
+    requestedAt?: string;
+  },
+  options: CommandOptions = {},
+): CommandResult {
+  const logger = (options.logger ?? createNoopLogger()).child({
+    command: "requestApproval",
+    approvalId: params.approvalId,
+    kind: params.kind,
+    workspaceId: document.id,
+  });
+  logger.info("workspace command started");
+
+  if (!params.approvalId || params.approvalId.trim().length === 0) {
+    const errors = ["Approval id is required."];
+    logger.warn("workspace command validation failed", { errors });
+    return { ok: false, errors, document };
+  }
+
+  if (!params.entityId || params.entityId.trim().length === 0) {
+    const errors = ["Entity id is required."];
+    logger.warn("workspace command validation failed", { errors });
+    return { ok: false, errors, document };
+  }
+
+  if (!params.requestedBy || params.requestedBy.trim().length === 0) {
+    const errors = ["requestedBy is required."];
+    logger.warn("workspace command validation failed", { errors });
+    return { ok: false, errors, document };
+  }
+
+  const existing = (document.pendingApprovals ?? []).find((a) => a.id === params.approvalId);
+  if (existing) {
+    const errors = [`Approval ${params.approvalId} already exists.`];
+    logger.warn("workspace command validation failed", { errors });
+    return { ok: false, errors, document };
+  }
+
+  if (params.kind === "destroy-transaction") {
+    const transaction = document.transactions.find((t) => t.id === params.entityId);
+    if (!transaction) {
+      const errors = [`Transaction ${params.entityId} not found.`];
+      logger.warn("workspace command validation failed", { errors });
+      return { ok: false, errors, document };
+    }
+  }
+
+  const requestedAt = params.requestedAt ?? new Date().toISOString();
+  const expiresAt = new Date(new Date(requestedAt).getTime() + APPROVAL_TTL_MS).toISOString();
+
+  const approval: PendingApproval = {
+    id: params.approvalId,
+    kind: params.kind,
+    entityId: params.entityId,
+    requestedBy: params.requestedBy,
+    requestedAt,
+    expiresAt,
+    status: "pending",
+  };
+
+  const nextDocument = appendAuditEvent(
+    {
+      ...document,
+      pendingApprovals: [...(document.pendingApprovals ?? []), approval],
+    },
+    {
+      entityIds: [params.approvalId, params.entityId],
+      eventType: "approval.requested",
+      summary: {
+        approvalId: params.approvalId,
+        kind: params.kind,
+        entityId: params.entityId,
+        requestedBy: params.requestedBy,
+        expiresAt,
+      },
+    },
+    options.audit,
+  );
+
+  logger.info("workspace command completed", { approvalId: params.approvalId });
+
+  return { ok: true, errors: [], document: nextDocument };
+}
+
+export function grantApproval(
+  document: FinanceWorkspaceDocument,
+  params: {
+    approvalId: string;
+    reviewedBy: string;
+    reviewedAt?: string;
+  },
+  options: CommandOptions = {},
+): CommandResult {
+  const logger = (options.logger ?? createNoopLogger()).child({
+    command: "grantApproval",
+    approvalId: params.approvalId,
+    workspaceId: document.id,
+  });
+  logger.info("workspace command started");
+
+  const approval = (document.pendingApprovals ?? []).find((a) => a.id === params.approvalId);
+
+  if (!approval) {
+    const errors = [`Approval ${params.approvalId} not found.`];
+    logger.warn("workspace command validation failed", { errors });
+    return { ok: false, errors, document };
+  }
+
+  if (approval.status !== "pending") {
+    const errors = [`Approval ${params.approvalId} is already ${approval.status}.`];
+    logger.warn("workspace command validation failed", { errors });
+    return { ok: false, errors, document };
+  }
+
+  const reviewedAt = params.reviewedAt ?? new Date().toISOString();
+
+  if (new Date(reviewedAt) > new Date(approval.expiresAt)) {
+    const errors = [`Approval ${params.approvalId} has expired.`];
+    logger.warn("workspace command validation failed", { errors });
+    return { ok: false, errors, document };
+  }
+
+  if (approval.requestedBy === params.reviewedBy) {
+    const errors = [`Approval ${params.approvalId} must be reviewed by a different actor than the requester.`];
+    logger.warn("workspace command validation failed", { errors });
+    return { ok: false, errors, document };
+  }
+
+  const updatedApproval: PendingApproval = {
+    ...approval,
+    status: "approved",
+    reviewedBy: params.reviewedBy,
+    reviewedAt,
+  };
+
+  let nextDoc: FinanceWorkspaceDocument = {
+    ...document,
+    pendingApprovals: (document.pendingApprovals ?? []).map((a) =>
+      a.id === params.approvalId ? updatedApproval : a,
+    ),
+  };
+
+  // Execute the approved operation
+  if (approval.kind === "destroy-transaction") {
+    const destroyResult = destroyTransaction(nextDoc, approval.entityId, {
+      audit: { ...options.audit, disabled: true },
+      logger: options.logger,
+    });
+    if (!destroyResult.ok) {
+      logger.warn("workspace command validation failed — destroy failed after grant", {
+        errors: destroyResult.errors,
+      });
+      return { ok: false, errors: destroyResult.errors, document };
+    }
+    nextDoc = destroyResult.document;
+  }
+
+  const nextDocument = appendAuditEvent(
+    nextDoc,
+    {
+      entityIds: [params.approvalId, approval.entityId],
+      eventType: "approval.granted",
+      summary: {
+        approvalId: params.approvalId,
+        kind: approval.kind,
+        entityId: approval.entityId,
+        requestedBy: approval.requestedBy,
+        reviewedBy: params.reviewedBy,
+      },
+    },
+    options.audit,
+  );
+
+  logger.info("workspace command completed", { approvalId: params.approvalId });
+
+  return { ok: true, errors: [], document: nextDocument };
+}
+
+export function denyApproval(
+  document: FinanceWorkspaceDocument,
+  params: {
+    approvalId: string;
+    reviewedBy: string;
+    reviewedAt?: string;
+  },
+  options: CommandOptions = {},
+): CommandResult {
+  const logger = (options.logger ?? createNoopLogger()).child({
+    command: "denyApproval",
+    approvalId: params.approvalId,
+    workspaceId: document.id,
+  });
+  logger.info("workspace command started");
+
+  const approval = (document.pendingApprovals ?? []).find((a) => a.id === params.approvalId);
+
+  if (!approval) {
+    const errors = [`Approval ${params.approvalId} not found.`];
+    logger.warn("workspace command validation failed", { errors });
+    return { ok: false, errors, document };
+  }
+
+  if (approval.status !== "pending") {
+    const errors = [`Approval ${params.approvalId} is already ${approval.status}.`];
+    logger.warn("workspace command validation failed", { errors });
+    return { ok: false, errors, document };
+  }
+
+  const reviewedAt = params.reviewedAt ?? new Date().toISOString();
+
+  const updatedApproval: PendingApproval = {
+    ...approval,
+    status: "denied",
+    reviewedBy: params.reviewedBy,
+    reviewedAt,
+  };
+
+  const nextDocument = appendAuditEvent(
+    {
+      ...document,
+      pendingApprovals: (document.pendingApprovals ?? []).map((a) =>
+        a.id === params.approvalId ? updatedApproval : a,
+      ),
+    },
+    {
+      entityIds: [params.approvalId, approval.entityId],
+      eventType: "approval.denied",
+      summary: {
+        approvalId: params.approvalId,
+        kind: approval.kind,
+        entityId: approval.entityId,
+        requestedBy: approval.requestedBy,
+        reviewedBy: params.reviewedBy,
+      },
+    },
+    options.audit,
+  );
+
+  logger.info("workspace command completed", { approvalId: params.approvalId });
 
   return { ok: true, errors: [], document: nextDocument };
 }

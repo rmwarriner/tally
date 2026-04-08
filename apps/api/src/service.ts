@@ -12,8 +12,10 @@ import {
   buildWorkspaceReport,
   closeWorkspacePeriod,
   deleteTransaction,
+  denyApproval,
   destroyTransaction,
   executeScheduledTransaction,
+  grantApproval,
   importTransactionsFromCsvRows,
   importTransactionsFromStatement,
   importWorkspaceFromGnuCashXml,
@@ -21,6 +23,7 @@ import {
   reconcileAccount,
   recordEnvelopeAllocation,
   removeHouseholdMember,
+  requestApproval,
   setHouseholdMemberRole,
   upsertBaselineBudgetLine,
   upsertEnvelope,
@@ -36,11 +39,14 @@ import {
 } from "./service-helpers";
 import type {
   AddHouseholdMemberRequest,
+  ApprovalsEnvelope,
   BackupEnvelope,
   BackupsEnvelope,
   DeleteTransactionRequest,
+  DenyApprovalRequest,
   DestroyTransactionRequest,
   ErrorEnvelope,
+  GetApprovalsRequest,
   GetGnuCashXmlExportRequest,
   GetBackupsRequest,
   ApplyScheduledTransactionExceptionRequest,
@@ -54,6 +60,7 @@ import type {
   GetReportRequest,
   GetWorkspaceRequest,
   GnuCashXmlExportEnvelope,
+  GrantApprovalRequest,
   HouseholdMembersEnvelope,
   PostBaselineBudgetLineRequest,
   PostBackupRequest,
@@ -69,6 +76,7 @@ import type {
   PostStatementImportRequest,
   PostTransactionRequest,
   RemoveHouseholdMemberRequest,
+  RequestApprovalRequest,
   ServiceResponse,
   SetHouseholdMemberRoleRequest,
   StatementExportEnvelope,
@@ -163,6 +171,18 @@ export interface WorkspaceService {
   ): Promise<ServiceResponse<WorkspaceEnvelope | ErrorEnvelope>>;
   removeHouseholdMember(
     request: RemoveHouseholdMemberRequest,
+  ): Promise<ServiceResponse<WorkspaceEnvelope | ErrorEnvelope>>;
+  getApprovals(
+    request: GetApprovalsRequest,
+  ): Promise<ServiceResponse<ApprovalsEnvelope | ErrorEnvelope>>;
+  requestApproval(
+    request: RequestApprovalRequest,
+  ): Promise<ServiceResponse<WorkspaceEnvelope | ErrorEnvelope>>;
+  grantApproval(
+    request: GrantApprovalRequest,
+  ): Promise<ServiceResponse<WorkspaceEnvelope | ErrorEnvelope>>;
+  denyApproval(
+    request: DenyApprovalRequest,
   ): Promise<ServiceResponse<WorkspaceEnvelope | ErrorEnvelope>>;
 }
 
@@ -705,6 +725,77 @@ export function createWorkspaceService(params: {
           requestLogger.info("service command completed");
           return success(200, { workspace: presentWorkspace(result.document) });
         },
+      );
+    },
+
+    async getApprovals(request) {
+      const requestLogger = getRequestLogger(request.logger);
+      return withWorkspace<ApprovalsEnvelope | ErrorEnvelope>(
+        serviceParams("read", request.auth, requestLogger, request.workspaceId),
+        async (workspace) => {
+          const approvals = workspace.pendingApprovals ?? [];
+          return success(200, { approvals });
+        },
+      );
+    },
+
+    async requestApproval(request) {
+      const requestLogger = getRequestLogger(request.logger).child({
+        operation: "requestApproval",
+        kind: request.payload.kind,
+        entityId: request.payload.entityId,
+        workspaceId: request.workspaceId,
+      });
+      requestLogger.info("service command started");
+      return withMutation(
+        { ...serviceParams("destroy", request.auth, requestLogger, request.workspaceId), successStatus: 201 },
+        (workspace, audit) =>
+          requestApproval(
+            workspace,
+            {
+              approvalId: request.payload.approvalId,
+              kind: request.payload.kind,
+              entityId: request.payload.entityId,
+              requestedBy: request.auth.actor,
+            },
+            { audit, logger: requestLogger },
+          ),
+      );
+    },
+
+    async grantApproval(request) {
+      const requestLogger = getRequestLogger(request.logger).child({
+        operation: "grantApproval",
+        approvalId: request.approvalId,
+        workspaceId: request.workspaceId,
+      });
+      requestLogger.info("service command started");
+      return withMutation(
+        { ...serviceParams("destroy", request.auth, requestLogger, request.workspaceId), successStatus: 200 },
+        (workspace, audit) =>
+          grantApproval(
+            workspace,
+            { approvalId: request.approvalId, reviewedBy: request.auth.actor },
+            { audit, logger: requestLogger },
+          ),
+      );
+    },
+
+    async denyApproval(request) {
+      const requestLogger = getRequestLogger(request.logger).child({
+        operation: "denyApproval",
+        approvalId: request.approvalId,
+        workspaceId: request.workspaceId,
+      });
+      requestLogger.info("service command started");
+      return withMutation(
+        { ...serviceParams("destroy", request.auth, requestLogger, request.workspaceId), successStatus: 200 },
+        (workspace, audit) =>
+          denyApproval(
+            workspace,
+            { approvalId: request.approvalId, reviewedBy: request.auth.actor },
+            { audit, logger: requestLogger },
+          ),
       );
     },
   };

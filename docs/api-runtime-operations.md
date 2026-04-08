@@ -141,6 +141,13 @@ Header compatibility during transition:
   - `PUT /api/workspaces/:id/members/:actor/role` — set a member role (admin only)
   - `DELETE /api/workspaces/:id/members/:actor` — remove a member (admin only)
   - the last admin of a workspace cannot be removed or demoted; all changes emit audit events
+- approval/review workflows for high-trust operations are available through dedicated routes:
+  - `GET /api/workspaces/:id/approvals` — list pending approvals (any member)
+  - `POST /api/workspaces/:id/approvals` — request an approval (admin only; currently supports `destroy-transaction`)
+  - `POST /api/workspaces/:id/approvals/:approvalId/grant` — grant an approval (admin only; must be a different admin than the requester; executes the operation on grant)
+  - `POST /api/workspaces/:id/approvals/:approvalId/deny` — deny an approval (admin only)
+  - approvals expire after 24 hours; grants after the TTL are rejected
+  - all approval state changes emit audit events (`approval.requested`, `approval.granted`, `approval.denied`)
 
 ## Multi-Actor Identity Strategies
 

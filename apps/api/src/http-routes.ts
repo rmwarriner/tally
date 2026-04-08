@@ -1,4 +1,5 @@
 export interface HttpReadRouteMatches {
+  approvalsMatch: RegExpMatchArray | null;
   backupsMatch: RegExpMatchArray | null;
   closePeriodsMatch: RegExpMatchArray | null;
   closeSummaryMatch: RegExpMatchArray | null;
@@ -12,6 +13,9 @@ export interface HttpReadRouteMatches {
 }
 
 export interface HttpPostRouteMatches {
+  approvalGrantMatch: RegExpMatchArray | null;
+  approvalDenyMatch: RegExpMatchArray | null;
+  approvalRequestMatch: RegExpMatchArray | null;
   backupRestoreMatch: RegExpMatchArray | null;
   backupsCreateMatch: RegExpMatchArray | null;
   bodylessPostRoute: boolean;
@@ -183,11 +187,24 @@ export function normalizeRouteLabel(method: string, path: string): string {
     return "/api/workspaces/:workspaceId/members/:actor";
   }
 
+  if (/^\/api\/workspaces\/[^/]+\/approvals$/.test(path)) {
+    return "/api/workspaces/:workspaceId/approvals";
+  }
+
+  if (/^\/api\/workspaces\/[^/]+\/approvals\/[^/]+\/grant$/.test(path)) {
+    return "/api/workspaces/:workspaceId/approvals/:approvalId/grant";
+  }
+
+  if (/^\/api\/workspaces\/[^/]+\/approvals\/[^/]+\/deny$/.test(path)) {
+    return "/api/workspaces/:workspaceId/approvals/:approvalId/deny";
+  }
+
   return path;
 }
 
 export function matchHttpReadRoutes(path: string): HttpReadRouteMatches {
   return {
+    approvalsMatch: path.match(/^\/api\/workspaces\/([^/]+)\/approvals$/),
     backupsMatch: path.match(/^\/api\/workspaces\/([^/]+)\/backups$/),
     closePeriodsMatch: path.match(/^\/api\/workspaces\/([^/]+)\/close-periods$/),
     closeSummaryMatch: path.match(/^\/api\/workspaces\/([^/]+)\/close-summary$/),
@@ -204,11 +221,16 @@ export function matchHttpReadRoutes(path: string): HttpReadRouteMatches {
 export function matchHttpPostRoutes(path: string): HttpPostRouteMatches {
   const backupsCreateMatch = path.match(/^\/api\/workspaces\/([^/]+)\/backups$/);
   const backupRestoreMatch = path.match(/^\/api\/workspaces\/([^/]+)\/backups\/([^/]+)\/restore$/);
+  const approvalGrantMatch = path.match(/^\/api\/workspaces\/([^/]+)\/approvals\/([^/]+)\/grant$/);
+  const approvalDenyMatch = path.match(/^\/api\/workspaces\/([^/]+)\/approvals\/([^/]+)\/deny$/);
 
   return {
+    approvalGrantMatch,
+    approvalDenyMatch,
+    approvalRequestMatch: path.match(/^\/api\/workspaces\/([^/]+)\/approvals$/),
     backupRestoreMatch,
     backupsCreateMatch,
-    bodylessPostRoute: Boolean(backupsCreateMatch || backupRestoreMatch),
+    bodylessPostRoute: Boolean(backupsCreateMatch || backupRestoreMatch || approvalGrantMatch || approvalDenyMatch),
     budgetLineMatch: path.match(/^\/api\/workspaces\/([^/]+)\/budget-lines$/),
     closePeriodMatch: path.match(/^\/api\/workspaces\/([^/]+)\/close-periods$/),
     csvImportMatch: path.match(/^\/api\/workspaces\/([^/]+)\/imports\/csv$/),

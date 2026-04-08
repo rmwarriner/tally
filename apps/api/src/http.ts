@@ -20,6 +20,7 @@ import { createInMemoryRateLimiter, type RateLimiter, type RateLimitPolicy } fro
 import type { WorkspaceService } from "./service";
 import {
   validateAddHouseholdMemberBody,
+  validateRequestApprovalBody,
   validateCloseSummaryQuery,
   validateClosePeriodRequestBody,
   validateApplyScheduledTransactionExceptionRequestBody,
@@ -238,6 +239,7 @@ export function createHttpHandler(params: {
 
     if (request.method === "GET") {
       const {
+        approvalsMatch,
         backupsMatch,
         closePeriodsMatch,
         closeSummaryMatch,
@@ -705,10 +707,47 @@ export function createHttpHandler(params: {
         });
         return completeJsonResponse(response.status, response.body);
       }
+
+      if (approvalsMatch) {
+        const rateLimited = enforceRateLimit(rateLimitPolicy.read);
+
+        if (rateLimited) {
+          return completeJsonResponse(
+            rateLimited.status,
+            await rateLimited.json(),
+            Object.fromEntries(rateLimited.headers.entries()),
+          );
+        }
+
+        const workspaceId = decodeURIComponent(approvalsMatch[1]);
+
+        if (!isSafeWorkspaceId(workspaceId)) {
+          return completeJsonResponse(
+            400,
+            toErrorEnvelope(
+              new ApiError({
+                code: "repository.invalid_identifier",
+                message: "Workspace identifier is invalid.",
+                status: 400,
+              }),
+            ),
+          );
+        }
+
+        const response = await params.service.getApprovals({
+          auth: auth.context,
+          logger: requestLogger,
+          workspaceId,
+        });
+        return completeJsonResponse(response.status, response.body);
+      }
     }
 
     if (request.method === "POST") {
       const {
+        approvalGrantMatch,
+        approvalDenyMatch,
+        approvalRequestMatch,
         backupRestoreMatch,
         backupsCreateMatch,
         bodylessPostRoute,
@@ -1549,6 +1588,130 @@ export function createHttpHandler(params: {
           auth: auth.context,
           logger: requestLogger,
           payload: parsed.value.payload,
+          workspaceId,
+        });
+        return completeJsonResponse(response.status, response.body);
+      }
+
+      if (approvalRequestMatch) {
+        const rateLimited = enforceRateLimit(rateLimitPolicy.mutation);
+
+        if (rateLimited) {
+          return completeJsonResponse(
+            rateLimited.status,
+            await rateLimited.json(),
+            Object.fromEntries(rateLimited.headers.entries()),
+          );
+        }
+
+        const workspaceId = decodeURIComponent(approvalRequestMatch[1]);
+
+        if (!isSafeWorkspaceId(workspaceId)) {
+          return completeJsonResponse(
+            400,
+            toErrorEnvelope(
+              new ApiError({
+                code: "repository.invalid_identifier",
+                message: "Workspace identifier is invalid.",
+                status: 400,
+              }),
+            ),
+          );
+        }
+
+        const parsed = validateRequestApprovalBody(body);
+
+        if ("errors" in parsed) {
+          requestLogger.warn("http request validation failed", { errors: parsed.errors });
+          return completeJsonResponse(
+            400,
+            toErrorEnvelope(
+              new ApiError({
+                code: "validation.failed",
+                details: { issues: parsed.errors },
+                message: parsed.errors[0] ?? "Request validation failed.",
+                status: 400,
+              }),
+            ),
+          );
+        }
+
+        const response = await params.service.requestApproval({
+          auth: auth.context,
+          logger: requestLogger,
+          payload: parsed.value.payload,
+          workspaceId,
+        });
+        return completeJsonResponse(response.status, response.body);
+      }
+
+      if (approvalGrantMatch) {
+        const rateLimited = enforceRateLimit(rateLimitPolicy.mutation);
+
+        if (rateLimited) {
+          return completeJsonResponse(
+            rateLimited.status,
+            await rateLimited.json(),
+            Object.fromEntries(rateLimited.headers.entries()),
+          );
+        }
+
+        const workspaceId = decodeURIComponent(approvalGrantMatch[1]);
+        const approvalId = decodeURIComponent(approvalGrantMatch[2]);
+
+        if (!isSafeWorkspaceId(workspaceId)) {
+          return completeJsonResponse(
+            400,
+            toErrorEnvelope(
+              new ApiError({
+                code: "repository.invalid_identifier",
+                message: "Workspace identifier is invalid.",
+                status: 400,
+              }),
+            ),
+          );
+        }
+
+        const response = await params.service.grantApproval({
+          approvalId,
+          auth: auth.context,
+          logger: requestLogger,
+          workspaceId,
+        });
+        return completeJsonResponse(response.status, response.body);
+      }
+
+      if (approvalDenyMatch) {
+        const rateLimited = enforceRateLimit(rateLimitPolicy.mutation);
+
+        if (rateLimited) {
+          return completeJsonResponse(
+            rateLimited.status,
+            await rateLimited.json(),
+            Object.fromEntries(rateLimited.headers.entries()),
+          );
+        }
+
+        const workspaceId = decodeURIComponent(approvalDenyMatch[1]);
+        const approvalId = decodeURIComponent(approvalDenyMatch[2]);
+
+        if (!isSafeWorkspaceId(workspaceId)) {
+          return completeJsonResponse(
+            400,
+            toErrorEnvelope(
+              new ApiError({
+                code: "repository.invalid_identifier",
+                message: "Workspace identifier is invalid.",
+                status: 400,
+              }),
+            ),
+          );
+        }
+
+        const response = await params.service.denyApproval({
+          approvalId,
+          auth: auth.context,
+          logger: requestLogger,
           workspaceId,
         });
         return completeJsonResponse(response.status, response.body);

@@ -1,6 +1,6 @@
 # Service Layer
 
-Last reviewed: 2026-04-06
+Last reviewed: 2026-04-08
 
 ## Current Implementation
 
@@ -55,6 +55,8 @@ Implemented pieces:
 - dry-run validation reports plus backup-backed rollback handling for persistence copy and import operations
 - multi-workspace persistence migration, partial-failure policy controls, and retry-from-report workflow across supported backends
 - concrete deployment and recovery runbook for a single-node Linux `systemd` target
+- household member management service and HTTP routes (`GET/POST /members`, `PUT /members/:actor/role`, `DELETE /members/:actor`)
+- approval/review semantics for destructive operations: `requestApproval`, `grantApproval`, `denyApproval` service methods and HTTP routes (`GET/POST /approvals`, `POST /approvals/:id/grant`, `POST /approvals/:id/deny`)
 
 ## Current Shape
 
@@ -123,23 +125,17 @@ See `docs/persistence-migration-workflow.md` for backend migration and export co
 - no durable metrics backend yet beyond in-process `/metrics`
 - no distributed tracing yet beyond request correlation ids in logs and responses
 - no external audit stream beyond workspace persistence
-- no family-scale auth model yet beyond the current single-runtime token/identity setup
+- no CORS configuration yet — cross-origin deployments are currently blocked
+- no dedicated audit event read endpoint yet
+- no account management routes yet — accounts are only accessible via the full workspace snapshot
 - no encryption-at-rest or external key-management guidance yet beyond the current idea backlog
 
 ## Recommended Next Steps
 
-1. Define family-scale auth and authorization expectations before broadening collaborative access
-2. Extend trust hardening from transaction delete/destroy into broader review and approval semantics
-3. Add encryption-at-rest guidance and decide where key material should live across `json`, `sqlite`, and `postgres`
-4. Add external observability sinks once hosting is selected beyond the single-node default
+1. CORS configuration — correctness gap for any cross-origin deployment topology
+2. Audit event read endpoint — `GET /api/workspaces/:id/audit-events` with date and type filters
+3. Account management routes — create, update, archive for the chart of accounts
+4. Add encryption-at-rest guidance and decide where key material should live across `json`, `sqlite`, and `postgres`
+5. Add external observability sinks once hosting is selected beyond the single-node default
 
-## Next Execution Slice
-
-The next recommended service-layer move is a family-scale auth and authorization pass.
-
-That slice should define:
-
-- household roles beyond the current token-to-identity mapping
-- privileged-path controls for destructive actions and other high-trust mutations
-- approval or review requirements where simple role checks are not enough
-- how external identity providers such as Cloudflare Access and OpenID/OIDC map into service actors
+See `docs/project-status.md` for the detailed implementation plan for steps 1–3.
