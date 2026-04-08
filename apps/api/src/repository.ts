@@ -8,6 +8,7 @@ import {
 
 export interface BookRepository {
   createBackup(bookId: string, options?: { logger?: Logger }): Promise<BookBackup>;
+  listBookIds(options?: { logger?: Logger }): Promise<string[]>;
   listBackups(bookId: string, options?: { logger?: Logger }): Promise<BookBackup[]>;
   load(bookId: string, options?: { logger?: Logger }): Promise<FinanceBookDocument>;
   restoreBackup(
@@ -28,6 +29,15 @@ export function createBookRepository(params: {
   });
 
   return {
+    async listBookIds(options: { logger?: Logger } = {}): Promise<string[]> {
+      return params.backend.listBookIds({
+        logger: (options.logger ?? logger).child({
+          component: "bookRepository",
+          operation: "listBookIds",
+          persistenceBackend: params.backend.kind,
+        }),
+      });
+    },
     async load(bookId: string, options: { logger?: Logger } = {}): Promise<FinanceBookDocument> {
       return params.backend.load(bookId, {
         logger: (options.logger ?? logger).child({

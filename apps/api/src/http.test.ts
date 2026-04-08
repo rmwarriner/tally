@@ -46,6 +46,114 @@ describe("api http transport", () => {
     await fixture.cleanup();
   });
 
+  it("lists books over HTTP with actor-scoped visibility", async () => {
+    const fixture = await createFixture();
+    const secondBook = {
+      ...createDemoBook(),
+      id: "book-secondary",
+      householdMemberRoles: { Owner: "admin" as const },
+      householdMembers: ["Owner"],
+      name: "Secondary Book",
+    };
+    await saveBookToFile(join(fixture.directory, `${secondBook.id}.json`), secondBook);
+    const service = createBookService({
+      repository: createFileSystemBookRepository({ rootDirectory: fixture.directory }),
+    });
+    const handler = createHttpHandler({
+      authIdentities: [{ actor: "Primary", role: "member", token: "tok-primary" }],
+      service,
+    });
+
+    const response = await handler(
+      new Request("http://localhost/api/books", {
+        headers: { authorization: "Bearer tok-primary" },
+      }),
+    );
+    const body = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(body.books).toHaveLength(1);
+    expect(body.books[0]).toMatchObject({
+      id: fixture.book.id,
+      role: "guardian",
+    });
+
+    await fixture.cleanup();
+  });
+
+  it("creates books over HTTP and validates duplicate and malformed payloads", async () => {
+    const fixture = await createFixture();
+    const service = createBookService({
+      repository: createFileSystemBookRepository({ rootDirectory: fixture.directory }),
+    });
+    const handler = createHttpHandler({
+      authIdentities: [{ actor: "Creator", role: "member", token: "tok-creator" }],
+      service,
+    });
+
+    const created = await handler(
+      new Request("http://localhost/api/books", {
+        body: JSON.stringify({
+          payload: {
+            bookId: "book-created-http",
+            name: "Created Over HTTP",
+          },
+        }),
+        headers: {
+          authorization: "Bearer tok-creator",
+          "content-type": "application/json",
+        },
+        method: "POST",
+      }),
+    );
+    const createdBody = await created.json();
+
+    expect(created.status).toBe(201);
+    expect(createdBody.book.id).toBe("book-created-http");
+    expect(createdBody.book.householdMemberRoles).toEqual({ Creator: "admin" });
+
+    const duplicate = await handler(
+      new Request("http://localhost/api/books", {
+        body: JSON.stringify({
+          payload: {
+            bookId: "book-created-http",
+            name: "Duplicate",
+          },
+        }),
+        headers: {
+          authorization: "Bearer tok-creator",
+          "content-type": "application/json",
+        },
+        method: "POST",
+      }),
+    );
+    const duplicateBody = await duplicate.json();
+
+    expect(duplicate.status).toBe(409);
+    expect(duplicateBody.error.code).toBe("book.already_exists");
+
+    const invalid = await handler(
+      new Request("http://localhost/api/books", {
+        body: JSON.stringify({
+          payload: {
+            bookId: "bad id",
+          },
+        }),
+        headers: {
+          authorization: "Bearer tok-creator",
+          "content-type": "application/json",
+        },
+        method: "POST",
+      }),
+    );
+    const invalidBody = await invalid.json();
+
+    expect(invalid.status).toBe(400);
+    expect(invalidBody.error.code).toBe("validation.failed");
+
+    await fixture.cleanup();
+  });
+
   it("serves unauthenticated liveness and readiness checks over HTTP", async () => {
     const fixture = await createFixture();
     const service = createBookService({
@@ -127,6 +235,13 @@ describe("api http transport", () => {
         },
       }),
     );
+    await handler(
+      new Request("http://localhost/api/books", {
+        headers: {
+          authorization: "Bearer top-secret",
+        },
+      }),
+    );
 
     await handler(new Request("http://localhost/api/unknown"));
 
@@ -148,6 +263,9 @@ describe("api http transport", () => {
     );
     expect(body).toContain(
       'gnucash_ng_http_request_duration_ms_count{method="GET",route="/api/books/:bookId"} 1',
+    );
+    expect(body).toContain(
+      'gnucash_ng_http_requests_total{method="GET",route="/api/books",status="200"} 1',
     );
 
     await fixture.cleanup();

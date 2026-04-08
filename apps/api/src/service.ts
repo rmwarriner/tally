@@ -1,4 +1,5 @@
 import { createNoopLogger, type Logger } from "@tally/logging";
+import { starterChartOfAccounts } from "@tally/domain";
 import {
   addHouseholdMember,
   addTransaction,
@@ -47,6 +48,7 @@ import type {
   AuditEventsEnvelope,
   BackupEnvelope,
   BackupsEnvelope,
+  BooksEnvelope,
   DeleteTransactionRequest,
   DenyApprovalRequest,
   DestroyTransactionRequest,
@@ -54,6 +56,7 @@ import type {
   GetAccountsRequest,
   GetApprovalsRequest,
   GetAuditEventsRequest,
+  GetBooksRequest,
   GetGnuCashXmlExportRequest,
   GetBackupsRequest,
   ApplyScheduledTransactionExceptionRequest,
@@ -73,6 +76,7 @@ import type {
   PostBaselineBudgetLineRequest,
   PostBackupRequest,
   PostBackupRestoreRequest,
+  PostBookRequest,
   PostClosePeriodRequest,
   PostCsvImportRequest,
   PostEnvelopeAllocationRequest,
@@ -98,6 +102,7 @@ import { ApiError, toApiError } from "./errors";
 import type { BookRepository } from "./repository";
 
 export interface BookService {
+  getBooks(request: GetBooksRequest): Promise<ServiceResponse<BooksEnvelope | ErrorEnvelope>>;
   getCloseSummary(
     request: GetCloseSummaryRequest,
   ): Promise<ServiceResponse<CloseSummaryEnvelope | ErrorEnvelope>>;
@@ -144,6 +149,9 @@ export interface BookService {
   postBackup(
     request: PostBackupRequest,
   ): Promise<ServiceResponse<BackupEnvelope | ErrorEnvelope>>;
+  postBook(
+    request: PostBookRequest,
+  ): Promise<ServiceResponse<BookEnvelope | ErrorEnvelope>>;
   postBackupRestore(
     request: PostBackupRestoreRequest,
   ): Promise<ServiceResponse<BookEnvelope | ErrorEnvelope>>;
@@ -206,6 +214,15 @@ export interface BookService {
   ): Promise<ServiceResponse<BookEnvelope | ErrorEnvelope>>;
 }
 
+const DEFAULT_BOOK_COMMODITIES = [
+  {
+    code: "USD",
+    name: "US Dollar",
+    precision: 2,
+    type: "fiat" as const,
+  },
+];
+
 export function createBookService(params: {
   logger?: Logger;
   repository: BookRepository;
@@ -226,6 +243,55 @@ export function createBookService(params: {
 
   return {
     // --- Read operations ---
+
+    async getBooks(request) {
+      const requestLogger = getRequestLogger(request.logger).child({
+        operation: "getBooks",
+      });
+      requestLogger.info("service command started");
+
+      try {
+        const bookIds = await params.repository.listBookIds({ logger: requestLogger });
+        const books: BooksEnvelope["books"] = [];
+
+        for (const bookId of bookIds) {
+          const book = await params.repository.load(bookId, { logger: requestLogger });
+
+          if (request.auth.role === "local-admin") {
+            books.push({
+              id: book.id,
+              name: book.name,
+              role: "local-admin",
+            });
+            continue;
+          }
+
+          if (!book.householdMembers.includes(request.auth.actor)) {
+            continue;
+          }
+
+          const configuredRole = book.householdMemberRoles?.[request.auth.actor];
+          books.push({
+            id: book.id,
+            name: book.name,
+            role:
+              configuredRole === "admin" || configuredRole === "guardian" || configuredRole === "member"
+                ? configuredRole
+                : "member",
+          });
+        }
+
+        requestLogger.info("service command completed", { bookCount: books.length });
+        return success(200, { books });
+      } catch (error) {
+        const apiError = toApiError(error);
+        requestLogger.error("service command failed", {
+          error: apiError.message,
+          errorCode: apiError.code,
+        });
+        return failure(apiError);
+      }
+    },
 
     async getBook(request) {
       const requestLogger = getRequestLogger(request.logger).child({
@@ -389,6 +455,66 @@ export function createBookService(params: {
     },
 
     // --- Backup operations (repository-level, not domain operations) ---
+
+    async postBook(request) {
+      const requestLogger = getRequestLogger(request.logger).child({
+        operation: "postBook",
+        bookId: request.payload.bookId,
+      });
+      requestLogger.info("service command started");
+
+      try {
+        try {
+          await params.repository.load(request.payload.bookId, { logger: requestLogger });
+          return failure(
+            new ApiError({
+              code: "book.already_exists",
+              message: `Book ${request.payload.bookId} already exists.`,
+              status: 409,
+            }),
+          );
+        } catch (error) {
+          const apiError = toApiError(error);
+
+          if (apiError.code !== "book.not_found") {
+            throw apiError;
+          }
+        }
+
+        const createdBook = {
+          accounts: starterChartOfAccounts,
+          auditEvents: [],
+          baseCommodityCode: "USD",
+          baselineBudgetLines: [],
+          closePeriods: [],
+          commodities: DEFAULT_BOOK_COMMODITIES,
+          envelopeAllocations: [],
+          envelopes: [],
+          householdMemberRoles: {
+            [request.auth.actor]: "admin" as const,
+          },
+          householdMembers: [request.auth.actor],
+          id: request.payload.bookId,
+          importBatches: [],
+          name: request.payload.name,
+          reconciliationSessions: [],
+          scheduledTransactions: [],
+          schemaVersion: 1 as const,
+          transactions: [],
+        };
+
+        await params.repository.save(createdBook, { logger: requestLogger });
+        requestLogger.info("service command completed");
+        return success(201, { book: presentBook(createdBook) });
+      } catch (error) {
+        const apiError = toApiError(error);
+        requestLogger.error("service command failed", {
+          error: apiError.message,
+          errorCode: apiError.code,
+        });
+        return failure(apiError);
+      }
+    },
 
     async postBackup(request) {
       const requestLogger = getRequestLogger(request.logger).child({

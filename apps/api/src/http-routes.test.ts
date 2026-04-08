@@ -15,6 +15,7 @@ describe("http routes", () => {
     expect(normalizeRouteLabel("GET", "/health/live")).toBe("/healthz");
     expect(normalizeRouteLabel("GET", "/health/ready")).toBe("/readyz");
     expect(normalizeRouteLabel("GET", "/metrics")).toBe("/metrics");
+    expect(normalizeRouteLabel("GET", "/api/books")).toBe("/api/books");
     expect(normalizeRouteLabel("GET", "/api/books/demo")).toBe("/api/books/:bookId");
     expect(normalizeRouteLabel("GET", "/api/books/demo/audit-events")).toBe(
       "/api/books/:bookId/audit-events",
@@ -41,10 +42,13 @@ describe("http routes", () => {
   });
 
   it("matches read route variants", () => {
+    const readBooks = matchHttpReadRoutes("/api/books");
     const readWorkspace = matchHttpReadRoutes("/api/books/demo");
     const readReport = matchHttpReadRoutes("/api/books/demo/reports/cash-flow");
     const readAuditEvents = matchHttpReadRoutes("/api/books/demo/audit-events");
 
+    expect(readBooks.booksMatch?.[0]).toBe("/api/books");
+    expect(readBooks.bookMatch).toBeNull();
     expect(readWorkspace.bookMatch?.[1]).toBe("demo");
     expect(readWorkspace.reportMatch).toBeNull();
     expect(readWorkspace.auditEventsMatch).toBeNull();
@@ -56,9 +60,12 @@ describe("http routes", () => {
   });
 
   it("matches post route variants and bodyless routes", () => {
+    const postBooks = matchHttpPostRoutes("/api/books");
     const postTransactions = matchHttpPostRoutes("/api/books/demo/transactions");
     const postRestore = matchHttpPostRoutes("/api/books/demo/backups/backup-1/restore");
 
+    expect(postBooks.booksCreateMatch?.[0]).toBe("/api/books");
+    expect(postBooks.bodylessPostRoute).toBe(false);
     expect(postTransactions.transactionMatch?.[1]).toBe("demo");
     expect(postTransactions.bodylessPostRoute).toBe(false);
     expect(postRestore.backupRestoreMatch?.[1]).toBe("demo");

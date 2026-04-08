@@ -3,6 +3,7 @@ export interface HttpReadRouteMatches {
   approvalsMatch: RegExpMatchArray | null;
   auditEventsMatch: RegExpMatchArray | null;
   backupsMatch: RegExpMatchArray | null;
+  booksMatch: RegExpMatchArray | null;
   closePeriodsMatch: RegExpMatchArray | null;
   closeSummaryMatch: RegExpMatchArray | null;
   dashboardMatch: RegExpMatchArray | null;
@@ -21,6 +22,7 @@ export interface HttpPostRouteMatches {
   approvalRequestMatch: RegExpMatchArray | null;
   backupRestoreMatch: RegExpMatchArray | null;
   backupsCreateMatch: RegExpMatchArray | null;
+  booksCreateMatch: RegExpMatchArray | null;
   bodylessPostRoute: boolean;
   budgetLineMatch: RegExpMatchArray | null;
   closePeriodMatch: RegExpMatchArray | null;
@@ -77,6 +79,10 @@ export function normalizeRouteLabel(method: string, path: string): string {
 
   if (isMetricsRoute(method, path)) {
     return "/metrics";
+  }
+
+  if (path === "/api/books") {
+    return "/api/books";
   }
 
   if (/^\/api\/books\/[^/]+$/.test(path)) {
@@ -228,6 +234,7 @@ export function matchHttpReadRoutes(path: string): HttpReadRouteMatches {
     approvalsMatch: path.match(/^\/api\/books\/([^/]+)\/approvals$/),
     auditEventsMatch: path.match(/^\/api\/books\/([^/]+)\/audit-events$/),
     backupsMatch: path.match(/^\/api\/books\/([^/]+)\/backups$/),
+    booksMatch: path.match(/^\/api\/books$/),
     closePeriodsMatch: path.match(/^\/api\/books\/([^/]+)\/close-periods$/),
     closeSummaryMatch: path.match(/^\/api\/books\/([^/]+)\/close-summary$/),
     dashboardMatch: path.match(/^\/api\/books\/([^/]+)\/dashboard$/),
@@ -242,6 +249,7 @@ export function matchHttpReadRoutes(path: string): HttpReadRouteMatches {
 
 export function matchHttpPostRoutes(path: string): HttpPostRouteMatches {
   const backupsCreateMatch = path.match(/^\/api\/books\/([^/]+)\/backups$/);
+  const booksCreateMatch = path.match(/^\/api\/books$/);
   const backupRestoreMatch = path.match(/^\/api\/books\/([^/]+)\/backups\/([^/]+)\/restore$/);
   const approvalGrantMatch = path.match(/^\/api\/books\/([^/]+)\/approvals\/([^/]+)\/grant$/);
   const approvalDenyMatch = path.match(/^\/api\/books\/([^/]+)\/approvals\/([^/]+)\/deny$/);
@@ -253,6 +261,7 @@ export function matchHttpPostRoutes(path: string): HttpPostRouteMatches {
     approvalRequestMatch: path.match(/^\/api\/books\/([^/]+)\/approvals$/),
     backupRestoreMatch,
     backupsCreateMatch,
+    booksCreateMatch,
     bodylessPostRoute: Boolean(backupsCreateMatch || backupRestoreMatch || approvalGrantMatch || approvalDenyMatch),
     budgetLineMatch: path.match(/^\/api\/books\/([^/]+)\/budget-lines$/),
     closePeriodMatch: path.match(/^\/api\/books\/([^/]+)\/close-periods$/),

@@ -82,6 +82,98 @@ describe("book service", () => {
     await fixture.cleanup();
   });
 
+  it("lists all books for local-admin", async () => {
+    const fixture = await createFixture();
+    const secondBook = {
+      ...createDemoBook(),
+      id: "book-secondary",
+      name: "Secondary Book",
+    };
+    await saveBookToFile(join(fixture.directory, `${secondBook.id}.json`), secondBook);
+    const service = createBookService({
+      logger: createTestLogger([]),
+      repository: createFileSystemBookRepository({ rootDirectory: fixture.directory }),
+    });
+
+    const response = await service.getBooks({
+      auth: { actor: "local-admin", kind: "local", role: "local-admin" },
+    });
+
+    expect(response.status).toBe(200);
+    expect("books" in response.body).toBe(true);
+    if ("books" in response.body) {
+      expect(response.body.books).toHaveLength(2);
+      expect(response.body.books.map((book) => book.id)).toEqual([secondBook.id, fixture.book.id]);
+      expect(response.body.books.every((book) => book.role === "local-admin")).toBe(true);
+    }
+
+    await fixture.cleanup();
+  });
+
+  it("filters listed books to membership for token auth contexts", async () => {
+    const fixture = await createFixture();
+    const secondBook = {
+      ...createDemoBook(),
+      id: "book-secondary",
+      householdMemberRoles: { Owner: "admin" as const },
+      householdMembers: ["Owner"],
+      name: "Secondary Book",
+    };
+    await saveBookToFile(join(fixture.directory, `${secondBook.id}.json`), secondBook);
+    const service = createBookService({
+      logger: createTestLogger([]),
+      repository: createFileSystemBookRepository({ rootDirectory: fixture.directory }),
+    });
+
+    const response = await service.getBooks({
+      auth: { actor: "Primary", kind: "token", role: "member", token: "token-1" },
+    });
+
+    expect(response.status).toBe(200);
+    expect("books" in response.body).toBe(true);
+    if ("books" in response.body) {
+      expect(response.body.books).toHaveLength(1);
+      expect(response.body.books[0]).toMatchObject({
+        id: fixture.book.id,
+        role: "guardian",
+      });
+    }
+
+    await fixture.cleanup();
+  });
+
+  it("filters listed books to membership for trusted-header auth contexts", async () => {
+    const fixture = await createFixture();
+    const secondBook = {
+      ...createDemoBook(),
+      id: "book-secondary",
+      householdMemberRoles: { Owner: "admin" as const },
+      householdMembers: ["Owner"],
+      name: "Secondary Book",
+    };
+    await saveBookToFile(join(fixture.directory, `${secondBook.id}.json`), secondBook);
+    const service = createBookService({
+      logger: createTestLogger([]),
+      repository: createFileSystemBookRepository({ rootDirectory: fixture.directory }),
+    });
+
+    const response = await service.getBooks({
+      auth: { actor: "Primary", kind: "trusted-header", role: "member" },
+    });
+
+    expect(response.status).toBe(200);
+    expect("books" in response.body).toBe(true);
+    if ("books" in response.body) {
+      expect(response.body.books).toHaveLength(1);
+      expect(response.body.books[0]).toMatchObject({
+        id: fixture.book.id,
+        role: "guardian",
+      });
+    }
+
+    await fixture.cleanup();
+  });
+
   it("returns a dashboard projection for the requested date range", async () => {
     const fixture = await createFixture();
     const service = createBookService({
@@ -100,6 +192,57 @@ describe("book service", () => {
     expectDashboardBody(response.body);
     expect(response.body.dashboard.netWorth.quantity).toBeCloseTo(3051.58);
     expect(response.body.dashboard.budgetSnapshot).toHaveLength(3);
+
+    await fixture.cleanup();
+  });
+
+  it("creates a new book with creator admin membership", async () => {
+    const fixture = await createFixture();
+    const service = createBookService({
+      logger: createTestLogger([]),
+      repository: createFileSystemBookRepository({ rootDirectory: fixture.directory }),
+    });
+
+    const response = await service.postBook({
+      auth: { actor: "Creator", kind: "token", role: "member", token: "token-creator" },
+      payload: {
+        bookId: "book-created",
+        name: "Created Book",
+      },
+    });
+
+    expect(response.status).toBe(201);
+    expectBookBody(response.body);
+    expect(response.body.book.id).toBe("book-created");
+    expect(response.body.book.name).toBe("Created Book");
+    expect(response.body.book.baseCommodityCode).toBe("USD");
+    expect(response.body.book.householdMembers).toEqual(["Creator"]);
+    expect(response.body.book.householdMemberRoles).toEqual({ Creator: "admin" });
+    expect(response.body.book.transactions).toEqual([]);
+    expect(response.body.book.auditEvents).toEqual([]);
+    expect(response.body.book.accounts.length).toBeGreaterThan(0);
+
+    await fixture.cleanup();
+  });
+
+  it("returns conflict when creating a duplicate book id", async () => {
+    const fixture = await createFixture();
+    const service = createBookService({
+      logger: createTestLogger([]),
+      repository: createFileSystemBookRepository({ rootDirectory: fixture.directory }),
+    });
+
+    const response = await service.postBook({
+      auth: { actor: "Creator", kind: "token", role: "member", token: "token-creator" },
+      payload: {
+        bookId: fixture.book.id,
+        name: "Duplicate",
+      },
+    });
+
+    expect(response.status).toBe(409);
+    expectAnyErrorBody(response.body);
+    expect(response.body.error.code).toBe("book.already_exists");
 
     await fixture.cleanup();
   });
@@ -1124,6 +1267,9 @@ describe("book service", () => {
           throw new Error("disk exploded");
         },
         async listBackups() {
+          throw new Error("disk exploded");
+        },
+        async listBookIds() {
           throw new Error("disk exploded");
         },
         async load() {

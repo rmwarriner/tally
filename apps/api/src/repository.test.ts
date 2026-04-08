@@ -46,12 +46,14 @@ describe("book repository abstraction", () => {
 
     const repository = createBookRepository({ backend });
 
+    expect(await repository.listBookIds()).toEqual([book.id]);
     expect(await repository.load(book.id)).toBe(book);
     await repository.save(book);
     expect(await repository.listBackups(book.id)).toEqual([]);
     await repository.createBackup(book.id);
     expect(await repository.restoreBackup(book.id, "backup-1")).toBe(book);
     expect(calls).toEqual([
+      "listBookIds",
       `load:${book.id}`,
       `save:${book.id}`,
       `listBackups:${book.id}`,

@@ -22,6 +22,11 @@ export interface GetWorkspaceRequest {
   bookId: string;
 }
 
+export interface GetBooksRequest {
+  auth: AuthContext;
+  logger?: Logger;
+}
+
 export interface GetBackupsRequest {
   auth: AuthContext;
   logger?: Logger;
@@ -61,6 +66,15 @@ export interface PostBackupRequest {
   auth: AuthContext;
   logger?: Logger;
   bookId: string;
+}
+
+export interface PostBookRequest {
+  auth: AuthContext;
+  logger?: Logger;
+  payload: {
+    bookId: string;
+    name: string;
+  };
 }
 
 export interface PostBackupRestoreRequest {
@@ -254,6 +268,14 @@ export interface PostGnuCashXmlImportRequest {
 
 export interface BookEnvelope {
   book: FinanceBookDocument;
+}
+
+export interface BooksEnvelope {
+  books: Array<{
+    id: string;
+    name: string;
+    role: "admin" | "guardian" | "local-admin" | "member";
+  }>;
 }
 
 export interface DashboardEnvelope {

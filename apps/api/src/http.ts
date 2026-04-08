@@ -28,6 +28,7 @@ import {
   validateApplyScheduledTransactionExceptionRequestBody,
   validateExecuteScheduledTransactionRequestBody,
   validateBaselineBudgetLineRequestBody,
+  validatePostBookRequestBody,
   validateCsvImportRequestBody,
   validateGnuCashXmlImportRequestBody,
   validateReportQuery,
@@ -305,6 +306,7 @@ export function createHttpHandler(params: {
         approvalsMatch,
         auditEventsMatch,
         backupsMatch,
+        booksMatch,
         closePeriodsMatch,
         closeSummaryMatch,
         dashboardMatch,
@@ -315,6 +317,24 @@ export function createHttpHandler(params: {
         statementExportMatch,
         bookMatch,
       } = matchHttpReadRoutes(path);
+
+      if (booksMatch) {
+        const rateLimited = enforceRateLimit(rateLimitPolicy.read);
+
+        if (rateLimited) {
+          return completeJsonResponse(
+            rateLimited.status,
+            await rateLimited.json(),
+            Object.fromEntries(rateLimited.headers.entries()),
+          );
+        }
+
+        const response = await params.service.getBooks({
+          auth: auth.context,
+          logger: requestLogger,
+        });
+        return completeJsonResponse(response.status, response.body);
+      }
 
       if (bookMatch) {
         const rateLimited = enforceRateLimit(rateLimitPolicy.read);
@@ -908,6 +928,7 @@ export function createHttpHandler(params: {
         approvalRequestMatch,
         backupRestoreMatch,
         backupsCreateMatch,
+        booksCreateMatch,
         bodylessPostRoute,
         budgetLineMatch,
         closePeriodMatch,
@@ -944,6 +965,42 @@ export function createHttpHandler(params: {
             }),
           ),
         );
+      }
+
+      if (booksCreateMatch) {
+        const rateLimited = enforceRateLimit(rateLimitPolicy.mutation);
+
+        if (rateLimited) {
+          return completeJsonResponse(
+            rateLimited.status,
+            await rateLimited.json(),
+            Object.fromEntries(rateLimited.headers.entries()),
+          );
+        }
+
+        const parsed = validatePostBookRequestBody(body);
+
+        if ("errors" in parsed) {
+          requestLogger.warn("http request validation failed", { errors: parsed.errors });
+          return completeJsonResponse(
+            400,
+            toErrorEnvelope(
+              new ApiError({
+                code: "validation.failed",
+                details: { issues: parsed.errors },
+                message: parsed.errors[0] ?? "Request validation failed.",
+                status: 400,
+              }),
+            ),
+          );
+        }
+
+        const response = await params.service.postBook({
+          auth: auth.context,
+          logger: requestLogger,
+          payload: parsed.value.payload,
+        });
+        return completeJsonResponse(response.status, response.body);
       }
 
       if (transactionMatch) {

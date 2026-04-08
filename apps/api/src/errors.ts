@@ -1,6 +1,7 @@
 export type ApiErrorCode =
   | "auth.forbidden"
   | "auth.required"
+  | "book.already_exists"
   | "config.invalid"
   | "internal.unexpected"
   | "repository.invalid_identifier"

@@ -17,6 +17,7 @@ import type {
   PostReconciliationRequest,
   PostScheduledTransactionRequest,
   PostStatementImportRequest,
+  PostBookRequest,
   PostTransactionRequest,
   RequestApprovalRequest,
   SetHouseholdMemberRoleRequest,
@@ -996,4 +997,29 @@ export function validateAccountRequestBody(body: unknown):
   return errors.length > 0
     ? { errors }
     : { value: body as Pick<PostAccountRequest, "account"> };
+}
+
+export function validatePostBookRequestBody(body: unknown):
+  | { errors: string[] }
+  | { value: Pick<PostBookRequest, "payload"> } {
+  if (!isObject(body) || !isObject(body.payload)) {
+    return { errors: ["payload is required."] };
+  }
+
+  const errors: string[] = [];
+  const payload = body.payload;
+
+  if (!isNonEmptyString(payload.bookId)) {
+    errors.push("payload.bookId is required.");
+  } else if (!/^[a-zA-Z0-9_-]+$/.test(payload.bookId)) {
+    errors.push("payload.bookId must contain only letters, numbers, underscores, and hyphens.");
+  }
+
+  if (!isNonEmptyString(payload.name)) {
+    errors.push("payload.name is required.");
+  }
+
+  return errors.length > 0
+    ? { errors }
+    : { value: body as Pick<PostBookRequest, "payload"> };
 }
