@@ -507,7 +507,7 @@ LSalary
 
     expect(result.ok).toBe(false);
     expect(result.errors).toEqual([
-      `Workspace XML id other-book does not match target book ${book.id}.`,
+      `Book XML id other-book does not match target book ${book.id}.`,
     ]);
   });
 

@@ -449,7 +449,7 @@ Lacct-expense-utilities
     const body = await response.json();
 
     expect(response.status).toBe(200);
-    expect(body.export.fileName).toBe("book-household-demo-acct-checking-2026-04-01-2026-04-30.qif");
+    expect(body.export.fileName).toBe(`${fixture.book.id}-acct-checking-2026-04-01-2026-04-30.qif`);
     expect(body.export.transactionCount).toBeGreaterThan(0);
     expect(body.export.contents).toContain("!Type:Bank");
 
@@ -1778,7 +1778,7 @@ Lacct-expense-utilities
     const metricsResponse = await handler(new Request("http://localhost/metrics"));
     const body = await metricsResponse.text();
 
-    expect(body).toContain("/api/workspaces/:workspaceId/audit-events");
+    expect(body).toContain("/api/books/:bookId/audit-events");
 
     await fixture.cleanup();
   });
@@ -1821,7 +1821,7 @@ Lacct-expense-utilities
     const body = await response.json();
 
     expect(response.status).toBe(200);
-    expect("workspace" in body).toBe(true);
+    expect("book" in body).toBe(true);
 
     await fixture.cleanup();
   });
