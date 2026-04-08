@@ -12,3 +12,4 @@ data
 apps/api/data
 test-results
 playwright-report
+.claude/
