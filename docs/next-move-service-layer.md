@@ -9,7 +9,7 @@ This document captured the service-layer implementation proposal before the init
 The repository now has:
 
 - pure accounting and budgeting rules in `packages/domain`
-- a workspace document model and write commands in `packages/workspace`
+- a workspace document model and write commands in `packages/book`
 - web and mobile shells that can render derived state
 
 The next useful move is to introduce a small backend or local service boundary that owns loading, saving, and mutating the workspace document. Without that layer, the apps can render seeded data but they do not yet have a durable execution path for real user actions.
@@ -30,7 +30,7 @@ Create a service layer that:
 
 - `packages/domain`
   Remains pure accounting logic and invariant enforcement.
-- `packages/workspace`
+- `packages/book`
   Remains document model, commands, selectors, and storage adapters.
 - `apps/web`
   Consumes service APIs instead of constructing state directly.
@@ -45,12 +45,12 @@ Use command-style endpoints rather than generic CRUD-first endpoints.
 
 Examples:
 
-- `POST /api/workspaces/:id/transactions`
-- `POST /api/workspaces/:id/reconciliations`
-- `POST /api/workspaces/:id/envelope-allocations`
-- `POST /api/workspaces/:id/imports/csv`
-- `POST /api/workspaces/:id/schedules`
-- `GET /api/workspaces/:id/dashboard?from=2026-04-01&to=2026-04-30`
+- `POST /api/books/:id/transactions`
+- `POST /api/books/:id/reconciliations`
+- `POST /api/books/:id/envelope-allocations`
+- `POST /api/books/:id/imports/csv`
+- `POST /api/books/:id/schedules`
+- `GET /api/books/:id/dashboard?from=2026-04-01&to=2026-04-30`
 
 This matches the business model better than exposing raw table updates.
 
@@ -80,7 +80,7 @@ Implement command handlers for:
 Each handler should:
 
 1. load the workspace document
-2. run the relevant `packages/workspace` command
+2. run the relevant `packages/book` command
 3. persist the updated document on success
 4. append an audit event
 5. return the updated document or projection
@@ -126,20 +126,20 @@ This supports household accountability and later sync/conflict work.
 
 ### Reads
 
-- `GET /api/workspaces/:id`
-- `GET /api/workspaces/:id/dashboard`
-- `GET /api/workspaces/:id/register`
-- `GET /api/workspaces/:id/reports/:kind`
+- `GET /api/books/:id`
+- `GET /api/books/:id/dashboard`
+- `GET /api/books/:id/register`
+- `GET /api/books/:id/reports/:kind`
 
 ### Writes
 
-- `POST /api/workspaces/:id/transactions`
-- `POST /api/workspaces/:id/schedules`
-- `POST /api/workspaces/:id/budget-lines`
-- `POST /api/workspaces/:id/envelopes`
-- `POST /api/workspaces/:id/envelope-allocations`
-- `POST /api/workspaces/:id/reconciliations`
-- `POST /api/workspaces/:id/imports/csv`
+- `POST /api/books/:id/transactions`
+- `POST /api/books/:id/schedules`
+- `POST /api/books/:id/budget-lines`
+- `POST /api/books/:id/envelopes`
+- `POST /api/books/:id/envelope-allocations`
+- `POST /api/books/:id/reconciliations`
+- `POST /api/books/:id/imports/csv`
 
 ## Validation Rules The Service Must Own
 
@@ -154,7 +154,7 @@ This supports household accountability and later sync/conflict work.
 
 1. Create `apps/api` or `packages/server`
 2. Add workspace repository abstraction with JSON file implementation
-3. Add command handlers wrapping `packages/workspace`
+3. Add command handlers wrapping `packages/book`
 4. Add audit event appenders
 5. Switch web app from seeded workspace import to API-backed loading
 6. Add mutation flows from the web UI

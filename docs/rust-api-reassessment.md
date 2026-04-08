@@ -26,7 +26,7 @@ Moving the API to Rust now would introduce significant integration cost before i
 
 ## Why TypeScript Remains The Better Fit Today
 
-- `packages/domain` and `packages/workspace` already hold the core finance rules and command behavior in shared TypeScript
+- `packages/domain` and `packages/book` already hold the core finance rules and command behavior in shared TypeScript
 - web and mobile already consume the same model vocabulary
 - the API layer is still relatively thin and orchestration-oriented
 - the main near-term needs are operational maturity and product capability, not language-level replacement

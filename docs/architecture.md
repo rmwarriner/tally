@@ -64,7 +64,7 @@ Responsibilities:
 
 - `tally-core/packages/domain`
   Shared TypeScript business rules and invariant enforcement
-- `tally-core/packages/workspace`
+- `packages/book`
   Workspace documents, commands, selectors, and storage adapters
 - `tally-portal/apps/web`
   Dense desktop/web workspace with keyboard-first flows

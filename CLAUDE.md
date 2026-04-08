@@ -10,11 +10,11 @@ Tally is a personal finance system combining strict double-entry accounting with
 
 This is a `pnpm` monorepo. The flattened structure (as of the latest refactor) is:
 
-- `apps/api/` — Node HTTP API: auth, validation, rate limiting, workspace persistence, import/export, audit events
-- `apps/web/` — Vite-based desktop/web workspace shell (VS Code-inspired keyboard-first UI)
+- `apps/api/` — Node HTTP API: auth, validation, rate limiting, book persistence, import/export, audit events
+- `apps/web/` — Vite-based desktop/web shell (VS Code-inspired keyboard-first UI)
 - `apps/mobile/` — Expo/React Native mobile companion (quick capture, approvals, envelope ops)
 - `packages/domain/` — pure TypeScript accounting, ledger, budgeting, schedules, envelopes (no side effects)
-- `packages/workspace/` — workspace document model, commands, selectors, persistence adapters (json/sqlite/postgres behind one repository contract), reconciliation, and audit events
+- `packages/book/` — book document model, commands, selectors, persistence adapters (json/sqlite/postgres behind one repository contract), reconciliation, and audit events
 - `packages/logging/` — structured logging utilities
 - `packages/ui/` — shared UI tokens and view model helpers
 - `tally-cli/` — CLI tool
@@ -38,14 +38,14 @@ pnpm dev:mobile        # start Expo mobile client
 pnpm security:secrets  # scan for accidentally committed secrets
 ```
 
-To run tests for a single workspace: `pnpm --filter @tally/domain test` (replace with `@tally/api`, `@tally/workspace`, etc.)
+To run tests for a single package: `pnpm --filter @tally/domain test` (replace with `@tally/api`, `@tally/book`, etc.)
 
 ## Architecture
 
 ### Layer Rules
 
 - `packages/domain` is pure business logic — no I/O, no side effects. This is where ledger invariants, accounting rules, and budget/envelope logic live.
-- `packages/workspace` sits above domain: workspace document model, write commands, persistence adapters, and reconciliation. Commands are the only way to mutate workspace state.
+- `packages/book` sits above domain: book document model, write commands, persistence adapters, and reconciliation. Commands are the only way to mutate book state.
 - `apps/api` is the single operational boundary for all persistence, auth, validation, audit events, and import/export. Clients do not bypass it.
 - Web and mobile clients share the same service contract. Neither has privileged access.
 
@@ -65,7 +65,7 @@ Coverage thresholds: **80% statements, 80% branches, 80% functions, 80% lines**
 
 Test placement by concern:
 - Ledger invariants and domain rules → `packages/domain` unit tests
-- Workspace commands and selectors → `packages/workspace` unit tests
+- Book commands and selectors → `packages/book` unit tests
 - API handlers → handler-level tests in `apps/api`
 - Import parsers → fixture-driven tests
 - Bug fixes require a regression test before the fix is considered complete
@@ -74,7 +74,7 @@ Test placement by concern:
 
 - TypeScript throughout, 2-space indentation
 - `camelCase` for variables/functions, `PascalCase` for components and exported types
-- Keep `packages/domain` and `packages/workspace` side-effect free unless the file is explicitly at an operational boundary
+- Keep `packages/domain` and `packages/book` side-effect free unless the file is explicitly at an operational boundary
 - No linter/formatter config is checked in — match surrounding code style closely
 
 ## Git Workflow

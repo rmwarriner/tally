@@ -12,15 +12,15 @@ The API now supports explicit runtime modes:
 
 - `development`
   - default for `apps/api/src/dev-server.ts`
-  - demo workspace seeding is enabled by default
+  - demo book seeding is enabled by default
   - intended for local review and interactive development
 - `production`
   - default for `apps/api/src/server.ts`
-  - demo workspace seeding is disabled
+  - demo book seeding is disabled
   - explicit auth configuration is required
 - `test`
   - available through `TALLY_API_RUNTIME_MODE=test`
-  - demo workspace seeding is disabled unless explicitly enabled
+  - demo book seeding is disabled unless explicitly enabled
 
 ## Commands
 
@@ -51,13 +51,13 @@ Administrative persistence migration and export commands are documented in `docs
 - `TALLY_API_SQLITE_PATH`
   - sqlite database file path
   - only used when `TALLY_API_PERSISTENCE_BACKEND=sqlite`
-  - defaults to `workspaces.sqlite` under the configured data directory
+  - defaults to `books.sqlite` under the configured data directory
 - `TALLY_API_POSTGRES_URL`
   - postgres connection string
   - required when `TALLY_API_PERSISTENCE_BACKEND=postgres`
   - should be supplied through environment or secret injection, not logged
 - `TALLY_DATA_DIR`
-  - workspace data directory
+  - book data directory
   - defaults to `data` relative to the API process working directory
 - `TALLY_API_AUTH_TOKEN`
   - simple single-admin auth token
@@ -120,7 +120,7 @@ Header compatibility during transition:
 
 - production runtime requires explicit auth configuration
 - non-loopback binding requires explicit auth configuration
-- production runtime cannot auto-seed the demo workspace
+- production runtime cannot auto-seed the demo book
 - choose exactly one auth source: inline token, inline identities JSON, token file, identities file, or trusted-header auth
 - trusted-header auth requires both a trusted actor header and a proxy shared key (inline or file)
 - auth secret files must exist, be readable by the API process, and contain non-empty values
@@ -128,24 +128,24 @@ Header compatibility during transition:
 - startup must fail fast for unsupported persistence backend selections
 - runtime shutdown should close the HTTP server gracefully on `SIGINT` and `SIGTERM`
 - startup logs should confirm the selected runtime mode, persistence backend, data directory, rate limits, and auth source without logging secret material
-- workspace authorization is role-scoped per workspace membership:
+- book authorization is role-scoped per book membership:
   - `member`: read and standard write mutations
   - `guardian`: member access plus operate-level mutations (imports, backups, close-period operations)
   - `admin`: guardian access plus destructive transaction destroy and household member management
   - `local-admin`: runtime bootstrap/admin bypass for local operator contexts
-- workspace role bindings are stored in `householdMemberRoles` on each workspace document and enforced by the API service layer
+- book role bindings are stored in `householdMemberRoles` on each book document and enforced by the API service layer
 - mutation audit events include authorization context (`actorRole` and `authorization`) in event summaries
 - household member management is available through dedicated routes:
-  - `GET /api/workspaces/:id/members` — list members and their roles (any member)
-  - `POST /api/workspaces/:id/members` — add a member (admin only)
-  - `PUT /api/workspaces/:id/members/:actor/role` — set a member role (admin only)
-  - `DELETE /api/workspaces/:id/members/:actor` — remove a member (admin only)
-  - the last admin of a workspace cannot be removed or demoted; all changes emit audit events
+  - `GET /api/books/:id/members` — list members and their roles (any member)
+  - `POST /api/books/:id/members` — add a member (admin only)
+  - `PUT /api/books/:id/members/:actor/role` — set a member role (admin only)
+  - `DELETE /api/books/:id/members/:actor` — remove a member (admin only)
+  - the last admin of a book cannot be removed or demoted; all changes emit audit events
 - approval/review workflows for high-trust operations are available through dedicated routes:
-  - `GET /api/workspaces/:id/approvals` — list pending approvals (any member)
-  - `POST /api/workspaces/:id/approvals` — request an approval (admin only; currently supports `destroy-transaction`)
-  - `POST /api/workspaces/:id/approvals/:approvalId/grant` — grant an approval (admin only; must be a different admin than the requester; executes the operation on grant)
-  - `POST /api/workspaces/:id/approvals/:approvalId/deny` — deny an approval (admin only)
+  - `GET /api/books/:id/approvals` — list pending approvals (any member)
+  - `POST /api/books/:id/approvals` — request an approval (admin only; currently supports `destroy-transaction`)
+  - `POST /api/books/:id/approvals/:approvalId/grant` — grant an approval (admin only; must be a different admin than the requester; executes the operation on grant)
+  - `POST /api/books/:id/approvals/:approvalId/deny` — deny an approval (admin only)
   - approvals expire after 24 hours; grants after the TTL are rejected
   - all approval state changes emit audit events (`approval.requested`, `approval.granted`, `approval.denied`)
 
@@ -164,7 +164,7 @@ Use `TALLY_API_AUTH_IDENTITIES` (or `TALLY_API_AUTH_IDENTITIES_FILE` for secret-
 ]
 ```
 
-Each token resolves to the named actor. That actor is then checked against `householdMembers` in each workspace to determine whether access is granted, and `householdMemberRoles` to determine the effective workspace role.
+Each token resolves to the named actor. That actor is then checked against `householdMembers` in each book to determine whether access is granted, and `householdMemberRoles` to determine the effective book role.
 
 Prefer `TALLY_API_AUTH_IDENTITIES_FILE` in production so token material stays out of process-manager environment logs.
 
@@ -194,11 +194,11 @@ The Tally API validates the proxy key before trusting any injected actor or role
 ## Current Deployment Assumptions
 
 - persistence currently supports `json`, `sqlite`, and `postgres`
-- `json` stores one workspace file per document under the configured data directory
+- `json` stores one book file per document under the configured data directory
 - `sqlite` stores workspaces and repository-managed backups in a single database file
 - `postgres` stores workspaces and repository-managed backups in relational tables behind the same repository contract
 - the runtime now assembles persistence through a backend seam rather than hard-coding file storage directly into the repository contract
-- workspace backups are stored either under the API data root for `json` or in backend-managed backup tables for `sqlite` and `postgres`
+- book backups are stored either under the API data root for `json` or in backend-managed backup tables for `sqlite` and `postgres`
 - metrics are exposed from the same API process at `/metrics`
 - liveness and readiness are exposed at `/healthz` and `/readyz` (`/health/live` and `/health/ready` remain backward-compatible aliases)
 - request correlation is carried through logs with `requestId`
@@ -207,7 +207,7 @@ The Tally API validates the proxy key before trusting any injected actor or role
 ## Secret Handling Guidance
 
 - prefer `*_FILE` auth variables in production-oriented environments so token material stays out of shell history and process managers
-- keep auth secret files outside the workspace data directory and restrict file permissions to the API runtime user
+- keep auth secret files outside the book data directory and restrict file permissions to the API runtime user
 - use inline auth variables only for local development, short-lived tests, or other low-risk environments
 
 ## Concrete Runbook
@@ -216,7 +216,7 @@ The repository now treats the default production deployment target as:
 
 - one Linux host
 - one `systemd` API service
-- local persistent filesystem storage for workspace data and repository-managed backups
+- local persistent filesystem storage for book data and repository-managed backups
 
 See `docs/api-deployment-and-recovery-runbook.md` for the concrete deployment, smoke-check, backup, and restore procedure.
 

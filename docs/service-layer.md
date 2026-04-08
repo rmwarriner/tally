@@ -53,10 +53,10 @@ Implemented pieces:
 - a postgres persistence backend with the same repository contract for load, save, backup, and restore flows
 - an admin persistence migration and export workflow for copy, copy-all, export, and import operations across supported backends
 - dry-run validation reports plus backup-backed rollback handling for persistence copy and import operations
-- multi-workspace persistence migration, partial-failure policy controls, and retry-from-report workflow across supported backends
+- multi-book persistence migration, partial-failure policy controls, and retry-from-report workflow across supported backends
 - concrete deployment and recovery runbook for a single-node Linux `systemd` target
-- household member management service and HTTP routes (`GET/POST /members`, `PUT /members/:actor/role`, `DELETE /members/:actor`)
-- approval/review semantics for destructive operations: `requestApproval`, `grantApproval`, `denyApproval` service methods and HTTP routes (`GET/POST /approvals`, `POST /approvals/:id/grant`, `POST /approvals/:id/deny`)
+- household member management service and HTTP routes (`GET/POST /api/books/:id/members`, `PUT /api/books/:id/members/:actor/role`, `DELETE /api/books/:id/members/:actor`)
+- approval/review semantics for destructive operations: `requestApproval`, `grantApproval`, `denyApproval` service methods and HTTP routes (`GET/POST /api/books/:id/approvals`, `POST /api/books/:id/approvals/:approvalId/grant`, `POST /api/books/:id/approvals/:approvalId/deny`)
 
 ## Current Shape
 
@@ -124,18 +124,14 @@ See `docs/persistence-migration-workflow.md` for backend migration and export co
 
 - no durable metrics backend yet beyond in-process `/metrics`
 - no distributed tracing yet beyond request correlation ids in logs and responses
-- no external audit stream beyond workspace persistence
-- no CORS configuration yet — cross-origin deployments are currently blocked
-- no dedicated audit event read endpoint yet
-- no account management routes yet — accounts are only accessible via the full workspace snapshot
+- no external audit stream beyond book persistence
 - no encryption-at-rest or external key-management guidance yet beyond the current idea backlog
 
 ## Recommended Next Steps
 
-1. CORS configuration — correctness gap for any cross-origin deployment topology
-2. Audit event read endpoint — `GET /api/workspaces/:id/audit-events` with date and type filters
-3. Account management routes — create, update, archive for the chart of accounts
-4. Add encryption-at-rest guidance and decide where key material should live across `json`, `sqlite`, and `postgres`
-5. Add external observability sinks once hosting is selected beyond the single-node default
+1. Book provisioning endpoints — `POST /api/books` and `GET /api/books` for self-service onboarding
+2. Trust and integrity hardening — concurrent write safety (optimistic locking), idempotency keys
+3. Add encryption-at-rest guidance and decide where key material should live across `json`, `sqlite`, and `postgres`
+4. Add external observability sinks once hosting is selected beyond the single-node default
 
-See `docs/project-status.md` for the detailed implementation plan for steps 1–3.
+See `docs/project-status.md` for current project state.

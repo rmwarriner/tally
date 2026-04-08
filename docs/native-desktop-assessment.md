@@ -29,7 +29,7 @@ The realistic benefits are:
 It would not replace:
 
 - the shared domain model in `packages/domain`
-- the workspace command and persistence model in `packages/workspace`
+- the book command and persistence model in `packages/book`
 - the React desktop shell in `apps/web`
 - the need for the audited service boundary for financial mutations
 

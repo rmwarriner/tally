@@ -9,9 +9,9 @@ The default production-oriented deployment target for `apps/api` is:
 - one Linux host
 - one `systemd` service for the API process
 - one reverse proxy or load balancer in front of the API if public HTTP exposure is needed
-- one local persistent filesystem for workspace documents and repository-managed backups
+- one local persistent filesystem for book documents and repository-managed backups
 
-This is intentionally conservative. The current API runtime, workspace persistence model, and backup flows are all optimized for a single durable node rather than a distributed deployment.
+This is intentionally conservative. The current API runtime, book persistence model, and backup flows are all optimized for a single durable node rather than a distributed deployment.
 
 ## Host Layout
 
@@ -31,7 +31,7 @@ Recommended ownership and permissions:
 - `/etc/tally/api.env`: readable by root and the `tally` service user
 - `/etc/tally/api-token`: `0600`, owned by root or the service user
 - `/var/lib/tally/api`: writable only by the service user
-- `_backups` kept on the same durable volume as the workspace data unless a separate backup copy job is configured
+- `_backups` kept on the same durable volume as the book data unless a separate backup copy job is configured
 
 ## Runtime Configuration
 
@@ -138,24 +138,24 @@ Run after each deployment:
 1. `curl -sf http://127.0.0.1:4000/healthz`
 2. `curl -sf http://127.0.0.1:4000/readyz`
 3. `curl -sf http://127.0.0.1:4000/metrics | head`
-4. `curl -sf -H "Authorization: Bearer $(cat /etc/tally/api-token)" http://127.0.0.1:4000/api/workspaces/workspace-household-demo`
-   Only if the deployment intentionally carries the demo workspace or another known workspace id.
+4. `curl -sf -H "Authorization: Bearer $(cat /etc/tally/api-token)" http://127.0.0.1:4000/api/books/book-household-demo`
+   Only if the deployment intentionally carries the demo book or another known book id.
 5. `journalctl -u tally-api -n 50 --no-pager`
 
 Success criteria:
 
 - `/healthz` and `/readyz` return `200`
 - `/metrics` returns plain text
-- the authenticated workspace read succeeds for a known workspace id
+- the authenticated book read succeeds for a known book id
 - startup logs show production runtime config without leaking secret material
 
 ## Backup Operations
 
 The API can create repository-managed backups through:
 
-- `POST /api/workspaces/:workspaceId/backups`
-- `GET /api/workspaces/:workspaceId/backups`
-- `POST /api/workspaces/:workspaceId/backups/:backupId/restore`
+- `POST /api/books/:bookId/backups`
+- `GET /api/books/:bookId/backups`
+- `POST /api/books/:bookId/backups/:backupId/restore`
 
 Operational guidance:
 
@@ -183,11 +183,11 @@ Most likely causes:
 ### Case 2: Workspace Data Suspected Corrupt
 
 1. Stop the API: `sudo systemctl stop tally-api`
-2. Copy the current workspace JSON and `_backups` directory to a dated incident folder.
+2. Copy the current book JSON and `_backups` directory to a dated incident folder.
 3. Inspect available backups through the filesystem or the API once it is safe to start read-only checks.
 4. Restore the selected backup either:
    - through the authenticated backup restore endpoint, or
-   - by replacing the workspace JSON manually from a validated backup file if the API cannot start
+   - by replacing the book JSON manually from a validated backup file if the API cannot start
 5. Start the API again.
 6. Run smoke checks.
 7. Preserve the pre-restore files for incident review.
@@ -207,7 +207,7 @@ Most likely causes:
 2. Check out the previous known-good revision.
 3. Run `pnpm install --frozen-lockfile`.
 4. Start the service again.
-5. If the bad deploy also mutated workspace data unexpectedly, create a fresh backup of the current state before deciding whether a workspace restore is required.
+5. If the bad deploy also mutated book data unexpectedly, create a fresh backup of the current state before deciding whether a book restore is required.
 
 ## Retention Guidance
 

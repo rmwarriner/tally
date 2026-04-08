@@ -1,6 +1,6 @@
 # Project Status
 
-Last reviewed: 2026-04-08 (updated post approval/review semantics; next three API slices planned)
+Last reviewed: 2026-04-08 (workspace→book rename complete; all planned API slices implemented)
 
 ## Current State
 
@@ -98,7 +98,7 @@ This repository currently includes:
 
 ### Approval And Review Semantics
 
-- `PendingApproval` model in workspace document (`kind`, `entityId`, `requestedBy`, `expiresAt`, `status`, `reviewedBy`)
+- `PendingApproval` model in book document (`kind`, `entityId`, `requestedBy`, `expiresAt`, `status`, `reviewedBy`)
 - 24-hour TTL on pending approvals
 - `requestApproval` command: admin creates a pending destroy-transaction approval
 - `grantApproval` command: second admin (must differ from requester) grants approval, immediately executes the destroy
@@ -107,47 +107,50 @@ This repository currently includes:
 - Expiry guard: grants after TTL are rejected
 - Audit events: `approval.requested`, `approval.granted`, `approval.denied`
 - Service methods: `getApprovals`, `requestApproval`, `grantApproval`, `denyApproval` — all at `destroy` access level
-- HTTP routes: `GET/POST /workspaces/:id/approvals`, `POST /workspaces/:id/approvals/:approvalId/grant`, `POST /workspaces/:id/approvals/:approvalId/deny`
+- HTTP routes: `GET/POST /api/books/:id/approvals`, `POST /api/books/:id/approvals/:approvalId/grant`, `POST /api/books/:id/approvals/:approvalId/deny`
 
 ### Family-Scale Identity And Authorization
 
-- workspace commands for household member management (add, remove, set role)
+- book commands for household member management (add, remove, set role)
 - audit events for all household member mutations (`household-member.added`, `household-member.removed`, `household-member.role-changed`)
-- `"manage"` access level on `WorkspaceAccess` for admin-only member management operations
+- `"manage"` access level on `BookAccess` for admin-only member management operations
 - service methods for `getHouseholdMembers`, `addHouseholdMember`, `setHouseholdMemberRole`, `removeHouseholdMember`
-- HTTP routes: `GET/POST /members`, `PUT /members/:actor/role`, `DELETE /members/:actor`
+- HTTP routes: `GET/POST /api/books/:id/members`, `PUT /api/books/:id/members/:actor/role`, `DELETE /api/books/:id/members/:actor`
 - last-admin lockout guard: cannot remove or demote the only remaining admin
 - documented multi-token and trusted-header/OIDC identity strategies in `docs/api-runtime-operations.md`
 
 ### Audit And Observability Foundation
 
-- formal workspace audit-event system for successful financial mutations
-- durable audit-event persistence in workspace documents
+- formal book audit-event system for successful financial mutations
+- durable audit-event persistence in book documents
 - health checks, request correlation, and in-process request metrics for the API layer
 - transaction lifecycle now includes soft delete by default plus privileged destroy with durable audit coverage
 
 ### Security Foundation
 
 - non-loopback API binding requires auth configuration
-- typed authentication and workspace-level authorization
+- typed authentication and book-level authorization
 - privileged destructive transaction removal separate from ordinary write access
 - HTTP body size limits and JSON enforcement
 - strict request schema validation for core write routes
 - transport-level rate limiting with separate read, mutation, and import thresholds
 - response security headers and `no-store` behavior
-- path-safe workspace identifier enforcement
+- path-safe book identifier enforcement
 - HTTP transport no longer trusts client-supplied actor identity
+
+### API Completions
+
+- CORS configuration: allowlist-based origin validation with dev/prod mode fallback
+- Audit event read endpoint: `GET /api/books/:id/audit-events` with `since`, `eventType`, and `limit` filters
+- Account management routes: `GET /api/books/:id/accounts`, `POST /api/books/:id/accounts` (upsert), `DELETE /api/books/:id/accounts/:accountId` (archive); `upsertAccount` and `archiveAccount` commands with `account.upserted` and `account.archived` audit events
+
+### Terminology Alignment
+
+- Renamed financial container from "workspace" to "book" throughout: `packages/book/` (was `packages/workspace/`), `@tally/book` (was `@tally/workspace`), API routes now `/api/books/:id/...`
 
 ## Remaining Follow-Up
 
 The repository is no longer mainly missing core backend foundations.
-
-The main remaining work falls into two categories:
-
-**Planned API layer completions (see Next Suggested Restart Point above):**
-- CORS configuration
-- Audit event read endpoint
-- Account management routes
 
 **Longer-horizon product and architecture work:**
 1. Trust and integrity hardening: concurrent write safety (optimistic locking), idempotency keys, token/session management endpoints
@@ -155,29 +158,7 @@ The main remaining work falls into two categories:
 3. Review, automation, and ingestion workflows on top of the current import foundation
 4. Encryption-at-rest, key-handling, and trust-boundary guidance across supported persistence backends
 5. API completions: soft-delete recovery, server-side transaction filtering/pagination, API versioning strategy, attachment/file linking
-
-## Next Suggested Restart Point
-
-CORS configuration and audit event read endpoint are now implemented. The next slice is queued and planned:
-
-### Account management routes
-**Goal:** Full CRUD for chart-of-accounts without workspace roundtrips.
-
-**Domain changes:**
-- Add `archivedAt?: string` to `Account` in `packages/domain/src/types.ts`
-
-**Workspace commands** (in `packages/workspace/src/commands.ts`):
-- `upsertAccount(document, account, options)` — validates id uniqueness on create, validates type/code/name, emits `account.upserted` audit event
-- `archiveAccount(document, { accountId }, options)` — rejects if account has undeleted transactions, sets `archivedAt`, emits `account.archived` audit event
-
-**New audit event types** in `types.ts`: `"account.upserted"`, `"account.archived"`
-
-**Service + HTTP:**
-- `GET /api/workspaces/:id/accounts` → `getAccounts` — lists all accounts (optionally filter archived with `?includeArchived=true`); `read` access
-- `POST /api/workspaces/:id/accounts` → `postAccount` — upsert; `manage` access
-- `DELETE /api/workspaces/:id/accounts/:accountId` → `archiveAccount`; `manage` access
-- Validation: `validateAccountRequestBody` — requires `id`, `code`, `name`, `type`; optional `parentAccountId`, `taxCategory`, `isEnvelopeFundingSource`
-- Tests: create/update/archive happy paths; archive-with-transactions rejection; auth enforcement
+6. Book provisioning: `POST /api/books` and `GET /api/books` for self-service onboarding (currently books must be seeded/configured server-side)
 
 ## Deferred Follow-Up
 

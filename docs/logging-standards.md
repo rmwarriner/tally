@@ -102,7 +102,7 @@ When adding a feature:
 The repository currently provides:
 
 - shared structured logger with redaction in `packages/logging`
-- workspace command logging in `packages/workspace/src/commands.ts`
-- workspace storage logging in `packages/workspace/src/storage-node.ts`
+- book command logging in `packages/book/src/commands.ts`
+- book storage logging in `packages/book/src/storage-node.ts`
 
 Future service-layer code should build on the same logger and carry correlation or request identifiers through the stack.

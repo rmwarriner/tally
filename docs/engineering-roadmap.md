@@ -118,7 +118,7 @@ These guardrails define expected dependency direction and operational boundaries
 
 1. Directional dependency rule: `apps/*` may depend on `packages/*`, but `packages/*` must not depend on `apps/*`.
 2. Boundary validation rule: all external input validation stays at API or UI boundaries; core domain/workspace modules consume validated data.
-3. Domain/workspace purity rule: `packages/domain` and `packages/workspace` remain side-effect free except for explicit storage/import-export boundaries already designated in those packages.
+3. Domain/workspace purity rule: `packages/domain` and `packages/book` remain side-effect free except for explicit storage/import-export boundaries already designated in those packages.
 4. Operational observability rule: structured logging, rate limits, and metrics capture are applied at operational boundaries (`apps/api`, persistence adapters), not inside core accounting rules.
 5. Audit integrity rule: financial mutations must preserve audit event emission and actor attribution behavior.
 6. Contract stability rule: refactor slices do not change endpoint contracts or workspace document contracts unless explicitly scoped and documented.

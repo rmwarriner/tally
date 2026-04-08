@@ -20,31 +20,19 @@ Promote an idea to a GitHub Issue when:
 
 ## Track 1: Trust, Audit, Integrity, and Security
 
-### CORS configuration
-No CORS headers are emitted. In any production deployment where the web or mobile client runs on a different origin the API will reject preflight requests. This is a correctness gap, not a hardening gap — it blocks the product from working in its intended topology.
+### ~~CORS configuration~~ *(implemented)*
+Allowlist-based origin validation with `TALLY_API_CORS_ALLOWED_ORIGINS` env var. Wildcard in non-production, exact-origin matching in production. `OPTIONS` preflight handling with 24-hour max-age.
 
-**Next slice:** Add `CORS_ORIGIN` env-var config, handle `OPTIONS` preflight requests, and emit `Access-Control-*` headers on all responses. Allow wildcard for local dev, exact-origin matching for production.
-
-**Key open questions:**
-- Should multiple allowed origins be supported (e.g., web + mobile + CLI)?
-- How should preflight caching (`Access-Control-Max-Age`) be configured?
-
-### Audit event read endpoint
-Audit events are persisted in the workspace document but have no dedicated HTTP surface. Users and operators cannot query the audit trail without reading the entire workspace snapshot. Now that approval events add operational value to the audit log, a queryable endpoint is more important.
-
-**Next slice:** `GET /api/workspaces/:id/audit-events` with optional `?from=`, `?to=`, and `?eventType=` query params. Auth at `read` level.
-
-**Key open questions:**
-- Should this paginate or return all events in the range?
-- Should it be a separate endpoint or a filter on the workspace read?
+### ~~Audit event read endpoint~~ *(implemented)*
+`GET /api/books/:id/audit-events` with `?since=`, `?eventType=`, and `?limit=` query params. Auth at `read` level. Returns all matching audit events from the book document.
 
 ### Concurrent write safety (optimistic locking)
 No ETag or document-version conflict detection exists. Two household members writing simultaneously will silently produce a last-write-wins outcome. This is a data integrity risk in the multi-user household scenario the product is targeting.
 
-**Next slice:** Add a `version` integer to `FinanceWorkspaceDocument`, increment on every `save`, enforce `If-Match` header on write routes, return `409 Conflict` on mismatch.
+**Next slice:** Add a `version` integer to `FinanceBookDocument`, increment on every `save`, enforce `If-Match` header on write routes, return `409 Conflict` on mismatch.
 
 **Key open questions:**
-- Should version be per-workspace or per-resource (per-transaction, per-account)?
+- Should version be per-book or per-resource (per-transaction, per-account)?
 - What is the client recovery flow when a conflict is detected?
 
 ### Idempotency keys for mutations
@@ -53,17 +41,17 @@ No idempotency mechanism on POST mutations. A network timeout followed by a clie
 **Next slice:** Accept a client-supplied `Idempotency-Key` header on mutation endpoints. Store seen keys with a TTL (e.g., 24 hours) and return the cached response for duplicate requests.
 
 **Key open questions:**
-- Where is the idempotency key store — in-memory (per-process) or durable (per-workspace)?
+- Where is the idempotency key store — in-memory (per-process) or durable (per-book)?
 - Should all POST routes support idempotency or only specific high-risk ones?
 
 ### Token and session management endpoints
 Tokens are configured at API startup and have no management surface. There is no way to issue, list, or revoke tokens via the API. In a household context where a member may lose a device or be removed from the workspace, revocation is a security gap.
 
-**Next slice:** Admin-only routes for `GET /tokens`, `POST /tokens` (issue a new token), and `DELETE /tokens/:tokenId` (revoke). Tie token identity to the workspace authorization model.
+**Next slice:** Admin-only routes for `GET /tokens`, `POST /tokens` (issue a new token), and `DELETE /tokens/:tokenId` (revoke). Tie token identity to the book authorization model.
 
 **Key open questions:**
-- Should token management be workspace-scoped or global to the API instance?
-- How should token secrets be stored — hashed in workspace doc, or in a separate secrets store?
+- Should token management be book-scoped or global to the API instance?
+- How should token secrets be stored — hashed in book doc, or in a separate secrets store?
 - What is the revocation mechanism — denylist or signed token expiry?
 
 ### Cross-cutting data integrity hardening
@@ -183,7 +171,7 @@ Parked until the broader envelope and remaining-to-budget model is settled.
 - How should goals interact with rollover and cleanup rules?
 
 ### What-if planning and sandbox scenarios
-Users may want to test funding decisions, recurring changes, or large purchases without mutating the real workspace.
+Users may want to test funding decisions, recurring changes, or large purchases without mutating the real book.
 
 Parked until the forecasting and envelope model is more mature.
 
@@ -403,7 +391,7 @@ Parked until the team is ready to define the migration path for existing JSON wo
 - What is the migration path for users with existing JSON workspaces?
 - Should Postgres be a first-class equal to SQLite or a later addition once SQLite is stable?
 - How does removing JSON persistence affect the backup/restore runbook and CI fixtures?
-- Does the import/export JSON format stay identical to the current workspace schema or get redesigned as a portable exchange format?
+- Does the import/export JSON format stay identical to the current book schema or get redesigned as a portable exchange format?
 
 ### Production deployment in Docker or Podman containers
 A containerized production target would simplify deployment automation, standardize operational runbooks, and reduce environment drift. Supporting both Docker and Podman would broaden hosting options.
@@ -415,12 +403,10 @@ Parked until scope is narrowed and the first production slice is defined (likely
 - Should Docker and Podman both be first-class, or one primary with compatibility guidance?
 - What are the runtime requirements for persistence, secrets, and backup/restore in a containerized setup?
 
-### Account management routes
-The chart of accounts is central to the product but has no HTTP management surface. Accounts are only readable as part of the full workspace snapshot, and can only be modified by importing a workspace snapshot. Users need to create, rename, archive, and organize accounts without a full workspace roundtrip.
+### ~~Account management routes~~ *(implemented)*
+`GET /api/books/:id/accounts` (list, with `?includeArchived=true`), `POST /api/books/:id/accounts` (upsert — create or update), `DELETE /api/books/:id/accounts/:accountId` (archive). `upsertAccount` and `archiveAccount` book commands. `archivedAt?: string` on `Account`. Archive rejected if the account has undeleted transactions.
 
-**Next slice:** `GET /accounts` (list), `POST /accounts` (create), `PUT /accounts/:accountId` (update name/code/type/metadata), `DELETE /accounts/:accountId` (archive — set `archivedAt`, reject if active transactions exist). New workspace commands: `upsertAccount`, `archiveAccount`. Add `archivedAt?: string` to the `Account` type.
-
-**Key open questions:**
+**Remaining open questions:**
 - Should archive prevent new postings only, or also hide the account from UI views?
 - How does archiving interact with envelopes and budget lines that reference the account?
 - Should `parentAccountId` hierarchy changes be allowed after creation?
@@ -428,7 +414,7 @@ The chart of accounts is central to the product but has no HTTP management surfa
 ### Soft-delete recovery (undelete transaction)
 Transactions can be soft-deleted but there is no route to undo that operation. The only recovery path today is a full backup restore. This is disproportionately destructive for a common mistake.
 
-**Next slice:** `POST /api/workspaces/:id/transactions/:transactionId/restore` — clears the `deletion` field and emits a `transaction.restored` audit event. Requires `write` access.
+**Next slice:** `POST /api/books/:id/transactions/:transactionId/restore` — clears the `deletion` field and emits a `transaction.restored` audit event. Requires `write` access.
 
 **Key open questions:**
 - Should restore be available within a TTL window only, or always?
@@ -437,10 +423,10 @@ Transactions can be soft-deleted but there is no route to undo that operation. T
 ### Server-side transaction filtering and pagination
 The workspace endpoint returns the full document. As transaction volumes grow this becomes a client-side performance problem. There is no way to fetch only the transactions for a given account, date range, or status without downloading and filtering everything locally.
 
-**Next slice:** `GET /api/workspaces/:id/transactions` with `?accountId=`, `?from=`, `?to=`, `?status=cleared|pending|deleted`, `?limit=`, and `?cursor=` query parameters. Returns a paginated transaction list, not the full workspace.
+**Next slice:** `GET /api/books/:id/transactions` with `?accountId=`, `?from=`, `?to=`, `?status=cleared|pending|deleted`, `?limit=`, and `?cursor=` query parameters. Returns a paginated transaction list, not the full book.
 
 **Key open questions:**
-- Should this be a separate endpoint alongside the workspace read, or replace it for client use?
+- Should this be a separate endpoint alongside the book read, or replace it for client use?
 - How should the cursor be structured for stable pagination across concurrent writes?
 - Which indexes are needed for each filter combination in the SQLite and Postgres backends?
 
@@ -456,9 +442,9 @@ All routes are at `/api/...` with no version segment. As account management, pag
 ### Transaction attachment and file linking
 Receipt scanning and document attachment are mentioned in the product vision but the API has no file storage or linking model. Before any OCR or AI-assist layer can land, there must be an attachment endpoint and a link from transaction to attached files.
 
-**Next slice:** `POST /api/workspaces/:id/attachments` (upload a file, returns an attachment id), `GET /api/workspaces/:id/attachments/:attachmentId` (download). `attachmentIds` field on `Transaction`. Storage backend TBD (local filesystem, object store).
+**Next slice:** `POST /api/books/:id/attachments` (upload a file, returns an attachment id), `GET /api/books/:id/attachments/:attachmentId` (download). `attachmentIds` field on `Transaction`. Storage backend TBD (local filesystem, object store).
 
 **Key open questions:**
-- Where do files live — local filesystem next to the workspace, or a separate object store?
+- Where do files live — local filesystem next to the book, or a separate object store?
 - What file types and size limits should be enforced?
 - How does attachment storage interact with backup/restore?

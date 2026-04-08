@@ -7,7 +7,7 @@ Captured on: 2026-04-07
 This artifact provides the PR-0 baseline for:
 
 - API read/write endpoint latency (p50/p95)
-- workspace load/save timing by dataset size
+- book load/save timing by dataset size
 - full test runtime median
 
 Use this as the comparison reference for refactor slices that touch API request flow, persistence timing paths, or test runtime characteristics.
@@ -44,8 +44,8 @@ Use this as the comparison reference for refactor slices that touch API request 
 
 | Endpoint | Method | p50 (ms) | p95 (ms) |
 | --- | --- | ---: | ---: |
-| `/api/workspaces/:workspaceId` | GET | 1.71 | 2.03 |
-| `/api/workspaces/:workspaceId/transactions` | POST | 3.13 | 4.01 |
+| `/api/books/:bookId` | GET | 1.71 | 2.03 |
+| `/api/books/:bookId/transactions` | POST | 3.13 | 4.01 |
 
 ### Workspace Load/Save Timing
 
@@ -64,18 +64,18 @@ Use this as the comparison reference for refactor slices that touch API request 
 
 A second execution of `pnpm metrics:baseline` on 2026-04-07 produced comparable values:
 
-- API GET `/api/workspaces/:workspaceId` p95: `2.07ms` (first run `2.03ms`)
-- API POST `/api/workspaces/:workspaceId/transactions` p95: `4.18ms` (first run `4.01ms`)
+- API GET `/api/books/:bookId` p95: `2.07ms` (first run `2.03ms`)
+- API POST `/api/books/:bookId/transactions` p95: `4.18ms` (first run `4.01ms`)
 - test runtime median: `2075.79ms` (first run `2049.23ms`)
-- workspace `large` load p95: `76.14ms` (first run `72.08ms`)
-- workspace `large` save p95: `71.42ms` (first run `74.00ms`)
+- book `large` load p95: `76.14ms` (first run `72.08ms`)
+- book `large` save p95: `71.42ms` (first run `74.00ms`)
 
 ## Thresholds and Regression Policy
 
 Default regression thresholds (unless a PR explicitly overrides with justification):
 
 - API latency: p95 must not regress by more than 10%
-- workspace load/save: p95 must not regress by more than 10%
+- book load/save: p95 must not regress by more than 10%
 - full test runtime: median must not regress by more than 15%
 
 Waiver policy:
