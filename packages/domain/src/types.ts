@@ -29,6 +29,7 @@ export interface Account {
   parentAccountId?: UUID;
   isEnvelopeFundingSource?: boolean;
   taxCategory?: string;
+  archivedAt?: string;
 }
 
 export interface Posting {

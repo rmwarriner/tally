@@ -1,4 +1,5 @@
 export interface HttpReadRouteMatches {
+  accountsMatch: RegExpMatchArray | null;
   approvalsMatch: RegExpMatchArray | null;
   auditEventsMatch: RegExpMatchArray | null;
   backupsMatch: RegExpMatchArray | null;
@@ -14,6 +15,7 @@ export interface HttpReadRouteMatches {
 }
 
 export interface HttpPostRouteMatches {
+  accountMatch: RegExpMatchArray | null;
   approvalGrantMatch: RegExpMatchArray | null;
   approvalDenyMatch: RegExpMatchArray | null;
   approvalRequestMatch: RegExpMatchArray | null;
@@ -37,6 +39,7 @@ export interface HttpPostRouteMatches {
 }
 
 export interface HttpDeleteRouteMatches {
+  archiveAccountMatch: RegExpMatchArray | null;
   deleteTransactionMatch: RegExpMatchArray | null;
   destroyTransactionMatch: RegExpMatchArray | null;
   removeHouseholdMemberMatch: RegExpMatchArray | null;
@@ -208,11 +211,20 @@ export function normalizeRouteLabel(method: string, path: string): string {
     return "/api/workspaces/:workspaceId/audit-events";
   }
 
+  if (/^\/api\/workspaces\/[^/]+\/accounts$/.test(path)) {
+    return "/api/workspaces/:workspaceId/accounts";
+  }
+
+  if (/^\/api\/workspaces\/[^/]+\/accounts\/[^/]+$/.test(path)) {
+    return "/api/workspaces/:workspaceId/accounts/:accountId";
+  }
+
   return path;
 }
 
 export function matchHttpReadRoutes(path: string): HttpReadRouteMatches {
   return {
+    accountsMatch: path.match(/^\/api\/workspaces\/([^/]+)\/accounts$/),
     approvalsMatch: path.match(/^\/api\/workspaces\/([^/]+)\/approvals$/),
     auditEventsMatch: path.match(/^\/api\/workspaces\/([^/]+)\/audit-events$/),
     backupsMatch: path.match(/^\/api\/workspaces\/([^/]+)\/backups$/),
@@ -235,6 +247,7 @@ export function matchHttpPostRoutes(path: string): HttpPostRouteMatches {
   const approvalDenyMatch = path.match(/^\/api\/workspaces\/([^/]+)\/approvals\/([^/]+)\/deny$/);
 
   return {
+    accountMatch: path.match(/^\/api\/workspaces\/([^/]+)\/accounts$/),
     approvalGrantMatch,
     approvalDenyMatch,
     approvalRequestMatch: path.match(/^\/api\/workspaces\/([^/]+)\/approvals$/),
@@ -267,6 +280,7 @@ export function matchHttpPutRoutes(path: string): HttpPutRouteMatches {
 
 export function matchHttpDeleteRoutes(path: string): HttpDeleteRouteMatches {
   return {
+    archiveAccountMatch: path.match(/^\/api\/workspaces\/([^/]+)\/accounts\/([^/]+)$/),
     deleteTransactionMatch: path.match(/^\/api\/workspaces\/([^/]+)\/transactions\/([^/]+)$/),
     destroyTransactionMatch: path.match(/^\/api\/workspaces\/([^/]+)\/transactions\/([^/]+)\/destroy$/),
     removeHouseholdMemberMatch: path.match(/^\/api\/workspaces\/([^/]+)\/members\/([^/]+)$/),

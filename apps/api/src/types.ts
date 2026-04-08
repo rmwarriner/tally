@@ -1,4 +1,5 @@
 import type {
+  Account,
   BaselineBudgetLine,
   Envelope,
   EnvelopeAllocation,
@@ -339,6 +340,31 @@ export interface HouseholdMembersEnvelope {
     actor: string;
     role: "admin" | "guardian" | "member";
   }>;
+}
+
+export interface GetAccountsRequest {
+  auth: AuthContext;
+  includeArchived?: boolean;
+  logger?: Logger;
+  workspaceId: string;
+}
+
+export interface PostAccountRequest {
+  account: Account;
+  auth: AuthContext;
+  logger?: Logger;
+  workspaceId: string;
+}
+
+export interface ArchiveAccountRequest {
+  accountId: string;
+  auth: AuthContext;
+  logger?: Logger;
+  workspaceId: string;
+}
+
+export interface AccountsEnvelope {
+  accounts: Account[];
 }
 
 export interface GetAuditEventsRequest {

@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  validateAccountRequestBody,
   validateAddHouseholdMemberBody,
   validateApplyScheduledTransactionExceptionRequestBody,
   validateBaselineBudgetLineRequestBody,
@@ -589,5 +590,50 @@ describe("api request validation", () => {
     const invalidRole = validateSetHouseholdMemberRoleBody({ payload: { role: "superuser" } });
     if (!("errors" in invalidRole)) throw new Error("expected errors");
     expect(invalidRole.errors).toContain("payload.role must be admin, guardian, or member.");
+  });
+
+  it("accepts a valid account payload", () => {
+    const result = validateAccountRequestBody({
+      account: { id: "acct-1", code: "1000", name: "Cash", type: "asset" },
+    });
+    if ("errors" in result) throw new Error("expected value");
+    expect(result.value.account.id).toBe("acct-1");
+    expect(result.value.account.type).toBe("asset");
+  });
+
+  it("accepts a full account payload with optional fields", () => {
+    const result = validateAccountRequestBody({
+      account: {
+        id: "acct-2",
+        code: "2000",
+        name: "Savings",
+        type: "asset",
+        parentAccountId: "acct-1",
+        taxCategory: "checking",
+        isEnvelopeFundingSource: true,
+      },
+    });
+    if ("errors" in result) throw new Error("expected value");
+    expect(result.value.account.isEnvelopeFundingSource).toBe(true);
+  });
+
+  it("rejects account payload missing required fields", () => {
+    const missing = validateAccountRequestBody({});
+    if (!("errors" in missing)) throw new Error("expected errors");
+    expect(missing.errors).toEqual(["account payload is required."]);
+
+    const missingCode = validateAccountRequestBody({
+      account: { id: "x", code: "", name: "X", type: "asset" },
+    });
+    if (!("errors" in missingCode)) throw new Error("expected errors");
+    expect(missingCode.errors).toContain("account.code is required.");
+
+    const invalidType = validateAccountRequestBody({
+      account: { id: "x", code: "1000", name: "X", type: "bogus" },
+    });
+    if (!("errors" in invalidType)) throw new Error("expected errors");
+    expect(invalidType.errors).toContain(
+      "account.type must be asset, liability, equity, income, or expense.",
+    );
   });
 });

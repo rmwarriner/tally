@@ -8,6 +8,8 @@ import {
   validateEnvelope,
   validateTransactionForLedger,
   isScheduleDue,
+  type Account,
+  type AccountType,
   type BaselineBudgetLine,
   type Envelope,
   type EnvelopeAllocation,
@@ -1964,6 +1966,145 @@ export function denyApproval(
   );
 
   logger.info("workspace command completed", { approvalId: params.approvalId });
+
+  return { ok: true, errors: [], document: nextDocument };
+}
+
+const VALID_ACCOUNT_TYPES: AccountType[] = ["asset", "liability", "equity", "income", "expense"];
+
+function isAccountType(value: unknown): value is AccountType {
+  return VALID_ACCOUNT_TYPES.includes(value as AccountType);
+}
+
+export function upsertAccount(
+  document: FinanceWorkspaceDocument,
+  account: Account,
+  options: CommandOptions = {},
+): CommandResult {
+  const logger = (options.logger ?? createNoopLogger()).child({
+    command: "upsertAccount",
+    accountId: account.id,
+    workspaceId: document.id,
+  });
+  logger.info("workspace command started");
+
+  const errors: string[] = [];
+
+  if (!account.id || account.id.trim().length === 0) {
+    errors.push("account.id is required.");
+  }
+
+  if (!account.code || account.code.trim().length === 0) {
+    errors.push("account.code is required.");
+  }
+
+  if (!account.name || account.name.trim().length === 0) {
+    errors.push("account.name is required.");
+  }
+
+  if (!isAccountType(account.type)) {
+    errors.push("account.type must be asset, liability, equity, income, or expense.");
+  }
+
+  if (account.parentAccountId !== undefined) {
+    const parentExists = document.accounts.some((a) => a.id === account.parentAccountId);
+    if (!parentExists) {
+      errors.push(`account.parentAccountId ${account.parentAccountId} does not exist.`);
+    }
+  }
+
+  if (errors.length > 0) {
+    logger.warn("workspace command validation failed", { errors });
+    return { ok: false, errors, document };
+  }
+
+  const existing = document.accounts.find((a) => a.id === account.id);
+  const isCreate = !existing;
+
+  const nextDocument = appendAuditEvent(
+    {
+      ...document,
+      accounts: upsertById(document.accounts, account),
+    },
+    {
+      entityIds: [account.id],
+      eventType: "account.upserted",
+      summary: {
+        accountId: account.id,
+        code: account.code,
+        name: account.name,
+        type: account.type,
+        isCreate,
+      },
+    },
+    options.audit,
+  );
+
+  logger.info("workspace command completed", { accountId: account.id, isCreate });
+
+  return { ok: true, errors: [], document: nextDocument };
+}
+
+export function archiveAccount(
+  document: FinanceWorkspaceDocument,
+  params: {
+    accountId: string;
+    archivedAt?: string;
+  },
+  options: CommandOptions = {},
+): CommandResult {
+  const logger = (options.logger ?? createNoopLogger()).child({
+    command: "archiveAccount",
+    accountId: params.accountId,
+    workspaceId: document.id,
+  });
+  logger.info("workspace command started");
+
+  const account = document.accounts.find((a) => a.id === params.accountId);
+
+  if (!account) {
+    const errors = [`Account ${params.accountId} not found.`];
+    logger.warn("workspace command validation failed", { errors });
+    return { ok: false, errors, document };
+  }
+
+  if (account.archivedAt) {
+    const errors = [`Account ${params.accountId} is already archived.`];
+    logger.warn("workspace command validation failed", { errors });
+    return { ok: false, errors, document };
+  }
+
+  const hasUndeletedTransactions = listActiveTransactions(document.transactions).some((t) =>
+    t.postings.some((p) => p.accountId === params.accountId),
+  );
+
+  if (hasUndeletedTransactions) {
+    const errors = [`Account ${params.accountId} has undeleted transactions and cannot be archived.`];
+    logger.warn("workspace command validation failed", { errors });
+    return { ok: false, errors, document };
+  }
+
+  const archivedAt = params.archivedAt ?? new Date().toISOString();
+
+  const nextDocument = appendAuditEvent(
+    {
+      ...document,
+      accounts: document.accounts.map((a) =>
+        a.id === params.accountId ? { ...a, archivedAt } : a,
+      ),
+    },
+    {
+      entityIds: [params.accountId],
+      eventType: "account.archived",
+      summary: {
+        accountId: params.accountId,
+        archivedAt,
+      },
+    },
+    options.audit,
+  );
+
+  logger.info("workspace command completed", { accountId: params.accountId });
 
   return { ok: true, errors: [], document: nextDocument };
 }

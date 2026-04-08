@@ -8,6 +8,7 @@ import {
   addHouseholdMember,
   addTransaction,
   applyScheduledTransactionException,
+  archiveAccount,
   buildDashboardSnapshot,
   closeWorkspacePeriod,
   createDemoWorkspace,
@@ -25,6 +26,7 @@ import {
   removeHouseholdMember,
   requestApproval,
   setHouseholdMemberRole,
+  upsertAccount,
   upsertBaselineBudgetLine,
   upsertEnvelope,
   updateTransaction,
@@ -1493,6 +1495,169 @@ LSalary
 
       expect(result.ok).toBe(false);
       expect(result.errors[0]).toContain("already denied");
+    });
+  });
+
+  describe("upsertAccount", () => {
+    it("creates a new account when the id does not exist", () => {
+      const workspace = createDemoWorkspace();
+      const result = upsertAccount(
+        workspace,
+        { id: "acct-new", code: "9000", name: "New Account", type: "asset" },
+        { audit: { actor: "Primary" } },
+      );
+
+      expect(result.ok).toBe(true);
+      expect(result.document.accounts.find((a) => a.id === "acct-new")).toBeDefined();
+      expect(result.document.auditEvents.at(-1)?.eventType).toBe("account.upserted");
+      expect(result.document.auditEvents.at(-1)?.summary).toMatchObject({
+        accountId: "acct-new",
+        isCreate: true,
+      });
+    });
+
+    it("updates an existing account", () => {
+      const workspace = createDemoWorkspace();
+      const existing = workspace.accounts[0];
+      const result = upsertAccount(
+        workspace,
+        { ...existing, name: "Updated Name" },
+        { audit: { actor: "Primary" } },
+      );
+
+      expect(result.ok).toBe(true);
+      expect(result.document.accounts.find((a) => a.id === existing.id)?.name).toBe("Updated Name");
+      expect(result.document.auditEvents.at(-1)?.summary).toMatchObject({ isCreate: false });
+    });
+
+    it("rejects an account with an empty id", () => {
+      const workspace = createDemoWorkspace();
+      const result = upsertAccount(workspace, { id: "", code: "9000", name: "X", type: "asset" });
+
+      expect(result.ok).toBe(false);
+      expect(result.errors).toContain("account.id is required.");
+    });
+
+    it("rejects an account with an empty code", () => {
+      const workspace = createDemoWorkspace();
+      const result = upsertAccount(workspace, { id: "x", code: "", name: "X", type: "asset" });
+
+      expect(result.ok).toBe(false);
+      expect(result.errors).toContain("account.code is required.");
+    });
+
+    it("rejects an account with an empty name", () => {
+      const workspace = createDemoWorkspace();
+      const result = upsertAccount(workspace, { id: "x", code: "9000", name: "", type: "asset" });
+
+      expect(result.ok).toBe(false);
+      expect(result.errors).toContain("account.name is required.");
+    });
+
+    it("rejects an account with an invalid type", () => {
+      const workspace = createDemoWorkspace();
+      const result = upsertAccount(workspace, {
+        id: "x",
+        code: "9000",
+        name: "X",
+        type: "bogus" as never,
+      });
+
+      expect(result.ok).toBe(false);
+      expect(result.errors).toContain(
+        "account.type must be asset, liability, equity, income, or expense.",
+      );
+    });
+
+    it("rejects a parentAccountId that does not exist", () => {
+      const workspace = createDemoWorkspace();
+      const result = upsertAccount(workspace, {
+        id: "x",
+        code: "9000",
+        name: "X",
+        type: "asset",
+        parentAccountId: "nonexistent",
+      });
+
+      expect(result.ok).toBe(false);
+      expect(result.errors[0]).toContain("does not exist");
+    });
+
+    it("accepts a valid parentAccountId", () => {
+      const workspace = createDemoWorkspace();
+      const parent = workspace.accounts[0];
+      const result = upsertAccount(workspace, {
+        id: "child-acct",
+        code: "9001",
+        name: "Child",
+        type: parent.type,
+        parentAccountId: parent.id,
+      });
+
+      expect(result.ok).toBe(true);
+    });
+  });
+
+  describe("archiveAccount", () => {
+    it("archives an account with no transactions", () => {
+      const workspace = createDemoWorkspace();
+      // Use an account not referenced by any active transaction
+      const unreferencedAccount = workspace.accounts.find(
+        (a) => !workspace.transactions.some((t) => t.postings.some((p) => p.accountId === a.id)),
+      );
+      if (!unreferencedAccount) {
+        return; // Skip if demo workspace has all accounts in use
+      }
+
+      const result = archiveAccount(
+        workspace,
+        { accountId: unreferencedAccount.id, archivedAt: "2026-04-08T00:00:00.000Z" },
+        { audit: { actor: "Primary" } },
+      );
+
+      expect(result.ok).toBe(true);
+      expect(result.document.accounts.find((a) => a.id === unreferencedAccount.id)?.archivedAt).toBe(
+        "2026-04-08T00:00:00.000Z",
+      );
+      expect(result.document.auditEvents.at(-1)?.eventType).toBe("account.archived");
+    });
+
+    it("rejects archiving a non-existent account", () => {
+      const workspace = createDemoWorkspace();
+      const result = archiveAccount(workspace, { accountId: "does-not-exist" });
+
+      expect(result.ok).toBe(false);
+      expect(result.errors[0]).toContain("not found");
+    });
+
+    it("rejects archiving an already-archived account", () => {
+      const workspace = createDemoWorkspace();
+      const unreferencedAccount = workspace.accounts.find(
+        (a) => !workspace.transactions.some((t) => t.postings.some((p) => p.accountId === a.id)),
+      );
+      if (!unreferencedAccount) return;
+
+      const first = archiveAccount(workspace, { accountId: unreferencedAccount.id });
+      expect(first.ok).toBe(true);
+
+      const second = archiveAccount(first.document, { accountId: unreferencedAccount.id });
+      expect(second.ok).toBe(false);
+      expect(second.errors[0]).toContain("already archived");
+    });
+
+    it("rejects archiving an account that has undeleted transactions", () => {
+      const workspace = createDemoWorkspace();
+      const accountWithTransactions = workspace.accounts.find((a) =>
+        workspace.transactions.some(
+          (t) => !t.deletion && t.postings.some((p) => p.accountId === a.id),
+        ),
+      );
+      if (!accountWithTransactions) return;
+
+      const result = archiveAccount(workspace, { accountId: accountWithTransactions.id });
+
+      expect(result.ok).toBe(false);
+      expect(result.errors[0]).toContain("undeleted transactions");
     });
   });
 });

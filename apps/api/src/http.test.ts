@@ -1782,4 +1782,127 @@ Lacct-expense-utilities
 
     await fixture.cleanup();
   });
+
+  it("serves account list via GET /api/workspaces/:id/accounts", async () => {
+    const fixture = await createFixture();
+    const service = createWorkspaceService({
+      repository: createFileSystemWorkspaceRepository({ rootDirectory: fixture.directory }),
+    });
+    const handler = createHttpHandler({ service });
+
+    const response = await handler(
+      new Request(`http://localhost/api/workspaces/${fixture.workspace.id}/accounts`),
+    );
+    const body = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(Array.isArray(body.accounts)).toBe(true);
+    expect(body.accounts.length).toBe(fixture.workspace.accounts.length);
+
+    await fixture.cleanup();
+  });
+
+  it("creates an account via POST /api/workspaces/:id/accounts", async () => {
+    const fixture = await createFixture();
+    const service = createWorkspaceService({
+      repository: createFileSystemWorkspaceRepository({ rootDirectory: fixture.directory }),
+    });
+    const handler = createHttpHandler({ service });
+
+    const response = await handler(
+      new Request(`http://localhost/api/workspaces/${fixture.workspace.id}/accounts`, {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          account: { id: "acct-http-new", code: "9999", name: "HTTP Account", type: "income" },
+        }),
+      }),
+    );
+    const body = await response.json();
+
+    expect(response.status).toBe(200);
+    expect("workspace" in body).toBe(true);
+
+    await fixture.cleanup();
+  });
+
+  it("returns 400 for invalid account POST body", async () => {
+    const fixture = await createFixture();
+    const service = createWorkspaceService({
+      repository: createFileSystemWorkspaceRepository({ rootDirectory: fixture.directory }),
+    });
+    const handler = createHttpHandler({ service });
+
+    const response = await handler(
+      new Request(`http://localhost/api/workspaces/${fixture.workspace.id}/accounts`, {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ account: { id: "x", code: "", name: "X", type: "asset" } }),
+      }),
+    );
+
+    expect(response.status).toBe(400);
+
+    await fixture.cleanup();
+  });
+
+  it("archives an account via DELETE /api/workspaces/:id/accounts/:accountId", async () => {
+    const fixture = await createFixture();
+    const service = createWorkspaceService({
+      repository: createFileSystemWorkspaceRepository({ rootDirectory: fixture.directory }),
+    });
+    const handler = createHttpHandler({ service });
+
+    // Create a fresh account with no transactions so we can archive it
+    await handler(
+      new Request(`http://localhost/api/workspaces/${fixture.workspace.id}/accounts`, {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          account: { id: "acct-to-delete", code: "7777", name: "To Delete", type: "expense" },
+        }),
+      }),
+    );
+
+    const response = await handler(
+      new Request(
+        `http://localhost/api/workspaces/${fixture.workspace.id}/accounts/acct-to-delete`,
+        { method: "DELETE" },
+      ),
+    );
+
+    expect(response.status).toBe(200);
+
+    await fixture.cleanup();
+  });
+
+  it("returns 409 when archiving account with transactions", async () => {
+    const fixture = await createFixture();
+    const service = createWorkspaceService({
+      repository: createFileSystemWorkspaceRepository({ rootDirectory: fixture.directory }),
+    });
+    const handler = createHttpHandler({ service });
+
+    const accountWithTransactions = fixture.workspace.accounts.find((a) =>
+      fixture.workspace.transactions.some(
+        (t) => !t.deletion && t.postings.some((p) => p.accountId === a.id),
+      ),
+    );
+
+    if (!accountWithTransactions) {
+      await fixture.cleanup();
+      return;
+    }
+
+    const response = await handler(
+      new Request(
+        `http://localhost/api/workspaces/${fixture.workspace.id}/accounts/${accountWithTransactions.id}`,
+        { method: "DELETE" },
+      ),
+    );
+
+    expect(response.status).toBe(409);
+
+    await fixture.cleanup();
+  });
 });

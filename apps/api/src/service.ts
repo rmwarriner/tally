@@ -2,6 +2,7 @@ import { createNoopLogger, type Logger } from "@tally/logging";
 import {
   addHouseholdMember,
   addTransaction,
+  archiveAccount,
   buildOperationalWorkspaceView,
   buildCloseSummary,
   buildGnuCashXmlExport,
@@ -25,6 +26,7 @@ import {
   removeHouseholdMember,
   requestApproval,
   setHouseholdMemberRole,
+  upsertAccount,
   upsertBaselineBudgetLine,
   upsertEnvelope,
   upsertScheduledTransaction,
@@ -38,8 +40,10 @@ import {
   withWorkspace,
 } from "./service-helpers";
 import type {
+  AccountsEnvelope,
   AddHouseholdMemberRequest,
   ApprovalsEnvelope,
+  ArchiveAccountRequest,
   AuditEventsEnvelope,
   BackupEnvelope,
   BackupsEnvelope,
@@ -47,6 +51,7 @@ import type {
   DenyApprovalRequest,
   DestroyTransactionRequest,
   ErrorEnvelope,
+  GetAccountsRequest,
   GetApprovalsRequest,
   GetAuditEventsRequest,
   GetGnuCashXmlExportRequest,
@@ -64,6 +69,7 @@ import type {
   GnuCashXmlExportEnvelope,
   GrantApprovalRequest,
   HouseholdMembersEnvelope,
+  PostAccountRequest,
   PostBaselineBudgetLineRequest,
   PostBackupRequest,
   PostBackupRestoreRequest,
@@ -188,6 +194,15 @@ export interface WorkspaceService {
   ): Promise<ServiceResponse<WorkspaceEnvelope | ErrorEnvelope>>;
   denyApproval(
     request: DenyApprovalRequest,
+  ): Promise<ServiceResponse<WorkspaceEnvelope | ErrorEnvelope>>;
+  getAccounts(
+    request: GetAccountsRequest,
+  ): Promise<ServiceResponse<AccountsEnvelope | ErrorEnvelope>>;
+  postAccount(
+    request: PostAccountRequest,
+  ): Promise<ServiceResponse<WorkspaceEnvelope | ErrorEnvelope>>;
+  archiveAccount(
+    request: ArchiveAccountRequest,
   ): Promise<ServiceResponse<WorkspaceEnvelope | ErrorEnvelope>>;
 }
 
@@ -830,6 +845,60 @@ export function createWorkspaceService(params: {
             { approvalId: request.approvalId, reviewedBy: request.auth.actor },
             { audit, logger: requestLogger },
           ),
+      );
+    },
+
+    // --- Account management ---
+
+    async getAccounts(request) {
+      const requestLogger = getRequestLogger(request.logger);
+      return withWorkspace<AccountsEnvelope | ErrorEnvelope>(
+        serviceParams("read", request.auth, requestLogger, request.workspaceId),
+        async (workspace) => {
+          const accounts = request.includeArchived
+            ? workspace.accounts
+            : workspace.accounts.filter((a) => !a.archivedAt);
+          return success(200, { accounts });
+        },
+      );
+    },
+
+    async postAccount(request) {
+      const requestLogger = getRequestLogger(request.logger);
+      return withMutation(
+        { ...serviceParams("manage", request.auth, requestLogger, request.workspaceId), successStatus: 200 },
+        (workspace, audit) => upsertAccount(workspace, request.account, { audit, logger: requestLogger }),
+      );
+    },
+
+    async archiveAccount(request) {
+      const requestLogger = getRequestLogger(request.logger);
+      return withWorkspace<WorkspaceEnvelope | ErrorEnvelope>(
+        serviceParams("manage", request.auth, requestLogger, request.workspaceId),
+        async (workspace, authorization) => {
+          const audit = buildAuthorizationAuditContext(request.auth.actor, authorization);
+          const result = archiveAccount(
+            workspace,
+            { accountId: request.accountId },
+            { audit, logger: requestLogger },
+          );
+
+          if (!result.ok) {
+            requestLogger.warn("service command validation failed", { errors: result.errors });
+            return failure(
+              new ApiError({
+                code: "validation.failed",
+                details: { issues: result.errors },
+                message: result.errors[0] ?? "Request validation failed.",
+                status: 409,
+              }),
+            );
+          }
+
+          await params.repository.save(result.document, { logger: requestLogger });
+          requestLogger.info("service command completed");
+          return success(200, { workspace: presentWorkspace(result.document) });
+        },
       );
     },
   };

@@ -20,6 +20,7 @@ import { createInMemoryApiMetrics, type ApiMetrics } from "./metrics";
 import { createInMemoryRateLimiter, type RateLimiter, type RateLimitPolicy } from "./rate-limit";
 import type { WorkspaceService } from "./service";
 import {
+  validateAccountRequestBody,
   validateAddHouseholdMemberBody,
   validateRequestApprovalBody,
   validateCloseSummaryQuery,
@@ -300,6 +301,7 @@ export function createHttpHandler(params: {
 
     if (request.method === "GET") {
       const {
+        accountsMatch,
         approvalsMatch,
         auditEventsMatch,
         backupsMatch,
@@ -770,6 +772,43 @@ export function createHttpHandler(params: {
         return completeJsonResponse(response.status, response.body);
       }
 
+      if (accountsMatch) {
+        const rateLimited = enforceRateLimit(rateLimitPolicy.read);
+
+        if (rateLimited) {
+          return completeJsonResponse(
+            rateLimited.status,
+            await rateLimited.json(),
+            Object.fromEntries(rateLimited.headers.entries()),
+          );
+        }
+
+        const workspaceId = decodeURIComponent(accountsMatch[1]);
+
+        if (!isSafeWorkspaceId(workspaceId)) {
+          return completeJsonResponse(
+            400,
+            toErrorEnvelope(
+              new ApiError({
+                code: "repository.invalid_identifier",
+                message: "Workspace identifier is invalid.",
+                status: 400,
+              }),
+            ),
+          );
+        }
+
+        const includeArchived = url.searchParams.get("includeArchived") === "true";
+
+        const response = await params.service.getAccounts({
+          auth: auth.context,
+          includeArchived,
+          logger: requestLogger,
+          workspaceId,
+        });
+        return completeJsonResponse(response.status, response.body);
+      }
+
       if (approvalsMatch) {
         const rateLimited = enforceRateLimit(rateLimitPolicy.read);
 
@@ -863,6 +902,7 @@ export function createHttpHandler(params: {
 
     if (request.method === "POST") {
       const {
+        accountMatch,
         approvalGrantMatch,
         approvalDenyMatch,
         approvalRequestMatch,
@@ -1659,6 +1699,58 @@ export function createHttpHandler(params: {
         return completeJsonResponse(response.status, response.body);
       }
 
+      if (accountMatch) {
+        const rateLimited = enforceRateLimit(rateLimitPolicy.mutation);
+
+        if (rateLimited) {
+          return completeJsonResponse(
+            rateLimited.status,
+            await rateLimited.json(),
+            Object.fromEntries(rateLimited.headers.entries()),
+          );
+        }
+
+        const workspaceId = decodeURIComponent(accountMatch[1]);
+
+        if (!isSafeWorkspaceId(workspaceId)) {
+          return completeJsonResponse(
+            400,
+            toErrorEnvelope(
+              new ApiError({
+                code: "repository.invalid_identifier",
+                message: "Workspace identifier is invalid.",
+                status: 400,
+              }),
+            ),
+          );
+        }
+
+        const parsed = validateAccountRequestBody(body);
+
+        if ("errors" in parsed) {
+          requestLogger.warn("http request validation failed", { errors: parsed.errors });
+          return completeJsonResponse(
+            400,
+            toErrorEnvelope(
+              new ApiError({
+                code: "validation.failed",
+                details: { issues: parsed.errors },
+                message: parsed.errors[0] ?? "Request validation failed.",
+                status: 400,
+              }),
+            ),
+          );
+        }
+
+        const response = await params.service.postAccount({
+          account: parsed.value.account,
+          auth: auth.context,
+          logger: requestLogger,
+          workspaceId,
+        });
+        return completeJsonResponse(response.status, response.body);
+      }
+
       if (householdMemberMatch) {
         const rateLimited = enforceRateLimit(rateLimitPolicy.mutation);
 
@@ -1970,7 +2062,43 @@ export function createHttpHandler(params: {
     }
 
     if (request.method === "DELETE") {
-      const { deleteTransactionMatch, destroyTransactionMatch, removeHouseholdMemberMatch } = matchHttpDeleteRoutes(path);
+      const { archiveAccountMatch, deleteTransactionMatch, destroyTransactionMatch, removeHouseholdMemberMatch } = matchHttpDeleteRoutes(path);
+
+      if (archiveAccountMatch) {
+        const rateLimited = enforceRateLimit(rateLimitPolicy.mutation);
+
+        if (rateLimited) {
+          return completeJsonResponse(
+            rateLimited.status,
+            await rateLimited.json(),
+            Object.fromEntries(rateLimited.headers.entries()),
+          );
+        }
+
+        const workspaceId = decodeURIComponent(archiveAccountMatch[1]);
+        const accountId = decodeURIComponent(archiveAccountMatch[2]);
+
+        if (!isSafeWorkspaceId(workspaceId)) {
+          return completeJsonResponse(
+            400,
+            toErrorEnvelope(
+              new ApiError({
+                code: "repository.invalid_identifier",
+                message: "Workspace identifier is invalid.",
+                status: 400,
+              }),
+            ),
+          );
+        }
+
+        const response = await params.service.archiveAccount({
+          accountId,
+          auth: auth.context,
+          logger: requestLogger,
+          workspaceId,
+        });
+        return completeJsonResponse(response.status, response.body);
+      }
 
       if (removeHouseholdMemberMatch) {
         const rateLimited = enforceRateLimit(rateLimitPolicy.mutation);

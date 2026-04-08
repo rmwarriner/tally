@@ -6,6 +6,7 @@ import type {
   GetStatementExportRequest,
   GetQifExportRequest,
   GetReportRequest,
+  PostAccountRequest,
   PostBaselineBudgetLineRequest,
   PostClosePeriodRequest,
   PostCsvImportRequest,
@@ -942,4 +943,57 @@ export function validateRequestApprovalBody(body: unknown):
   return errors.length > 0
     ? { errors }
     : { value: body as Pick<RequestApprovalRequest, "payload"> };
+}
+
+function isAccountType(value: unknown): value is import("@tally/domain").AccountType {
+  return (
+    value === "asset" ||
+    value === "liability" ||
+    value === "equity" ||
+    value === "income" ||
+    value === "expense"
+  );
+}
+
+export function validateAccountRequestBody(body: unknown):
+  | { errors: string[] }
+  | { value: Pick<PostAccountRequest, "account"> } {
+  if (!isObject(body) || !isObject(body.account)) {
+    return { errors: ["account payload is required."] };
+  }
+
+  const errors: string[] = [];
+  const account = body.account;
+
+  if (!isNonEmptyString(account.id)) {
+    errors.push("account.id is required.");
+  }
+
+  if (!isNonEmptyString(account.code)) {
+    errors.push("account.code is required.");
+  }
+
+  if (!isNonEmptyString(account.name)) {
+    errors.push("account.name is required.");
+  }
+
+  if (!isAccountType(account.type)) {
+    errors.push("account.type must be asset, liability, equity, income, or expense.");
+  }
+
+  if (account.parentAccountId !== undefined && !isNonEmptyString(account.parentAccountId)) {
+    errors.push("account.parentAccountId must be a non-empty string when provided.");
+  }
+
+  if (account.taxCategory !== undefined && typeof account.taxCategory !== "string") {
+    errors.push("account.taxCategory must be a string when provided.");
+  }
+
+  if (account.isEnvelopeFundingSource !== undefined && !isBoolean(account.isEnvelopeFundingSource)) {
+    errors.push("account.isEnvelopeFundingSource must be a boolean when provided.");
+  }
+
+  return errors.length > 0
+    ? { errors }
+    : { value: body as Pick<PostAccountRequest, "account"> };
 }

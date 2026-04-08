@@ -1279,4 +1279,109 @@ describe("workspace service", () => {
 
     await fixture.cleanup();
   });
+
+  it("lists accounts without archived accounts by default", async () => {
+    const fixture = await createFixture();
+    const service = createWorkspaceService({
+      repository: createFileSystemWorkspaceRepository({ rootDirectory: fixture.directory }),
+    });
+
+    const response = await service.getAccounts({
+      auth: { actor: "local-admin", kind: "local", role: "local-admin" },
+      workspaceId: fixture.workspace.id,
+    });
+
+    expect(response.status).toBe(200);
+    const body = response.body as { accounts: unknown[] };
+    expect(Array.isArray(body.accounts)).toBe(true);
+    expect(body.accounts.length).toBe(fixture.workspace.accounts.length);
+
+    await fixture.cleanup();
+  });
+
+  it("creates a new account via postAccount", async () => {
+    const fixture = await createFixture();
+    const service = createWorkspaceService({
+      repository: createFileSystemWorkspaceRepository({ rootDirectory: fixture.directory }),
+    });
+
+    const response = await service.postAccount({
+      auth: { actor: "local-admin", kind: "local", role: "local-admin" },
+      account: { id: "acct-new", code: "9999", name: "Test Account", type: "asset" },
+      workspaceId: fixture.workspace.id,
+    });
+
+    expect(response.status).toBe(200);
+    expectWorkspaceBody(response.body);
+
+    await fixture.cleanup();
+  });
+
+  it("archives an account with no transactions via archiveAccount", async () => {
+    const fixture = await createFixture();
+    const service = createWorkspaceService({
+      repository: createFileSystemWorkspaceRepository({ rootDirectory: fixture.directory }),
+    });
+
+    // First add an account with no transactions
+    await service.postAccount({
+      auth: { actor: "local-admin", kind: "local", role: "local-admin" },
+      account: { id: "acct-archive-me", code: "8888", name: "To Archive", type: "asset" },
+      workspaceId: fixture.workspace.id,
+    });
+
+    const response = await service.archiveAccount({
+      auth: { actor: "local-admin", kind: "local", role: "local-admin" },
+      accountId: "acct-archive-me",
+      workspaceId: fixture.workspace.id,
+    });
+
+    expect(response.status).toBe(200);
+
+    await fixture.cleanup();
+  });
+
+  it("returns 409 when archiving an account with transactions", async () => {
+    const fixture = await createFixture();
+    const service = createWorkspaceService({
+      repository: createFileSystemWorkspaceRepository({ rootDirectory: fixture.directory }),
+    });
+
+    const accountWithTransactions = fixture.workspace.accounts.find((a) =>
+      fixture.workspace.transactions.some(
+        (t) => !t.deletion && t.postings.some((p) => p.accountId === a.id),
+      ),
+    );
+
+    if (!accountWithTransactions) {
+      await fixture.cleanup();
+      return;
+    }
+
+    const response = await service.archiveAccount({
+      auth: { actor: "local-admin", kind: "local", role: "local-admin" },
+      accountId: accountWithTransactions.id,
+      workspaceId: fixture.workspace.id,
+    });
+
+    expect(response.status).toBe(409);
+
+    await fixture.cleanup();
+  });
+
+  it("rejects getAccounts with insufficient access", async () => {
+    const fixture = await createFixture();
+    const service = createWorkspaceService({
+      repository: createFileSystemWorkspaceRepository({ rootDirectory: fixture.directory }),
+    });
+
+    const response = await service.getAccounts({
+      auth: { actor: "stranger", kind: "token", role: "member", token: "wrong-token" },
+      workspaceId: fixture.workspace.id,
+    });
+
+    expect(response.status).toBe(403);
+
+    await fixture.cleanup();
+  });
 });

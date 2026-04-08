@@ -52,7 +52,9 @@ export type AuditEventType =
   | "household-member.role-changed"
   | "approval.requested"
   | "approval.granted"
-  | "approval.denied";
+  | "approval.denied"
+  | "account.upserted"
+  | "account.archived";
 
 export type ApprovalKind = "destroy-transaction";
 
