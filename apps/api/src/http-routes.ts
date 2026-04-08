@@ -46,6 +46,10 @@ export interface HttpPutRouteMatches {
   setHouseholdMemberRoleMatch: RegExpMatchArray | null;
 }
 
+export function isOptionsRoute(method: string, _path: string): boolean {
+  return method === "OPTIONS";
+}
+
 export function isLivenessRoute(method: string, path: string): boolean {
   return method === "GET" && (path === "/healthz" || path === "/health/live");
 }

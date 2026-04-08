@@ -23,6 +23,7 @@ export interface ApiRuntimeConfig {
     roleHeader: string;
   };
   bodyLimitBytes: number;
+  corsAllowedOrigins: string[];
   dataDirectory: string;
   host: string;
   persistenceBackend: ApiPersistenceBackend;
@@ -417,6 +418,7 @@ export function createApiRuntimeConfig(
     "TALLY_API_SQLITE_PATH",
     "GNUCASH_NG_API_SQLITE_PATH",
   );
+  const corsOriginValue = env["TALLY_CORS_ORIGIN"];
 
   const runtimeMode = parseRuntimeMode(
     runtimeModeValue,
@@ -490,11 +492,16 @@ export function createApiRuntimeConfig(
     ]);
   }
 
+  const corsAllowedOrigins = corsOriginValue
+    ? corsOriginValue.split(",").map((o) => o.trim()).filter((o) => o.length > 0)
+    : [];
+
   return {
     authIdentities: authConfig.authIdentities,
     authSource: authConfig.authSource,
     authStrategy: authConfig.authStrategy,
     bodyLimitBytes,
+    corsAllowedOrigins,
     dataDirectory,
     host,
     persistenceBackend,

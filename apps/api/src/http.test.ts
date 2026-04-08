@@ -1593,4 +1593,116 @@ Lacct-expense-utilities
 
     await fixture.cleanup();
   });
+
+  it("responds to OPTIONS preflight requests without requiring auth", async () => {
+    const fixture = await createFixture();
+    const service = createWorkspaceService({
+      repository: createFileSystemWorkspaceRepository({ rootDirectory: fixture.directory }),
+    });
+    const handler = createHttpHandler({
+      authIdentities: [{ actor: "Primary", role: "admin", token: "top-secret" }],
+      corsAllowedOrigins: ["https://app.example.com"],
+      service,
+    });
+
+    const response = await handler(
+      new Request(`http://localhost/api/workspaces/${fixture.workspace.id}/transactions`, {
+        method: "OPTIONS",
+        headers: { origin: "https://app.example.com" },
+      }),
+    );
+
+    expect(response.status).toBe(204);
+    expect(response.headers.get("access-control-allow-origin")).toBe("https://app.example.com");
+    expect(response.headers.get("access-control-allow-methods")).toBeTruthy();
+    expect(response.headers.get("access-control-allow-headers")).toBeTruthy();
+    expect(response.headers.get("access-control-max-age")).toBeTruthy();
+
+    await fixture.cleanup();
+  });
+
+  it("reflects configured allowed origin on cross-origin requests", async () => {
+    const fixture = await createFixture();
+    const service = createWorkspaceService({
+      repository: createFileSystemWorkspaceRepository({ rootDirectory: fixture.directory }),
+    });
+    const handler = createHttpHandler({
+      corsAllowedOrigins: ["https://app.example.com"],
+      service,
+    });
+
+    const response = await handler(
+      new Request(`http://localhost/api/workspaces/${fixture.workspace.id}`, {
+        headers: { origin: "https://app.example.com" },
+      }),
+    );
+
+    expect(response.headers.get("access-control-allow-origin")).toBe("https://app.example.com");
+    expect(response.headers.get("vary")).toBe("Origin");
+
+    await fixture.cleanup();
+  });
+
+  it("omits ACAO header when origin does not match configured allowed origins", async () => {
+    const fixture = await createFixture();
+    const service = createWorkspaceService({
+      repository: createFileSystemWorkspaceRepository({ rootDirectory: fixture.directory }),
+    });
+    const handler = createHttpHandler({
+      corsAllowedOrigins: ["https://app.example.com"],
+      service,
+    });
+
+    const response = await handler(
+      new Request(`http://localhost/api/workspaces/${fixture.workspace.id}`, {
+        headers: { origin: "https://evil.example.com" },
+      }),
+    );
+
+    expect(response.headers.get("access-control-allow-origin")).toBeNull();
+
+    await fixture.cleanup();
+  });
+
+  it("emits wildcard ACAO in non-production when no origins are configured", async () => {
+    const fixture = await createFixture();
+    const service = createWorkspaceService({
+      repository: createFileSystemWorkspaceRepository({ rootDirectory: fixture.directory }),
+    });
+    const handler = createHttpHandler({
+      runtimeMode: "development",
+      service,
+    });
+
+    const response = await handler(
+      new Request(`http://localhost/api/workspaces/${fixture.workspace.id}`, {
+        headers: { origin: "https://anything.example.com" },
+      }),
+    );
+
+    expect(response.headers.get("access-control-allow-origin")).toBe("*");
+
+    await fixture.cleanup();
+  });
+
+  it("omits ACAO header in production when no origins are configured", async () => {
+    const fixture = await createFixture();
+    const service = createWorkspaceService({
+      repository: createFileSystemWorkspaceRepository({ rootDirectory: fixture.directory }),
+    });
+    const handler = createHttpHandler({
+      runtimeMode: "production",
+      service,
+    });
+
+    const response = await handler(
+      new Request(`http://localhost/api/workspaces/${fixture.workspace.id}`, {
+        headers: { origin: "https://anything.example.com" },
+      }),
+    );
+
+    expect(response.headers.get("access-control-allow-origin")).toBeNull();
+
+    await fixture.cleanup();
+  });
 });

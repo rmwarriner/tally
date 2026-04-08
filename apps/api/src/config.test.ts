@@ -16,6 +16,7 @@ describe("api runtime config", () => {
       authSource: "none",
       authStrategy: "none",
       bodyLimitBytes: 1048576,
+      corsAllowedOrigins: [],
       dataDirectory: "/tmp/tally/data",
       host: "127.0.0.1",
       persistenceBackend: "json",
@@ -61,6 +62,7 @@ describe("api runtime config", () => {
       authSource: "env",
       authStrategy: "token",
       bodyLimitBytes: 1048576,
+      corsAllowedOrigins: [],
       dataDirectory: "/tmp/tally/var/workspaces",
       host: "0.0.0.0",
       persistenceBackend: "postgres",
@@ -353,6 +355,38 @@ describe("api runtime config", () => {
     expect(config.authIdentities).toEqual([
       { actor: "api-user", role: "admin", token: "legacy-token" },
     ]);
+  });
+
+  it("parses TALLY_CORS_ORIGIN into a list of allowed origins", () => {
+    const single = createApiRuntimeConfig(
+      {
+        TALLY_API_RUNTIME_MODE: "development",
+        TALLY_CORS_ORIGIN: "https://app.example.com",
+      },
+      "/tmp/tally",
+    );
+
+    expect(single.corsAllowedOrigins).toEqual(["https://app.example.com"]);
+
+    const multiple = createApiRuntimeConfig(
+      {
+        TALLY_API_RUNTIME_MODE: "development",
+        TALLY_CORS_ORIGIN: "https://app.example.com, https://admin.example.com",
+      },
+      "/tmp/tally",
+    );
+
+    expect(multiple.corsAllowedOrigins).toEqual([
+      "https://app.example.com",
+      "https://admin.example.com",
+    ]);
+
+    const empty = createApiRuntimeConfig(
+      { TALLY_API_RUNTIME_MODE: "development" },
+      "/tmp/tally",
+    );
+
+    expect(empty.corsAllowedOrigins).toEqual([]);
   });
 
   it("prefers TALLY_* env keys over legacy GNUCASH_NG_* keys when both are present", () => {

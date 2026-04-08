@@ -59,6 +59,7 @@ function logRuntimeConfiguration(logger: Logger, config: ApiRuntimeConfig): void
     authSource: config.authSource,
     authStrategy: config.authStrategy,
     bodyLimitBytes: config.bodyLimitBytes,
+    corsAllowedOriginCount: config.corsAllowedOrigins.length,
     dataDirectory: config.dataDirectory,
     host: config.host,
     persistenceBackend: config.persistenceBackend,
@@ -98,7 +99,9 @@ export function createApiRuntime(params: {
   const handler = createHttpHandler({
     authRequired: params.config.authStrategy !== "none",
     authIdentities: params.config.authIdentities,
+    corsAllowedOrigins: params.config.corsAllowedOrigins,
     logger,
+    runtimeMode: params.config.runtimeMode,
     maxBodyBytes: params.config.bodyLimitBytes,
     readinessProbe: async ({ logger: probeLogger }) => {
       try {

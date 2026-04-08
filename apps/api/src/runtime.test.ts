@@ -9,6 +9,7 @@ function createConfig(overrides: Partial<ApiRuntimeConfig> = {}): ApiRuntimeConf
     authSource: "none",
     authStrategy: "none",
     bodyLimitBytes: 1048576,
+    corsAllowedOrigins: [],
     dataDirectory: "/tmp/tally-runtime",
     host: "127.0.0.1",
     persistenceBackend: "json",

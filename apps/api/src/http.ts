@@ -8,6 +8,7 @@ import { parsePostRequestBody, parsePutRequestBody } from "./http-request-parsin
 import {
   isLivenessRoute,
   isMetricsRoute,
+  isOptionsRoute,
   isReadinessRoute,
   matchHttpDeleteRoutes,
   matchHttpPostRoutes,
@@ -42,6 +43,35 @@ import {
 } from "./validation";
 
 export type HttpHandler = (request: Request) => Promise<Response>;
+
+const CORS_ALLOW_METHODS = "GET, POST, PUT, DELETE, OPTIONS";
+const CORS_ALLOW_HEADERS =
+  "authorization, content-type, x-tally-api-key, x-gnucash-ng-api-key, x-request-id";
+const CORS_MAX_AGE = "86400";
+
+function resolveCorsOriginHeaders(
+  origin: string | null,
+  corsAllowedOrigins: string[],
+  runtimeMode: string,
+): Record<string, string> {
+  if (!origin) {
+    return {};
+  }
+
+  if (corsAllowedOrigins.length > 0) {
+    if (corsAllowedOrigins.includes(origin)) {
+      return { "access-control-allow-origin": origin, "vary": "Origin" };
+    }
+
+    return {};
+  }
+
+  if (runtimeMode !== "production") {
+    return { "access-control-allow-origin": "*" };
+  }
+
+  return {};
+}
 
 export interface ReadinessProbeResult {
   details?: Record<string, unknown>;
@@ -85,6 +115,7 @@ function textResponse(
 export function createHttpHandler(params: {
   authRequired?: boolean;
   authIdentities?: AuthIdentity[];
+  corsAllowedOrigins?: string[];
   logger?: Logger;
   maxBodyBytes?: number;
   metrics?: ApiMetrics;
@@ -95,6 +126,7 @@ export function createHttpHandler(params: {
     mutation: RateLimitPolicy;
     read: RateLimitPolicy;
   };
+  runtimeMode?: string;
   service: WorkspaceService;
   trustedHeaderAuth?: {
     actorHeader: string;
@@ -105,6 +137,8 @@ export function createHttpHandler(params: {
 }): HttpHandler {
   const logger = (params.logger ?? createNoopLogger()).child({ component: "httpHandler" });
   const authIdentities = params.authIdentities ?? [];
+  const corsAllowedOrigins = params.corsAllowedOrigins ?? [];
+  const runtimeMode = params.runtimeMode ?? "production";
   const maxBodyBytes = params.maxBodyBytes ?? 1048576;
   const authRequired =
     params.authRequired ?? (authIdentities.length > 0 || params.trustedHeaderAuth !== undefined);
@@ -139,6 +173,9 @@ export function createHttpHandler(params: {
     });
     requestLogger.info("http request started");
 
+    const origin = request.headers.get("origin");
+    const corsHeaders = resolveCorsOriginHeaders(origin, corsAllowedOrigins, runtimeMode);
+
     function completeJsonResponse(status: number, body: unknown, extraHeaders: Record<string, string> = {}): Response {
       recordHttpCompletion({
         method: request.method,
@@ -151,6 +188,7 @@ export function createHttpHandler(params: {
 
       return jsonResponse(status, body, {
         "x-request-id": requestId,
+        ...corsHeaders,
         ...extraHeaders,
       });
     }
@@ -167,7 +205,30 @@ export function createHttpHandler(params: {
 
       return textResponse(status, body, {
         "x-request-id": requestId,
+        ...corsHeaders,
         ...extraHeaders,
+      });
+    }
+
+    if (isOptionsRoute(request.method, path)) {
+      recordHttpCompletion({
+        method: request.method,
+        metrics,
+        requestLogger,
+        route,
+        startedAt,
+        status: 204,
+      });
+
+      return new Response(null, {
+        headers: {
+          "x-request-id": requestId,
+          ...corsHeaders,
+          "access-control-allow-headers": CORS_ALLOW_HEADERS,
+          "access-control-allow-methods": CORS_ALLOW_METHODS,
+          "access-control-max-age": CORS_MAX_AGE,
+        },
+        status: 204,
       });
     }
 
