@@ -93,7 +93,7 @@ export function buildGnuCashXmlExport(params: {
   const contents = [
     '<?xml version="1.0" encoding="utf-8"?>',
     '<gnc-v2 xmlns:ws="https://tally.dev/ns/workspace">',
-    `<ws:workspace schemaVersion="${book.schemaVersion}" id="${escapeXml(book.id)}" name="${escapeXml(book.name)}" baseCommodityCode="${escapeXml(book.baseCommodityCode)}">`,
+    `<ws:workspace schemaVersion="${book.schemaVersion}" version="${book.version}" id="${escapeXml(book.id)}" name="${escapeXml(book.name)}" baseCommodityCode="${escapeXml(book.baseCommodityCode)}">`,
     renderStringList("ws:householdMembers", book.householdMembers),
     renderHouseholdMemberRoles(book.householdMemberRoles),
     "<ws:commodities>",
@@ -277,6 +277,8 @@ export function parseGnuCashXml(contents: string): {
   const header = bookMatch[1] ?? "";
   const body = bookMatch[2] ?? "";
   const schemaVersion = Number.parseInt(extractAttribute(header, "schemaVersion") ?? "", 10);
+  const parsedVersion = Number.parseInt(extractAttribute(header, "version") ?? "1", 10);
+  const version = Number.isInteger(parsedVersion) && parsedVersion > 0 ? parsedVersion : 1;
   const id = extractAttribute(header, "id");
   const name = extractAttribute(header, "name");
   const baseCommodityCode = extractAttribute(header, "baseCommodityCode");
@@ -573,6 +575,7 @@ export function parseGnuCashXml(contents: string): {
       scheduledTransactions,
       schemaVersion: 1,
       transactions,
+      version,
     },
   };
 }

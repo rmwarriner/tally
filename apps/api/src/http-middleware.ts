@@ -1,6 +1,7 @@
 import type { Logger } from "@tally/logging";
 import { resolveAuthContext, type AuthContext, type AuthIdentity } from "./auth";
 import { ApiError, toErrorEnvelope } from "./errors";
+import type { ManagedAuthStore } from "./managed-auth-store";
 import type { ApiMetrics } from "./metrics";
 import type { RateLimiter, RateLimitPolicy } from "./rate-limit";
 
@@ -16,9 +17,10 @@ export interface RateLimitDecisionResult {
   status?: 429;
 }
 
-export function resolveHttpAuthentication(params: {
+export async function resolveHttpAuthentication(params: {
   authIdentities: AuthIdentity[];
   authRequired: boolean;
+  managedAuthStore?: ManagedAuthStore;
   request: Request;
   requestLogger: Logger;
   trustedHeaderAuth?: {
@@ -27,7 +29,7 @@ export function resolveHttpAuthentication(params: {
     proxyKeyHeader: string;
     roleHeader: string;
   };
-}): AuthResolutionResult {
+}): Promise<AuthResolutionResult> {
   const apiKeyHeader =
     params.request.headers.get("x-tally-api-key") ??
     params.request.headers.get("x-gnucash-ng-api-key");
@@ -42,6 +44,39 @@ export function resolveHttpAuthentication(params: {
   });
 
   if (!auth.ok || !auth.context) {
+    const bearerToken =
+      params.request.headers.get("authorization")?.startsWith("Bearer ")
+        ? params.request.headers.get("authorization")?.slice("Bearer ".length)
+        : apiKeyHeader ?? undefined;
+
+    if (bearerToken && params.managedAuthStore) {
+      const managedCredential = await params.managedAuthStore.verifyBearer(bearerToken, {
+        logger: params.requestLogger,
+      });
+      if (managedCredential) {
+        if (managedCredential.kind === "managed-token") {
+          return {
+            context: {
+              actor: managedCredential.actor,
+              kind: "managed-token",
+              role: managedCredential.role,
+              tokenId: managedCredential.tokenId,
+            },
+          };
+        }
+
+        return {
+          context: {
+            actor: managedCredential.actor,
+            kind: "session",
+            role: managedCredential.role,
+            sessionId: managedCredential.sessionId,
+            tokenId: managedCredential.tokenId,
+          },
+        };
+      }
+    }
+
     params.requestLogger.warn("http request authentication failed");
     return {
       errorBody: toErrorEnvelope(

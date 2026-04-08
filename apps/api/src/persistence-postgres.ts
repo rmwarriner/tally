@@ -70,8 +70,13 @@ export function createPostgresBookPersistenceBackend(params: {
       CREATE TABLE IF NOT EXISTS workspaces (
         id TEXT PRIMARY KEY,
         document_json TEXT NOT NULL,
+        version INTEGER NOT NULL DEFAULT 1,
         updated_at TIMESTAMPTZ NOT NULL
       );
+    `);
+    await pool.query(`
+      ALTER TABLE workspaces
+      ADD COLUMN IF NOT EXISTS version INTEGER NOT NULL DEFAULT 1
     `);
     await pool.query(`
       CREATE TABLE IF NOT EXISTS workspace_backups (
@@ -194,7 +199,10 @@ export function createPostgresBookPersistenceBackend(params: {
       }
     },
 
-    async save(document: FinanceBookDocument, options: { logger?: Logger } = {}): Promise<void> {
+    async save(
+      document: FinanceBookDocument,
+      options: { expectedVersion?: number; logger?: Logger } = {},
+    ): Promise<void> {
       validateBookIdentifier(document.id);
       const requestLogger = (options.logger ?? logger).child({
         component: "postgresBookPersistenceBackend",
@@ -205,17 +213,50 @@ export function createPostgresBookPersistenceBackend(params: {
 
       try {
         await ensureSchema();
-        const serialized = `${JSON.stringify(document)}\n`;
-        await pool.query(
-          `
-            INSERT INTO workspaces (id, document_json, updated_at)
-            VALUES ($1, $2, $3)
-            ON CONFLICT (id) DO UPDATE SET
-              document_json = EXCLUDED.document_json,
-              updated_at = EXCLUDED.updated_at
-          `,
-          [document.id, serialized, new Date().toISOString()],
+        const now = new Date().toISOString();
+        const existing = await pool.query<{ version: number }>(
+          "SELECT version FROM workspaces WHERE id = $1",
+          [document.id],
         );
+        const row = existing.rows[0];
+        const expectedVersion = options.expectedVersion;
+
+        if (expectedVersion !== undefined) {
+          if (!row || row.version !== expectedVersion) {
+            throw new ApiError({
+              code: "request.version_conflict",
+              details: {
+                expectedVersion: row?.version ?? 0,
+                providedVersion: expectedVersion,
+              },
+              message: "Book version conflict.",
+              status: 409,
+            });
+          }
+        }
+
+        const nextVersion = row ? row.version + 1 : Math.max(document.version ?? 1, 1);
+        const nextDocument = { ...document, version: nextVersion };
+        const serialized = `${JSON.stringify(nextDocument)}\n`;
+
+        if (row) {
+          await pool.query(
+            `
+              UPDATE workspaces
+              SET document_json = $1, version = $2, updated_at = $3
+              WHERE id = $4
+            `,
+            [serialized, nextVersion, now, document.id],
+          );
+        } else {
+          await pool.query(
+            `
+              INSERT INTO workspaces (id, document_json, version, updated_at)
+              VALUES ($1, $2, $3, $4)
+            `,
+            [document.id, serialized, nextVersion, now],
+          );
+        }
 
         requestLogger.info("book storage save completed", {
           transactionCount: document.transactions.length,

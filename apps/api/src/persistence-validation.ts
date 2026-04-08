@@ -51,6 +51,9 @@ export function validateBookDocumentForPersistence(
   document: FinanceBookDocument,
 ): BookValidationReport {
   const issues: string[] = [];
+  if (!Number.isInteger(document.version) || document.version < 1) {
+    issues.push("Book version must be a positive integer.");
+  }
   const accountIds = new Set(document.accounts.map((account) => account.id));
   const transactionIds = new Set(document.transactions.map((transaction) => transaction.id));
   const envelopeIds = new Set(document.envelopes.map((envelope) => envelope.id));

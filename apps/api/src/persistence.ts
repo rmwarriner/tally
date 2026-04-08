@@ -32,7 +32,10 @@ export interface BookPersistenceBackend {
     backupId: string,
     options?: { logger?: Logger },
   ): Promise<FinanceBookDocument>;
-  save(document: FinanceBookDocument, options?: { logger?: Logger }): Promise<void>;
+  save(
+    document: FinanceBookDocument,
+    options?: { expectedVersion?: number; logger?: Logger },
+  ): Promise<void>;
 }
 
 export interface BookPersistenceOptions {

@@ -36,6 +36,7 @@ const ledgerBook = createLedgerBookModel({
     name: "Household",
     reconciliationSessions: [],
     schemaVersion: 1,
+    version: 1,
     scheduledTransactions: [
       {
         autoPost: false,

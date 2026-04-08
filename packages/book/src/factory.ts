@@ -21,6 +21,7 @@ const defaultCommodities: Commodity[] = [
 export function createDemoBook(): FinanceBookDocument {
   return {
     schemaVersion: 1,
+    version: 1,
     id: "workspace-household-demo",
     name: "Household Finance",
     baseCommodityCode: "USD",

@@ -5,8 +5,8 @@ import { resolveHttpAuthentication, evaluateHttpRateLimit, recordHttpCompletion 
 import { createInMemoryRateLimiter } from "./rate-limit";
 
 describe("http middleware", () => {
-  it("resolves default local auth when auth is not required", () => {
-    const result = resolveHttpAuthentication({
+  it("resolves default local auth when auth is not required", async () => {
+    const result = await resolveHttpAuthentication({
       authIdentities: [],
       authRequired: false,
       request: new Request("http://localhost/api/books/demo"),
@@ -17,8 +17,8 @@ describe("http middleware", () => {
     expect(result.status).toBeUndefined();
   });
 
-  it("returns auth.required envelope when auth fails", () => {
-    const result = resolveHttpAuthentication({
+  it("returns auth.required envelope when auth fails", async () => {
+    const result = await resolveHttpAuthentication({
       authIdentities: [],
       authRequired: true,
       request: new Request("http://localhost/api/books/demo"),
@@ -35,11 +35,11 @@ describe("http middleware", () => {
     });
   });
 
-  it("accepts legacy api key header during transition", () => {
+  it("accepts legacy api key header during transition", async () => {
     const headers = new Headers();
     headers.set("x-gnucash-ng-api-key", "legacy-token");
 
-    const result = resolveHttpAuthentication({
+    const result = await resolveHttpAuthentication({
       authIdentities: [{ actor: "legacy", role: "admin", token: "legacy-token" }],
       authRequired: true,
       request: new Request("http://localhost/api/books/demo", { headers }),

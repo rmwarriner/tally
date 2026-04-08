@@ -26,6 +26,19 @@ export type AuthContext =
       kind: "token";
       role: AuthRole;
       token: string;
+    }
+  | {
+      actor: string;
+      kind: "managed-token";
+      role: "admin" | "member";
+      tokenId: string;
+    }
+  | {
+      actor: string;
+      kind: "session";
+      role: "admin" | "member";
+      sessionId: string;
+      tokenId: string;
     };
 
 export interface AuthResolution {

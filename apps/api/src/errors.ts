@@ -8,8 +8,12 @@ export type ApiErrorCode =
   | "repository.unavailable"
   | "request.invalid"
   | "request.not_found"
+  | "request.precondition_required"
   | "request.too_large"
   | "request.unsupported_media_type"
+  | "request.version_conflict"
+  | "request.idempotency_conflict"
+  | "request.idempotency_in_progress"
   | "security.rate_limited"
   | "validation.failed"
   | "book.not_found";

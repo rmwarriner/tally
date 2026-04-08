@@ -1,6 +1,6 @@
 # Security Standards
 
-Last reviewed: 2026-04-06
+Last reviewed: 2026-04-08
 
 ## Policy
 
@@ -34,6 +34,9 @@ Changes are incomplete if they introduce new operational behavior without consid
 - API routes must enforce rate limiting with stricter thresholds for imports and mutations
 - workspace identifiers must be constrained and path-safe
 - responses for financial data must use `Cache-Control: no-store`
+- existing-book write routes must enforce optimistic locking via `If-Match: "book-<version>"`
+- POST mutation/import routes must support durable idempotency keys with replay and conflict protection
+- managed API token/session credentials must be stored as hashes, enforce revocation, and enforce session expiry
 
 ## Data Baseline
 

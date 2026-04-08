@@ -113,6 +113,7 @@ describe("web shell view model", () => {
         name: "Household",
         reconciliationSessions: [],
         schemaVersion: 1,
+        version: 1,
         scheduledTransactions: [],
         transactions: [
           {
@@ -494,6 +495,7 @@ describe("web shell view model", () => {
           },
         ],
         schemaVersion: 1,
+        version: 1,
         scheduledTransactions: [],
         transactions: [
           {
@@ -561,6 +563,7 @@ describe("web shell view model", () => {
         name: "Household",
         reconciliationSessions: [],
         schemaVersion: 1,
+        version: 1,
         scheduledTransactions: [],
         transactions: [
           {
@@ -629,6 +632,7 @@ describe("web shell view model", () => {
         name: "Household",
         reconciliationSessions: [],
         schemaVersion: 1,
+        version: 1,
         scheduledTransactions: [],
         transactions: [
           {

@@ -16,7 +16,10 @@ export interface BookRepository {
     backupId: string,
     options?: { logger?: Logger },
   ): Promise<FinanceBookDocument>;
-  save(document: FinanceBookDocument, options?: { logger?: Logger }): Promise<void>;
+  save(
+    document: FinanceBookDocument,
+    options?: { expectedVersion?: number; logger?: Logger },
+  ): Promise<void>;
 }
 
 export function createBookRepository(params: {
@@ -48,8 +51,12 @@ export function createBookRepository(params: {
         }),
       });
     },
-    async save(document: FinanceBookDocument, options: { logger?: Logger } = {}): Promise<void> {
+    async save(
+      document: FinanceBookDocument,
+      options: { expectedVersion?: number; logger?: Logger } = {},
+    ): Promise<void> {
       await params.backend.save(document, {
+        expectedVersion: options.expectedVersion,
         logger: (options.logger ?? logger).child({
           component: "bookRepository",
           operation: "saveBook",

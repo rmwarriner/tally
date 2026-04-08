@@ -276,6 +276,22 @@ export function createBookService(params: {
     return { access, auth, logger: requestLogger, repository: params.repository, bookId };
   }
 
+  function expectedVersionOf(request: unknown): number | undefined {
+    const value = (request as { ifMatchVersion?: unknown }).ifMatchVersion;
+    return typeof value === "number" ? value : undefined;
+  }
+
+  function ensureExpectedVersion(book: { version: number }, expectedVersion: number | undefined): void {
+    if (expectedVersion !== undefined && expectedVersion !== book.version) {
+      throw new ApiError({
+        code: "request.version_conflict",
+        details: { expectedVersion: book.version, providedVersion: expectedVersion },
+        message: "Book version conflict.",
+        status: 409,
+      });
+    }
+  }
+
   function isSafeIdentifier(identifier: string): boolean {
     return /^[a-zA-Z0-9:._-]+$/.test(identifier);
   }
@@ -758,6 +774,7 @@ export function createBookService(params: {
           reconciliationSessions: [],
           scheduledTransactions: [],
           schemaVersion: 1 as const,
+          version: 1,
           transactions: [],
         };
 
@@ -783,6 +800,7 @@ export function createBookService(params: {
       return withWorkspace<AttachmentEnvelope | ErrorEnvelope>(
         serviceParams("write", request.auth, requestLogger, request.bookId),
         async (book) => {
+          ensureExpectedVersion(book, expectedVersionOf(request));
           const attachmentId = randomUUID();
           const createdAt = new Date().toISOString();
           const nextAttachment = {
@@ -801,9 +819,15 @@ export function createBookService(params: {
 
           await mkdir(resolve(join(attachmentRoot, request.bookId)), { recursive: true });
           await writeFile(attachmentPath(request.bookId, attachmentId), request.payload.bytes);
-          await params.repository.save(nextDocument, { logger: requestLogger });
+          await params.repository.save(nextDocument, {
+            expectedVersion: book.version,
+            logger: requestLogger,
+          });
+          const savedBook = await params.repository.load(nextDocument.id, { logger: requestLogger });
           requestLogger.info("service command completed", { attachmentId });
-          return success(201, { attachment: nextAttachment });
+          return success(201, {
+            attachment: (savedBook.attachments ?? []).find((candidate) => candidate.id === attachmentId) ?? nextAttachment,
+          });
         },
       );
     },
@@ -834,7 +858,8 @@ export function createBookService(params: {
       requestLogger.info("service command started");
       return withWorkspace(
         serviceParams("operate", request.auth, requestLogger, request.bookId),
-        async () => {
+        async (book) => {
+          ensureExpectedVersion(book, expectedVersionOf(request));
           const restored = await params.repository.restoreBackup(request.bookId, request.backupId, { logger: requestLogger });
           await restoreAttachmentBackupSnapshot(request.bookId, request.backupId);
           requestLogger.info("service command completed", { backupId: request.backupId });
@@ -853,7 +878,7 @@ export function createBookService(params: {
       });
       requestLogger.info("service command started");
       return withMutation(
-        { ...serviceParams("write", request.auth, requestLogger, request.bookId), successStatus: 201 },
+        { ...serviceParams("write", request.auth, requestLogger, request.bookId), expectedVersion: expectedVersionOf(request), successStatus: 201 },
         (book, audit) => addTransaction(book, request.transaction, { audit, logger: requestLogger }),
       );
     },
@@ -869,6 +894,7 @@ export function createBookService(params: {
       return withWorkspace<BookEnvelope | ErrorEnvelope>(
         serviceParams("write", request.auth, requestLogger, request.bookId),
         async (book) => {
+          ensureExpectedVersion(book, expectedVersionOf(request));
           const transaction = book.transactions.find((candidate) => candidate.id === request.transactionId);
           if (!transaction) {
             return failure(
@@ -914,9 +940,13 @@ export function createBookService(params: {
             ),
           };
 
-          await params.repository.save(nextDocument, { logger: requestLogger });
+          await params.repository.save(nextDocument, {
+            expectedVersion: book.version,
+            logger: requestLogger,
+          });
+          const savedBook = await params.repository.load(nextDocument.id, { logger: requestLogger });
           requestLogger.info("service command completed");
-          return success(200, { book: presentBook(nextDocument) });
+          return success(200, { book: presentBook(savedBook) });
         },
       );
     },
@@ -932,6 +962,7 @@ export function createBookService(params: {
       return withWorkspace<BookEnvelope | ErrorEnvelope>(
         serviceParams("write", request.auth, requestLogger, request.bookId),
         async (book) => {
+          ensureExpectedVersion(book, expectedVersionOf(request));
           const transaction = book.transactions.find((candidate) => candidate.id === request.transactionId);
           if (!transaction) {
             return failure(
@@ -981,9 +1012,13 @@ export function createBookService(params: {
             }),
           };
 
-          await params.repository.save(nextDocument, { logger: requestLogger });
+          await params.repository.save(nextDocument, {
+            expectedVersion: book.version,
+            logger: requestLogger,
+          });
+          const savedBook = await params.repository.load(nextDocument.id, { logger: requestLogger });
           requestLogger.info("service command completed");
-          return success(200, { book: presentBook(nextDocument) });
+          return success(200, { book: presentBook(savedBook) });
         },
       );
     },
@@ -996,7 +1031,7 @@ export function createBookService(params: {
       });
       requestLogger.info("service command started");
       return withMutation(
-        { ...serviceParams("write", request.auth, requestLogger, request.bookId), successStatus: 200 },
+        { ...serviceParams("write", request.auth, requestLogger, request.bookId), expectedVersion: expectedVersionOf(request), successStatus: 200 },
         (book, audit) => updateTransaction(book, request.transactionId, request.transaction, { audit, logger: requestLogger }),
       );
     },
@@ -1009,7 +1044,7 @@ export function createBookService(params: {
       });
       requestLogger.info("service command started");
       return withMutation(
-        { ...serviceParams("write", request.auth, requestLogger, request.bookId), successStatus: 200 },
+        { ...serviceParams("write", request.auth, requestLogger, request.bookId), expectedVersion: expectedVersionOf(request), successStatus: 200 },
         (book, audit) => deleteTransaction(book, request.transactionId, {}, { audit, logger: requestLogger }),
       );
     },
@@ -1022,7 +1057,7 @@ export function createBookService(params: {
       });
       requestLogger.info("service command started");
       return withMutation(
-        { ...serviceParams("write", request.auth, requestLogger, request.bookId), successStatus: 200 },
+        { ...serviceParams("write", request.auth, requestLogger, request.bookId), expectedVersion: expectedVersionOf(request), successStatus: 200 },
         (book, audit) => restoreTransaction(book, request.transactionId, { audit, logger: requestLogger }),
       );
     },
@@ -1035,7 +1070,7 @@ export function createBookService(params: {
       });
       requestLogger.info("service command started");
       return withMutation(
-        { ...serviceParams("destroy", request.auth, requestLogger, request.bookId), successStatus: 200 },
+        { ...serviceParams("destroy", request.auth, requestLogger, request.bookId), expectedVersion: expectedVersionOf(request), successStatus: 200 },
         (book, audit) => destroyTransaction(book, request.transactionId, { audit, logger: requestLogger }),
       );
     },
@@ -1049,7 +1084,7 @@ export function createBookService(params: {
       });
       requestLogger.info("service command started");
       return withMutation(
-        { ...serviceParams("write", request.auth, requestLogger, request.bookId), successStatus: 201 },
+        { ...serviceParams("write", request.auth, requestLogger, request.bookId), expectedVersion: expectedVersionOf(request), successStatus: 201 },
         (book, audit) =>
           executeScheduledTransaction(
             book,
@@ -1068,7 +1103,7 @@ export function createBookService(params: {
       });
       requestLogger.info("service command started");
       return withMutation(
-        { ...serviceParams("write", request.auth, requestLogger, request.bookId), successStatus: 200 },
+        { ...serviceParams("write", request.auth, requestLogger, request.bookId), expectedVersion: expectedVersionOf(request), successStatus: 200 },
         (book, audit) =>
           applyScheduledTransactionException(
             book,
@@ -1086,7 +1121,7 @@ export function createBookService(params: {
       });
       requestLogger.info("service command started");
       return withMutation(
-        { ...serviceParams("write", request.auth, requestLogger, request.bookId), successStatus: 200 },
+        { ...serviceParams("write", request.auth, requestLogger, request.bookId), expectedVersion: expectedVersionOf(request), successStatus: 200 },
         (book, audit) => upsertScheduledTransaction(book, request.schedule, { audit, logger: requestLogger }),
       );
     },
@@ -1099,7 +1134,7 @@ export function createBookService(params: {
       });
       requestLogger.info("service command started");
       return withMutation(
-        { ...serviceParams("write", request.auth, requestLogger, request.bookId), successStatus: 200 },
+        { ...serviceParams("write", request.auth, requestLogger, request.bookId), expectedVersion: expectedVersionOf(request), successStatus: 200 },
         (book, audit) => upsertEnvelope(book, request.envelope, { audit, logger: requestLogger }),
       );
     },
@@ -1113,7 +1148,7 @@ export function createBookService(params: {
       });
       requestLogger.info("service command started");
       return withMutation(
-        { ...serviceParams("write", request.auth, requestLogger, request.bookId), successStatus: 200 },
+        { ...serviceParams("write", request.auth, requestLogger, request.bookId), expectedVersion: expectedVersionOf(request), successStatus: 200 },
         (book, audit) => recordEnvelopeAllocation(book, request.allocation, { audit, logger: requestLogger }),
       );
     },
@@ -1127,7 +1162,7 @@ export function createBookService(params: {
       });
       requestLogger.info("service command started");
       return withMutation(
-        { ...serviceParams("write", request.auth, requestLogger, request.bookId), successStatus: 200 },
+        { ...serviceParams("write", request.auth, requestLogger, request.bookId), expectedVersion: expectedVersionOf(request), successStatus: 200 },
         (book, audit) => upsertBaselineBudgetLine(book, request.line, { audit, logger: requestLogger }),
       );
     },
@@ -1141,7 +1176,7 @@ export function createBookService(params: {
       });
       requestLogger.info("service command started");
       return withMutation(
-        { ...serviceParams("operate", request.auth, requestLogger, request.bookId), successStatus: 201 },
+        { ...serviceParams("operate", request.auth, requestLogger, request.bookId), expectedVersion: expectedVersionOf(request), successStatus: 201 },
         (book, audit) =>
           closeBookPeriod(
             book,
@@ -1159,7 +1194,7 @@ export function createBookService(params: {
       });
       requestLogger.info("service command started");
       return withMutation(
-        { ...serviceParams("operate", request.auth, requestLogger, request.bookId), successStatus: 201 },
+        { ...serviceParams("operate", request.auth, requestLogger, request.bookId), expectedVersion: expectedVersionOf(request), successStatus: 201 },
         (book, audit) => importTransactionsFromQif(book, request.payload, { audit, logger: requestLogger }),
       );
     },
@@ -1173,7 +1208,7 @@ export function createBookService(params: {
       });
       requestLogger.info("service command started");
       return withMutation(
-        { ...serviceParams("operate", request.auth, requestLogger, request.bookId), successStatus: 201 },
+        { ...serviceParams("operate", request.auth, requestLogger, request.bookId), expectedVersion: expectedVersionOf(request), successStatus: 201 },
         (book, audit) => importTransactionsFromStatement(book, request.payload, { audit, logger: requestLogger }),
       );
     },
@@ -1185,7 +1220,7 @@ export function createBookService(params: {
       });
       requestLogger.info("service command started");
       return withMutation(
-        { ...serviceParams("operate", request.auth, requestLogger, request.bookId), successStatus: 200 },
+        { ...serviceParams("operate", request.auth, requestLogger, request.bookId), expectedVersion: expectedVersionOf(request), successStatus: 200 },
         (book, audit) => importBookFromGnuCashXml(book, request.payload, { audit, logger: requestLogger }),
       );
     },
@@ -1198,7 +1233,7 @@ export function createBookService(params: {
       });
       requestLogger.info("service command started");
       return withMutation(
-        { ...serviceParams("operate", request.auth, requestLogger, request.bookId), successStatus: 200 },
+        { ...serviceParams("operate", request.auth, requestLogger, request.bookId), expectedVersion: expectedVersionOf(request), successStatus: 200 },
         (book, audit) =>
           importTransactionsFromCsvRows(
             book,
@@ -1262,7 +1297,7 @@ export function createBookService(params: {
     async addHouseholdMember(request) {
       const requestLogger = getRequestLogger(request.logger);
       return withMutation(
-        { ...serviceParams("manage", request.auth, requestLogger, request.bookId), successStatus: 200 },
+        { ...serviceParams("manage", request.auth, requestLogger, request.bookId), expectedVersion: expectedVersionOf(request), successStatus: 200 },
         (book, audit) => addHouseholdMember(book, request.payload, { audit, logger: requestLogger }),
       );
     },
@@ -1270,7 +1305,7 @@ export function createBookService(params: {
     async setHouseholdMemberRole(request) {
       const requestLogger = getRequestLogger(request.logger);
       return withMutation(
-        { ...serviceParams("manage", request.auth, requestLogger, request.bookId), successStatus: 200 },
+        { ...serviceParams("manage", request.auth, requestLogger, request.bookId), expectedVersion: expectedVersionOf(request), successStatus: 200 },
         (book, audit) =>
           setHouseholdMemberRole(
             book,
@@ -1285,6 +1320,7 @@ export function createBookService(params: {
       return withWorkspace<BookEnvelope | ErrorEnvelope>(
         serviceParams("manage", request.auth, requestLogger, request.bookId),
         async (book, authorization) => {
+          ensureExpectedVersion(book, expectedVersionOf(request));
           const audit = buildAuthorizationAuditContext(request.auth.actor, authorization);
           const result = removeHouseholdMember(
             book,
@@ -1304,9 +1340,13 @@ export function createBookService(params: {
             );
           }
 
-          await params.repository.save(result.document, { logger: requestLogger });
+          await params.repository.save(result.document, {
+            expectedVersion: book.version,
+            logger: requestLogger,
+          });
+          const savedBook = await params.repository.load(result.document.id, { logger: requestLogger });
           requestLogger.info("service command completed");
-          return success(200, { book: presentBook(result.document) });
+          return success(200, { book: presentBook(savedBook) });
         },
       );
     },
@@ -1360,7 +1400,7 @@ export function createBookService(params: {
       });
       requestLogger.info("service command started");
       return withMutation(
-        { ...serviceParams("destroy", request.auth, requestLogger, request.bookId), successStatus: 201 },
+        { ...serviceParams("destroy", request.auth, requestLogger, request.bookId), expectedVersion: expectedVersionOf(request), successStatus: 201 },
         (book, audit) =>
           requestApproval(
             book,
@@ -1383,7 +1423,7 @@ export function createBookService(params: {
       });
       requestLogger.info("service command started");
       return withMutation(
-        { ...serviceParams("destroy", request.auth, requestLogger, request.bookId), successStatus: 200 },
+        { ...serviceParams("destroy", request.auth, requestLogger, request.bookId), expectedVersion: expectedVersionOf(request), successStatus: 200 },
         (book, audit) =>
           grantApproval(
             book,
@@ -1401,7 +1441,7 @@ export function createBookService(params: {
       });
       requestLogger.info("service command started");
       return withMutation(
-        { ...serviceParams("destroy", request.auth, requestLogger, request.bookId), successStatus: 200 },
+        { ...serviceParams("destroy", request.auth, requestLogger, request.bookId), expectedVersion: expectedVersionOf(request), successStatus: 200 },
         (book, audit) =>
           denyApproval(
             book,
@@ -1429,7 +1469,7 @@ export function createBookService(params: {
     async postAccount(request) {
       const requestLogger = getRequestLogger(request.logger);
       return withMutation(
-        { ...serviceParams("manage", request.auth, requestLogger, request.bookId), successStatus: 200 },
+        { ...serviceParams("manage", request.auth, requestLogger, request.bookId), expectedVersion: expectedVersionOf(request), successStatus: 200 },
         (workspace, audit) => upsertAccount(workspace, request.account, { audit, logger: requestLogger }),
       );
     },
@@ -1439,6 +1479,7 @@ export function createBookService(params: {
       return withWorkspace<BookEnvelope | ErrorEnvelope>(
         serviceParams("manage", request.auth, requestLogger, request.bookId),
         async (workspace, authorization) => {
+          ensureExpectedVersion(workspace, expectedVersionOf(request));
           const audit = buildAuthorizationAuditContext(request.auth.actor, authorization);
           const result = archiveAccount(
             workspace,
@@ -1458,9 +1499,13 @@ export function createBookService(params: {
             );
           }
 
-          await params.repository.save(result.document, { logger: requestLogger });
+          await params.repository.save(result.document, {
+            expectedVersion: workspace.version,
+            logger: requestLogger,
+          });
+          const savedBook = await params.repository.load(result.document.id, { logger: requestLogger });
           requestLogger.info("service command completed");
-          return success(200, { book: presentBook(result.document) });
+          return success(200, { book: presentBook(savedBook) });
         },
       );
     },

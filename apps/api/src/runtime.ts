@@ -3,6 +3,8 @@ import { createConsoleSink, createLogger, type ConsoleLogFormat, type Logger } f
 import { createApiRuntimeConfig, type ApiRuntimeConfig, type ApiRuntimeMode } from "./config";
 import { ConfigValidationError } from "./errors";
 import { createHttpHandler, createNodeHttpServer } from "./http";
+import { createIdempotencyStore } from "./idempotency-store";
+import { createManagedAuthStore } from "./managed-auth-store";
 import { createBookPersistenceBackend } from "./persistence";
 import { createInMemoryRateLimiter } from "./rate-limit";
 import { createBookRepository } from "./repository";
@@ -96,6 +98,8 @@ export function createApiRuntime(params: {
     logger,
   });
   const service = createBookService({ dataDirectory: params.config.dataDirectory, logger, repository });
+  const idempotencyStore = createIdempotencyStore({ config: params.config, logger });
+  const managedAuthStore = createManagedAuthStore({ config: params.config, logger });
   const handler = createHttpHandler({
     authRequired: params.config.authStrategy !== "none",
     authIdentities: params.config.authIdentities,
@@ -151,6 +155,8 @@ export function createApiRuntime(params: {
         windowMs: params.config.rateLimit.windowMs,
       },
     },
+    idempotencyStore,
+    managedAuthStore,
     service,
     trustedHeaderAuth: params.config.trustedHeaderAuth,
   });
@@ -216,6 +222,12 @@ export function createApiRuntime(params: {
             started = false;
             if (persistenceBackend.close) {
               await persistenceBackend.close();
+            }
+            if (idempotencyStore.close) {
+              await idempotencyStore.close();
+            }
+            if (managedAuthStore.close) {
+              await managedAuthStore.close();
             }
             logger.info("api server shutdown completed", {
               signal: signal ?? "manual",

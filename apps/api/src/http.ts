@@ -17,6 +17,9 @@ import {
   normalizeRouteLabel,
 } from "./http-routes";
 import { createInMemoryApiMetrics, type ApiMetrics } from "./metrics";
+import type { IdempotencyStore } from "./idempotency-store";
+import { buildIdempotencyRequestHash } from "./idempotency-store";
+import type { ManagedAuthStore } from "./managed-auth-store";
 import { createInMemoryRateLimiter, type RateLimiter, type RateLimitPolicy } from "./rate-limit";
 import type { BookService } from "./service";
 import {
@@ -50,7 +53,7 @@ export type HttpHandler = (request: Request) => Promise<Response>;
 
 const CORS_ALLOW_METHODS = "GET, POST, PUT, DELETE, OPTIONS";
 const CORS_ALLOW_HEADERS =
-  "authorization, content-type, x-tally-api-key, x-gnucash-ng-api-key, x-request-id";
+  "authorization, content-type, if-match, idempotency-key, x-tally-api-key, x-gnucash-ng-api-key, x-request-id";
 const CORS_MAX_AGE = "86400";
 
 function resolveCorsOriginHeaders(
@@ -121,7 +124,9 @@ function binaryResponse(
   body: Uint8Array,
   extraHeaders: Record<string, string> = {},
 ): Response {
-  return new Response(body, {
+  const normalizedBody = new Uint8Array(body.byteLength);
+  normalizedBody.set(body);
+  return new Response(normalizedBody.buffer, {
     headers: {
       "cache-control": "no-store",
       "content-security-policy": "default-src 'none'; frame-ancestors 'none'; base-uri 'none'",
@@ -141,6 +146,8 @@ export function createHttpHandler(params: {
   logger?: Logger;
   maxBodyBytes?: number;
   metrics?: ApiMetrics;
+  idempotencyStore?: IdempotencyStore;
+  managedAuthStore?: ManagedAuthStore;
   readinessProbe?: (input: { logger: Logger }) => Promise<ReadinessProbeResult>;
   rateLimiter?: RateLimiter;
   rateLimitPolicy?: {
@@ -199,8 +206,29 @@ export function createHttpHandler(params: {
 
     const origin = request.headers.get("origin");
     const corsHeaders = resolveCorsOriginHeaders(origin, corsAllowedOrigins, runtimeMode);
+    let activeIdempotencyScopeKey: string | undefined;
 
-    function completeJsonResponse(status: number, body: unknown, extraHeaders: Record<string, string> = {}): Response {
+    function versionHeadersForBody(body: unknown): Record<string, string> {
+      if (!body || typeof body !== "object" || !("book" in (body as Record<string, unknown>))) {
+        return {};
+      }
+
+      const book = (body as { book?: { version?: unknown } }).book;
+      if (!book || typeof book.version !== "number") {
+        return {};
+      }
+
+      return {
+        etag: `"book-${book.version}"`,
+        "x-book-version": String(book.version),
+      };
+    }
+
+    async function completeJsonResponse(
+      status: number,
+      body: unknown,
+      extraHeaders: Record<string, string> = {},
+    ): Promise<Response> {
       recordHttpCompletion({
         method: request.method,
         metrics,
@@ -210,11 +238,25 @@ export function createHttpHandler(params: {
         status,
       });
 
-      return jsonResponse(status, body, {
+      const responseHeaders = {
         "x-request-id": requestId,
         ...corsHeaders,
+        ...versionHeadersForBody(body),
         ...extraHeaders,
-      });
+      };
+
+      if (activeIdempotencyScopeKey && params.idempotencyStore) {
+        await params.idempotencyStore.complete({
+          response: {
+            body,
+            headers: responseHeaders,
+            status,
+          },
+          scopeKey: activeIdempotencyScopeKey,
+        });
+      }
+
+      return jsonResponse(status, body, responseHeaders);
     }
 
     function completeTextResponse(status: number, body: string, extraHeaders: Record<string, string> = {}): Response {
@@ -306,9 +348,10 @@ export function createHttpHandler(params: {
       return completeTextResponse(200, metrics.renderPrometheus());
     }
 
-    const auth = resolveHttpAuthentication({
+    const auth = await resolveHttpAuthentication({
       authIdentities,
       authRequired,
+      managedAuthStore: params.managedAuthStore,
       request,
       requestLogger,
       trustedHeaderAuth: params.trustedHeaderAuth,
@@ -336,8 +379,66 @@ export function createHttpHandler(params: {
         return null;
       }
 
-      return completeJsonResponse(rateLimit.status, rateLimit.body, rateLimit.headers ?? {});
+      return jsonResponse(rateLimit.status, rateLimit.body, rateLimit.headers ?? {});
     }
+
+    function parseIfMatchVersion(headerValue: string | null): number | undefined {
+      if (!headerValue) {
+        return undefined;
+      }
+
+      const trimmed = headerValue.trim();
+      const match = /^"book-(\d+)"$/.exec(trimmed);
+      if (!match) {
+        throw new ApiError({
+          code: "validation.failed",
+          details: { issues: ["If-Match must use the format \"book-<version>\"."] },
+          message: "If-Match must use the format \"book-<version>\".",
+          status: 400,
+        });
+      }
+
+      return Number.parseInt(match[1], 10);
+    }
+
+    const requiresBookPrecondition =
+      (request.method === "POST" || request.method === "PUT" || request.method === "DELETE") &&
+      /^\/api\/books\/[^/]+/.test(path);
+    const isBookCreateRoute = request.method === "POST" && path === "/api/books";
+
+    let ifMatchVersion: number | undefined;
+    if (requiresBookPrecondition && !isBookCreateRoute) {
+      try {
+        ifMatchVersion = parseIfMatchVersion(request.headers.get("if-match"));
+      } catch (error) {
+        return completeJsonResponse(
+          400,
+          toErrorEnvelope(
+            error instanceof ApiError
+              ? error
+              : new ApiError({
+                  code: "validation.failed",
+                  message: "If-Match must use the format \"book-<version>\".",
+                  status: 400,
+                }),
+          ),
+        );
+      }
+
+      if (ifMatchVersion === undefined) {
+        return completeJsonResponse(
+          428,
+          toErrorEnvelope(
+            new ApiError({
+              code: "request.precondition_required",
+              message: "If-Match is required for book write routes.",
+              status: 428,
+            }),
+          ),
+        );
+      }
+    }
+    const mutationPrecondition = ifMatchVersion !== undefined ? { ifMatchVersion } : {};
 
     if (request.method === "GET") {
       const {
@@ -356,8 +457,40 @@ export function createHttpHandler(params: {
         statementExportMatch,
         transactionsMatch,
         attachmentDownloadMatch,
+        tokensMatch,
         bookMatch,
       } = matchHttpReadRoutes(path);
+
+      if (tokensMatch) {
+        if (!params.managedAuthStore) {
+          return completeJsonResponse(
+            503,
+            toErrorEnvelope(
+              new ApiError({
+                code: "repository.unavailable",
+                message: "Managed auth store is unavailable.",
+                status: 503,
+              }),
+            ),
+          );
+        }
+
+        if (!(auth.context.role === "admin" || auth.context.role === "local-admin")) {
+          return completeJsonResponse(
+            403,
+            toErrorEnvelope(
+              new ApiError({
+                code: "auth.forbidden",
+                message: "Admin authority is required.",
+                status: 403,
+              }),
+            ),
+          );
+        }
+
+        const tokens = await params.managedAuthStore.listTokens({ logger: requestLogger });
+        return completeJsonResponse(200, { tokens });
+      }
 
       if (booksMatch) {
         const rateLimited = enforceRateLimit(rateLimitPolicy.read);
@@ -406,6 +539,7 @@ export function createHttpHandler(params: {
         const response = await params.service.getBook({
           auth: auth.context,
           logger: requestLogger,
+          ...mutationPrecondition,
           bookId,
         });
         return completeJsonResponse(response.status, response.body);
@@ -501,6 +635,7 @@ export function createHttpHandler(params: {
           attachmentId,
           auth: auth.context,
           logger: requestLogger,
+          ...mutationPrecondition,
           bookId,
         });
 
@@ -711,6 +846,7 @@ export function createHttpHandler(params: {
         const response = await params.service.getBook({
           auth: auth.context,
           logger: requestLogger,
+          ...mutationPrecondition,
           bookId,
         });
         return completeJsonResponse(response.status, response.body);
@@ -863,6 +999,7 @@ export function createHttpHandler(params: {
         const response = await params.service.getGnuCashXmlExport({
           auth: auth.context,
           logger: requestLogger,
+          ...mutationPrecondition,
           bookId,
         });
         return completeJsonResponse(response.status, response.body);
@@ -897,6 +1034,7 @@ export function createHttpHandler(params: {
         const response = await params.service.getBackups({
           auth: auth.context,
           logger: requestLogger,
+          ...mutationPrecondition,
           bookId,
         });
         return completeJsonResponse(response.status, response.body);
@@ -931,6 +1069,7 @@ export function createHttpHandler(params: {
         const response = await params.service.getHouseholdMembers({
           auth: auth.context,
           logger: requestLogger,
+          ...mutationPrecondition,
           bookId,
         });
         return completeJsonResponse(response.status, response.body);
@@ -968,6 +1107,7 @@ export function createHttpHandler(params: {
           auth: auth.context,
           includeArchived,
           logger: requestLogger,
+          ...mutationPrecondition,
           bookId,
         });
         return completeJsonResponse(response.status, response.body);
@@ -1002,6 +1142,7 @@ export function createHttpHandler(params: {
         const response = await params.service.getApprovals({
           auth: auth.context,
           logger: requestLogger,
+          ...mutationPrecondition,
           bookId,
         });
         return completeJsonResponse(response.status, response.body);
@@ -1091,7 +1232,116 @@ export function createHttpHandler(params: {
         attachmentUploadMatch,
         transactionAttachmentLinkMatch,
         transactionMatch,
+        tokensCreateMatch,
+        sessionsExchangeMatch,
       } = matchHttpPostRoutes(path);
+
+      const idempotencyKey = request.headers.get("idempotency-key")?.trim();
+      const idempotencyEligibleRoute =
+        booksCreateMatch !== null ||
+        accountMatch !== null ||
+        approvalGrantMatch !== null ||
+        approvalDenyMatch !== null ||
+        approvalRequestMatch !== null ||
+        backupRestoreMatch !== null ||
+        backupsCreateMatch !== null ||
+        budgetLineMatch !== null ||
+        closePeriodMatch !== null ||
+        csvImportMatch !== null ||
+        envelopeAllocationMatch !== null ||
+        envelopeMatch !== null ||
+        exceptionScheduleMatch !== null ||
+        executeScheduleMatch !== null ||
+        gnucashXmlImportMatch !== null ||
+        householdMemberMatch !== null ||
+        qifImportMatch !== null ||
+        reconciliationMatch !== null ||
+        restoreTransactionMatch !== null ||
+        scheduleMatch !== null ||
+        statementImportMatch !== null ||
+        attachmentUploadMatch !== null ||
+        transactionAttachmentLinkMatch !== null ||
+        transactionMatch !== null ||
+        tokensCreateMatch !== null ||
+        sessionsExchangeMatch !== null;
+      if (idempotencyKey && params.idempotencyStore && idempotencyEligibleRoute) {
+        const requestBodyBytes = new Uint8Array(await request.clone().arrayBuffer());
+        const requestHash = buildIdempotencyRequestHash({
+          contentType: request.headers.get("content-type"),
+          method: request.method,
+          path: route,
+          requestBodyBytes,
+        });
+        const scopedBookId =
+          booksCreateMatch?.[1] ??
+          accountMatch?.[1] ??
+          approvalGrantMatch?.[1] ??
+          approvalDenyMatch?.[1] ??
+          approvalRequestMatch?.[1] ??
+          backupRestoreMatch?.[1] ??
+          backupsCreateMatch?.[1] ??
+          budgetLineMatch?.[1] ??
+          closePeriodMatch?.[1] ??
+          csvImportMatch?.[1] ??
+          envelopeAllocationMatch?.[1] ??
+          envelopeMatch?.[1] ??
+          exceptionScheduleMatch?.[1] ??
+          executeScheduleMatch?.[1] ??
+          gnucashXmlImportMatch?.[1] ??
+          householdMemberMatch?.[1] ??
+          qifImportMatch?.[1] ??
+          reconciliationMatch?.[1] ??
+          restoreTransactionMatch?.[1] ??
+          scheduleMatch?.[1] ??
+          statementImportMatch?.[1] ??
+          attachmentUploadMatch?.[1] ??
+          transactionAttachmentLinkMatch?.[1] ??
+          transactionMatch?.[1];
+        const scopeKey = `${auth.context.actor}:${route}:${scopedBookId ?? "global"}:${idempotencyKey}`;
+        const beginResult = await params.idempotencyStore.begin({
+          expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(),
+          requestHash,
+          scopeKey,
+        });
+
+        if (beginResult.kind === "hash_conflict") {
+          return completeJsonResponse(
+            409,
+            toErrorEnvelope(
+              new ApiError({
+                code: "request.idempotency_conflict",
+                message: "Idempotency key is already used with a different request payload.",
+                status: 409,
+              }),
+            ),
+          );
+        }
+
+        if (beginResult.kind === "in_progress") {
+          return completeJsonResponse(
+            409,
+            toErrorEnvelope(
+              new ApiError({
+                code: "request.idempotency_in_progress",
+                message: "A request with this idempotency key is already in progress.",
+                status: 409,
+              }),
+            ),
+          );
+        }
+
+        if (beginResult.kind === "replay") {
+          return completeJsonResponse(
+            beginResult.response.status,
+            beginResult.response.body,
+            beginResult.response.headers,
+          );
+        }
+
+        activeIdempotencyScopeKey = scopeKey;
+      } else {
+        activeIdempotencyScopeKey = undefined;
+      }
 
       let body: unknown;
 
@@ -1116,6 +1366,121 @@ export function createHttpHandler(params: {
             ),
           );
         }
+      }
+
+      if (tokensCreateMatch) {
+        if (!params.managedAuthStore) {
+          return completeJsonResponse(
+            503,
+            toErrorEnvelope(
+              new ApiError({
+                code: "repository.unavailable",
+                message: "Managed auth store is unavailable.",
+                status: 503,
+              }),
+            ),
+          );
+        }
+
+        if (!(auth.context.role === "admin" || auth.context.role === "local-admin")) {
+          return completeJsonResponse(
+            403,
+            toErrorEnvelope(
+              new ApiError({
+                code: "auth.forbidden",
+                message: "Admin authority is required.",
+                status: 403,
+              }),
+            ),
+          );
+        }
+
+        if (!body || typeof body !== "object" || !("payload" in (body as Record<string, unknown>))) {
+          return completeJsonResponse(
+            400,
+            toErrorEnvelope(
+              new ApiError({
+                code: "validation.failed",
+                details: { issues: ["payload is required."] },
+                message: "payload is required.",
+                status: 400,
+              }),
+            ),
+          );
+        }
+
+        const payload = (body as { payload: Record<string, unknown> }).payload;
+        if (typeof payload.actor !== "string" || payload.actor.trim().length === 0) {
+          return completeJsonResponse(
+            400,
+            toErrorEnvelope(
+              new ApiError({
+                code: "validation.failed",
+                details: { issues: ["payload.actor is required."] },
+                message: "payload.actor is required.",
+                status: 400,
+              }),
+            ),
+          );
+        }
+        const role = payload.role === "admin" ? "admin" : payload.role === "member" ? "member" : undefined;
+        if (!role) {
+          return completeJsonResponse(
+            400,
+            toErrorEnvelope(
+              new ApiError({
+                code: "validation.failed",
+                details: { issues: ["payload.role must be admin or member."] },
+                message: "payload.role must be admin or member.",
+                status: 400,
+              }),
+            ),
+          );
+        }
+
+        const created = await params.managedAuthStore.issueToken(
+          {
+            actor: payload.actor,
+            createdBy: auth.context.actor,
+            role,
+          },
+          { logger: requestLogger },
+        );
+        return completeJsonResponse(201, { token: created.token, secret: created.secret });
+      }
+
+      if (sessionsExchangeMatch) {
+        if (!params.managedAuthStore) {
+          return completeJsonResponse(
+            503,
+            toErrorEnvelope(
+              new ApiError({
+                code: "repository.unavailable",
+                message: "Managed auth store is unavailable.",
+                status: 503,
+              }),
+            ),
+          );
+        }
+
+        if (auth.context.kind !== "managed-token") {
+          return completeJsonResponse(
+            403,
+            toErrorEnvelope(
+              new ApiError({
+                code: "auth.forbidden",
+                message: "Session exchange requires a managed API token.",
+                status: 403,
+              }),
+            ),
+          );
+        }
+
+        const exchanged = await params.managedAuthStore.exchangeSession(
+          { tokenId: auth.context.tokenId },
+          { logger: requestLogger },
+        );
+        return completeJsonResponse(201, { session: exchanged.session, secret: exchanged.secret });
       }
 
       if (booksCreateMatch) {
@@ -1201,6 +1566,7 @@ export function createHttpHandler(params: {
           auth: auth.context,
           logger: requestLogger,
           transaction: payload.value.transaction,
+          ...mutationPrecondition,
           bookId,
         });
         return completeJsonResponse(response.status, response.body);
@@ -1237,6 +1603,7 @@ export function createHttpHandler(params: {
           auth: auth.context,
           logger: requestLogger,
           transactionId,
+          ...mutationPrecondition,
           bookId,
         });
         return completeJsonResponse(response.status, response.body);
@@ -1321,6 +1688,7 @@ export function createHttpHandler(params: {
             fileName: file.name,
             sizeBytes: file.size,
           },
+          ...mutationPrecondition,
           bookId,
         });
 
@@ -1389,6 +1757,7 @@ export function createHttpHandler(params: {
           auth: auth.context,
           logger: requestLogger,
           transactionId,
+          ...mutationPrecondition,
           bookId,
         });
         return completeJsonResponse(response.status, response.body);
@@ -1423,6 +1792,7 @@ export function createHttpHandler(params: {
         const response = await params.service.postBackup({
           auth: auth.context,
           logger: requestLogger,
+          ...mutationPrecondition,
           bookId,
         });
         return completeJsonResponse(response.status, response.body);
@@ -1459,6 +1829,7 @@ export function createHttpHandler(params: {
           auth: auth.context,
           backupId,
           logger: requestLogger,
+          ...mutationPrecondition,
           bookId,
         });
         return completeJsonResponse(response.status, response.body);
@@ -1511,6 +1882,7 @@ export function createHttpHandler(params: {
           auth: auth.context,
           logger: requestLogger,
           payload: payload.value.payload,
+          ...mutationPrecondition,
           bookId,
         });
         return completeJsonResponse(response.status, response.body);
@@ -1563,6 +1935,7 @@ export function createHttpHandler(params: {
           auth: auth.context,
           line: payload.value.line,
           logger: requestLogger,
+          ...mutationPrecondition,
           bookId,
         });
         return completeJsonResponse(response.status, response.body);
@@ -1615,6 +1988,7 @@ export function createHttpHandler(params: {
           auth: auth.context,
           envelope: payload.value.envelope,
           logger: requestLogger,
+          ...mutationPrecondition,
           bookId,
         });
         return completeJsonResponse(response.status, response.body);
@@ -1670,6 +2044,7 @@ export function createHttpHandler(params: {
             ...payload.value.payload,
             format: decodeURIComponent(statementImportMatch[2]) as "ofx" | "qfx",
           },
+          ...mutationPrecondition,
           bookId,
         });
         return completeJsonResponse(response.status, response.body);
@@ -1722,6 +2097,7 @@ export function createHttpHandler(params: {
           auth: auth.context,
           logger: requestLogger,
           payload: payload.value.payload,
+          ...mutationPrecondition,
           bookId,
         });
         return completeJsonResponse(response.status, response.body);
@@ -1774,6 +2150,7 @@ export function createHttpHandler(params: {
           allocation: payload.value.allocation,
           auth: auth.context,
           logger: requestLogger,
+          ...mutationPrecondition,
           bookId,
         });
         return completeJsonResponse(response.status, response.body);
@@ -1826,6 +2203,7 @@ export function createHttpHandler(params: {
           auth: auth.context,
           logger: requestLogger,
           payload: payload.value.payload,
+          ...mutationPrecondition,
           bookId,
         });
         return completeJsonResponse(response.status, response.body);
@@ -1878,6 +2256,7 @@ export function createHttpHandler(params: {
           auth: auth.context,
           logger: requestLogger,
           schedule: payload.value.schedule,
+          ...mutationPrecondition,
           bookId,
         });
         return completeJsonResponse(response.status, response.body);
@@ -1932,6 +2311,7 @@ export function createHttpHandler(params: {
           logger: requestLogger,
           payload: payload.value.payload,
           scheduleId,
+          ...mutationPrecondition,
           bookId,
         });
         return completeJsonResponse(response.status, response.body);
@@ -1986,6 +2366,7 @@ export function createHttpHandler(params: {
           logger: requestLogger,
           payload: payload.value.payload,
           scheduleId,
+          ...mutationPrecondition,
           bookId,
         });
         return completeJsonResponse(response.status, response.body);
@@ -2038,6 +2419,7 @@ export function createHttpHandler(params: {
           auth: auth.context,
           logger: requestLogger,
           payload: payload.value.payload,
+          ...mutationPrecondition,
           bookId,
         });
         return completeJsonResponse(response.status, response.body);
@@ -2090,6 +2472,7 @@ export function createHttpHandler(params: {
           auth: auth.context,
           logger: requestLogger,
           payload: payload.value.payload,
+          ...mutationPrecondition,
           bookId,
         });
         return completeJsonResponse(response.status, response.body);
@@ -2142,6 +2525,7 @@ export function createHttpHandler(params: {
           account: parsed.value.account,
           auth: auth.context,
           logger: requestLogger,
+          ...mutationPrecondition,
           bookId,
         });
         return completeJsonResponse(response.status, response.body);
@@ -2194,6 +2578,7 @@ export function createHttpHandler(params: {
           auth: auth.context,
           logger: requestLogger,
           payload: parsed.value.payload,
+          ...mutationPrecondition,
           bookId,
         });
         return completeJsonResponse(response.status, response.body);
@@ -2246,6 +2631,7 @@ export function createHttpHandler(params: {
           auth: auth.context,
           logger: requestLogger,
           payload: parsed.value.payload,
+          ...mutationPrecondition,
           bookId,
         });
         return completeJsonResponse(response.status, response.body);
@@ -2282,6 +2668,7 @@ export function createHttpHandler(params: {
           approvalId,
           auth: auth.context,
           logger: requestLogger,
+          ...mutationPrecondition,
           bookId,
         });
         return completeJsonResponse(response.status, response.body);
@@ -2318,6 +2705,7 @@ export function createHttpHandler(params: {
           approvalId,
           auth: auth.context,
           logger: requestLogger,
+          ...mutationPrecondition,
           bookId,
         });
         return completeJsonResponse(response.status, response.body);
@@ -2397,6 +2785,7 @@ export function createHttpHandler(params: {
           logger: requestLogger,
           transaction: payload.value.transaction,
           transactionId,
+          ...mutationPrecondition,
           bookId,
         });
         return completeJsonResponse(response.status, response.body);
@@ -2451,6 +2840,7 @@ export function createHttpHandler(params: {
           auth: auth.context,
           logger: requestLogger,
           payload: parsed.value.payload,
+          ...mutationPrecondition,
           bookId,
         });
         return completeJsonResponse(response.status, response.body);
@@ -2464,7 +2854,80 @@ export function createHttpHandler(params: {
         destroyTransactionMatch,
         removeHouseholdMemberMatch,
         transactionAttachmentUnlinkMatch,
+        tokenDeleteMatch,
+        sessionCurrentDeleteMatch,
       } = matchHttpDeleteRoutes(path);
+
+      if (tokenDeleteMatch) {
+        if (!params.managedAuthStore) {
+          return completeJsonResponse(
+            503,
+            toErrorEnvelope(
+              new ApiError({
+                code: "repository.unavailable",
+                message: "Managed auth store is unavailable.",
+                status: 503,
+              }),
+            ),
+          );
+        }
+        if (!(auth.context.role === "admin" || auth.context.role === "local-admin")) {
+          return completeJsonResponse(
+            403,
+            toErrorEnvelope(
+              new ApiError({
+                code: "auth.forbidden",
+                message: "Admin authority is required.",
+                status: 403,
+              }),
+            ),
+          );
+        }
+        const tokenId = decodeURIComponent(tokenDeleteMatch[1]);
+        const revoked = await params.managedAuthStore.revokeToken(tokenId, { logger: requestLogger });
+        if (!revoked) {
+          return completeJsonResponse(
+            404,
+            toErrorEnvelope(
+              new ApiError({
+                code: "request.not_found",
+                message: "Token not found.",
+                status: 404,
+              }),
+            ),
+          );
+        }
+        return completeJsonResponse(200, { token: revoked });
+      }
+
+      if (sessionCurrentDeleteMatch) {
+        if (!params.managedAuthStore) {
+          return completeJsonResponse(
+            503,
+            toErrorEnvelope(
+              new ApiError({
+                code: "repository.unavailable",
+                message: "Managed auth store is unavailable.",
+                status: 503,
+              }),
+            ),
+          );
+        }
+        if (auth.context.kind !== "session") {
+          return completeJsonResponse(
+            403,
+            toErrorEnvelope(
+              new ApiError({
+                code: "auth.forbidden",
+                message: "Session revocation requires a managed session credential.",
+                status: 403,
+              }),
+            ),
+          );
+        }
+        await params.managedAuthStore.revokeSession(auth.context.sessionId, { logger: requestLogger });
+        return completeJsonResponse(200, { revoked: true });
+      }
 
       if (archiveAccountMatch) {
         const rateLimited = enforceRateLimit(rateLimitPolicy.mutation);
@@ -2497,6 +2960,7 @@ export function createHttpHandler(params: {
           accountId,
           auth: auth.context,
           logger: requestLogger,
+          ...mutationPrecondition,
           bookId,
         });
         return completeJsonResponse(response.status, response.body);
@@ -2533,6 +2997,7 @@ export function createHttpHandler(params: {
           actor,
           auth: auth.context,
           logger: requestLogger,
+          ...mutationPrecondition,
           bookId,
         });
         return completeJsonResponse(response.status, response.body);
@@ -2570,12 +3035,14 @@ export function createHttpHandler(params: {
               auth: auth.context,
               logger: requestLogger,
               transactionId,
+              ...mutationPrecondition,
               bookId,
             })
           : await params.service.deleteTransaction({
               auth: auth.context,
               logger: requestLogger,
               transactionId,
+              ...mutationPrecondition,
               bookId,
             });
 
@@ -2615,6 +3082,7 @@ export function createHttpHandler(params: {
           auth: auth.context,
           logger: requestLogger,
           transactionId,
+          ...mutationPrecondition,
           bookId,
         });
 

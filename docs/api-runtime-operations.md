@@ -1,6 +1,6 @@
 # API Runtime Operations
 
-Last reviewed: 2026-04-07
+Last reviewed: 2026-04-08
 
 ## Scope
 
@@ -148,6 +148,26 @@ Header compatibility during transition:
   - `POST /api/books/:id/approvals/:approvalId/deny` — deny an approval (admin only)
   - approvals expire after 24 hours; grants after the TTL are rejected
   - all approval state changes emit audit events (`approval.requested`, `approval.granted`, `approval.denied`)
+- optimistic locking is required for all existing-book write routes (`POST`/`PUT`/`DELETE` under `/api/books/:bookId/...`):
+  - clients must send `If-Match: "book-<version>"`
+  - missing `If-Match` returns `428 request.precondition_required`
+  - stale or conflicting versions return `409 request.version_conflict` with expected/provided version details
+  - `POST /api/books` is excluded because it creates a new book
+- responses that include `book` state include both `ETag: "book-<version>"` and `x-book-version: <version>`
+- idempotency keys are supported on POST mutation/import routes:
+  - header: `Idempotency-Key`
+  - scope: `actor + canonicalRoute + bookId(or global) + key`
+  - retention TTL: 24 hours (durable store; lazy cleanup)
+  - replay with identical payload returns the originally stored response
+  - same key with different payload returns `409 request.idempotency_conflict`
+  - duplicate in-flight key returns `409 request.idempotency_in_progress`
+- managed token and session routes are available for operational auth lifecycle management:
+  - `GET /api/tokens` admin or local-admin only
+  - `POST /api/tokens` admin or local-admin only (returns secret once)
+  - `DELETE /api/tokens/:tokenId` admin or local-admin only
+  - `POST /api/sessions/exchange` requires a valid managed API token credential
+  - `DELETE /api/sessions/current` requires a valid managed session credential
+  - managed sessions are short-lived (8 hours) and token/session secrets are stored hashed at rest
 
 ## Multi-Actor Identity Strategies
 

@@ -8,10 +8,60 @@ import {
   createInMemoryRateLimiter,
   createFileSystemBookRepository,
   createHttpHandler,
+  createJsonIdempotencyStore,
+  createJsonManagedAuthStore,
   createBookService,
 } from "./index";
 
 describe("api http transport", () => {
+  function createTestHttpHandler(
+    params: Parameters<typeof createHttpHandler>[0],
+  ): (request: Request) => Promise<Response> {
+    const handler = createHttpHandler(params);
+    const versions = new Map<string, number>();
+
+    return async (request: Request): Promise<Response> => {
+      const url = new URL(request.url);
+      const rawPath = url.pathname.replace(/\/+$/, "") || "/";
+      const path = rawPath.replace(/^\/api\/v1(?=\/|$)/, "/api");
+      const method = request.method.toUpperCase();
+      const bookMatch = path.match(/^\/api\/books\/([^/]+)/);
+      const isExistingBookWrite =
+        (method === "POST" || method === "PUT" || method === "DELETE") &&
+        bookMatch !== null &&
+        !(method === "POST" && path === "/api/books");
+
+      let nextRequest = request;
+      if (isExistingBookWrite && !request.headers.has("if-match")) {
+        const bookId = decodeURIComponent(bookMatch[1]);
+        const knownVersion = versions.get(bookId) ?? 1;
+        const headers = new Headers(request.headers);
+        headers.set("if-match", `"book-${knownVersion}"`);
+        nextRequest = new Request(request, { headers });
+      }
+
+      const response = await handler(nextRequest);
+      if (bookMatch) {
+        const returnedVersion = Number.parseInt(response.headers.get("x-book-version") ?? "", 10);
+        if (Number.isInteger(returnedVersion) && returnedVersion > 0) {
+          versions.set(decodeURIComponent(bookMatch[1]), returnedVersion);
+        } else if (isExistingBookWrite) {
+          const refreshResponse = await handler(
+            new Request(`http://localhost/api/books/${decodeURIComponent(bookMatch[1])}`, {
+              headers: new Headers(request.headers),
+            }),
+          );
+          const refreshedVersion = Number.parseInt(refreshResponse.headers.get("x-book-version") ?? "", 10);
+          if (Number.isInteger(refreshedVersion) && refreshedVersion > 0) {
+            versions.set(decodeURIComponent(bookMatch[1]), refreshedVersion);
+          }
+        }
+      }
+
+      return response;
+    };
+  }
+
   async function createFixture() {
     const directory = await mkdtemp(join(tmpdir(), "tally-http-"));
     const book = createDemoBook();
@@ -32,7 +82,7 @@ describe("api http transport", () => {
     const service = createBookService({
       repository: createFileSystemBookRepository({ rootDirectory: fixture.directory }),
     });
-    const handler = createHttpHandler({ service });
+    const handler = createTestHttpHandler({ service });
 
     const response = await handler(
       new Request(`http://localhost/api/books/${fixture.book.id}`),
@@ -42,6 +92,50 @@ describe("api http transport", () => {
     expect(response.status).toBe(200);
     expect(body.book.id).toBe(fixture.book.id);
     expect(response.headers.get("x-request-id")).toBeTruthy();
+
+    await fixture.cleanup();
+  });
+
+  it("emits ETag and x-book-version headers on book-state responses", async () => {
+    const fixture = await createFixture();
+    const service = createBookService({
+      repository: createFileSystemBookRepository({ rootDirectory: fixture.directory }),
+    });
+    const handler = createTestHttpHandler({
+      authIdentities: [{ actor: "Primary", role: "member", token: "tok-primary" }],
+      service,
+    });
+
+    const readResponse = await handler(
+      new Request(`http://localhost/api/books/${fixture.book.id}`, {
+        headers: { authorization: "Bearer tok-primary" },
+      }),
+    );
+    expect(readResponse.headers.get("etag")).toBe('"book-1"');
+    expect(readResponse.headers.get("x-book-version")).toBe("1");
+
+    const writeResponse = await handler(
+      new Request(`http://localhost/api/books/${fixture.book.id}/transactions`, {
+        body: JSON.stringify({
+          transaction: {
+            description: "Versioned write",
+            id: "txn-version-header",
+            occurredOn: "2026-04-07",
+            postings: [
+              { accountId: "acct-expense-groceries", amount: { commodityCode: "USD", quantity: 10 } },
+              { accountId: "acct-checking", amount: { commodityCode: "USD", quantity: -10 } },
+            ],
+          },
+        }),
+        headers: {
+          authorization: "Bearer tok-primary",
+          "content-type": "application/json",
+        },
+        method: "POST",
+      }),
+    );
+    expect(writeResponse.headers.get("etag")).toBe('"book-2"');
+    expect(writeResponse.headers.get("x-book-version")).toBe("2");
 
     await fixture.cleanup();
   });
@@ -59,7 +153,7 @@ describe("api http transport", () => {
     const service = createBookService({
       repository: createFileSystemBookRepository({ rootDirectory: fixture.directory }),
     });
-    const handler = createHttpHandler({
+    const handler = createTestHttpHandler({
       authIdentities: [{ actor: "Primary", role: "member", token: "tok-primary" }],
       service,
     });
@@ -86,7 +180,7 @@ describe("api http transport", () => {
     const service = createBookService({
       repository: createFileSystemBookRepository({ rootDirectory: fixture.directory }),
     });
-    const handler = createHttpHandler({
+    const handler = createTestHttpHandler({
       authIdentities: [{ actor: "Creator", role: "member", token: "tok-creator" }],
       service,
     });
@@ -154,13 +248,251 @@ describe("api http transport", () => {
     await fixture.cleanup();
   });
 
+  it("requires If-Match for existing-book writes and returns 428 when missing", async () => {
+    const fixture = await createFixture();
+    const service = createBookService({
+      repository: createFileSystemBookRepository({ rootDirectory: fixture.directory }),
+    });
+    const handler = createHttpHandler({
+      authIdentities: [{ actor: "Primary", role: "member", token: "tok-primary" }],
+      service,
+    });
+
+    const response = await handler(
+      new Request(`http://localhost/api/books/${fixture.book.id}/transactions`, {
+        body: JSON.stringify({
+          transaction: {
+            description: "Missing precondition",
+            id: "txn-missing-if-match",
+            occurredOn: "2026-04-06",
+            postings: [
+              { accountId: "acct-expense-groceries", amount: { commodityCode: "USD", quantity: 10 } },
+              { accountId: "acct-checking", amount: { commodityCode: "USD", quantity: -10 } },
+            ],
+          },
+        }),
+        headers: {
+          authorization: "Bearer tok-primary",
+          "content-type": "application/json",
+        },
+        method: "POST",
+      }),
+    );
+    const body = await response.json();
+
+    expect(response.status).toBe(428);
+    expect(body.error.code).toBe("request.precondition_required");
+
+    await fixture.cleanup();
+  });
+
+  it("returns 409 version conflict for stale If-Match values", async () => {
+    const fixture = await createFixture();
+    const service = createBookService({
+      repository: createFileSystemBookRepository({ rootDirectory: fixture.directory }),
+    });
+    const handler = createHttpHandler({
+      authIdentities: [{ actor: "Primary", role: "member", token: "tok-primary" }],
+      service,
+    });
+
+    const response = await handler(
+      new Request(`http://localhost/api/books/${fixture.book.id}/transactions`, {
+        body: JSON.stringify({
+          transaction: {
+            description: "Version conflict",
+            id: "txn-stale-if-match",
+            occurredOn: "2026-04-06",
+            postings: [
+              { accountId: "acct-expense-groceries", amount: { commodityCode: "USD", quantity: 10 } },
+              { accountId: "acct-checking", amount: { commodityCode: "USD", quantity: -10 } },
+            ],
+          },
+        }),
+        headers: {
+          authorization: "Bearer tok-primary",
+          "content-type": "application/json",
+          "if-match": "\"book-999\"",
+        },
+        method: "POST",
+      }),
+    );
+    const body = await response.json();
+
+    expect(response.status).toBe(409);
+    expect(body.error.code).toBe("request.version_conflict");
+    expect(body.error.details).toEqual({
+      expectedVersion: 1,
+      providedVersion: 999,
+    });
+
+    await fixture.cleanup();
+  });
+
+  it("replays POST mutation responses when Idempotency-Key is reused with same payload", async () => {
+    const fixture = await createFixture();
+    const service = createBookService({
+      repository: createFileSystemBookRepository({ rootDirectory: fixture.directory }),
+    });
+    const idempotencyStore = createJsonIdempotencyStore({
+      filePath: join(fixture.directory, "idempotency.json"),
+    });
+    const handler = createHttpHandler({
+      authIdentities: [{ actor: "Primary", role: "member", token: "tok-primary" }],
+      idempotencyStore,
+      service,
+    });
+
+    const requestBody = {
+      transaction: {
+        description: "Replay me",
+        id: "txn-idempotent-1",
+        occurredOn: "2026-04-06",
+        postings: [
+          { accountId: "acct-expense-groceries", amount: { commodityCode: "USD", quantity: 10 } },
+          { accountId: "acct-checking", amount: { commodityCode: "USD", quantity: -10 } },
+        ],
+      },
+    };
+
+    const first = await handler(
+      new Request(`http://localhost/api/books/${fixture.book.id}/transactions`, {
+        body: JSON.stringify(requestBody),
+        headers: {
+          authorization: "Bearer tok-primary",
+          "content-type": "application/json",
+          "idempotency-key": "txn-idempotent-key",
+          "if-match": "\"book-1\"",
+        },
+        method: "POST",
+      }),
+    );
+    const firstBody = await first.json();
+
+    const second = await handler(
+      new Request(`http://localhost/api/books/${fixture.book.id}/transactions`, {
+        body: JSON.stringify(requestBody),
+        headers: {
+          authorization: "Bearer tok-primary",
+          "content-type": "application/json",
+          "idempotency-key": "txn-idempotent-key",
+          "if-match": "\"book-1\"",
+        },
+        method: "POST",
+      }),
+    );
+    const secondBody = await second.json();
+
+    expect(first.status).toBe(201);
+    expect(second.status).toBe(201);
+    expect(secondBody).toEqual(firstBody);
+    expect(second.headers.get("x-book-version")).toBe(first.headers.get("x-book-version"));
+
+    const readResponse = await handler(
+      new Request(`http://localhost/api/books/${fixture.book.id}`, {
+        headers: { authorization: "Bearer tok-primary" },
+      }),
+    );
+    const readBody = await readResponse.json();
+    const createdTransactions = readBody.book.transactions.filter(
+      (transaction: { id: string }) => transaction.id === "txn-idempotent-1",
+    );
+    expect(createdTransactions).toHaveLength(1);
+
+    await fixture.cleanup();
+  });
+
+  it("manages tokens and exchanges/revokes sessions through managed auth endpoints", async () => {
+    const fixture = await createFixture();
+    const service = createBookService({
+      repository: createFileSystemBookRepository({ rootDirectory: fixture.directory }),
+    });
+    const managedAuthStore = createJsonManagedAuthStore({
+      filePath: join(fixture.directory, "managed-auth.json"),
+    });
+    const handler = createHttpHandler({
+      authIdentities: [{ actor: "Admin", role: "admin", token: "tok-admin" }],
+      managedAuthStore,
+      service,
+    });
+
+    const issueResponse = await handler(
+      new Request("http://localhost/api/v1/tokens", {
+        body: JSON.stringify({ payload: { actor: "Primary", role: "member" } }),
+        headers: {
+          authorization: "Bearer tok-admin",
+          "content-type": "application/json",
+        },
+        method: "POST",
+      }),
+    );
+    const issueBody = await issueResponse.json();
+    expect(issueResponse.status).toBe(201);
+    expect(issueBody.token.actor).toBe("Primary");
+    expect(typeof issueBody.secret).toBe("string");
+
+    const listResponse = await handler(
+      new Request("http://localhost/api/tokens", {
+        headers: { authorization: "Bearer tok-admin" },
+      }),
+    );
+    const listBody = await listResponse.json();
+    expect(listResponse.status).toBe(200);
+    expect(listBody.tokens.some((token: { id: string }) => token.id === issueBody.token.id)).toBe(true);
+
+    const exchangeResponse = await handler(
+      new Request("http://localhost/api/sessions/exchange", {
+        body: JSON.stringify({}),
+        method: "POST",
+        headers: {
+          authorization: `Bearer ${issueBody.secret}`,
+          "content-type": "application/json",
+        },
+      }),
+    );
+    const exchangeBody = await exchangeResponse.json();
+    expect(exchangeResponse.status).toBe(201);
+    expect(typeof exchangeBody.secret).toBe("string");
+    expect(exchangeBody.session.tokenId).toBe(issueBody.token.id);
+
+    const revokeSessionResponse = await handler(
+      new Request("http://localhost/api/sessions/current", {
+        method: "DELETE",
+        headers: { authorization: `Bearer ${exchangeBody.secret}` },
+      }),
+    );
+    expect(revokeSessionResponse.status).toBe(200);
+
+    const revokeTokenResponse = await handler(
+      new Request(`http://localhost/api/tokens/${issueBody.token.id}`, {
+        method: "DELETE",
+        headers: { authorization: "Bearer tok-admin" },
+      }),
+    );
+    expect(revokeTokenResponse.status).toBe(200);
+
+    const exchangeAfterRevokeResponse = await handler(
+      new Request("http://localhost/api/sessions/exchange", {
+        body: JSON.stringify({}),
+        method: "POST",
+        headers: {
+          authorization: `Bearer ${issueBody.secret}`,
+          "content-type": "application/json",
+        },
+      }),
+    );
+    expect(exchangeAfterRevokeResponse.status).toBe(401);
+
+    await fixture.cleanup();
+  });
+
   it("supports /api and /api/v1 parity with canonical metrics labels", async () => {
     const fixture = await createFixture();
     const service = createBookService({
       dataDirectory: fixture.directory,
       repository: createFileSystemBookRepository({ rootDirectory: fixture.directory }),
     });
-    const handler = createHttpHandler({
+    const handler = createTestHttpHandler({
       authIdentities: [{ actor: "Primary", role: "member", token: "top-secret" }],
       service,
     });
@@ -193,7 +525,7 @@ describe("api http transport", () => {
     const service = createBookService({
       repository: createFileSystemBookRepository({ rootDirectory: fixture.directory }),
     });
-    const handler = createHttpHandler({
+    const handler = createTestHttpHandler({
       authIdentities: [{ actor: "Primary", role: "member", token: "top-secret" }],
       service,
     });
@@ -247,7 +579,7 @@ describe("api http transport", () => {
       dataDirectory: fixture.directory,
       repository: createFileSystemBookRepository({ rootDirectory: fixture.directory }),
     });
-    const handler = createHttpHandler({
+    const handler = createTestHttpHandler({
       authIdentities: [{ actor: "Primary", role: "member", token: "top-secret" }],
       service,
     });
@@ -302,7 +634,7 @@ describe("api http transport", () => {
     const service = createBookService({
       repository: createFileSystemBookRepository({ rootDirectory: fixture.directory }),
     });
-    const handler = createHttpHandler({
+    const handler = createTestHttpHandler({
       authIdentities: [{ actor: "Primary", role: "member", token: "top-secret" }],
       readinessProbe: async () => ({
         details: { persistenceBackend: "json" },
@@ -340,7 +672,7 @@ describe("api http transport", () => {
     const service = createBookService({
       repository: createFileSystemBookRepository({ rootDirectory: fixture.directory }),
     });
-    const handler = createHttpHandler({
+    const handler = createTestHttpHandler({
       authIdentities: [{ actor: "Primary", role: "member", token: "top-secret" }],
       readinessProbe: async () => ({
         details: { persistenceBackend: "postgres" },
@@ -366,7 +698,7 @@ describe("api http transport", () => {
     const service = createBookService({
       repository: createFileSystemBookRepository({ rootDirectory: fixture.directory }),
     });
-    const handler = createHttpHandler({
+    const handler = createTestHttpHandler({
       authIdentities: [{ actor: "Primary", role: "member", token: "top-secret" }],
       service,
     });
@@ -419,7 +751,7 @@ describe("api http transport", () => {
     const service = createBookService({
       repository: createFileSystemBookRepository({ rootDirectory: fixture.directory }),
     });
-    const handler = createHttpHandler({
+    const handler = createTestHttpHandler({
       authRequired: true,
       service,
       trustedHeaderAuth: {
@@ -456,7 +788,7 @@ describe("api http transport", () => {
     const service = createBookService({
       repository: createFileSystemBookRepository({ rootDirectory: fixture.directory }),
     });
-    const handler = createHttpHandler({ service });
+    const handler = createTestHttpHandler({ service });
 
     const response = await handler(
       new Request(
@@ -476,7 +808,7 @@ describe("api http transport", () => {
     const service = createBookService({
       repository: createFileSystemBookRepository({ rootDirectory: fixture.directory }),
     });
-    const handler = createHttpHandler({ service });
+    const handler = createTestHttpHandler({ service });
 
     const reportResponse = await handler(
       new Request(
@@ -520,7 +852,7 @@ describe("api http transport", () => {
     const service = createBookService({
       repository: createFileSystemBookRepository({ rootDirectory: fixture.directory }),
     });
-    const handler = createHttpHandler({ service });
+    const handler = createTestHttpHandler({ service });
 
     const response = await handler(
       new Request(`http://localhost/api/books/${fixture.book.id}/imports/qif`, {
@@ -561,7 +893,7 @@ Lacct-expense-utilities
     const service = createBookService({
       repository: createFileSystemBookRepository({ rootDirectory: fixture.directory }),
     });
-    const handler = createHttpHandler({ service });
+    const handler = createTestHttpHandler({ service });
 
     const response = await handler(
       new Request(`http://localhost/api/books/${fixture.book.id}/imports/ofx`, {
@@ -612,7 +944,7 @@ Lacct-expense-utilities
     const service = createBookService({
       repository: createFileSystemBookRepository({ rootDirectory: fixture.directory }),
     });
-    const handler = createHttpHandler({ service });
+    const handler = createTestHttpHandler({ service });
 
     const response = await handler(
       new Request(`http://localhost/api/books/${fixture.book.id}/close-periods`, {
@@ -641,7 +973,7 @@ Lacct-expense-utilities
     const service = createBookService({
       repository: createFileSystemBookRepository({ rootDirectory: fixture.directory }),
     });
-    const handler = createHttpHandler({ service });
+    const handler = createTestHttpHandler({ service });
 
     const createResponse = await handler(
       new Request(`http://localhost/api/books/${fixture.book.id}/backups`, {
@@ -700,7 +1032,7 @@ Lacct-expense-utilities
     const service = createBookService({
       repository: createFileSystemBookRepository({ rootDirectory: fixture.directory }),
     });
-    const handler = createHttpHandler({ service });
+    const handler = createTestHttpHandler({ service });
 
     const response = await handler(
       new Request(
@@ -722,7 +1054,7 @@ Lacct-expense-utilities
     const service = createBookService({
       repository: createFileSystemBookRepository({ rootDirectory: fixture.directory }),
     });
-    const handler = createHttpHandler({ service });
+    const handler = createTestHttpHandler({ service });
 
     const ofxResponse = await handler(
       new Request(
@@ -757,7 +1089,7 @@ Lacct-expense-utilities
     const service = createBookService({
       repository: createFileSystemBookRepository({ rootDirectory: fixture.directory }),
     });
-    const handler = createHttpHandler({ service });
+    const handler = createTestHttpHandler({ service });
 
     const qfxResponse = await handler(
       new Request(`http://localhost/api/books/${fixture.book.id}/imports/qfx`, {
@@ -806,7 +1138,7 @@ Lacct-expense-utilities
     const service = createBookService({
       repository: createFileSystemBookRepository({ rootDirectory: fixture.directory }),
     });
-    const handler = createHttpHandler({ service });
+    const handler = createTestHttpHandler({ service });
 
     const response = await handler(
       new Request(`http://localhost/api/books/${fixture.book.id}/transactions`, {
@@ -849,7 +1181,7 @@ Lacct-expense-utilities
     const service = createBookService({
       repository: createFileSystemBookRepository({ rootDirectory: fixture.directory }),
     });
-    const handler = createHttpHandler({ service });
+    const handler = createTestHttpHandler({ service });
 
     const response = await handler(
       new Request(`http://localhost/api/books/${fixture.book.id}/transactions/txn-grocery-1`, {
@@ -892,7 +1224,7 @@ Lacct-expense-utilities
     const service = createBookService({
       repository: createFileSystemBookRepository({ rootDirectory: fixture.directory }),
     });
-    const handler = createHttpHandler({ service });
+    const handler = createTestHttpHandler({ service });
 
     const response = await handler(
       new Request(`http://localhost/api/books/${fixture.book.id}/transactions/txn-grocery-1`, {
@@ -920,7 +1252,7 @@ Lacct-expense-utilities
     const service = createBookService({
       repository: createFileSystemBookRepository({ rootDirectory: fixture.directory }),
     });
-    const handler = createHttpHandler({
+    const handler = createTestHttpHandler({
       authIdentities: [
         { actor: "Primary", role: "member", token: "member-token" },
         { actor: "Admin", role: "admin", token: "admin-token" },
@@ -969,7 +1301,7 @@ Lacct-expense-utilities
     const service = createBookService({
       repository: createFileSystemBookRepository({ rootDirectory: fixture.directory }),
     });
-    const handler = createHttpHandler({ service });
+    const handler = createTestHttpHandler({ service });
 
     const budgetResponse = await handler(
       new Request(`http://localhost/api/books/${fixture.book.id}/budget-lines`, {
@@ -1014,7 +1346,7 @@ Lacct-expense-utilities
     const service = createBookService({
       repository: createFileSystemBookRepository({ rootDirectory: fixture.directory }),
     });
-    const handler = createHttpHandler({ service });
+    const handler = createTestHttpHandler({ service });
 
     const allocationResponse = await handler(
       new Request(`http://localhost/api/books/${fixture.book.id}/envelope-allocations`, {
@@ -1071,7 +1403,7 @@ Lacct-expense-utilities
     const service = createBookService({
       repository: createFileSystemBookRepository({ rootDirectory: fixture.directory }),
     });
-    const handler = createHttpHandler({ service });
+    const handler = createTestHttpHandler({ service });
 
     const response = await handler(
       new Request(`http://localhost/api/books/${fixture.book.id}/schedules/sched-rent/execute`, {
@@ -1102,7 +1434,7 @@ Lacct-expense-utilities
     const service = createBookService({
       repository: createFileSystemBookRepository({ rootDirectory: fixture.directory }),
     });
-    const handler = createHttpHandler({ service });
+    const handler = createTestHttpHandler({ service });
 
     const response = await handler(
       new Request(`http://localhost/api/books/${fixture.book.id}/schedules/sched-rent/exceptions`, {
@@ -1135,7 +1467,7 @@ Lacct-expense-utilities
     const service = createBookService({
       repository: createFileSystemBookRepository({ rootDirectory: fixture.directory }),
     });
-    const handler = createHttpHandler({ service });
+    const handler = createTestHttpHandler({ service });
 
     const response = await handler(
       new Request(`http://localhost/api/books/${fixture.book.id}/transactions`, {
@@ -1158,7 +1490,7 @@ Lacct-expense-utilities
     const service = createBookService({
       repository: createFileSystemBookRepository({ rootDirectory: fixture.directory }),
     });
-    const handler = createHttpHandler({ service });
+    const handler = createTestHttpHandler({ service });
 
     const response = await handler(new Request("http://localhost/api/unknown"));
 
@@ -1174,7 +1506,7 @@ Lacct-expense-utilities
     const service = createBookService({
       repository: createFileSystemBookRepository({ rootDirectory: fixture.directory }),
     });
-    const handler = createHttpHandler({
+    const handler = createTestHttpHandler({
       authIdentities: [{ actor: "Primary", role: "member", token: "top-secret" }],
       service,
     });
@@ -1196,7 +1528,7 @@ Lacct-expense-utilities
     const service = createBookService({
       repository: createFileSystemBookRepository({ rootDirectory: fixture.directory }),
     });
-    const handler = createHttpHandler({
+    const handler = createTestHttpHandler({
       authIdentities: [{ actor: "Primary", role: "member", token: "top-secret" }],
       service,
     });
@@ -1242,7 +1574,7 @@ Lacct-expense-utilities
     const service = createBookService({
       repository: createFileSystemBookRepository({ rootDirectory: fixture.directory }),
     });
-    const handler = createHttpHandler({
+    const handler = createTestHttpHandler({
       authIdentities: [{ actor: "Intruder", role: "member", token: "bad-token" }],
       service,
     });
@@ -1268,7 +1600,7 @@ Lacct-expense-utilities
     const service = createBookService({
       repository: createFileSystemBookRepository({ rootDirectory: fixture.directory }),
     });
-    const handler = createHttpHandler({ service });
+    const handler = createTestHttpHandler({ service });
 
     const response = await handler(
       new Request(`http://localhost/api/books/${fixture.book.id}/transactions`, {
@@ -1291,7 +1623,7 @@ Lacct-expense-utilities
     const service = createBookService({
       repository: createFileSystemBookRepository({ rootDirectory: fixture.directory }),
     });
-    const handler = createHttpHandler({ service });
+    const handler = createTestHttpHandler({ service });
 
     const response = await handler(
       new Request(`http://localhost/api/books/${fixture.book.id}/transactions`, {
@@ -1328,7 +1660,7 @@ Lacct-expense-utilities
     const service = createBookService({
       repository: createFileSystemBookRepository({ rootDirectory: fixture.directory }),
     });
-    const handler = createHttpHandler({ service });
+    const handler = createTestHttpHandler({ service });
 
     const exportResponse = await handler(
       new Request(`http://localhost/api/books/${fixture.book.id}/exports/ofx?from=2026-04-01&to=2026-04-30`),
@@ -1355,7 +1687,7 @@ Lacct-expense-utilities
     const service = createBookService({
       repository: createFileSystemBookRepository({ rootDirectory: fixture.directory }),
     });
-    const handler = createHttpHandler({ service });
+    const handler = createTestHttpHandler({ service });
 
     const response = await handler(
       new Request(`http://localhost/api/books/${fixture.book.id}/reconciliations`, {
@@ -1388,7 +1720,7 @@ Lacct-expense-utilities
     const service = createBookService({
       repository: createFileSystemBookRepository({ rootDirectory: fixture.directory }),
     });
-    const handler = createHttpHandler({ service });
+    const handler = createTestHttpHandler({ service });
 
     const response = await handler(
       new Request(`http://localhost/api/books/${fixture.book.id}/imports/csv`, {
@@ -1432,7 +1764,7 @@ Lacct-expense-utilities
     const service = createBookService({
       repository: createFileSystemBookRepository({ rootDirectory: fixture.directory }),
     });
-    const handler = createHttpHandler({ service });
+    const handler = createTestHttpHandler({ service });
 
     const budgetResponse = await handler(
       new Request(`http://localhost/api/books/${fixture.book.id}/budget-lines`, {
@@ -1481,7 +1813,7 @@ Lacct-expense-utilities
     const service = createBookService({
       repository: createFileSystemBookRepository({ rootDirectory: fixture.directory }),
     });
-    const handler = createHttpHandler({ maxBodyBytes: 10, service });
+    const handler = createTestHttpHandler({ maxBodyBytes: 10, service });
 
     const response = await handler(
       new Request(`http://localhost/api/books/${fixture.book.id}/transactions`, {
@@ -1504,7 +1836,7 @@ Lacct-expense-utilities
     const service = createBookService({
       repository: createFileSystemBookRepository({ rootDirectory: fixture.directory }),
     });
-    const handler = createHttpHandler({ service });
+    const handler = createTestHttpHandler({ service });
 
     const response = await handler(
       new Request(`http://localhost/api/books/${fixture.book.id}`),
@@ -1524,7 +1856,7 @@ Lacct-expense-utilities
     const service = createBookService({
       repository: createFileSystemBookRepository({ rootDirectory: fixture.directory }),
     });
-    const handler = createHttpHandler({ service });
+    const handler = createTestHttpHandler({ service });
 
     const response = await handler(
       new Request(`http://localhost/api/books/${fixture.book.id}`, {
@@ -1544,7 +1876,7 @@ Lacct-expense-utilities
     const service = createBookService({
       repository: createFileSystemBookRepository({ rootDirectory: fixture.directory }),
     });
-    const handler = createHttpHandler({
+    const handler = createTestHttpHandler({
       rateLimiter: createInMemoryRateLimiter({ now: () => 1000 }),
       rateLimitPolicy: {
         import: { keyPrefix: "import", limit: 10, windowMs: 60000 },
@@ -1574,7 +1906,7 @@ Lacct-expense-utilities
     const service = createBookService({
       repository: createFileSystemBookRepository({ rootDirectory: fixture.directory }),
     });
-    const handler = createHttpHandler({
+    const handler = createTestHttpHandler({
       rateLimiter: createInMemoryRateLimiter({ now: () => 1000 }),
       rateLimitPolicy: {
         import: { keyPrefix: "import", limit: 1, windowMs: 60000 },
@@ -1628,7 +1960,7 @@ Lacct-expense-utilities
     };
     await saveBookToFile(fixture.bookPath, fixture.book);
 
-    const handler = createHttpHandler({
+    const handler = createTestHttpHandler({
       authIdentities: [{ actor: "Partner", role: "member", token: "tok-partner" }],
       service: createBookService({
         repository: createFileSystemBookRepository({ rootDirectory: fixture.directory }),
@@ -1651,7 +1983,7 @@ Lacct-expense-utilities
 
   it("returns 403 for non-member on GET household members", async () => {
     const fixture = await createFixture();
-    const handler = createHttpHandler({
+    const handler = createTestHttpHandler({
       authIdentities: [{ actor: "Stranger", role: "member", token: "tok-stranger" }],
       service: createBookService({
         repository: createFileSystemBookRepository({ rootDirectory: fixture.directory }),
@@ -1675,7 +2007,7 @@ Lacct-expense-utilities
     fixture.book.householdMemberRoles = { Primary: "guardian", Admin: "admin" };
     await saveBookToFile(fixture.bookPath, fixture.book);
 
-    const handler = createHttpHandler({
+    const handler = createTestHttpHandler({
       authIdentities: [{ actor: "Admin", role: "admin", token: "tok-admin" }],
       service: createBookService({
         repository: createFileSystemBookRepository({ rootDirectory: fixture.directory }),
@@ -1699,7 +2031,7 @@ Lacct-expense-utilities
 
   it("returns 403 when non-admin attempts to add a household member", async () => {
     const fixture = await createFixture();
-    const handler = createHttpHandler({
+    const handler = createTestHttpHandler({
       authIdentities: [{ actor: "Primary", role: "member", token: "tok-primary" }],
       service: createBookService({
         repository: createFileSystemBookRepository({ rootDirectory: fixture.directory }),
@@ -1725,7 +2057,7 @@ Lacct-expense-utilities
     fixture.book.householdMemberRoles = { Primary: "guardian", Admin: "admin" };
     await saveBookToFile(fixture.bookPath, fixture.book);
 
-    const handler = createHttpHandler({
+    const handler = createTestHttpHandler({
       authIdentities: [{ actor: "Admin", role: "admin", token: "tok-admin" }],
       service: createBookService({
         repository: createFileSystemBookRepository({ rootDirectory: fixture.directory }),
@@ -1753,7 +2085,7 @@ Lacct-expense-utilities
     fixture.book.householdMemberRoles = { Primary: "guardian", Partner: "member", Admin: "admin" };
     await saveBookToFile(fixture.bookPath, fixture.book);
 
-    const handler = createHttpHandler({
+    const handler = createTestHttpHandler({
       authIdentities: [{ actor: "Admin", role: "admin", token: "tok-admin" }],
       service: createBookService({
         repository: createFileSystemBookRepository({ rootDirectory: fixture.directory }),
@@ -1780,7 +2112,7 @@ Lacct-expense-utilities
     fixture.book.householdMemberRoles = { Primary: "guardian", Admin: "admin" };
     await saveBookToFile(fixture.bookPath, fixture.book);
 
-    const handler = createHttpHandler({
+    const handler = createTestHttpHandler({
       authIdentities: [{ actor: "Admin", role: "admin", token: "tok-admin" }],
       service: createBookService({
         repository: createFileSystemBookRepository({ rootDirectory: fixture.directory }),
@@ -1805,7 +2137,7 @@ Lacct-expense-utilities
     fixture.book.householdMemberRoles = { Admin: "admin" };
     await saveBookToFile(fixture.bookPath, fixture.book);
 
-    const handler = createHttpHandler({
+    const handler = createTestHttpHandler({
       authIdentities: [{ actor: "Admin", role: "admin", token: "tok-admin" }],
       service: createBookService({
         repository: createFileSystemBookRepository({ rootDirectory: fixture.directory }),
@@ -1833,7 +2165,7 @@ Lacct-expense-utilities
     fixture.book.householdMemberRoles = { Primary: "guardian", Admin: "admin" };
     await saveBookToFile(fixture.bookPath, fixture.book);
 
-    const handler = createHttpHandler({
+    const handler = createTestHttpHandler({
       authIdentities: [{ actor: "Admin", role: "admin", token: "tok-admin" }],
       service: createBookService({
         repository: createFileSystemBookRepository({ rootDirectory: fixture.directory }),
@@ -1860,7 +2192,7 @@ Lacct-expense-utilities
     const service = createBookService({
       repository: createFileSystemBookRepository({ rootDirectory: fixture.directory }),
     });
-    const handler = createHttpHandler({
+    const handler = createTestHttpHandler({
       authIdentities: [{ actor: "Primary", role: "admin", token: "top-secret" }],
       corsAllowedOrigins: ["https://app.example.com"],
       service,
@@ -1887,7 +2219,7 @@ Lacct-expense-utilities
     const service = createBookService({
       repository: createFileSystemBookRepository({ rootDirectory: fixture.directory }),
     });
-    const handler = createHttpHandler({
+    const handler = createTestHttpHandler({
       corsAllowedOrigins: ["https://app.example.com"],
       service,
     });
@@ -1909,7 +2241,7 @@ Lacct-expense-utilities
     const service = createBookService({
       repository: createFileSystemBookRepository({ rootDirectory: fixture.directory }),
     });
-    const handler = createHttpHandler({
+    const handler = createTestHttpHandler({
       corsAllowedOrigins: ["https://app.example.com"],
       service,
     });
@@ -1930,7 +2262,7 @@ Lacct-expense-utilities
     const service = createBookService({
       repository: createFileSystemBookRepository({ rootDirectory: fixture.directory }),
     });
-    const handler = createHttpHandler({
+    const handler = createTestHttpHandler({
       runtimeMode: "development",
       service,
     });
@@ -1951,7 +2283,7 @@ Lacct-expense-utilities
     const service = createBookService({
       repository: createFileSystemBookRepository({ rootDirectory: fixture.directory }),
     });
-    const handler = createHttpHandler({
+    const handler = createTestHttpHandler({
       runtimeMode: "production",
       service,
     });
@@ -1972,7 +2304,7 @@ Lacct-expense-utilities
     const service = createBookService({
       repository: createFileSystemBookRepository({ rootDirectory: fixture.directory }),
     });
-    const handler = createHttpHandler({ service });
+    const handler = createTestHttpHandler({ service });
 
     const response = await handler(
       new Request(`http://localhost/api/books/${fixture.book.id}/audit-events`),
@@ -1990,7 +2322,7 @@ Lacct-expense-utilities
     const service = createBookService({
       repository: createFileSystemBookRepository({ rootDirectory: fixture.directory }),
     });
-    const handler = createHttpHandler({ service });
+    const handler = createTestHttpHandler({ service });
 
     const response = await handler(
       new Request(
@@ -2012,7 +2344,7 @@ Lacct-expense-utilities
     const service = createBookService({
       repository: createFileSystemBookRepository({ rootDirectory: fixture.directory }),
     });
-    const handler = createHttpHandler({ service });
+    const handler = createTestHttpHandler({ service });
 
     const response = await handler(
       new Request(
@@ -2030,7 +2362,7 @@ Lacct-expense-utilities
     const service = createBookService({
       repository: createFileSystemBookRepository({ rootDirectory: fixture.directory }),
     });
-    const handler = createHttpHandler({ service });
+    const handler = createTestHttpHandler({ service });
 
     await handler(
       new Request(`http://localhost/api/books/${fixture.book.id}/audit-events`),
@@ -2049,7 +2381,7 @@ Lacct-expense-utilities
     const service = createBookService({
       repository: createFileSystemBookRepository({ rootDirectory: fixture.directory }),
     });
-    const handler = createHttpHandler({ service });
+    const handler = createTestHttpHandler({ service });
 
     const response = await handler(
       new Request(`http://localhost/api/books/${fixture.book.id}/accounts`),
@@ -2068,7 +2400,7 @@ Lacct-expense-utilities
     const service = createBookService({
       repository: createFileSystemBookRepository({ rootDirectory: fixture.directory }),
     });
-    const handler = createHttpHandler({ service });
+    const handler = createTestHttpHandler({ service });
 
     const response = await handler(
       new Request(`http://localhost/api/books/${fixture.book.id}/accounts`, {
@@ -2092,7 +2424,7 @@ Lacct-expense-utilities
     const service = createBookService({
       repository: createFileSystemBookRepository({ rootDirectory: fixture.directory }),
     });
-    const handler = createHttpHandler({ service });
+    const handler = createTestHttpHandler({ service });
 
     const response = await handler(
       new Request(`http://localhost/api/books/${fixture.book.id}/accounts`, {
@@ -2112,7 +2444,7 @@ Lacct-expense-utilities
     const service = createBookService({
       repository: createFileSystemBookRepository({ rootDirectory: fixture.directory }),
     });
-    const handler = createHttpHandler({ service });
+    const handler = createTestHttpHandler({ service });
 
     // Create a fresh account with no transactions so we can archive it
     await handler(
@@ -2142,7 +2474,7 @@ Lacct-expense-utilities
     const service = createBookService({
       repository: createFileSystemBookRepository({ rootDirectory: fixture.directory }),
     });
-    const handler = createHttpHandler({ service });
+    const handler = createTestHttpHandler({ service });
 
     const accountWithTransactions = fixture.book.accounts.find((a) =>
       fixture.book.transactions.some(

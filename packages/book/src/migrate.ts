@@ -53,6 +53,9 @@ export function migrateBookDocument(input: unknown): FinanceBookDocument {
 
   return {
     schemaVersion: 1,
+    version: typeof document.version === "number" && Number.isInteger(document.version) && document.version > 0
+      ? document.version
+      : 1,
     id: document.id,
     name: document.name,
     baseCommodityCode: document.baseCommodityCode,

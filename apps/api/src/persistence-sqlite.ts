@@ -8,6 +8,7 @@ import type { BookBackup, BookPersistenceBackend } from "./persistence";
 
 interface BookRow {
   document_json: string;
+  version?: number;
 }
 
 interface BackupRow {
@@ -64,6 +65,7 @@ export function createSqliteBookPersistenceBackend(params: {
       CREATE TABLE IF NOT EXISTS workspaces (
         id TEXT PRIMARY KEY,
         document_json TEXT NOT NULL,
+        version INTEGER NOT NULL DEFAULT 1,
         updated_at TEXT NOT NULL
       );
       CREATE TABLE IF NOT EXISTS workspace_backups (
@@ -77,6 +79,12 @@ export function createSqliteBookPersistenceBackend(params: {
       CREATE INDEX IF NOT EXISTS workspace_backups_workspace_created_idx
         ON workspace_backups (workspace_id, created_at DESC);
     `);
+    const columns = database
+      .prepare("PRAGMA table_info(workspaces)")
+      .all() as Array<{ name: string }>;
+    if (!columns.some((column) => column.name === "version")) {
+      database.exec("ALTER TABLE workspaces ADD COLUMN version INTEGER NOT NULL DEFAULT 1;");
+    }
 
     return database;
   }
@@ -184,7 +192,10 @@ export function createSqliteBookPersistenceBackend(params: {
       }
     },
 
-    async save(document: FinanceBookDocument, options: { logger?: Logger } = {}): Promise<void> {
+    async save(
+      document: FinanceBookDocument,
+      options: { expectedVersion?: number; logger?: Logger } = {},
+    ): Promise<void> {
       validateBookIdentifier(document.id);
       const requestLogger = (options.logger ?? logger).child({
         component: "sqliteBookPersistenceBackend",
@@ -196,14 +207,42 @@ export function createSqliteBookPersistenceBackend(params: {
 
       try {
         const db = await ensureDatabase();
-        const serialized = `${JSON.stringify(document)}\n`;
-        db.prepare(`
-          INSERT INTO workspaces (id, document_json, updated_at)
-          VALUES (?, ?, ?)
-          ON CONFLICT(id) DO UPDATE SET
-            document_json = excluded.document_json,
-            updated_at = excluded.updated_at
-        `).run(document.id, serialized, new Date().toISOString());
+        const now = new Date().toISOString();
+        const existing = db
+          .prepare("SELECT version FROM workspaces WHERE id = ?")
+          .get(document.id) as { version: number } | undefined;
+        const expectedVersion = options.expectedVersion;
+
+        if (expectedVersion !== undefined) {
+          if (!existing || existing.version !== expectedVersion) {
+            throw new ApiError({
+              code: "request.version_conflict",
+              details: {
+                expectedVersion: existing?.version ?? 0,
+                providedVersion: expectedVersion,
+              },
+              message: "Book version conflict.",
+              status: 409,
+            });
+          }
+        }
+
+        const nextVersion = existing ? existing.version + 1 : Math.max(document.version ?? 1, 1);
+        const nextDocument = { ...document, version: nextVersion };
+        const serialized = `${JSON.stringify(nextDocument)}\n`;
+
+        if (existing) {
+          db.prepare(`
+            UPDATE workspaces
+            SET document_json = ?, version = ?, updated_at = ?
+            WHERE id = ?
+          `).run(serialized, nextVersion, now, document.id);
+        } else {
+          db.prepare(`
+            INSERT INTO workspaces (id, document_json, version, updated_at)
+            VALUES (?, ?, ?, ?)
+          `).run(document.id, serialized, nextVersion, now);
+        }
 
         requestLogger.info("book storage save completed", {
           transactionCount: document.transactions.length,

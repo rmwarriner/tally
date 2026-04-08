@@ -226,7 +226,10 @@ export function createFileSystemBookPersistenceBackend(params: {
       }
     },
 
-    async save(document: FinanceBookDocument, options: { logger?: Logger } = {}): Promise<void> {
+    async save(
+      document: FinanceBookDocument,
+      options: { expectedVersion?: number; logger?: Logger } = {},
+    ): Promise<void> {
       const requestLogger = (options.logger ?? logger).child({
         component: "fileSystemBookPersistenceBackend",
         operation: "saveBook",
@@ -237,7 +240,39 @@ export function createFileSystemBookPersistenceBackend(params: {
 
       try {
         await mkdir(rootDirectory, { recursive: true });
-        await saveBookToFile(bookPath(document.id), document, { logger: requestLogger });
+        let nextDocument = { ...document };
+
+        try {
+          const existing = await this.load(document.id, { logger: requestLogger });
+          const expectedVersion = options.expectedVersion;
+
+          if (expectedVersion !== undefined && existing.version !== expectedVersion) {
+            throw new ApiError({
+              code: "request.version_conflict",
+              details: { expectedVersion: existing.version, providedVersion: expectedVersion },
+              message: "Book version conflict.",
+              status: 409,
+            });
+          }
+
+          nextDocument = {
+            ...document,
+            version: existing.version + 1,
+          };
+        } catch (error) {
+          if (
+            !(error instanceof ApiError && error.code === "book.not_found")
+          ) {
+            throw error;
+          }
+
+          nextDocument = {
+            ...document,
+            version: document.version > 0 ? document.version : 1,
+          };
+        }
+
+        await saveBookToFile(bookPath(document.id), nextDocument, { logger: requestLogger });
       } catch (error) {
         if (error instanceof ApiError) {
           throw error;

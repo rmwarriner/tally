@@ -101,6 +101,7 @@ export async function withMutation(
   params: {
     access: BookAccess;
     auth: AuthContext;
+    expectedVersion?: number;
     logger: Logger;
     repository: BookRepository;
     successStatus: number;
@@ -109,6 +110,20 @@ export async function withMutation(
   execute: (book: FinanceBookDocument, audit: AuditContext) => BookOperationResult,
 ): Promise<ServiceResponse<BookEnvelope | ErrorEnvelope>> {
   return withWorkspace<BookEnvelope | ErrorEnvelope>(params, async (book, authorization) => {
+    if (params.expectedVersion !== undefined && params.expectedVersion !== book.version) {
+      return failure(
+        new ApiError({
+          code: "request.version_conflict",
+          details: {
+            expectedVersion: book.version,
+            providedVersion: params.expectedVersion,
+          },
+          message: "Book version conflict.",
+          status: 409,
+        }),
+      );
+    }
+
     const audit = buildAuthorizationAuditContext(params.auth.actor, authorization);
     const result = execute(book, audit);
 
@@ -124,8 +139,12 @@ export async function withMutation(
       );
     }
 
-    await params.repository.save(result.document, { logger: params.logger });
+    await params.repository.save(result.document, {
+      expectedVersion: book.version,
+      logger: params.logger,
+    });
+    const savedBook = await params.repository.load(result.document.id, { logger: params.logger });
     params.logger.info("service command completed");
-    return success(params.successStatus, { book: buildOperationalBookView(result.document) });
+    return success(params.successStatus, { book: buildOperationalBookView(savedBook) });
   });
 }

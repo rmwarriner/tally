@@ -24,7 +24,7 @@ class FakePostgresPool implements PostgresQueryable {
     workspace_id: string;
   }>>();
 
-  private readonly workspaces = new Map<string, string>();
+  private readonly workspaces = new Map<string, { document_json: string; version: number }>();
   public ended = false;
 
   async end(): Promise<void> {
@@ -39,6 +39,7 @@ class FakePostgresPool implements PostgresQueryable {
 
     if (
       normalized.startsWith("CREATE TABLE IF NOT EXISTS workspaces") ||
+      normalized.startsWith("ALTER TABLE workspaces ADD COLUMN IF NOT EXISTS version") ||
       normalized.startsWith("CREATE TABLE IF NOT EXISTS workspace_backups") ||
       normalized.startsWith("CREATE INDEX IF NOT EXISTS workspace_backups_workspace_created_idx")
     ) {
@@ -47,10 +48,19 @@ class FakePostgresPool implements PostgresQueryable {
 
     if (normalized.startsWith("SELECT document_json FROM workspaces WHERE id = $1")) {
       const bookId = String(params[0]);
-      const documentJson = this.workspaces.get(bookId);
+      const row = this.workspaces.get(bookId);
       return {
-        rowCount: documentJson ? 1 : 0,
-        rows: documentJson ? ([{ document_json: documentJson }] as unknown as TResult[]) : [],
+        rowCount: row ? 1 : 0,
+        rows: row ? ([{ document_json: row.document_json }] as unknown as TResult[]) : [],
+      };
+    }
+
+    if (normalized.startsWith("SELECT version FROM workspaces WHERE id = $1")) {
+      const bookId = String(params[0]);
+      const row = this.workspaces.get(bookId);
+      return {
+        rowCount: row ? 1 : 0,
+        rows: row ? ([{ version: row.version }] as unknown as TResult[]) : [],
       };
     }
 
@@ -64,8 +74,20 @@ class FakePostgresPool implements PostgresQueryable {
       };
     }
 
-    if (normalized.includes("INSERT INTO workspaces (id, document_json, updated_at)")) {
-      this.workspaces.set(String(params[0]), String(params[1]));
+    if (normalized.includes("INSERT INTO workspaces (id, document_json, version, updated_at)")) {
+      this.workspaces.set(String(params[0]), {
+        document_json: String(params[1]),
+        version: Number(params[2]),
+      });
+      return { rowCount: 1, rows: [] };
+    }
+
+    if (normalized.includes("UPDATE workspaces SET document_json = $1, version = $2, updated_at = $3 WHERE id = $4")) {
+      const bookId = String(params[3]);
+      this.workspaces.set(bookId, {
+        document_json: String(params[0]),
+        version: Number(params[1]),
+      });
       return { rowCount: 1, rows: [] };
     }
 
@@ -196,6 +218,31 @@ describe("book persistence backends", () => {
     const loaded = await backend.load("book-household-demo");
     expect(loaded.schemaVersion).toBe(1);
     expect(loaded.auditEvents).toEqual([]);
+
+    await backend.close?.();
+  });
+
+  it("enforces compare-and-set version saves in sqlite", async () => {
+    const directory = await mkdtemp(join(tmpdir(), "tally-sqlite-cas-"));
+    cleanupPaths.push(directory);
+    const backend = createSqliteBookPersistenceBackend({
+      databasePath: join(directory, "workspaces.sqlite"),
+    });
+
+    const book = createDemoBook();
+    await backend.save(book);
+
+    const firstLoad = await backend.load(book.id);
+    expect(firstLoad.version).toBe(1);
+
+    await backend.save(firstLoad, { expectedVersion: 1 });
+    const secondLoad = await backend.load(book.id);
+    expect(secondLoad.version).toBe(2);
+
+    await expect(backend.save(secondLoad, { expectedVersion: 1 })).rejects.toMatchObject({
+      code: "request.version_conflict",
+      status: 409,
+    });
 
     await backend.close?.();
   });

@@ -14,6 +14,7 @@ export interface HttpReadRouteMatches {
   statementExportMatch: RegExpMatchArray | null;
   transactionsMatch: RegExpMatchArray | null;
   attachmentDownloadMatch: RegExpMatchArray | null;
+  tokensMatch: RegExpMatchArray | null;
   bookMatch: RegExpMatchArray | null;
 }
 
@@ -43,6 +44,8 @@ export interface HttpPostRouteMatches {
   attachmentUploadMatch: RegExpMatchArray | null;
   transactionAttachmentLinkMatch: RegExpMatchArray | null;
   transactionMatch: RegExpMatchArray | null;
+  tokensCreateMatch: RegExpMatchArray | null;
+  sessionsExchangeMatch: RegExpMatchArray | null;
 }
 
 export interface HttpDeleteRouteMatches {
@@ -51,6 +54,8 @@ export interface HttpDeleteRouteMatches {
   destroyTransactionMatch: RegExpMatchArray | null;
   removeHouseholdMemberMatch: RegExpMatchArray | null;
   transactionAttachmentUnlinkMatch: RegExpMatchArray | null;
+  tokenDeleteMatch: RegExpMatchArray | null;
+  sessionCurrentDeleteMatch: RegExpMatchArray | null;
 }
 
 export interface HttpPutRouteMatches {
@@ -253,6 +258,22 @@ export function normalizeRouteLabel(method: string, path: string): string {
     return "/api/books/:bookId/accounts/:accountId";
   }
 
+  if (normalizedPath === "/api/tokens") {
+    return "/api/tokens";
+  }
+
+  if (/^\/api\/tokens\/[^/]+$/.test(normalizedPath)) {
+    return "/api/tokens/:tokenId";
+  }
+
+  if (normalizedPath === "/api/sessions/exchange") {
+    return "/api/sessions/exchange";
+  }
+
+  if (normalizedPath === "/api/sessions/current") {
+    return "/api/sessions/current";
+  }
+
   return normalizedPath;
 }
 
@@ -273,6 +294,7 @@ export function matchHttpReadRoutes(path: string): HttpReadRouteMatches {
     statementExportMatch: path.match(/^\/api\/books\/([^/]+)\/exports\/(ofx|qfx)$/),
     transactionsMatch: path.match(/^\/api\/books\/([^/]+)\/transactions$/),
     attachmentDownloadMatch: path.match(/^\/api\/books\/([^/]+)\/attachments\/([^/]+)$/),
+    tokensMatch: path.match(/^\/api\/tokens$/),
     bookMatch: path.match(/^\/api\/books\/([^/]+)$/),
   };
 }
@@ -316,6 +338,8 @@ export function matchHttpPostRoutes(path: string): HttpPostRouteMatches {
     attachmentUploadMatch: path.match(/^\/api\/books\/([^/]+)\/attachments$/),
     transactionAttachmentLinkMatch: path.match(/^\/api\/books\/([^/]+)\/transactions\/([^/]+)\/attachments$/),
     transactionMatch: path.match(/^\/api\/books\/([^/]+)\/transactions$/),
+    tokensCreateMatch: path.match(/^\/api\/tokens$/),
+    sessionsExchangeMatch: path.match(/^\/api\/sessions\/exchange$/),
   };
 }
 
@@ -333,5 +357,7 @@ export function matchHttpDeleteRoutes(path: string): HttpDeleteRouteMatches {
     destroyTransactionMatch: path.match(/^\/api\/books\/([^/]+)\/transactions\/([^/]+)\/destroy$/),
     removeHouseholdMemberMatch: path.match(/^\/api\/books\/([^/]+)\/members\/([^/]+)$/),
     transactionAttachmentUnlinkMatch: path.match(/^\/api\/books\/([^/]+)\/transactions\/([^/]+)\/attachments\/([^/]+)$/),
+    tokenDeleteMatch: path.match(/^\/api\/tokens\/([^/]+)$/),
+    sessionCurrentDeleteMatch: path.match(/^\/api\/sessions\/current$/),
   };
 }

@@ -104,6 +104,7 @@ export interface Attachment {
 
 export interface FinanceBookDocument {
   schemaVersion: 1;
+  version: number;
   id: string;
   name: string;
   baseCommodityCode: string;

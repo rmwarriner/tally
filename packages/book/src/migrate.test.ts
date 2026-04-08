@@ -20,6 +20,7 @@ describe("workspace migration", () => {
     });
 
     expect(migrated.schemaVersion).toBe(1);
+    expect(migrated.version).toBe(1);
     expect(migrated.importBatches).toEqual([]);
     expect(migrated.closePeriods).toEqual([]);
     expect(migrated.baselineBudgetLines).toEqual([]);
