@@ -6,16 +6,16 @@ Last reviewed: 2026-04-06
 
 This repository is a `pnpm` monorepo.
 
-- `tally-core/apps/api/`: Node HTTP API, auth, validation, rate limiting, and service orchestration
-- `tally-portal/apps/web/`: Vite-based desktop/web client
-- `tally-go/apps/mobile/`: Expo/React Native mobile client
-- `tally-core/packages/domain/`: core accounting, ledger, budgeting, and schedule logic
-- `tally-core/packages/workspace/`: workspace document model, commands, persistence, reconciliation, and audit events
-- `tally-core/packages/logging/`: structured logging utilities
-- `tally-portal/packages/ui/`: shared UI tokens
+- `apps/api/`: Node HTTP API, auth, validation, rate limiting, and service orchestration
+- `apps/web/`: Vite-based desktop/web client
+- `apps/mobile/`: Expo/React Native mobile client
+- `packages/domain/`: core accounting, ledger, budgeting, and schedule logic
+- `packages/workspace/`: workspace document model, commands, persistence, reconciliation, and audit events
+- `packages/logging/`: structured logging utilities
+- `packages/ui/`: shared UI tokens
 - `docs/`: architecture, standards, security, and roadmap documents
 
-Tests live next to source as `*.test.ts` under `tally-core/**/src`, `tally-portal/**/src`, and `tally-go/**/src`.
+Tests live next to source as `*.test.ts` files.
 
 ## Build, Test, and Development Commands
 
@@ -78,13 +78,14 @@ Branch workflow for this repository:
 
 See [docs/git-workflow.md](/Users/robert/Projects/tally/docs/git-workflow.md) for the full workflow.
 
-Active roadmap tracking also lives on GitHub:
+Active roadmap tracking lives in the repository:
 
 - repository: `rmwarriner/tally`
-- roadmap project: `Tally Roadmap`
-- current roadmap issues cover operations, import/export, mobile cleanup, reporting, and resilience work
-- ideas that are not ready for execution should stay as GitHub issues labeled `idea` until they are ready to be promoted to the roadmap
-- GitHub issue templates exist for ideas, roadmap items, bugs, and refactors, and pull requests should use the repository PR template
+- ideas that are not ready for execution go in `docs/ideas.md`, organized by track — do not create GitHub issues for ideas
+- GitHub issues are only created when an idea is promoted to execution (outcome is clear, area is known, ready to work)
+- GitHub issue templates exist for roadmap items, bugs, and refactors, and pull requests should use the repository PR template
+
+See [docs/git-workflow.md](/Users/robert/Projects/tally/docs/git-workflow.md) for full idea intake and promotion criteria.
 
 ## Security & Architecture Notes
 

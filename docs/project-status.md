@@ -15,7 +15,7 @@ This repository currently includes:
 - service-backed web and mobile clients for core household finance workflows
 - TDD baseline with automated unit tests
 - structured logging foundation with workspace-layer instrumentation
-- GitHub issue, milestone, and project-board tracking for the current roadmap
+- GitHub issue and milestone tracking for roadmap execution work
 - documented branch, PR, and merge workflow for ongoing execution
 - GitHub issue and PR templates for idea intake, roadmap work, bug reports, refactors, and pull requests
 - documented weekly roadmap review cadence and direct-to-`main` exception for small admin/docs changes
@@ -148,18 +148,19 @@ The goal of that pass is:
 
 ## Deferred Follow-Up
 
-- keep GitHub roadmap issues, milestones, and the `Tally Roadmap` project board aligned as execution moves forward
+- keep GitHub roadmap issues and milestones aligned as execution moves forward; idea backlog lives in `docs/ideas.md`
 - keep native desktop wrapper work in idea/discovery state until a bounded wrapper spike is ready to prove local launch, file access, and local API coordination
 - track deferred web shell cleanup and ledger rebuild sequencing in `docs/ledger-ui-rebuild-plan.md`
 
 ## Backlog Direction
 
-Recent idea intake has clustered into these broader tracks:
+The idea backlog is organized by track in `docs/ideas.md`:
 
 - core trust, audit, integrity, and security
 - budgeting, envelopes, planning, and forecasting
 - layered architecture and account decorators
 - automation, sync, and AI-assisted workflows
 - family-scale collaboration and review flows
+- operations and infrastructure
 
-The next roadmap phase should promote a small number of these tracks into bounded implementation slices instead of treating the entire idea backlog as active execution.
+The next roadmap phase should promote a small number of these tracks into bounded implementation slices. See `docs/ideas.md` for the full list and promotion criteria.

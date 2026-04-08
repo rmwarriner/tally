@@ -47,30 +47,22 @@ Pull requests should:
 
 Not every idea belongs on the roadmap immediately.
 
-Use a separate idea inbox for work that is still exploratory, underspecified, or not yet prioritized:
+Use `docs/ideas.md` as the authoritative idea inbox for work that is still exploratory, underspecified, or not yet prioritized. Ideas are organized there by track. GitHub Issues are only created when an idea is promoted to execution.
 
-- create a GitHub issue
-- label it `idea`
-- do not assign a milestone yet
-- do not add it to the `Tally Roadmap` project yet
-- prefer the `Idea` GitHub issue template for consistent capture
+To add a new idea:
 
-Idea issues should capture:
+- add an entry to the relevant track in `docs/ideas.md`
+- include: the problem or opportunity, why it is parked, and the key open questions
+- commit directly to `main` if it is a small admin change
 
-- the problem or opportunity
-- why it matters
-- the likely area such as `api`, `web`, `mobile`, `domain`, or `operations`
-- open questions or unknowns
-- why now or why later
-
-Promote an idea to the roadmap only when:
+Promote an idea to a GitHub Issue only when:
 
 - the outcome is clear enough to execute
 - the rough implementation area is known
 - it can be prioritized against current roadmap work
 - someone is ready to work it in the near term
 
-Roadmap-ready execution work, bugs, and refactors should use the corresponding GitHub issue templates so intake stays consistent.
+When promoting, create a GitHub Issue using the appropriate template (bug, feat, refactor) so intake stays consistent. There is no separate `idea`-labeled issue step.
 
 ## Merge Style
 
@@ -113,9 +105,8 @@ git push -u origin feat/5-metrics-and-tracing
 
 At least once a week:
 
-- review new `idea` issues and either keep parked, promote, or close them
-- re-rank open roadmap issues against current priorities
-- check the roadmap project for stale or missing items
+- review `docs/ideas.md` and either keep ideas parked, promote them to GitHub Issues, or remove stale ones
+- re-rank open GitHub Issues against current priorities
 - review open Dependabot pull requests and ensure patch/minor updates are flowing through CI-based merge automation
 - convert major dependency updates into tracked upgrade issues when they are deferred
 - check CI status so repeated failures do not become background noise
