@@ -1,6 +1,6 @@
 # Project Status
 
-Last reviewed: 2026-04-09 (CLI Phases 1-3 implemented, integration suite passing, SQLite default persistence promoted, quality gates green)
+Last reviewed: 2026-04-09 (CLI Phases 1-3 implemented, integration suite passing, SQLite default persistence promoted, compact pretty log format, quality gates green)
 
 ## Current State
 
@@ -98,6 +98,7 @@ This repository currently includes:
 - concrete single-host deployment and recovery runbook for the API runtime
 - file-backed auth secret loading and safe runtime configuration logging
 - runtime-selectable log output format (`auto`, `pretty`, `json`) for human-friendly local console output and structured production logs
+- compact pretty log format: startup config printed once as a summary block; subsequent lines are single-line `HH:mm:ss LEVEL  message  key=value` with static infrastructure fields suppressed
 - initial persistence abstraction under the API repository, with JSON, SQLite, and Postgres backends now supported plus admin copy/copy-all/export/import workflow, validation reports, dry-run verification, and backup-backed rollback support between them
 - SQLite promoted as default API persistence backend; explicit runtime `json` selection remains supported but now logs a deprecation warning
 - CI and security quality gates

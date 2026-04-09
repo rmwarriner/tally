@@ -49,6 +49,27 @@ const defaultRedactKeys = [
   "routingNumber",
 ];
 
+const STATIC_FIELDS = new Set([
+  "dataDirectory",
+  "host",
+  "persistenceBackend",
+  "port",
+  "postgresConfigured",
+  "runtimeMode",
+  "sqlitePath",
+  "postgresUrl",
+  "service",
+]);
+
+const LEVEL_LABEL: Record<LogLevel, string> = {
+  debug: "DEBUG",
+  info: "INFO ",
+  warn: "WARN ",
+  error: "ERROR",
+};
+
+const SEPARATOR = "\u2500".repeat(48);
+
 function redactValue(value: unknown, redactKeys: Set<string>): unknown {
   if (Array.isArray(value)) {
     return value.map((entry) => redactValue(entry, redactKeys));
@@ -86,33 +107,60 @@ function createRecord(
   };
 }
 
-function stringifyLogField(value: unknown): string {
+function serializeFieldValue(value: unknown): string {
   if (typeof value === "string") {
-    return value;
+    return value.includes(" ") ? `"${value}"` : value;
   }
-
   return JSON.stringify(value);
 }
 
-function formatPrettyRecord(record: LogRecord): string {
-  const header = `${record.timestamp} ${record.level.toUpperCase()} ${record.service}: ${record.message}`;
-  const fieldEntries = Object.entries(record.fields);
+function extractTime(timestamp: string): string {
+  const match = /T(\d{2}:\d{2}:\d{2})/.exec(timestamp);
+  return match?.[1] ?? timestamp;
+}
 
-  if (fieldEntries.length === 0) {
-    return header;
-  }
+function formatStartupBlock(record: LogRecord): string {
+  const date = record.timestamp.slice(0, 10);
+  const time = extractTime(record.timestamp);
+  const entries = Object.entries(record.fields);
+  const maxKeyLen = entries.reduce((max, [k]) => Math.max(max, k.length), 0);
+  const fieldLines = entries
+    .map(([k, v]) => `  ${k.padEnd(maxKeyLen)}  ${serializeFieldValue(v)}`)
+    .join("\n");
 
-  return `${header}\n${fieldEntries
-    .map(([key, value]) => `  ${key}: ${stringifyLogField(value)}`)
-    .join("\n")}`;
+  const header = `${date} ${time}  ${record.service}`;
+  const body = fieldLines.length > 0
+    ? `  ${record.message}\n${fieldLines}`
+    : `  ${record.message}`;
+
+  return `${SEPARATOR}\n${header}\n${body}\n${SEPARATOR}`;
+}
+
+function formatCompactRecord(record: LogRecord): string {
+  const time = extractTime(record.timestamp);
+  const level = LEVEL_LABEL[record.level];
+  const fields = Object.entries(record.fields)
+    .filter(([k]) => !STATIC_FIELDS.has(k))
+    .map(([k, v]) => `${k}=${serializeFieldValue(v)}`)
+    .join(" ");
+
+  const base = `${time} ${level}  ${record.message}`;
+  return fields.length > 0 ? `${base}  ${fields}` : base;
 }
 
 export function createConsoleSink(options: ConsoleSinkOptions = {}): (record: LogRecord) => void {
   const format = options.format ?? "json";
 
   if (format === "pretty") {
+    let startupEmitted = false;
+
     return (record: LogRecord) => {
-      console.log(formatPrettyRecord(record));
+      if (!startupEmitted) {
+        startupEmitted = true;
+        console.log(formatStartupBlock(record));
+      } else {
+        console.log(formatCompactRecord(record));
+      }
     };
   }
 

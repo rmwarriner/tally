@@ -442,8 +442,10 @@ describe("api runtime", () => {
 
     await runtime.start();
 
-    expect(output.some((line) => line.includes("INFO tally-api: api runtime configured"))).toBe(true);
-    expect(output.some((line) => line.includes("runtimeMode: development"))).toBe(true);
+    // startup block: separator + service header + message + fields
+    expect(output.some((line) => line.includes("tally-api"))).toBe(true);
+    expect(output.some((line) => line.includes("api runtime configured"))).toBe(true);
+    expect(output.some((line) => line.includes("runtimeMode"))).toBe(true);
 
     consoleSpy.mockRestore();
   });
