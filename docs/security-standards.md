@@ -54,9 +54,13 @@ Changes are incomplete if they introduce new operational behavior without consid
 ## Operational Guidance
 
 - production-oriented API runtime should use file-backed auth secrets rather than inline token env vars
+- external OTLP exporter credentials must be treated as secrets and redacted from logs/config dumps
 - the default deployment target is a single Linux host with a `systemd`-managed API process and a private data directory
 - backup copies outside the API host should be treated as sensitive financial records with controlled access
-- encryption-at-rest and key rotation remain follow-up work and are not yet a completed baseline
+- encryption-at-rest baseline applies to book data, backups, attachments, and backend database files/snapshots
+- key hierarchy should use managed KEK custody (KMS/HSM), with separation of key administration and API runtime operations
+- key rotation and emergency revocation procedures must be documented and validated with restore drills
+- app-layer persistence encryption remains future work; current baseline relies on infrastructure/storage encryption controls
 
 See `docs/api-runtime-operations.md` and `docs/api-deployment-and-recovery-runbook.md` for the current runtime and recovery guidance.
 

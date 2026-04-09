@@ -12,6 +12,7 @@ import {
   createJsonManagedAuthStore,
   createBookService,
 } from "./index";
+import type { HttpRequestObserver } from "./observability";
 
 describe("api http transport", () => {
   function createTestHttpHandler(
@@ -136,6 +137,64 @@ describe("api http transport", () => {
     );
     expect(writeResponse.headers.get("etag")).toBe('"book-2"');
     expect(writeResponse.headers.get("x-book-version")).toBe("2");
+
+    await fixture.cleanup();
+  });
+
+  it("records canonical route spans for /api and /api/v1 through request observer", async () => {
+    const fixture = await createFixture();
+    const service = createBookService({
+      repository: createFileSystemBookRepository({ rootDirectory: fixture.directory }),
+    });
+    const startedRoutes: string[] = [];
+    const completedStatuses: number[] = [];
+    const requestObserver: HttpRequestObserver = {
+      start(input) {
+        startedRoutes.push(input.route);
+        return {
+          spanId: "span-1",
+          traceId: "trace-1",
+          complete({ status }) {
+            completedStatuses.push(status);
+          },
+        };
+      },
+    };
+    const handler = createHttpHandler({ requestObserver, service });
+
+    await handler(new Request(`http://localhost/api/books/${fixture.book.id}`));
+    await handler(new Request(`http://localhost/api/v1/books/${fixture.book.id}`));
+
+    expect(startedRoutes).toEqual(["/api/books/:bookId", "/api/books/:bookId"]);
+    expect(completedStatuses).toEqual([200, 200]);
+
+    await fixture.cleanup();
+  });
+
+  it("completes observed requests with error status codes", async () => {
+    const fixture = await createFixture();
+    const service = createBookService({
+      repository: createFileSystemBookRepository({ rootDirectory: fixture.directory }),
+    });
+    const completedStatuses: number[] = [];
+    const requestObserver: HttpRequestObserver = {
+      start() {
+        return {
+          complete({ status }) {
+            completedStatuses.push(status);
+          },
+        };
+      },
+    };
+    const handler = createHttpHandler({
+      authIdentities: [{ actor: "Primary", role: "member", token: "top-secret" }],
+      requestObserver,
+      service,
+    });
+
+    await handler(new Request(`http://localhost/api/books/${fixture.book.id}`));
+
+    expect(completedStatuses).toEqual([401]);
 
     await fixture.cleanup();
   });

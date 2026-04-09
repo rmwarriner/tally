@@ -37,6 +37,15 @@ export interface ApiRuntimeConfig {
     readLimit: number;
     windowMs: number;
   };
+  observability: {
+    enabled: boolean;
+    exportTimeoutMs: number;
+    metricsExportIntervalMs: number;
+    otlpEndpoint: string;
+    otlpEndpointHost?: string;
+    otlpHeaders: Record<string, string>;
+    serviceName: string;
+  };
   seedDemoWorkspace: boolean;
   shutdownTimeoutMs: number;
   sqlitePath: string;
@@ -118,6 +127,47 @@ function parseRuntimeMode(value: string | undefined, fallback: ApiRuntimeMode): 
   throw new ConfigValidationError([
     "TALLY_API_RUNTIME_MODE must be development, production, or test.",
   ]);
+}
+
+function parseUrlHost(value: string, fieldName: string): string {
+  try {
+    const parsed = new URL(value);
+    if (parsed.protocol !== "http:" && parsed.protocol !== "https:") {
+      throw new ConfigValidationError([`${fieldName} must use http or https.`]);
+    }
+    if (!parsed.host) {
+      throw new ConfigValidationError([`${fieldName} must include a host.`]);
+    }
+    return parsed.host;
+  } catch (error) {
+    if (error instanceof ConfigValidationError) {
+      throw error;
+    }
+    throw new ConfigValidationError([`${fieldName} must be a valid URL.`]);
+  }
+}
+
+function parseStringMapJson(raw: string, fieldName: string): Record<string, string> {
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(raw);
+  } catch {
+    throw new ConfigValidationError([`${fieldName} must be valid JSON.`]);
+  }
+
+  if (typeof parsed !== "object" || parsed === null || Array.isArray(parsed)) {
+    throw new ConfigValidationError([`${fieldName} must be a JSON object.`]);
+  }
+
+  const result: Record<string, string> = {};
+  for (const [key, value] of Object.entries(parsed)) {
+    if (typeof value !== "string") {
+      throw new ConfigValidationError([`${fieldName}.${key} must be a string.`]);
+    }
+    result[key] = value;
+  }
+
+  return result;
 }
 
 function readSecretFile(path: string, fieldName: string): string {
@@ -418,6 +468,36 @@ export function createApiRuntimeConfig(
     "TALLY_API_SQLITE_PATH",
     "GNUCASH_NG_API_SQLITE_PATH",
   );
+  const observabilityEnabledValue = readCanonicalEnv(
+    env,
+    "TALLY_API_OBSERVABILITY_ENABLED",
+    "GNUCASH_NG_API_OBSERVABILITY_ENABLED",
+  );
+  const observabilityEndpointValue = readCanonicalEnv(
+    env,
+    "TALLY_API_OBSERVABILITY_OTLP_ENDPOINT",
+    "GNUCASH_NG_API_OBSERVABILITY_OTLP_ENDPOINT",
+  );
+  const observabilityHeadersValue = readCanonicalEnv(
+    env,
+    "TALLY_API_OBSERVABILITY_OTLP_HEADERS",
+    "GNUCASH_NG_API_OBSERVABILITY_OTLP_HEADERS",
+  );
+  const observabilityExportTimeoutValue = readCanonicalEnv(
+    env,
+    "TALLY_API_OBSERVABILITY_EXPORT_TIMEOUT_MS",
+    "GNUCASH_NG_API_OBSERVABILITY_EXPORT_TIMEOUT_MS",
+  );
+  const observabilityMetricsIntervalValue = readCanonicalEnv(
+    env,
+    "TALLY_API_OBSERVABILITY_METRICS_EXPORT_INTERVAL_MS",
+    "GNUCASH_NG_API_OBSERVABILITY_METRICS_EXPORT_INTERVAL_MS",
+  );
+  const observabilityServiceNameValue = readCanonicalEnv(
+    env,
+    "TALLY_API_OBSERVABILITY_SERVICE_NAME",
+    "GNUCASH_NG_API_OBSERVABILITY_SERVICE_NAME",
+  );
   const corsOriginValue = env["TALLY_CORS_ORIGIN"];
 
   const runtimeMode = parseRuntimeMode(
@@ -459,6 +539,39 @@ export function createApiRuntimeConfig(
     10000,
     "TALLY_API_SHUTDOWN_TIMEOUT_MS",
   );
+  const observabilityEnabled = parseBoolean(
+    observabilityEnabledValue,
+    false,
+    "TALLY_API_OBSERVABILITY_ENABLED",
+  );
+  const observabilityServiceName = observabilityServiceNameValue?.trim() || "tally-api";
+  if (observabilityServiceName.length === 0) {
+    throw new ConfigValidationError(["TALLY_API_OBSERVABILITY_SERVICE_NAME must not be empty."]);
+  }
+  const observabilityExportTimeoutMs = parsePositiveInteger(
+    observabilityExportTimeoutValue,
+    10000,
+    "TALLY_API_OBSERVABILITY_EXPORT_TIMEOUT_MS",
+  );
+  const observabilityMetricsExportIntervalMs = parsePositiveInteger(
+    observabilityMetricsIntervalValue,
+    60000,
+    "TALLY_API_OBSERVABILITY_METRICS_EXPORT_INTERVAL_MS",
+  );
+  const observabilityHeaders =
+    observabilityHeadersValue && observabilityHeadersValue.trim().length > 0
+      ? parseStringMapJson(observabilityHeadersValue, "TALLY_API_OBSERVABILITY_OTLP_HEADERS")
+      : {};
+  const observabilityEndpoint = observabilityEndpointValue?.trim() ?? "";
+  const observabilityEndpointHost =
+    observabilityEndpoint.length > 0
+      ? parseUrlHost(observabilityEndpoint, "TALLY_API_OBSERVABILITY_OTLP_ENDPOINT")
+      : undefined;
+  if (observabilityEnabled && observabilityEndpoint.length === 0) {
+    throw new ConfigValidationError([
+      "TALLY_API_OBSERVABILITY_OTLP_ENDPOINT is required when TALLY_API_OBSERVABILITY_ENABLED=true.",
+    ]);
+  }
   const authConfig = parseAuthConfig(env);
   const seedDemoWorkspace = parseBoolean(
     seedDemoWorkspaceValue,
@@ -514,6 +627,15 @@ export function createApiRuntimeConfig(
       mutationLimit,
       readLimit,
       windowMs: rateLimitWindowMs,
+    },
+    observability: {
+      enabled: observabilityEnabled,
+      exportTimeoutMs: observabilityExportTimeoutMs,
+      metricsExportIntervalMs: observabilityMetricsExportIntervalMs,
+      otlpEndpoint: observabilityEndpoint,
+      otlpEndpointHost: observabilityEndpointHost,
+      otlpHeaders: observabilityHeaders,
+      serviceName: observabilityServiceName,
     },
     trustedHeaderAuth: authConfig.trustedHeaderAuth,
     seedDemoWorkspace,

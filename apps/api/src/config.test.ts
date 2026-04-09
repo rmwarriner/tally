@@ -30,6 +30,15 @@ describe("api runtime config", () => {
         readLimit: 120,
         windowMs: 60000,
       },
+      observability: {
+        enabled: false,
+        exportTimeoutMs: 10000,
+        metricsExportIntervalMs: 60000,
+        otlpEndpoint: "",
+        otlpEndpointHost: undefined,
+        otlpHeaders: {},
+        serviceName: "tally-api",
+      },
       seedDemoWorkspace: true,
       shutdownTimeoutMs: 10000,
       sqlitePath: "/tmp/tally/data/workspaces.sqlite",
@@ -75,6 +84,15 @@ describe("api runtime config", () => {
         mutationLimit: 12,
         readLimit: 75,
         windowMs: 30000,
+      },
+      observability: {
+        enabled: false,
+        exportTimeoutMs: 10000,
+        metricsExportIntervalMs: 60000,
+        otlpEndpoint: "",
+        otlpEndpointHost: undefined,
+        otlpHeaders: {},
+        serviceName: "tally-api",
       },
       seedDemoWorkspace: false,
       shutdownTimeoutMs: 15000,
@@ -404,5 +422,79 @@ describe("api runtime config", () => {
     expect(config.authIdentities).toEqual([
       { actor: "api-user", role: "admin", token: "new-token" },
     ]);
+  });
+
+  it("supports opt-in observability settings with strict validation", () => {
+    const config = createApiRuntimeConfig(
+      {
+        TALLY_API_AUTH_TOKEN: "top-secret",
+        TALLY_API_OBSERVABILITY_ENABLED: "true",
+        TALLY_API_OBSERVABILITY_OTLP_ENDPOINT: "https://otel.example.com/v1",
+        TALLY_API_OBSERVABILITY_OTLP_HEADERS: '{"authorization":"Bearer hidden","x-tenant":"home"}',
+        TALLY_API_OBSERVABILITY_EXPORT_TIMEOUT_MS: "15000",
+        TALLY_API_OBSERVABILITY_METRICS_EXPORT_INTERVAL_MS: "30000",
+        TALLY_API_OBSERVABILITY_SERVICE_NAME: "tally-api-prod",
+      },
+      "/tmp/tally",
+    );
+
+    expect(config.observability).toEqual({
+      enabled: true,
+      exportTimeoutMs: 15000,
+      metricsExportIntervalMs: 30000,
+      otlpEndpoint: "https://otel.example.com/v1",
+      otlpEndpointHost: "otel.example.com",
+      otlpHeaders: {
+        authorization: "Bearer hidden",
+        "x-tenant": "home",
+      },
+      serviceName: "tally-api-prod",
+    });
+  });
+
+  it("requires an OTLP endpoint when observability is enabled", () => {
+    expect(() =>
+      createApiRuntimeConfig(
+        {
+          TALLY_API_AUTH_TOKEN: "top-secret",
+          TALLY_API_OBSERVABILITY_ENABLED: "true",
+        },
+        "/tmp/tally",
+      ),
+    ).toThrow(
+      "TALLY_API_OBSERVABILITY_OTLP_ENDPOINT is required when TALLY_API_OBSERVABILITY_ENABLED=true.",
+    );
+  });
+
+  it("rejects malformed observability config values", () => {
+    expect(() =>
+      createApiRuntimeConfig(
+        {
+          TALLY_API_AUTH_TOKEN: "top-secret",
+          TALLY_API_OBSERVABILITY_OTLP_ENDPOINT: "not-a-url",
+        },
+        "/tmp/tally",
+      ),
+    ).toThrow("TALLY_API_OBSERVABILITY_OTLP_ENDPOINT must be a valid URL.");
+
+    expect(() =>
+      createApiRuntimeConfig(
+        {
+          TALLY_API_AUTH_TOKEN: "top-secret",
+          TALLY_API_OBSERVABILITY_OTLP_HEADERS: '{"x":1}',
+        },
+        "/tmp/tally",
+      ),
+    ).toThrow("TALLY_API_OBSERVABILITY_OTLP_HEADERS.x must be a string.");
+
+    expect(() =>
+      createApiRuntimeConfig(
+        {
+          TALLY_API_AUTH_TOKEN: "top-secret",
+          TALLY_API_OBSERVABILITY_EXPORT_TIMEOUT_MS: "0",
+        },
+        "/tmp/tally",
+      ),
+    ).toThrow("TALLY_API_OBSERVABILITY_EXPORT_TIMEOUT_MS must be a positive integer.");
   });
 });

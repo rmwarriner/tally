@@ -5,6 +5,8 @@ import { ConfigValidationError } from "./errors";
 import { createHttpHandler, createNodeHttpServer } from "./http";
 import { createIdempotencyStore } from "./idempotency-store";
 import { createManagedAuthStore } from "./managed-auth-store";
+import { createInMemoryApiMetrics } from "./metrics";
+import { createApiObservability } from "./observability";
 import { createBookPersistenceBackend } from "./persistence";
 import { createInMemoryRateLimiter } from "./rate-limit";
 import { createBookRepository } from "./repository";
@@ -75,11 +77,17 @@ function logRuntimeConfiguration(logger: Logger, config: ApiRuntimeConfig): void
     seedDemoWorkspace: config.seedDemoWorkspace,
     shutdownTimeoutMs: config.shutdownTimeoutMs,
     sqlitePath: config.persistenceBackend === "sqlite" ? config.sqlitePath : undefined,
+    observabilityEnabled: config.observability.enabled,
+    observabilityExportTimeoutMs: config.observability.exportTimeoutMs,
+    observabilityMetricsExportIntervalMs: config.observability.metricsExportIntervalMs,
+    observabilityOtlpEndpointHost: config.observability.otlpEndpointHost,
+    observabilityServiceName: config.observability.serviceName,
   });
 }
 
 export function createApiRuntime(params: {
   config: ApiRuntimeConfig;
+  createObservability?: typeof createApiObservability;
   createServer?: (input: {
     handler: ReturnType<typeof createHttpHandler>;
     logger: Logger;
@@ -100,11 +108,20 @@ export function createApiRuntime(params: {
   const service = createBookService({ dataDirectory: params.config.dataDirectory, logger, repository });
   const idempotencyStore = createIdempotencyStore({ config: params.config, logger });
   const managedAuthStore = createManagedAuthStore({ config: params.config, logger });
+  const localMetrics = createInMemoryApiMetrics();
+  const observability = (params.createObservability ?? createApiObservability)({
+    config: params.config,
+    localMetrics,
+    logger,
+  });
   const handler = createHttpHandler({
     authRequired: params.config.authStrategy !== "none",
     authIdentities: params.config.authIdentities,
     corsAllowedOrigins: params.config.corsAllowedOrigins,
+    persistenceBackendLabel: params.config.persistenceBackend,
+    requestObserver: observability.requestObserver,
     logger,
+    metrics: observability.metrics,
     runtimeMode: params.config.runtimeMode,
     maxBodyBytes: params.config.bodyLimitBytes,
     readinessProbe: async ({ logger: probeLogger }) => {
@@ -229,6 +246,7 @@ export function createApiRuntime(params: {
             if (managedAuthStore.close) {
               await managedAuthStore.close();
             }
+            await observability.shutdown();
             logger.info("api server shutdown completed", {
               signal: signal ?? "manual",
             });

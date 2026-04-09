@@ -4,6 +4,7 @@ export * from "./http";
 export * from "./idempotency-store";
 export * from "./managed-auth-store";
 export * from "./metrics";
+export * from "./observability";
 export * from "./persistence-admin";
 export * from "./persistence";
 export * from "./rate-limit";

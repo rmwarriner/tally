@@ -20,6 +20,7 @@ import { createInMemoryApiMetrics, type ApiMetrics } from "./metrics";
 import type { IdempotencyStore } from "./idempotency-store";
 import { buildIdempotencyRequestHash } from "./idempotency-store";
 import type { ManagedAuthStore } from "./managed-auth-store";
+import type { HttpRequestObserver } from "./observability";
 import { createInMemoryRateLimiter, type RateLimiter, type RateLimitPolicy } from "./rate-limit";
 import type { BookService } from "./service";
 import {
@@ -148,6 +149,8 @@ export function createHttpHandler(params: {
   metrics?: ApiMetrics;
   idempotencyStore?: IdempotencyStore;
   managedAuthStore?: ManagedAuthStore;
+  persistenceBackendLabel?: string;
+  requestObserver?: HttpRequestObserver;
   readinessProbe?: (input: { logger: Logger }) => Promise<ReadinessProbeResult>;
   rateLimiter?: RateLimiter;
   rateLimitPolicy?: {
@@ -195,12 +198,22 @@ export function createHttpHandler(params: {
     const route = normalizeRouteLabel(request.method, path);
     const startedAt = Date.now();
     const requestId = request.headers.get("x-request-id")?.trim() || randomUUID();
+    const requestObservation = params.requestObserver?.start({
+      method: request.method,
+      path,
+      persistenceBackend: params.persistenceBackendLabel ?? "unknown",
+      requestId,
+      route,
+      runtimeMode,
+    });
     const requestLogger = logger.child({
       method: request.method,
       path: rawPath,
       canonicalPath: path,
       requestId,
       route,
+      traceId: requestObservation?.traceId,
+      spanId: requestObservation?.spanId,
     });
     requestLogger.info("http request started");
 
@@ -237,6 +250,7 @@ export function createHttpHandler(params: {
         startedAt,
         status,
       });
+      requestObservation?.complete({ status });
 
       const responseHeaders = {
         "x-request-id": requestId,
@@ -268,6 +282,7 @@ export function createHttpHandler(params: {
         startedAt,
         status,
       });
+      requestObservation?.complete({ status });
 
       return textResponse(status, body, {
         "x-request-id": requestId,
@@ -285,6 +300,7 @@ export function createHttpHandler(params: {
         startedAt,
         status,
       });
+      requestObservation?.complete({ status });
 
       return binaryResponse(status, body, {
         "x-request-id": requestId,
@@ -302,6 +318,7 @@ export function createHttpHandler(params: {
         startedAt,
         status: 204,
       });
+      requestObservation?.complete({ status: 204 });
 
       return new Response(null, {
         headers: {

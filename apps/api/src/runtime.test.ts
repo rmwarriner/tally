@@ -22,6 +22,15 @@ function createConfig(overrides: Partial<ApiRuntimeConfig> = {}): ApiRuntimeConf
       readLimit: 120,
       windowMs: 60000,
     },
+    observability: {
+      enabled: false,
+      exportTimeoutMs: 10000,
+      metricsExportIntervalMs: 60000,
+      otlpEndpoint: "",
+      otlpEndpointHost: undefined,
+      otlpHeaders: {},
+      serviceName: "tally-api",
+    },
     runtimeMode: "development",
     seedDemoWorkspace: true,
     shutdownTimeoutMs: 10000,
@@ -102,6 +111,54 @@ describe("api runtime", () => {
     await runtime.start();
 
     expect(ensureSeed).not.toHaveBeenCalled();
+  });
+
+  it("initializes and shuts down observability once", async () => {
+    const observabilityShutdown = vi.fn(async () => {});
+    const createObservability = vi.fn(() => ({
+      metrics: {
+        recordRequest() {},
+        renderPrometheus() {
+          return "";
+        },
+      },
+      requestObserver: undefined,
+      shutdown: observabilityShutdown,
+    }));
+
+    const runtime = createApiRuntime({
+      config: createConfig({
+        observability: {
+          enabled: true,
+          exportTimeoutMs: 10000,
+          metricsExportIntervalMs: 60000,
+          otlpEndpoint: "https://otel.example.com/v1",
+          otlpEndpointHost: "otel.example.com",
+          otlpHeaders: { authorization: "Bearer hidden" },
+          serviceName: "tally-api",
+        },
+      }),
+      createObservability,
+      createServer() {
+        return {
+          close(callback) {
+            callback();
+          },
+          listen(_port, _host, callback) {
+            callback();
+          },
+        };
+      },
+      ensureSeed: vi.fn(async () => {}),
+      logger: createSilentLogger(),
+    });
+
+    await runtime.start();
+    await runtime.shutdown("SIGTERM");
+    await runtime.shutdown("SIGTERM");
+
+    expect(createObservability).toHaveBeenCalledTimes(1);
+    expect(observabilityShutdown).toHaveBeenCalledTimes(1);
   });
 
   it("closes the server during shutdown", async () => {

@@ -102,6 +102,24 @@ Administrative persistence migration and export commands are documented in `docs
   - `auto`, `pretty`, or `json`
   - defaults to `auto`
   - `auto` uses `pretty` when stdout is an interactive terminal and `json` otherwise
+- `TALLY_API_OBSERVABILITY_ENABLED`
+  - enables external OpenTelemetry export (`true` or `false`)
+  - defaults to `false`
+- `TALLY_API_OBSERVABILITY_OTLP_ENDPOINT`
+  - OTLP HTTP endpoint URL for trace/metric export
+  - required when observability is enabled
+- `TALLY_API_OBSERVABILITY_OTLP_HEADERS`
+  - optional JSON object of exporter headers (for example auth and tenant headers)
+  - do not log or commit secret-bearing values
+- `TALLY_API_OBSERVABILITY_EXPORT_TIMEOUT_MS`
+  - exporter timeout in milliseconds
+  - defaults to `10000`
+- `TALLY_API_OBSERVABILITY_METRICS_EXPORT_INTERVAL_MS`
+  - periodic metric export interval in milliseconds
+  - defaults to `60000`
+- `TALLY_API_OBSERVABILITY_SERVICE_NAME`
+  - OpenTelemetry service name override
+  - defaults to `tally-api`
 
 ## Rename Transition Compatibility
 
@@ -135,6 +153,9 @@ Header compatibility during transition:
   - `local-admin`: runtime bootstrap/admin bypass for local operator contexts
 - book role bindings are stored in `householdMemberRoles` on each book document and enforced by the API service layer
 - mutation audit events include authorization context (`actorRole` and `authorization`) in event summaries
+- external observability is opt-in and disabled unless explicitly configured
+- when enabled, request logs include trace correlation fields (`traceId`, `spanId`)
+- route-level telemetry keeps canonical route labels so `/api` and `/api/v1` remain parity-safe for metrics/tracing cardinality
 - household member management is available through dedicated routes:
   - `GET /api/books/:id/members` — list members and their roles (any member)
   - `POST /api/books/:id/members` — add a member (admin only)
@@ -235,6 +256,26 @@ The Tally API validates the proxy key before trusting any injected actor or role
 - prefer `*_FILE` auth variables in production-oriented environments so token material stays out of shell history and process managers
 - keep auth secret files outside the book data directory and restrict file permissions to the API runtime user
 - use inline auth variables only for local development, short-lived tests, or other low-risk environments
+- treat `TALLY_API_OBSERVABILITY_OTLP_HEADERS` as secret material when it contains credentials (for example bearer tokens or API keys)
+
+## Encryption At Rest Guidance
+
+- required encrypted data classes:
+  - primary book data (`json` files / sqlite db / postgres tables)
+  - repository-managed backup artifacts
+  - attachment files and attachment snapshot copies
+- backend-specific baseline:
+  - `json` and `sqlite`: require host/disk volume encryption and least-privilege filesystem ownership
+  - `postgres`: require managed DB encryption-at-rest controls and encrypted storage volumes/snapshots
+- key hierarchy baseline:
+  - use KMS/HSM-managed key encryption keys (KEK)
+  - keep operational data-encryption handling separate from app deploy credentials
+  - separate key-administration responsibilities from API runtime operator roles
+- key lifecycle baseline:
+  - define routine rotation cadence and emergency compromise revocation procedure
+  - verify backup restoreability after key rotations
+  - document incident response steps for suspected key leakage
+- this slice is guidance-first: app-layer persistence encryption is not yet implemented in the API storage adapters
 
 ## Concrete Runbook
 
@@ -248,5 +289,5 @@ See `docs/api-deployment-and-recovery-runbook.md` for the concrete deployment, s
 
 ## Near-Term Follow-Up
 
-- add external metrics, tracing sinks, and alert routing once the hosting target is selected beyond the single-node default
-- add encryption-at-rest and key-handling guidance once secret-management and external backup targets are finalized
+- add alert routing/SLO dashboards on top of OTLP-exported traces and metrics in the selected observability backend
+- evaluate app-layer encryption options and migration strategy only after runtime key-management operations are validated

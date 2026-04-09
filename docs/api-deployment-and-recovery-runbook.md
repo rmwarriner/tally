@@ -1,6 +1,6 @@
 # API Deployment And Recovery Runbook
 
-Last reviewed: 2026-04-06
+Last reviewed: 2026-04-08
 
 ## Selected Default Target
 
@@ -32,6 +32,7 @@ Recommended ownership and permissions:
 - `/etc/tally/api-token`: `0600`, owned by root or the service user
 - `/var/lib/tally/api`: writable only by the service user
 - `_backups` kept on the same durable volume as the book data unless a separate backup copy job is configured
+- host volume/snapshot encryption enabled for `/var/lib/tally/api` and backup copy targets
 
 ## Runtime Configuration
 
@@ -53,6 +54,7 @@ TALLY_API_RATE_LIMIT_IMPORTS=10
 TALLY_API_SHUTDOWN_TIMEOUT_MS=10000
 TALLY_LOG_LEVEL=info
 TALLY_LOG_FORMAT=json
+TALLY_API_OBSERVABILITY_ENABLED=false
 ```
 
 Do not set:
@@ -60,6 +62,17 @@ Do not set:
 - `TALLY_API_SEED_DEMO_WORKSPACE`
   production mode rejects it
 - inline auth tokens if a file-backed secret is available
+
+Optional OTLP export settings when using external observability:
+
+- `TALLY_API_OBSERVABILITY_ENABLED=true`
+- `TALLY_API_OBSERVABILITY_OTLP_ENDPOINT=https://otel.example.com/v1`
+- `TALLY_API_OBSERVABILITY_OTLP_HEADERS={"authorization":"Bearer ...","x-tenant":"home"}`
+- `TALLY_API_OBSERVABILITY_EXPORT_TIMEOUT_MS=10000`
+- `TALLY_API_OBSERVABILITY_METRICS_EXPORT_INTERVAL_MS=60000`
+- `TALLY_API_OBSERVABILITY_SERVICE_NAME=tally-api`
+
+Treat `TALLY_API_OBSERVABILITY_OTLP_HEADERS` as secret-bearing configuration.
 
 ## Rename Migration Appendix (Old -> New)
 
@@ -162,6 +175,8 @@ Operational guidance:
 - create a fresh API backup before any manual restore or risky maintenance step
 - copy the `_backups` directory to an external durable store on a schedule outside the API process
 - treat repository-managed backups as application-level recovery points, not the only disaster-recovery control
+- ensure external backup targets are encrypted at rest and key custody is managed through KMS/HSM-backed controls
+- run restore drills after key-rotation events to verify backup recoverability
 
 ## Recovery Runbook
 
@@ -223,6 +238,5 @@ Use these defaults unless operational needs say otherwise:
 This runbook does not yet define:
 
 - multi-node deployment
-- distributed tracing or external metrics backends
-- encryption-at-rest and key rotation policy
+- app-layer data encryption migrations inside API persistence adapters
 - automated object-storage backup sync implementation
