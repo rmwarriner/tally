@@ -27,7 +27,7 @@ export interface CliEnv {
 }
 
 const DEFAULT_ENV: CliEnv = {
-  apiUrl: process.env.TALLY_API_URL ?? "http://localhost:3000",
+  apiUrl: process.env.TALLY_API_URL ?? "http://127.0.0.1:3000",
   token: process.env.TALLY_TOKEN ?? "dev-token",
   book: process.env.TALLY_BOOK ?? process.env.TEST_BOOK_ID,
 };

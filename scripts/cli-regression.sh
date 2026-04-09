@@ -51,7 +51,7 @@ run_or_fail "unit tests pass" pnpm vitest run tally-cli/src/lib
 if [[ "$INTEGRATION" == "true" ]]; then
   header "Layer 2 — Integration Tests (requires pnpm dev:api)"
 
-  API_URL="${TALLY_API_URL:-http://localhost:3000}"
+  API_URL="${TALLY_API_URL:-http://127.0.0.1:3000}"
   info "Checking API at $API_URL/healthz ..."
 
   if ! curl -sf "$API_URL/healthz" > /dev/null 2>&1; then
