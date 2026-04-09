@@ -25,7 +25,7 @@
  * coverage is prioritised — it adds build complexity and platform constraints.
  * ─────────────────────────────────────────────────────────────────────────────
  */
-import { mkdirSync, writeFileSync } from "node:fs";
+import { mkdirSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
@@ -39,9 +39,12 @@ import {
 
 // Isolated config dir so `tally use` tests never touch ~/.tally
 const TEST_CONFIG_HOME = join(tmpdir(), `tally-integration-${Math.random().toString(36).slice(2)}`);
-mkdirSync(join(TEST_CONFIG_HOME, ".tally"), { recursive: true });
 
 beforeAll(async () => {
+  // Ensure no stale config state from previous runs.
+  rmSync(TEST_CONFIG_HOME, { force: true, recursive: true });
+  mkdirSync(join(TEST_CONFIG_HOME, ".tally"), { recursive: true });
+  process.env.TALLY_TEST_CONFIG_HOME = TEST_CONFIG_HOME;
   resetIntegrationFixture();
   process.env.TEST_BOOK_ID = FIXTURE_BOOK_ID;
   await requireDevApi();

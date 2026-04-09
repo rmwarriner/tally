@@ -32,6 +32,7 @@ const DEFAULT_ENV: CliEnv = {
   apiUrl: process.env.TALLY_API_URL ?? "http://127.0.0.1:4000",
   token: process.env.TALLY_TOKEN,
   book: process.env.TALLY_BOOK ?? process.env.TEST_BOOK_ID,
+  configHome: process.env.TALLY_TEST_CONFIG_HOME,
 };
 
 let resolvedDefaults: CliEnv = { ...DEFAULT_ENV };
@@ -92,17 +93,48 @@ export async function runCli(args: string[], env: CliEnv = {}): Promise<CliResul
     NO_COLOR: "1",
   };
 
-  if (resolved.apiUrl) childEnv.TALLY_API_URL = resolved.apiUrl;
-  if (resolved.token) childEnv.TALLY_TOKEN = resolved.token;
-  if (resolved.book) childEnv.TALLY_BOOK = resolved.book;
+  if ("apiUrl" in env) {
+    if (env.apiUrl === undefined || env.apiUrl === "") {
+      delete childEnv.TALLY_API_URL;
+    } else {
+      childEnv.TALLY_API_URL = env.apiUrl;
+    }
+  } else if (resolved.apiUrl) {
+    childEnv.TALLY_API_URL = resolved.apiUrl;
+  }
+
+  if ("token" in env) {
+    if (env.token === undefined || env.token === "") {
+      delete childEnv.TALLY_TOKEN;
+    } else {
+      childEnv.TALLY_TOKEN = env.token;
+    }
+  } else if (resolved.token) {
+    childEnv.TALLY_TOKEN = resolved.token;
+  }
+
+  if ("book" in env) {
+    if (env.book === undefined || env.book === "") {
+      delete childEnv.TALLY_BOOK;
+    } else {
+      childEnv.TALLY_BOOK = env.book;
+    }
+  } else if (resolved.book) {
+    childEnv.TALLY_BOOK = resolved.book;
+  }
   // Override HOME so config reads/writes go to the temp dir, not ~/.tally
-  if (resolved.configHome) childEnv.HOME = resolved.configHome;
+  if ("configHome" in env) {
+    if (env.configHome === undefined || env.configHome === "") {
+      delete childEnv.HOME;
+    } else {
+      childEnv.HOME = env.configHome;
+    }
+  } else if (resolved.configHome) {
+    childEnv.HOME = resolved.configHome;
+  }
 
   // Remove interactive TTY assumption — integration tests always run non-TTY
   delete childEnv.TERM;
-  // Remove book env if explicitly passed as undefined (test wants to verify missing-book error)
-  if ("book" in env && env.book === undefined) delete childEnv.TALLY_BOOK;
-
   try {
     const result = await execFileAsync(TSX_BIN, [CLI_ENTRY, ...args], {
       env: childEnv,
@@ -251,6 +283,7 @@ export async function requireDevApi(): Promise<void> {
   resolvedDefaults = {
     apiUrl: chosenApiUrl,
     book: chosenBook,
+    configHome: process.env.TALLY_TEST_CONFIG_HOME,
     token: chosenToken,
   };
 }
