@@ -49,7 +49,7 @@ This is the canonical issue tracker for day-to-day solo development.
   - risk: R1
   - type: feature
   - owner: agent
-  - links: /Users/robert/Projects/tally/docs/cli-spec.md
+  - links: /Users/robert/Projects/tally/docs/cli-handoff-core.md (primary), /Users/robert/Projects/tally/docs/cli-spec.md (reference)
   - rollback: tally-cli is a standalone package; removal has no effect on other packages
   - acceptance:
     - `tally books list` and `tally use <id>` work against a running dev API
