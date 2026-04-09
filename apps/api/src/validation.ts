@@ -9,6 +9,7 @@ import type {
   PostAccountRequest,
   PostBaselineBudgetLineRequest,
   PostClosePeriodRequest,
+  PostCoverOverspendRequest,
   PostCsvImportRequest,
   PostEnvelopeAllocationRequest,
   PostEnvelopeRequest,
@@ -752,6 +753,50 @@ export function validateEnvelopeAllocationRequestBody(body: unknown): {
     : {
         errors: [],
         value: body as Pick<PostEnvelopeAllocationRequest, "allocation">,
+      };
+}
+
+export function validateCoverOverspendRequestBody(body: unknown): {
+  errors: string[];
+  value?: Pick<PostCoverOverspendRequest, "payload">;
+} {
+  const errors: string[] = [];
+
+  if (!isObject(body)) {
+    return { errors: ["payload is required."] };
+  }
+
+  if (!isNonEmptyString(body.fromEnvelopeId)) {
+    errors.push("fromEnvelopeId is required.");
+  }
+
+  if (!isNonEmptyString(body.toEnvelopeId)) {
+    errors.push("toEnvelopeId is required.");
+  }
+
+  if (!isIsoDate(body.occurredOn)) {
+    errors.push("occurredOn must use YYYY-MM-DD format.");
+  }
+
+  validateMoneyAmount(body.amount, "amount", errors);
+
+  if (body.note !== undefined && typeof body.note !== "string") {
+    errors.push("note must be a string when provided.");
+  }
+
+  return errors.length > 0
+    ? { errors }
+    : {
+        errors: [],
+        value: {
+          payload: {
+            amount: body.amount as PostCoverOverspendRequest["payload"]["amount"],
+            fromEnvelopeId: body.fromEnvelopeId as string,
+            note: body.note as string | undefined,
+            occurredOn: body.occurredOn as string,
+            toEnvelopeId: body.toEnvelopeId as string,
+          },
+        },
       };
 }
 

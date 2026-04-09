@@ -1458,6 +1458,76 @@ Lacct-expense-utilities
     await fixture.cleanup();
   });
 
+  it("covers overspent envelopes over HTTP", async () => {
+    const fixture = await createFixture();
+    const overspentBook = {
+      ...fixture.book,
+      envelopes: fixture.book.envelopes.map((envelope) =>
+        envelope.id === "env-utilities"
+          ? {
+              ...envelope,
+              availableAmount: { commodityCode: "USD", quantity: -20 },
+            }
+          : envelope,
+      ),
+      envelopeAllocations: [],
+    };
+    await saveBookToFile(fixture.bookPath, overspentBook);
+    const service = createBookService({
+      repository: createFileSystemBookRepository({ rootDirectory: fixture.directory }),
+    });
+    const handler = createTestHttpHandler({ service });
+
+    const response = await handler(
+      new Request(`http://localhost/api/books/${fixture.book.id}/envelopes/cover-overspend`, {
+        body: JSON.stringify({
+          amount: { commodityCode: "USD", quantity: 15 },
+          fromEnvelopeId: "env-groceries",
+          occurredOn: "2026-04-15",
+          toEnvelopeId: "env-utilities",
+          note: "cover utility overspend",
+        }),
+        headers: { "content-type": "application/json" },
+        method: "POST",
+      }),
+    );
+    const body = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(
+      body.book.envelopeAllocations.filter((item: { type: string }) => item.type === "cover-overspend"),
+    ).toHaveLength(2);
+
+    await fixture.cleanup();
+  });
+
+  it("rejects invalid cover-overspend payloads over HTTP", async () => {
+    const fixture = await createFixture();
+    const service = createBookService({
+      repository: createFileSystemBookRepository({ rootDirectory: fixture.directory }),
+    });
+    const handler = createTestHttpHandler({ service });
+
+    const response = await handler(
+      new Request(`http://localhost/api/books/${fixture.book.id}/envelopes/cover-overspend`, {
+        body: JSON.stringify({
+          amount: { commodityCode: "", quantity: "bad" },
+          fromEnvelopeId: "",
+          occurredOn: "2026/04/15",
+          toEnvelopeId: "",
+        }),
+        headers: { "content-type": "application/json" },
+        method: "POST",
+      }),
+    );
+    const body = await response.json();
+
+    expect(response.status).toBe(400);
+    expect(body.error.code).toBe("validation.failed");
+
+    await fixture.cleanup();
+  });
+
   it("executes due schedules over HTTP", async () => {
     const fixture = await createFixture();
     const service = createBookService({

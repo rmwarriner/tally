@@ -237,6 +237,19 @@ export interface PostEnvelopeAllocationRequest {
   bookId: string;
 }
 
+export interface PostCoverOverspendRequest {
+  auth: AuthContext;
+  logger?: Logger;
+  payload: {
+    amount: EnvelopeAllocation["amount"];
+    fromEnvelopeId: string;
+    note?: string;
+    occurredOn: string;
+    toEnvelopeId: string;
+  };
+  bookId: string;
+}
+
 export interface PostScheduledTransactionRequest {
   auth: AuthContext;
   logger?: Logger;

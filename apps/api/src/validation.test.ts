@@ -5,6 +5,7 @@ import {
   validateApplyScheduledTransactionExceptionRequestBody,
   validateBaselineBudgetLineRequestBody,
   validateClosePeriodRequestBody,
+  validateCoverOverspendRequestBody,
   validateGnuCashXmlImportRequestBody,
   validateCsvImportRequestBody,
   validateEnvelopeAllocationRequestBody,
@@ -422,6 +423,33 @@ describe("api request validation", () => {
     expect(invalid.errors).toContain("allocation.amount.commodityCode is required.");
     expect(invalid.errors).toContain("allocation.amount.quantity must be a finite number.");
     expect(invalid.errors).toContain("allocation.note must be a string when provided.");
+  });
+
+  it("validates cover-overspend payloads", () => {
+    const valid = validateCoverOverspendRequestBody({
+      amount: { commodityCode: "USD", quantity: 25 },
+      fromEnvelopeId: "env-groceries",
+      note: "cover shortfall",
+      occurredOn: "2026-04-15",
+      toEnvelopeId: "env-utilities",
+    });
+
+    expect(valid.errors).toEqual([]);
+
+    const invalid = validateCoverOverspendRequestBody({
+      amount: { commodityCode: "", quantity: "bad" },
+      fromEnvelopeId: "",
+      note: 42,
+      occurredOn: "2026/04/15",
+      toEnvelopeId: "",
+    });
+
+    expect(invalid.errors).toContain("fromEnvelopeId is required.");
+    expect(invalid.errors).toContain("toEnvelopeId is required.");
+    expect(invalid.errors).toContain("occurredOn must use YYYY-MM-DD format.");
+    expect(invalid.errors).toContain("amount.commodityCode is required.");
+    expect(invalid.errors).toContain("amount.quantity must be a finite number.");
+    expect(invalid.errors).toContain("note must be a string when provided.");
   });
 
   it("validates scheduled transactions including posting object checks", () => {

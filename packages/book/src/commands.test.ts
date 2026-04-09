@@ -11,6 +11,7 @@ import {
   archiveAccount,
   buildDashboardSnapshot,
   closeBookPeriod,
+  coverOverspend,
   createDemoBook,
   deleteTransaction,
   denyApproval,
@@ -709,6 +710,40 @@ LSalary
     expect(lockedTransaction.errors[0]).toContain("locked by closed period 2026-03-01 through 2026-03-31");
   });
 
+  it("applies envelope rollover balances when closing a period", () => {
+    const book = createDemoBook();
+    const rolloverBook = {
+      ...book,
+      envelopes: book.envelopes.map((envelope) => {
+        if (envelope.id === "env-groceries") {
+          return { ...envelope, availableAmount: createMoney("USD", 80), rolloverEnabled: true };
+        }
+
+        if (envelope.id === "env-utilities") {
+          return { ...envelope, availableAmount: createMoney("USD", 45), rolloverEnabled: false };
+        }
+
+        return envelope;
+      }),
+      envelopeAllocations: [],
+      transactions: [],
+    };
+    const closed = closeBookPeriod(
+      rolloverBook,
+      {
+        closedAt: "2026-04-01T00:00:00Z",
+        closedBy: "Primary",
+        from: "2026-03-01",
+        to: "2026-03-31",
+      },
+      { audit: { actor: "Primary" } },
+    );
+
+    expect(closed.ok).toBe(true);
+    expect(closed.document.envelopes.find((envelope) => envelope.id === "env-groceries")?.availableAmount.quantity).toBe(80);
+    expect(closed.document.envelopes.find((envelope) => envelope.id === "env-utilities")?.availableAmount.quantity).toBe(0);
+  });
+
   it("rejects a close period when the book is not ready to close", () => {
     // Demo book has transactions on 2026-04-01 with an unreconciled checking account,
     // which causes the reconciliation readiness check to fail.
@@ -1121,6 +1156,144 @@ LSalary
 
     expect(warningResult.ok).toBe(true);
     expect(warningResult.errors).toEqual(["Reconciliation difference is not zero."]);
+  });
+
+  it("covers overspent envelopes with paired allocations", () => {
+    const book = createDemoBook();
+    const nextBook = {
+      ...book,
+      envelopes: [
+        {
+          ...book.envelopes[0],
+          id: "env-donor",
+          availableAmount: createMoney("USD", 100),
+          expenseAccountId: "acct-expense-housing",
+        },
+        {
+          ...book.envelopes[1],
+          id: "env-covered",
+          availableAmount: createMoney("USD", -30),
+        },
+      ],
+      envelopeAllocations: [],
+    };
+    const result = coverOverspend(
+      nextBook,
+      {
+        amount: createMoney("USD", 25),
+        fromEnvelopeId: "env-donor",
+        occurredOn: "2026-04-15",
+        toEnvelopeId: "env-covered",
+        note: "Cover grocery overage",
+      },
+      { audit: { actor: "Primary" } },
+    );
+
+    expect(result.ok).toBe(true);
+    expect(result.document.envelopeAllocations).toHaveLength(2);
+    expect(result.document.envelopeAllocations[0]).toMatchObject({
+      envelopeId: "env-donor",
+      type: "cover-overspend",
+      amount: { commodityCode: "USD", quantity: -25 },
+    });
+    expect(result.document.envelopeAllocations[1]).toMatchObject({
+      envelopeId: "env-covered",
+      type: "cover-overspend",
+      amount: { commodityCode: "USD", quantity: 25 },
+    });
+    expect(result.document.auditEvents.at(-1)?.eventType).toBe("envelope.overspend-covered");
+  });
+
+  it("rejects cover overspend when donor balance is insufficient", () => {
+    const book = createDemoBook();
+    const nextBook = {
+      ...book,
+      envelopes: [
+        {
+          ...book.envelopes[0],
+          id: "env-donor",
+          availableAmount: createMoney("USD", 10),
+        },
+        {
+          ...book.envelopes[1],
+          id: "env-covered",
+          availableAmount: createMoney("USD", -30),
+        },
+      ],
+      envelopeAllocations: [],
+    };
+
+    expect(
+      coverOverspend(
+        nextBook,
+        {
+          amount: createMoney("USD", 25),
+          fromEnvelopeId: "env-donor",
+          occurredOn: "2026-04-15",
+          toEnvelopeId: "env-covered",
+        },
+        { audit: { actor: "Primary" } },
+      ),
+    ).toMatchObject({
+      ok: false,
+      errors: ["Envelope env-donor does not have enough available balance to cover overspend."],
+    });
+  });
+
+  it("rejects cover overspend for unknown envelopes", () => {
+    const book = createDemoBook();
+
+    expect(
+      coverOverspend(
+        book,
+        {
+          amount: createMoney("USD", 25),
+          fromEnvelopeId: "env-missing",
+          occurredOn: "2026-04-15",
+          toEnvelopeId: "env-groceries",
+        },
+        { audit: { actor: "Primary" } },
+      ),
+    ).toMatchObject({
+      ok: false,
+      errors: ["Unknown envelope env-missing."],
+    });
+  });
+
+  it("rejects cover overspend for commodity mismatch", () => {
+    const book = createDemoBook();
+    const nextBook = {
+      ...book,
+      envelopes: [
+        {
+          ...book.envelopes[0],
+          id: "env-donor",
+          availableAmount: createMoney("USD", 100),
+        },
+        {
+          ...book.envelopes[1],
+          id: "env-covered",
+          availableAmount: createMoney("USD", -20),
+        },
+      ],
+      envelopeAllocations: [],
+    };
+
+    expect(
+      coverOverspend(
+        nextBook,
+        {
+          amount: createMoney("EUR", 10),
+          fromEnvelopeId: "env-donor",
+          occurredOn: "2026-04-15",
+          toEnvelopeId: "env-covered",
+        },
+        { audit: { actor: "Primary" } },
+      ),
+    ).toMatchObject({
+      ok: false,
+      errors: ["Cover overspend amount commodity must match the envelope commodity."],
+    });
   });
 
   it("saves and loads book documents through the file adapter", async () => {

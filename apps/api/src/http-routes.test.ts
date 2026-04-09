@@ -23,6 +23,9 @@ describe("http routes", () => {
     expect(normalizeRouteLabel("POST", "/api/books/demo/imports/ofx")).toBe(
       "/api/books/:bookId/imports/ofx",
     );
+    expect(normalizeRouteLabel("POST", "/api/books/demo/envelopes/cover-overspend")).toBe(
+      "/api/books/:bookId/envelopes/cover-overspend",
+    );
     expect(normalizeRouteLabel("POST", "/api/books/demo/transactions/txn-1/restore")).toBe(
       "/api/books/:bookId/transactions/:transactionId/restore",
     );
@@ -84,6 +87,7 @@ describe("http routes", () => {
     const postAttachmentLink = matchHttpPostRoutes("/api/books/demo/transactions/txn-1/attachments");
     const postToken = matchHttpPostRoutes("/api/tokens");
     const postSessionExchange = matchHttpPostRoutes("/api/sessions/exchange");
+    const postCoverOverspend = matchHttpPostRoutes("/api/books/demo/envelopes/cover-overspend");
 
     expect(postBooks.booksCreateMatch?.[0]).toBe("/api/books");
     expect(postBooks.bodylessPostRoute).toBe(false);
@@ -98,6 +102,7 @@ describe("http routes", () => {
     expect(postAttachmentLink.transactionAttachmentLinkMatch?.[2]).toBe("txn-1");
     expect(postToken.tokensCreateMatch?.[0]).toBe("/api/tokens");
     expect(postSessionExchange.sessionsExchangeMatch?.[0]).toBe("/api/sessions/exchange");
+    expect(postCoverOverspend.coverOverspendMatch?.[1]).toBe("demo");
   });
 
   it("matches put and delete transaction routes", () => {

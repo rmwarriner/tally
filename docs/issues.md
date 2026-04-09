@@ -102,7 +102,27 @@ This is the canonical issue tracker for day-to-day solo development.
     - open questions: none; resolved decisions applied (`tally close --confirm` required with explicit period/range, reviewer token seeded in reset fixture)
   - completed: 2026-04-09
 ## Backlog
-- [ ] (add next item here)
+- [ ] I-006 Complete envelope operations layer (rollover wiring + cover-overspend command)
+  - status: ready
+  - risk: R2
+  - type: feature
+  - owner: agent
+  - links: /Users/robert/Projects/tally/packages/book/src/commands.ts, /Users/robert/Projects/tally/packages/domain/src/budgeting.ts, /Users/robert/Projects/tally/apps/api/src/service.ts, /Users/robert/Projects/tally/apps/api/src/http-routes.ts
+  - rollback: changes are in packages/book and apps/api only; revert commits to those packages — no effect on domain, CLI, or clients
+  - acceptance:
+    - `closeBookPeriod` in `packages/book/src/commands.ts` calls `buildPeriodCloseRollover` after recording the close period and updates `document.envelopes` with the returned balances; rolled-over envelope balances are durable in the saved document
+    - a new `coverOverspend` command is added to `packages/book/src/commands.ts`; it atomically records two allocations — negative `cover-overspend` on the donor envelope and positive `cover-overspend` on the covered envelope — in a single document update; it validates: both envelopes exist, commodities match, donor has sufficient available balance (balance >= transfer amount), covered envelope is actually overspent
+    - `"envelope.overspend-covered"` is added to `AuditEventType` in `packages/book/src/types.ts` and emitted by `coverOverspend` with `entityIds` of both envelopes and the two allocation IDs
+    - `POST /api/books/:bookId/envelopes/cover-overspend` route is added to `apps/api` with a validated request body `{ fromEnvelopeId, toEnvelopeId, amount, occurredOn, note? }`; wired through the service layer to `coverOverspend`
+    - `closeBookPeriod` rollover behavior is covered by a unit test in `packages/book/src/commands.test.ts`: after closing a period, `rolloverEnabled` envelopes carry their balance forward and non-rollover envelopes are zeroed
+    - `coverOverspend` command is unit tested in `packages/book/src/commands.test.ts`: happy path, donor-balance-insufficient rejection, non-existent envelope rejection, commodity mismatch rejection
+    - `pnpm ci:verify` passes
+  - handoff:
+    - current state: `closeBookPeriod` now computes period envelope snapshot state and applies `buildPeriodCloseRollover` before returning/persisting the document; `coverOverspend` now exists as an atomic paired-allocation command with `envelope.overspend-covered` audit output; API service and HTTP route wiring are complete at `POST /api/books/:bookId/envelopes/cover-overspend` with request validation
+    - next step: no follow-up required for I-006 scope; CLI envelope operation commands remain intentionally deferred
+    - commands run: `pnpm -r typecheck`, `pnpm --filter @tally/book test`, `pnpm --filter @tally/api test`, `pnpm ci:verify`
+    - known risks: overspend eligibility is validated against current persisted `envelope.availableAmount` (per issue decision), so this route assumes an already-overspent envelope state exists in the book; rollover changes are still represented via updated envelope balances under `close.recorded` without a dedicated rollover-specific audit event
+    - open questions: none — scope is bounded to book commands and one new API route; CLI envelope operation commands are explicitly deferred to a follow-up
 ## Blocked
 - [ ] (empty)
 ## Done

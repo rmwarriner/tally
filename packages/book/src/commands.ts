@@ -1,4 +1,6 @@
 import {
+  buildEnvelopeBudgetSnapshot,
+  buildPeriodCloseRollover,
   advanceSchedule,
   createMoney,
   materializeScheduledTransaction,
@@ -1025,6 +1027,137 @@ export function recordEnvelopeAllocation(
   };
 }
 
+export function coverOverspend(
+  document: FinanceBookDocument,
+  params: {
+    amount: EnvelopeAllocation["amount"];
+    fromEnvelopeId: string;
+    note?: string;
+    occurredOn: string;
+    toEnvelopeId: string;
+  },
+  options: CommandOptions = {},
+): CommandResult {
+  const logger = (options.logger ?? createNoopLogger()).child({
+    amount: params.amount.quantity,
+    command: "coverOverspend",
+    fromEnvelopeId: params.fromEnvelopeId,
+    occurredOn: params.occurredOn,
+    toEnvelopeId: params.toEnvelopeId,
+    bookId: document.id,
+  });
+  logger.info("book command started");
+  const errors: string[] = [];
+  const lockError = lockErrorForDate(document, params.occurredOn);
+
+  if (lockError) {
+    logger.warn("book command validation failed", { errors: [lockError] });
+    return { ok: false, errors: [lockError], document };
+  }
+
+  if (params.fromEnvelopeId === params.toEnvelopeId) {
+    errors.push("Cover overspend requires different fromEnvelopeId and toEnvelopeId.");
+  }
+
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(params.occurredOn)) {
+    errors.push("Cover overspend occurredOn must use ISO date format YYYY-MM-DD.");
+  }
+
+  if (!Number.isFinite(params.amount.quantity) || params.amount.quantity <= 0) {
+    errors.push("Cover overspend amount quantity must be greater than zero.");
+  }
+
+  const fromEnvelope = document.envelopes.find((candidate) => candidate.id === params.fromEnvelopeId);
+  const toEnvelope = document.envelopes.find((candidate) => candidate.id === params.toEnvelopeId);
+
+  if (!fromEnvelope) {
+    errors.push(`Unknown envelope ${params.fromEnvelopeId}.`);
+  }
+
+  if (!toEnvelope) {
+    errors.push(`Unknown envelope ${params.toEnvelopeId}.`);
+  }
+
+  if (fromEnvelope && toEnvelope) {
+    if (fromEnvelope.availableAmount.commodityCode !== toEnvelope.availableAmount.commodityCode) {
+      errors.push("Cover overspend requires matching envelope commodities.");
+    }
+
+    if (params.amount.commodityCode !== fromEnvelope.availableAmount.commodityCode) {
+      errors.push("Cover overspend amount commodity must match the envelope commodity.");
+    }
+
+    if (fromEnvelope.availableAmount.quantity < params.amount.quantity) {
+      errors.push(`Envelope ${fromEnvelope.id} does not have enough available balance to cover overspend.`);
+    }
+
+    if (toEnvelope.availableAmount.quantity >= 0) {
+      errors.push(`Envelope ${toEnvelope.id} is not overspent.`);
+    }
+  }
+
+  if (errors.length > 0) {
+    logger.warn("book command validation failed", { errors });
+    return {
+      ok: false,
+      errors,
+      document,
+    };
+  }
+
+  const nextSequence = document.envelopeAllocations.length + 1;
+  const fromAllocation: EnvelopeAllocation = {
+    id: `alloc:cover-overspend:${params.occurredOn}:${nextSequence}`,
+    envelopeId: params.fromEnvelopeId,
+    occurredOn: params.occurredOn,
+    amount: createMoney(params.amount.commodityCode, -params.amount.quantity),
+    type: "cover-overspend",
+    note: params.note,
+  };
+  const toAllocation: EnvelopeAllocation = {
+    id: `alloc:cover-overspend:${params.occurredOn}:${nextSequence + 1}`,
+    envelopeId: params.toEnvelopeId,
+    occurredOn: params.occurredOn,
+    amount: createMoney(params.amount.commodityCode, params.amount.quantity),
+    type: "cover-overspend",
+    note: params.note,
+  };
+  const nextDocument = appendAuditEvent(
+    {
+      ...document,
+      envelopeAllocations: [...document.envelopeAllocations, fromAllocation, toAllocation].sort(
+        (left, right) => `${left.occurredOn}:${left.id}`.localeCompare(`${right.occurredOn}:${right.id}`),
+      ),
+    },
+    {
+      entityIds: [
+        params.fromEnvelopeId,
+        params.toEnvelopeId,
+        fromAllocation.id,
+        toAllocation.id,
+      ],
+      eventType: "envelope.overspend-covered",
+      summary: {
+        amount: params.amount.quantity,
+        fromEnvelopeId: params.fromEnvelopeId,
+        occurredOn: params.occurredOn,
+        toEnvelopeId: params.toEnvelopeId,
+      },
+    },
+    options.audit,
+  );
+
+  logger.info("book command completed", {
+    envelopeAllocationCount: nextDocument.envelopeAllocations.length,
+  });
+
+  return {
+    ok: true,
+    errors: [],
+    document: nextDocument,
+  };
+}
+
 export function reconcileAccount(
   document: FinanceBookDocument,
   params: {
@@ -1596,15 +1729,28 @@ export function closeBookPeriod(
     },
     options.audit,
   );
+  const envelopeSnapshot = buildEnvelopeBudgetSnapshot(
+    nextDocument.envelopes,
+    nextDocument.envelopeAllocations,
+    nextDocument.baselineBudgetLines,
+    nextDocument.accounts,
+    listActiveTransactions(nextDocument.transactions),
+    { from: params.from, to: params.to },
+  );
+  const rolledEnvelopes = buildPeriodCloseRollover(nextDocument.envelopes, envelopeSnapshot);
+  const nextDocumentWithRollover: FinanceBookDocument = {
+    ...nextDocument,
+    envelopes: rolledEnvelopes,
+  };
 
   logger.info("book command completed", {
-    closePeriodCount: nextDocument.closePeriods?.length ?? 0,
+    closePeriodCount: nextDocumentWithRollover.closePeriods?.length ?? 0,
   });
 
   return {
     ok: true,
     errors: [],
-    document: nextDocument,
+    document: nextDocumentWithRollover,
   };
 }
 

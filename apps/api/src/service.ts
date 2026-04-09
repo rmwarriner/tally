@@ -16,6 +16,7 @@ import {
   buildQifExport,
   buildBookReport,
   closeBookPeriod,
+  coverOverspend,
   deleteTransaction,
   denyApproval,
   destroyTransaction,
@@ -87,6 +88,7 @@ import type {
   PostBookRequest,
   PostClosePeriodRequest,
   PostCsvImportRequest,
+  PostCoverOverspendRequest,
   PostEnvelopeAllocationRequest,
   PostEnvelopeRequest,
   PostGnuCashXmlImportRequest,
@@ -188,6 +190,9 @@ export interface BookService {
   ): Promise<ServiceResponse<BookEnvelope | ErrorEnvelope>>;
   postEnvelopeAllocation(
     request: PostEnvelopeAllocationRequest,
+  ): Promise<ServiceResponse<BookEnvelope | ErrorEnvelope>>;
+  postCoverOverspend(
+    request: PostCoverOverspendRequest,
   ): Promise<ServiceResponse<BookEnvelope | ErrorEnvelope>>;
   postReconciliation(
     request: PostReconciliationRequest,
@@ -1150,6 +1155,33 @@ export function createBookService(params: {
       return withMutation(
         { ...serviceParams("write", request.auth, requestLogger, request.bookId), expectedVersion: expectedVersionOf(request), successStatus: 200 },
         (book, audit) => recordEnvelopeAllocation(book, request.allocation, { audit, logger: requestLogger }),
+      );
+    },
+
+    async postCoverOverspend(request) {
+      const requestLogger = getRequestLogger(request.logger).child({
+        amount: request.payload.amount.quantity,
+        fromEnvelopeId: request.payload.fromEnvelopeId,
+        operation: "postCoverOverspend",
+        occurredOn: request.payload.occurredOn,
+        toEnvelopeId: request.payload.toEnvelopeId,
+        bookId: request.bookId,
+      });
+      requestLogger.info("service command started");
+      return withMutation(
+        { ...serviceParams("write", request.auth, requestLogger, request.bookId), expectedVersion: expectedVersionOf(request), successStatus: 200 },
+        (book, audit) =>
+          coverOverspend(
+            book,
+            {
+              amount: request.payload.amount,
+              fromEnvelopeId: request.payload.fromEnvelopeId,
+              note: request.payload.note,
+              occurredOn: request.payload.occurredOn,
+              toEnvelopeId: request.payload.toEnvelopeId,
+            },
+            { audit, logger: requestLogger },
+          ),
       );
     },
 

@@ -29,6 +29,7 @@ import {
   validateRequestApprovalBody,
   validateCloseSummaryQuery,
   validateClosePeriodRequestBody,
+  validateCoverOverspendRequestBody,
   validateGetTransactionsQuery,
   validateApplyScheduledTransactionExceptionRequestBody,
   validateExecuteScheduledTransactionRequestBody,
@@ -1235,6 +1236,7 @@ export function createHttpHandler(params: {
         budgetLineMatch,
         closePeriodMatch,
         csvImportMatch,
+        coverOverspendMatch,
         envelopeAllocationMatch,
         envelopeMatch,
         exceptionScheduleMatch,
@@ -1265,6 +1267,7 @@ export function createHttpHandler(params: {
         budgetLineMatch !== null ||
         closePeriodMatch !== null ||
         csvImportMatch !== null ||
+        coverOverspendMatch !== null ||
         envelopeAllocationMatch !== null ||
         envelopeMatch !== null ||
         exceptionScheduleMatch !== null ||
@@ -1300,6 +1303,7 @@ export function createHttpHandler(params: {
           budgetLineMatch?.[1] ??
           closePeriodMatch?.[1] ??
           csvImportMatch?.[1] ??
+          coverOverspendMatch?.[1] ??
           envelopeAllocationMatch?.[1] ??
           envelopeMatch?.[1] ??
           exceptionScheduleMatch?.[1] ??
@@ -2167,6 +2171,59 @@ export function createHttpHandler(params: {
           allocation: payload.value.allocation,
           auth: auth.context,
           logger: requestLogger,
+          ...mutationPrecondition,
+          bookId,
+        });
+        return completeJsonResponse(response.status, response.body);
+      }
+
+      if (coverOverspendMatch) {
+        const rateLimited = enforceRateLimit(rateLimitPolicy.mutation);
+
+        if (rateLimited) {
+          return completeJsonResponse(
+            rateLimited.status,
+            await rateLimited.json(),
+            Object.fromEntries(rateLimited.headers.entries()),
+          );
+        }
+
+        const bookId = decodeURIComponent(coverOverspendMatch[1]);
+
+        if (!isSafeBookId(bookId)) {
+          return completeJsonResponse(
+            400,
+            toErrorEnvelope(
+              new ApiError({
+                code: "repository.invalid_identifier",
+                message: "Workspace identifier is invalid.",
+                status: 400,
+              }),
+            ),
+          );
+        }
+
+        const payload = validateCoverOverspendRequestBody(body);
+
+        if (payload.errors.length > 0 || !payload.value) {
+          requestLogger.warn("http request validation failed", { errors: payload.errors });
+          return completeJsonResponse(
+            400,
+            toErrorEnvelope(
+              new ApiError({
+                code: "validation.failed",
+                details: { issues: payload.errors },
+                message: payload.errors[0] ?? "Request validation failed.",
+                status: 400,
+              }),
+            ),
+          );
+        }
+
+        const response = await params.service.postCoverOverspend({
+          auth: auth.context,
+          logger: requestLogger,
+          payload: payload.value.payload,
           ...mutationPrecondition,
           bookId,
         });

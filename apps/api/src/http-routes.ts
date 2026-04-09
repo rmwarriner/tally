@@ -30,6 +30,7 @@ export interface HttpPostRouteMatches {
   budgetLineMatch: RegExpMatchArray | null;
   closePeriodMatch: RegExpMatchArray | null;
   csvImportMatch: RegExpMatchArray | null;
+  coverOverspendMatch: RegExpMatchArray | null;
   envelopeAllocationMatch: RegExpMatchArray | null;
   envelopeMatch: RegExpMatchArray | null;
   exceptionScheduleMatch: RegExpMatchArray | null;
@@ -164,6 +165,10 @@ export function normalizeRouteLabel(method: string, path: string): string {
 
   if (/^\/api\/books\/[^/]+\/envelopes$/.test(normalizedPath)) {
     return "/api/books/:bookId/envelopes";
+  }
+
+  if (/^\/api\/books\/[^/]+\/envelopes\/cover-overspend$/.test(normalizedPath)) {
+    return "/api/books/:bookId/envelopes/cover-overspend";
   }
 
   if (/^\/api\/books\/[^/]+\/envelope-allocations$/.test(normalizedPath)) {
@@ -324,6 +329,7 @@ export function matchHttpPostRoutes(path: string): HttpPostRouteMatches {
     budgetLineMatch: path.match(/^\/api\/books\/([^/]+)\/budget-lines$/),
     closePeriodMatch: path.match(/^\/api\/books\/([^/]+)\/close-periods$/),
     csvImportMatch: path.match(/^\/api\/books\/([^/]+)\/imports\/csv$/),
+    coverOverspendMatch: path.match(/^\/api\/books\/([^/]+)\/envelopes\/cover-overspend$/),
     envelopeAllocationMatch: path.match(/^\/api\/books\/([^/]+)\/envelope-allocations$/),
     envelopeMatch: path.match(/^\/api\/books\/([^/]+)\/envelopes$/),
     exceptionScheduleMatch: path.match(/^\/api\/books\/([^/]+)\/schedules\/([^/]+)\/exceptions$/),

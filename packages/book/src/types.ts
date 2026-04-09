@@ -41,6 +41,7 @@ export type AuditEventType =
   | "baseline-budget-line.upserted"
   | "envelope.upserted"
   | "envelope-allocation.recorded"
+  | "envelope.overspend-covered"
   | "reconciliation.recorded"
   | "import.csv.recorded"
   | "import.qif.recorded"

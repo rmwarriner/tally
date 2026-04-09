@@ -1360,6 +1360,60 @@ describe("book service", () => {
     await fixture.cleanup();
   });
 
+  it("covers overspent envelopes through the service layer", async () => {
+    const fixture = await createFixture();
+    const service = createBookService({
+      logger: createTestLogger([]),
+      repository: createFileSystemBookRepository({ rootDirectory: fixture.directory }),
+    });
+    const overspentBook = {
+      ...fixture.book,
+      envelopes: fixture.book.envelopes.map((envelope) =>
+        envelope.id === "env-utilities"
+          ? { ...envelope, availableAmount: createMoney("USD", -20) }
+          : envelope,
+      ),
+      envelopeAllocations: [],
+    };
+    await saveBookToFile(fixture.bookPath, overspentBook);
+
+    const response = await service.postCoverOverspend({
+      auth: { actor: "Primary", kind: "token", role: "member", token: "token-1" },
+      payload: {
+        amount: createMoney("USD", 15),
+        fromEnvelopeId: "env-groceries",
+        occurredOn: "2026-04-15",
+        toEnvelopeId: "env-utilities",
+        note: "cover utility overspend",
+      },
+      bookId: fixture.book.id,
+    });
+
+    expect(response.status).toBe(200);
+    expectBookBody(response.body);
+    expect(
+      response.body.book.envelopeAllocations.filter((item) => item.type === "cover-overspend"),
+    ).toHaveLength(2);
+    expect(response.body.book.auditEvents.at(-1)?.eventType).toBe("envelope.overspend-covered");
+
+    const invalidResponse = await service.postCoverOverspend({
+      auth: { actor: "Primary", kind: "token", role: "member", token: "token-1" },
+      payload: {
+        amount: createMoney("USD", 9999),
+        fromEnvelopeId: "env-groceries",
+        occurredOn: "2026-04-15",
+        toEnvelopeId: "env-utilities",
+      },
+      bookId: fixture.book.id,
+    });
+
+    expect(invalidResponse.status).toBe(422);
+    expectErrorBody(invalidResponse.body);
+    expect(invalidResponse.body.error.code).toBe("validation.failed");
+
+    await fixture.cleanup();
+  });
+
   it("upserts scheduled transactions through the service layer", async () => {
     const fixture = await createFixture();
     const service = createBookService({
