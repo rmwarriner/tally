@@ -1,14 +1,13 @@
 # Refactor Plan - April 2026
 
-Last updated: 2026-04-07
+Last updated: 2026-04-08
 
 ## Current Execution Status
 
 - completed:
-  - PR-0 through PR-8
+  - PR-0 through PR-10
 - remaining from this plan:
-  - PR-9 (Persistence Evolution RFC, design-only)
-  - PR-10 (Encryption-at-Rest and Key Handling RFC, design-only)
+  - none
 
 ## Context
 

@@ -1,6 +1,6 @@
 # Architecture
 
-Last reviewed: 2026-04-06
+Last reviewed: 2026-04-08
 
 ## Top-Level Modules
 
@@ -127,4 +127,4 @@ Next:
 2. Budgeting and planning model definition for remaining-to-budget, rollover, and envelope funding rules
 3. Family-scale identity and authorization model
 4. Automation and review workflows, including sync, inbox, rules, and optional AI assistance
-5. Encryption-at-rest, external observability sinks, and production security guidance across supported backends
+5. Operationalization of external observability (alerts/SLO ownership) and evaluation of app-layer encryption migration paths across supported backends

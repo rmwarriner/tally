@@ -124,6 +124,8 @@ This repository currently includes:
 - formal book audit-event system for successful financial mutations
 - durable audit-event persistence in book documents
 - health checks, request correlation, and in-process request metrics for the API layer
+- optional external observability via OpenTelemetry OTLP export (traces + metrics) with canonical route-label parity
+- request log correlation fields (`traceId`, `spanId`) when observability export is enabled
 - transaction lifecycle now includes soft delete by default plus privileged destroy with durable audit coverage
 
 ### Security Foundation
@@ -137,12 +139,19 @@ This repository currently includes:
 - response security headers and `no-store` behavior
 - path-safe book identifier enforcement
 - HTTP transport no longer trusts client-supplied actor identity
+- documented encryption-at-rest baseline and key-management guidance for books, backups, attachments, and backend storage/snapshots
 
 ### API Completions
 
 - CORS configuration: allowlist-based origin validation with dev/prod mode fallback
 - Audit event read endpoint: `GET /api/books/:id/audit-events` with `since`, `eventType`, and `limit` filters
 - Account management routes: `GET /api/books/:id/accounts`, `POST /api/books/:id/accounts` (upsert), `DELETE /api/books/:id/accounts/:accountId` (archive); `upsertAccount` and `archiveAccount` commands with `account.upserted` and `account.archived` audit events
+- Book provisioning endpoints: `GET /api/books` (actor-scoped summaries) and `POST /api/books` (minimal payload provisioning)
+- Restore endpoint: `POST /api/books/:bookId/transactions/:transactionId/restore`
+- Server-side transaction query endpoint with filters/cursor pagination: `GET /api/books/:bookId/transactions`
+- Attachment/file linking support: upload/download and transaction link/unlink endpoints
+- API versioning parity: `/api/v1/...` canonical with `/api/...` compatibility alias
+- Trust/integrity hardening: book-level optimistic locking (`If-Match`), POST idempotency keys, managed token/session endpoints
 
 ### Terminology Alignment
 
@@ -153,12 +162,10 @@ This repository currently includes:
 The repository is no longer mainly missing core backend foundations.
 
 **Longer-horizon product and architecture work:**
-1. Trust and integrity hardening: concurrent write safety (optimistic locking), idempotency keys, token/session management endpoints
-2. Budgeting-model definition for remaining-to-budget, rollover, cleanup, and envelope funding semantics
-3. Review, automation, and ingestion workflows on top of the current import foundation
-4. Encryption-at-rest, key-handling, and trust-boundary guidance across supported persistence backends
-5. API completions: soft-delete recovery, server-side transaction filtering/pagination, API versioning strategy, attachment/file linking
-6. Book provisioning: `POST /api/books` and `GET /api/books` for self-service onboarding (currently books must be seeded/configured server-side)
+1. Budgeting-model definition for remaining-to-budget, rollover, cleanup, and envelope funding semantics
+2. Review, automation, and ingestion workflows on top of the current import foundation
+3. Observability operations beyond export plumbing: alert routing, SLO ownership, and dashboard/runbook expectations
+4. App-layer encryption-at-rest execution planning and migration strategy across `json`, `sqlite`, and `postgres`
 
 ## Deferred Follow-Up
 

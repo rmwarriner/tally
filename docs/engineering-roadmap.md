@@ -35,10 +35,10 @@ The roadmap now separates work into:
 
 ## Standards Still Needed
 
-- external metrics, tracing, and alert routing beyond in-process foundations
-- encryption-at-rest and key-handling guidance across supported persistence backends
 - CORS configuration standard for cross-origin deployment topologies
 - API versioning policy as the surface grows
+- observability operations standard (alert routing, SLO ownership, dashboard expectations) on top of OTLP exports
+- app-layer encryption migration standard across supported persistence backends
 
 ## Phase 1 Completed
 
@@ -61,7 +61,7 @@ The next phase should be driven by a smaller set of explicit themes rather than 
 - deeper transaction lifecycle audit coverage
 - soft-delete by default with privileged destructive flows
 - stronger end-to-end data integrity guarantees
-- encryption-at-rest and backup key-handling guidance
+- encryption-at-rest and backup key-handling implementation planning
 - family-scale identity, authorization, and actor attribution
 
 ### 2. Budgeting And Planning Model
@@ -98,11 +98,11 @@ The next phase should be driven by a smaller set of explicit themes rather than 
 
 These are the next candidates for promotion into active delivery work.
 
-1. **API layer completions** — CORS configuration, audit event read endpoint, account management routes (see `docs/project-status.md` for the detailed plan)
-2. Trust and integrity hardening — concurrent write safety (optimistic locking), idempotency keys, token/session management endpoints
-3. Budgeting model definition for remaining-to-budget, rollover, and envelope funding rules
-4. Transaction review and import-automation foundation
-5. External observability sinks and production security guidance beyond the single-node default
+1. Budgeting model definition for remaining-to-budget, rollover, and envelope funding rules
+2. Transaction review and import-automation foundation
+3. CORS standardization and deployment topology guidance across clients/proxies
+4. Observability operations: alert routing, SLO ownership, and dashboard/runbook expectations
+5. App-layer encryption execution planning and migration strategy
 
 ## Refactor Plan Alignment
 
@@ -127,13 +127,13 @@ PR checklist mapping: each refactor PR should include a `structural impact` note
 
 ## Next Suggested Move
 
-Family-scale identity, authorization, and approval semantics are now fully implemented.
+Family-scale identity/authorization, API completion slices, and trust/integrity hardening are implemented.
 
-The next recommended Phase 2 execution slice is the **API layer completion pass** described in `docs/project-status.md`:
+The next recommended Phase 2 execution slice is **budgeting and planning model definition**:
 
-1. CORS configuration — correctness gap for cross-origin deployments
-2. Audit event read endpoint — expose the audit trail as a queryable HTTP surface
-3. Account management routes — full CRUD for the chart of accounts
+1. Remaining-to-budget source-of-truth model
+2. Envelope rollover/cleanup and overspend semantics
+3. Funding/transfer rules and acceptance criteria across web/mobile/API service contracts
 
 ## Idea Backlog Policy
 

@@ -122,16 +122,13 @@ See `docs/persistence-migration-workflow.md` for backend migration and export co
 
 ## Current Gaps
 
-- no durable metrics backend yet beyond in-process `/metrics`
-- no distributed tracing yet beyond request correlation ids in logs and responses
 - no external audit stream beyond book persistence
-- no encryption-at-rest or external key-management guidance yet beyond the current idea backlog
 
 ## Recommended Next Steps
 
-1. Book provisioning endpoints — `POST /api/books` and `GET /api/books` for self-service onboarding
-2. Trust and integrity hardening — concurrent write safety (optimistic locking), idempotency keys
-3. Add encryption-at-rest guidance and decide where key material should live across `json`, `sqlite`, and `postgres`
-4. Add external observability sinks once hosting is selected beyond the single-node default
+1. Budgeting model execution — remaining-to-budget, rollover, and envelope funding semantics
+2. Review/automation workflows on top of current import and approval foundations
+3. External observability operations — backend alert routing/SLOs and dashboard ownership on top of OTLP exports
+4. Encryption execution planning — evaluate app-layer encryption migration options across `json`, `sqlite`, and `postgres`
 
 See `docs/project-status.md` for current project state.
