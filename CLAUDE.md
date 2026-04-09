@@ -83,9 +83,20 @@ Test placement by concern:
 - PRs required for all code changes; small docs/admin changes may go directly to `main`
 - Run `pnpm ci:verify` before merge for broad changes
 - Prefer squash merges; no direct pushes to `main`
-- Ideas not ready for execution go to GitHub as `idea`-labeled issues, not directly to the roadmap
+- Local execution queue is `docs/issues.md`; GitHub issues are optional mirrors when needed
+- Ideas not ready for execution go to `docs/ideas.md`, not directly to the roadmap
 
 See `docs/git-workflow.md` for the full workflow and `docs/ci-and-security-gates.md` for merge gate details.
+
+## Collaboration & Automation
+
+This repository is maintained by a solo developer. AI assistants and automation are part of the working team model.
+
+- Prefer automation for repetitive, operational, and verification tasks when practical.
+- Require explicit user authorization before executing impactful automation actions.
+- Keep workflows cross-platform and minimize platform-specific assumptions.
+- Ensure repository guidance remains compatible with both Claude Code and Codex.
+- Follow `docs/ai-team-operations.md` for definition of done, risk escalation, do-not-touch boundaries, and handoff requirements.
 
 ## Key Documentation
 

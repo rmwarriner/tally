@@ -7,6 +7,7 @@
 
 - issue:
 - roadmap item:
+- risk tier: R1 | R2 | R3
 
 ## Verification
 
@@ -15,6 +16,14 @@
 - [ ] `pnpm coverage`
 - [ ] `pnpm ci:verify`
 - [ ] other relevant verification noted below
+
+## Definition Of Done
+
+- [ ] acceptance criteria met
+- [ ] verification evidence included
+- [ ] risk tier recorded
+- [ ] rollback plan documented
+- [ ] handoff packet completed
 
 ## Test Plan
 
@@ -36,3 +45,16 @@
 
 - known risks:
 - follow-up work:
+
+## Rollback Plan
+
+- how to revert safely:
+
+## Handoff
+
+- current state:
+- next step:
+- commands run:
+- known risks:
+- rollback plan:
+- open questions:

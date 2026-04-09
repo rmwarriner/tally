@@ -10,12 +10,25 @@ This repository uses a light trunk-based workflow:
 - all feature, fix, refactor, and documentation work starts on a short-lived branch
 - changes merge through pull requests, not direct pushes to `main`
 
+Work tracking is local-first for solo development:
+
+- `docs/issues.md` is the canonical execution queue
+- GitHub issues are optional and used when collaboration, external visibility, or automation integrations require them
+
 Exception:
 
 - small administrative or documentation-only changes may go directly to `main`
 - documentation or admin changes that are part of a significant feature should stay on that feature branch and land with the feature work
 
 This repository's CI and security gates are defined in [docs/ci-and-security-gates.md](/Users/robert/Projects/tally/docs/ci-and-security-gates.md) and [docs/security-standards.md](/Users/robert/Projects/tally/docs/security-standards.md).
+
+## Agent Guidance Source Of Truth
+
+Repository agent policy is canonical in [CLAUDE.md](/Users/robert/Projects/tally/CLAUDE.md).
+
+- [AGENTS.md](/Users/robert/Projects/tally/AGENTS.md) is intentionally a thin pointer for Codex
+- contributors should update policy in `CLAUDE.md` and not duplicate policy text in `AGENTS.md`
+- run `pnpm agent-guidance:check` (or `pnpm ci:verify`) to verify no drift between canonical policy and pointer shim
 
 ## Branch Strategy
 
@@ -43,12 +56,13 @@ Pull requests should:
 - include screenshots or recordings for web or mobile UI changes
 - follow the repository pull request template in `.github/PULL_REQUEST_TEMPLATE.md`
 - include a test plan selection in the PR template; if `No test needed` is selected, provide rationale and link a `test-debt` issue
+- include risk tier, rollback plan, and handoff packet in the PR template
 
 ## Idea Intake Before Roadmap
 
 Not every idea belongs on the roadmap immediately.
 
-Use `docs/ideas.md` as the authoritative idea inbox for work that is still exploratory, underspecified, or not yet prioritized. Ideas are organized there by track. GitHub Issues are only created when an idea is promoted to execution.
+Use `docs/ideas.md` as the authoritative idea inbox for work that is still exploratory, underspecified, or not yet prioritized. Ideas are organized there by track.
 
 To add a new idea:
 
@@ -56,14 +70,14 @@ To add a new idea:
 - include: the problem or opportunity, why it is parked, and the key open questions
 - commit directly to `main` if it is a small admin change
 
-Promote an idea to a GitHub Issue only when:
+Promote an idea to `docs/issues.md` execution work only when:
 
 - the outcome is clear enough to execute
 - the rough implementation area is known
 - it can be prioritized against current roadmap work
 - someone is ready to work it in the near term
 
-When promoting, create a GitHub Issue using the appropriate template (bug, feat, refactor) so intake stays consistent. There is no separate `idea`-labeled issue step.
+When needed, mirror an execution item to a GitHub issue using the appropriate template (bug, feat, refactor). There is no requirement to create a GitHub issue for every local execution item.
 
 ## Merge Style
 
@@ -106,12 +120,14 @@ git push -u origin feat/5-metrics-and-tracing
 
 At least once a week:
 
-- review `docs/ideas.md` and either keep ideas parked, promote them to GitHub Issues, or remove stale ones
-- re-rank open GitHub Issues against current priorities
+- review `docs/ideas.md` and either keep ideas parked, promote them to execution items, or remove stale ones
+- re-rank `docs/issues.md` items against current priorities
 - review open Dependabot pull requests and ensure patch/minor updates are flowing through CI-based merge automation
 - convert major dependency updates into tracked upgrade issues when they are deferred
 - check CI status so repeated failures do not become background noise
-- close or relabel issues whose scope has changed
+- close or relabel local execution items whose scope has changed
+
+See [docs/ai-team-operations.md](/Users/robert/Projects/tally/docs/ai-team-operations.md) for definition of done, escalation boundaries, do-not-touch zones, handoff template, and weekly AI ops review.
 
 ## Current Constraint
 

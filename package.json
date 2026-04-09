@@ -19,12 +19,16 @@
     "tally-desktop"
   ],
   "scripts": {
-    "ci:verify": "pnpm typecheck && pnpm test && pnpm coverage && pnpm security:secrets",
+    "agent-guidance:check": "node ./scripts/check-agent-guidance-sync.mjs",
+    "ci:verify": "pnpm agent-guidance:check && pnpm typecheck && pnpm test && pnpm coverage && pnpm security:secrets",
     "coverage:diff": "node ./scripts/ci/check-diff-coverage.mjs",
     "coverage": "vitest run --coverage",
     "dev:api": "pnpm --filter @tally/api dev",
     "dev:mobile": "pnpm --filter @tally/mobile dev",
     "dev:web": "pnpm --filter @tally/web dev",
+    "issue:close": "node ./scripts/issue-lifecycle.mjs close",
+    "issue:start": "node ./scripts/issue-lifecycle.mjs start",
+    "issues:next": "node ./scripts/issues-next.mjs",
     "metrics:baseline": "pnpm --filter @tally/api exec tsx ../../scripts/metrics-baseline.ts",
     "security:check": "pnpm security:secrets",
     "security:secrets": "node ./scripts/check-secrets.mjs",

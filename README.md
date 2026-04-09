@@ -67,6 +67,17 @@ UI review workflows are documented in [docs/ui-review-checklist.md](/Users/rober
 CI and security merge gates are documented in [docs/ci-and-security-gates.md](/Users/robert/Projects/tally/docs/ci-and-security-gates.md).
 Git branch and pull request workflow is documented in [docs/git-workflow.md](/Users/robert/Projects/tally/docs/git-workflow.md).
 
+## Collaboration Model
+
+This project is maintained by a solo developer, with AI assistants and automation used as part of the working team.
+
+- automation is encouraged for repetitive, operational, and verification tasks
+- user authorization is required before impactful automation actions are executed
+- workflows should minimize platform-specific assumptions and remain cross-platform
+- both Claude Code and Codex are supported for repository work
+
+Detailed agent and repository workflow guidance lives in [AGENTS.md](/Users/robert/Projects/tally/AGENTS.md).
+
 ## Logging
 
 Structured logging standards and expectations are documented in [docs/logging-standards.md](/Users/robert/Projects/tally/docs/logging-standards.md).
@@ -87,13 +98,15 @@ Typed configuration and API error-handling standards are documented in [docs/con
 ## Tracking
 
 - Current project status: [docs/project-status.md](/Users/robert/Projects/tally/docs/project-status.md)
+- Local execution queue: [docs/issues.md](/Users/robert/Projects/tally/docs/issues.md)
+- AI team operations: [docs/ai-team-operations.md](/Users/robert/Projects/tally/docs/ai-team-operations.md)
 - Engineering standards roadmap: [docs/engineering-roadmap.md](/Users/robert/Projects/tally/docs/engineering-roadmap.md)
 - Git workflow: [docs/git-workflow.md](/Users/robert/Projects/tally/docs/git-workflow.md)
 - Native desktop wrapper assessment: [docs/native-desktop-assessment.md](/Users/robert/Projects/tally/docs/native-desktop-assessment.md)
 - Desktop UI direction: [docs/desktop-ui-direction.md](/Users/robert/Projects/tally/docs/desktop-ui-direction.md)
 - GitHub roadmap project: `https://github.com/users/rmwarriner/projects/1`
 
-Ideas that are not ready for roadmap execution should stay in a separate GitHub issue inbox with the `idea` label until they are clear enough to prioritize. The promotion rule is documented in [docs/git-workflow.md](/Users/robert/Projects/tally/docs/git-workflow.md).
+Ideas that are not ready for roadmap execution should stay in [docs/ideas.md](/Users/robert/Projects/tally/docs/ideas.md) until they are clear enough to prioritize. The promotion rule is documented in [docs/git-workflow.md](/Users/robert/Projects/tally/docs/git-workflow.md).
 GitHub issue templates now cover ideas, roadmap-ready execution work, bugs, and refactors, and pull requests use the repo-level template in [.github/PULL_REQUEST_TEMPLATE.md](/Users/robert/Projects/tally/.github/PULL_REQUEST_TEMPLATE.md).
 Small admin or documentation-only changes may go directly to `main`, but docs/admin work that supports a major feature should stay on that feature branch. The weekly review cadence is documented in [docs/git-workflow.md](/Users/robert/Projects/tally/docs/git-workflow.md).
 
