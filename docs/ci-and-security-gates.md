@@ -1,6 +1,6 @@
 # CI And Security Gates
 
-Last reviewed: 2026-04-06
+Last reviewed: 2026-04-09
 
 ## Policy
 
@@ -8,10 +8,9 @@ This repository uses automated merge gates for code quality and security-sensiti
 
 A change is not complete unless it passes:
 
-- typecheck
-- test
-- coverage threshold
-- secret scan
+- `pnpm ci:verify`
+- diff coverage threshold on changed production TypeScript statements (pull requests)
+- PR test policy checks (pull requests)
 - dependency audit in CI
 
 ## Quality Workflow
@@ -21,10 +20,11 @@ The primary workflow is defined in `.github/workflows/quality-gates.yml`.
 It enforces:
 
 - `pnpm install --frozen-lockfile`
-- `pnpm typecheck`
-- `pnpm test`
-- `pnpm coverage`
-- `pnpm security:secrets`
+- `pnpm ci:verify`
+- diff coverage on production source changes in pull requests (`pnpm coverage:diff`, threshold `85%`)
+- PR test plan policy:
+  - either tests were added/updated
+  - or `no-test-needed` is selected with rationale and a linked test debt issue
 
 ## Security Workflow
 
@@ -70,9 +70,9 @@ Coverage thresholds are enforced in `vitest.config.ts`.
 
 Current floors:
 
-- statements: 70
-- branches: 75
-- functions: 85
-- lines: 70
+- statements: 80
+- branches: 80
+- functions: 80
+- lines: 80
 
 These are minimums, not targets. Thresholds should rise as coverage matures.

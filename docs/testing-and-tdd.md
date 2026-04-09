@@ -1,6 +1,6 @@
 # Testing And TDD
 
-Last reviewed: 2026-04-06
+Last reviewed: 2026-04-09
 
 ## Policy
 
@@ -136,3 +136,9 @@ The highest-value test targets in this repo are:
 ## Enforcement
 
 Going forward, changes should be considered incomplete if they add behavior without corresponding automated tests at the appropriate layer.
+
+When a test exception is explicitly approved:
+
+1. mark `No test needed` in the PR template with a concrete rationale
+2. create and link a `Test Debt` issue using `.github/ISSUE_TEMPLATE/test-debt.yml`
+3. close the debt issue only after automated coverage is added and CI is green

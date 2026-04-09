@@ -6,14 +6,93 @@ on:
     branches:
       - main
 
+permissions:
+  contents: read
+  pull-requests: read
+
 jobs:
-  verify:
+  pr-policy:
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: read
+      pull-requests: read
+
+    steps:
+      - name: Enforce PR test policy
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const body = context.payload.pull_request?.body ?? "";
+            const pullNumber = context.payload.pull_request?.number;
+            const owner = context.repo.owner;
+            const repo = context.repo.repo;
+
+            const hasTestsChecked = /-\s*\[[xX]\]\s*Added or updated automated tests for behavior changes\./.test(body);
+            const hasNoTestNeededChecked = /-\s*\[[xX]\]\s*No test needed/i.test(body);
+
+            if (hasTestsChecked && hasNoTestNeededChecked) {
+              core.setFailed("Select only one test plan option: either tests were added/updated, or no-test-needed with rationale.");
+              return;
+            }
+
+            if (!hasTestsChecked && !hasNoTestNeededChecked) {
+              core.setFailed("Choose a test plan option in the PR template.");
+              return;
+            }
+
+            const changedFiles = await github.paginate(github.rest.pulls.listFiles, {
+              owner,
+              repo,
+              pull_number: pullNumber,
+              per_page: 100,
+            });
+
+            const productionTsChanges = changedFiles.filter((file) =>
+              /^(apps|packages)\/.+\/src\/.+\.ts$/.test(file.filename) && !/\.test\.ts$/.test(file.filename),
+            );
+            const testChanges = changedFiles.filter((file) => /\.test\.ts$/.test(file.filename));
+
+            if (productionTsChanges.length > 0 && testChanges.length === 0 && !hasNoTestNeededChecked) {
+              core.setFailed(
+                "Behavior-level source files changed without test file updates. Add/update tests or check no-test-needed with rationale and test debt issue.",
+              );
+              return;
+            }
+
+            if (hasNoTestNeededChecked) {
+              const reasonMatch = body.match(/- reason:\s*(.+)/i);
+              const reason = reasonMatch?.[1]?.trim() ?? "";
+              if (!reason) {
+                core.setFailed("No-test-needed was selected, but reason is missing under Test Exception.");
+                return;
+              }
+
+              const debtIssueLinked =
+                /- test debt issue:\s*(#\d+|https:\/\/github\.com\/[^/\s]+\/[^/\s]+\/issues\/\d+)/i.test(body) ||
+                /(?:#\d+|https:\/\/github\.com\/[^/\s]+\/[^/\s]+\/issues\/\d+)/i.test(body);
+              if (!debtIssueLinked) {
+                core.setFailed("No-test-needed requires a linked test debt issue (for example #123).");
+                return;
+              }
+            }
+
+            core.info(
+              `PR test policy passed. sourceChanges=${productionTsChanges.length}, testChanges=${testChanges.length}, noTestNeeded=${hasNoTestNeededChecked}`,
+            );
+
+  ci-verify:
+    needs: [pr-policy]
+    if: always() && (github.event_name != 'pull_request' || needs.pr-policy.result == 'success')
     runs-on: ubuntu-latest
     timeout-minutes: 15
 
     steps:
       - name: Check out repository
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       - name: Set up pnpm
         uses: pnpm/action-setup@v4
@@ -29,14 +108,12 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
-      - name: Typecheck
-        run: pnpm typecheck
+      - name: CI Verify
+        run: pnpm ci:verify
 
-      - name: Test
-        run: pnpm test
-
-      - name: Coverage
-        run: pnpm coverage
-
-      - name: Secret scan
-        run: pnpm security:secrets
+      - name: Diff coverage
+        if: github.event_name == 'pull_request'
+        env:
+          DIFF_BASE_REF: origin/${{ github.event.pull_request.base.ref }}
+          DIFF_COVERAGE_THRESHOLD: "85"
+        run: pnpm coverage:diff

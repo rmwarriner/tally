@@ -1,6 +1,6 @@
 # Project Status
 
-Last reviewed: 2026-04-08 (workspace→book rename complete; all planned API slices implemented)
+Last reviewed: 2026-04-09 (PR test-policy enforcement and diff-coverage gate added)
 
 ## Current State
 
@@ -94,6 +94,8 @@ This repository currently includes:
 - runtime-selectable log output format (`auto`, `pretty`, `json`) for human-friendly local console output and structured production logs
 - initial persistence abstraction under the API repository, with JSON, SQLite, and Postgres backends now supported plus admin copy/copy-all/export/import workflow, validation reports, dry-run verification, and backup-backed rollback support between them
 - CI and security quality gates
+- PR test-policy gate with required rationale + test-debt issue linkage for approved test exceptions
+- changed-line diff coverage gate for production TypeScript source in pull requests
 - security baseline documentation and audited hardening for API/runtime boundaries
 
 ### Approval And Review Semantics

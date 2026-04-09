@@ -1,6 +1,6 @@
 # Git Workflow
 
-Last reviewed: 2026-04-06
+Last reviewed: 2026-04-09
 
 ## Policy
 
@@ -42,6 +42,7 @@ Pull requests should:
 - include local verification such as `pnpm ci:verify` or the relevant narrower commands
 - include screenshots or recordings for web or mobile UI changes
 - follow the repository pull request template in `.github/PULL_REQUEST_TEMPLATE.md`
+- include a test plan selection in the PR template; if `No test needed` is selected, provide rationale and link a `test-debt` issue
 
 ## Idea Intake Before Roadmap
 

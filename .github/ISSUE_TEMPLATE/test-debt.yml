@@ -1,0 +1,57 @@
+name: Test Debt
+description: Track approved test gaps that were deferred from a pull request.
+title: "[Test Debt] "
+labels:
+  - test-debt
+body:
+  - type: input
+    id: source-pr
+    attributes:
+      label: Source pull request
+      description: Link the PR that accepted this test exception.
+      placeholder: https://github.com/rmwarriner/tally/pull/123
+    validations:
+      required: true
+
+  - type: dropdown
+    id: debt-area
+    attributes:
+      label: Area
+      description: Which layer needs missing tests?
+      options:
+        - API
+        - Domain
+        - Workspace
+        - Web
+        - Mobile
+        - Tooling / CI
+        - Other
+    validations:
+      required: true
+
+  - type: textarea
+    id: deferred-tests
+    attributes:
+      label: Deferred tests
+      description: Describe exactly what tests were deferred.
+      placeholder: Add or update route-level tests for...
+    validations:
+      required: true
+
+  - type: textarea
+    id: risk
+    attributes:
+      label: Risk and impact
+      description: What regressions are currently possible until this debt is resolved?
+      placeholder: A regression could allow...
+    validations:
+      required: true
+
+  - type: textarea
+    id: acceptance
+    attributes:
+      label: Done when
+      description: Define explicit completion criteria for closing this debt.
+      placeholder: - tests added in X file\n- CI passes
+    validations:
+      required: true

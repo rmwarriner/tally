@@ -10,7 +10,7 @@ export default defineConfig({
         statements: 80,
       },
       provider: "v8",
-      reporter: ["text", "html"],
+      reporter: ["text", "html", "json", "json-summary"],
       include: [
         "apps/api/src/**/*.ts",
         "packages/domain/src/**/*.ts",
