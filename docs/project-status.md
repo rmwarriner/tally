@@ -1,6 +1,6 @@
 # Project Status
 
-Last reviewed: 2026-04-09 (CLI Phase 1 implemented, integration suite passing, deterministic fixture reset added)
+Last reviewed: 2026-04-09 (CLI Phases 1-3 implemented, integration suite passing, quality gates green)
 
 ## Current State
 
@@ -26,9 +26,9 @@ This repository currently includes:
 - architecture guardrails and baseline metrics documentation for April refactor execution
 - web Playwright E2E harness with ledger smoke and keyboard workflow coverage
 - CLI command surface spec with phased rollout plan (`docs/cli-spec.md`)
-- implemented `tally-cli` Phase 1 command package with TypeScript command tree, config module, API client, output formatters, and period/date parsing
+- implemented `tally-cli` command package across Phases 1-3 with TypeScript command tree, config module, API client, output formatters, and period/date parsing
 - deterministic CLI integration fixture reset flow with fixed test book/account IDs
-- CLI integration suite passing (31/31) against dev API fixture data
+- CLI integration suite passing (47/47) against dev API fixture data
 - quality gates passing via `pnpm ci:verify`
 
 ## Completed
@@ -104,7 +104,7 @@ This repository currently includes:
 - security baseline documentation and audited hardening for API/runtime boundaries
 - CLI-local Vitest config and package-level unit suite for config resolution, API client behavior, output formatting, and date/period parsing
 
-### CLI Phase 1 Implementation (2026-04-09)
+### CLI Implementation (Phases 1-3, 2026-04-09)
 
 - CLI entrypoint implemented in `tally-cli/src/index.ts` with global flags and standardized error handling
 - Phase 1 commands implemented:
@@ -119,8 +119,23 @@ This repository currently includes:
 - API client implemented with query serialization, auth header wiring, normalized error mapping, and optimistic-write precondition handling for book write routes
 - package-level `typecheck` and unit tests pass locally
 - integration tests now run against deterministic reset data in `tally-cli/src/integration/reset-fixture.ts`
-- integration suite passes end-to-end (31/31) against a running dev API
+- integration suite passes end-to-end (47/47) against a running dev API
 - integration coverage no longer depends on arbitrary environment book/account state
+- Phase 2 commands implemented:
+  - `tally report net-worth|income|cash-flow|budget|envelopes`
+  - `tally import csv|qif|ofx|qfx|gnucash`
+  - `tally export qif|ofx|qfx|gnucash`
+  - `tally reconcile`
+  - `tally backup create|list|restore`
+- Phase 3 commands implemented:
+  - `tally schedules list|add|execute|skip|defer`
+  - `tally approvals list|request|grant|deny`
+  - `tally audit list`
+  - `tally close` (`--confirm` required, explicit period/range required)
+  - `tally members list|add|remove|role`
+  - `tally tokens list|new|revoke`
+- Phase 3 integration fixture support now seeds deterministic reviewer token data and managed-auth records for approval workflow coverage
+- integration suite passes end-to-end (47/47) against a running dev API
 
 ### Approval And Review Semantics
 
@@ -188,9 +203,7 @@ This repository currently includes:
 The repository is no longer mainly missing core backend foundations.
 
 **Near-term client work:**
-1. CLI Phase 2 (data operations) — import/export, reports, reconciliation, backup
-2. CLI Phase 3 (second tier) — schedules, approvals, audit, close, members, tokens
-3. Desktop client — Tauri-first shell (Electron fallback); register-first UI direction documented; pending Figma design completion
+1. Desktop client — Tauri-first shell (Electron fallback); register-first UI direction documented; pending Figma design completion
 
 **Longer-horizon product and architecture work:**
 1. Budgeting-model definition for remaining-to-budget, rollover, cleanup, and envelope funding semantics

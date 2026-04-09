@@ -3,7 +3,7 @@
 Primary implementation handoff: `docs/cli-handoff-core.md`  
 This appendix keeps only reference details that are likely to be reused across phases.
 
-Implementation note (2026-04-09): Phase 1 commands are implemented and validated in `tally-cli/src`, including deterministic integration fixture reset coverage.
+Implementation note (2026-04-09): Phase 1, Phase 2, and Phase 3 commands are implemented and validated in `tally-cli/src`, including deterministic integration fixture reset coverage and Phase 3 approval reviewer-token seeding.
 
 ## Baseline
 

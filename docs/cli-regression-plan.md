@@ -192,8 +192,6 @@ Run the full plan when any of these change:
 
 ## Known Gaps (out of scope for Phase 1 plan)
 
-- Schedule and approval commands — covered in Phase 3 plan (not yet written)
-- Import/export commands — covered in Phase 2 plan (not yet written)
-- `books new` integration test — requires book teardown; defer until admin commands land
+- Schedule/approval/import/export command families are now implemented (Phases 2/3); keep this regression plan focused on Phase 1 stability checks and use integration suite coverage for broader command surfaces
 - Multi-currency `transactions add` — Phase 2+
 - Account name/code autocomplete in multi-posting — Phase 2+
