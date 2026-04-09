@@ -6,6 +6,7 @@
 import { execFile } from "node:child_process";
 import { resolve } from "node:path";
 import { promisify } from "node:util";
+import { NO_AUTH_SENTINEL } from "../lib/api-client";
 
 const execFileAsync = promisify(execFile);
 
@@ -140,7 +141,53 @@ export async function requireDevApi(): Promise<void> {
   let chosenToken: string | undefined;
   let chosenBook: string | undefined;
 
+  // Detect loopback no-auth mode first:
+  // - unauthenticated /api/books succeeds
+  // - sending an arbitrary bearer token fails
+  try {
+    const noAuthList = await fetch(`${chosenApiUrl}/api/books`);
+    if (noAuthList.ok) {
+      const badAuthList = await fetch(`${chosenApiUrl}/api/books`, {
+        headers: withAuthHeaders("definitely-invalid-token"),
+      });
+
+      if (!badAuthList.ok) {
+        const body = (await noAuthList.json()) as { books?: Array<{ id: string }> };
+        const firstBook = body.books?.[0]?.id;
+        chosenToken = NO_AUTH_SENTINEL;
+        if (firstBook) {
+          chosenBook = process.env.TALLY_BOOK ?? process.env.TEST_BOOK_ID ?? firstBook;
+        } else {
+          const createResponse = await fetch(`${chosenApiUrl}/api/books`, {
+            body: JSON.stringify({
+              payload: {
+                bookId: `cli-integration-${Date.now()}`,
+                name: "CLI Integration Book",
+              },
+            }),
+            headers: {
+              "content-type": "application/json",
+            },
+            method: "POST",
+          });
+          if (createResponse.ok) {
+            const created = (await createResponse.json()) as { book?: { id?: string } };
+            chosenBook =
+              process.env.TALLY_BOOK ??
+              process.env.TEST_BOOK_ID ??
+              created.book?.id;
+          }
+        }
+      }
+    }
+  } catch {
+    // Fall through to token probing path.
+  }
+
   for (const token of candidateTokens()) {
+    if (chosenToken && chosenBook) {
+      break;
+    }
     try {
       const res = await fetch(`${chosenApiUrl}/api/books`, {
         headers: withAuthHeaders(token),

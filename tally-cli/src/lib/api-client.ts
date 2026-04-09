@@ -1,6 +1,7 @@
 import { randomUUID } from "node:crypto";
 
 type QueryValue = string | number | boolean | undefined;
+export const NO_AUTH_SENTINEL = "__TALLY_NO_AUTH__";
 
 interface RequestOptions {
   body?: unknown;
@@ -89,7 +90,7 @@ export class ApiClient {
 
     const headers = new Headers(options.headers);
     headers.set("accept", "application/json");
-    if (this.token) {
+    if (this.token && this.token !== NO_AUTH_SENTINEL) {
       headers.set("authorization", `Bearer ${this.token}`);
     }
 
