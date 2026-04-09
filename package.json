@@ -33,6 +33,7 @@
     "security:check": "pnpm security:secrets",
     "security:secrets": "node ./scripts/check-secrets.mjs",
     "test": "vitest run",
+    "test:cli:integration": "pnpm --filter @tally-cli/app test:integration",
     "test:web:e2e": "playwright test",
     "test:watch": "vitest",
     "typecheck": "pnpm -r typecheck"

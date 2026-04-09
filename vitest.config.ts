@@ -16,6 +16,7 @@ export default defineConfig({
         "packages/domain/src/**/*.ts",
         "packages/logging/src/**/*.ts",
         "packages/book/src/**/*.ts",
+        "tally-cli/src/lib/**/*.ts",
       ],
       exclude: [
         "apps/api/src/dev-server.ts",
@@ -34,6 +35,10 @@ export default defineConfig({
     include: [
       "apps/**/*.test.ts",
       "packages/**/*.test.ts",
+      "tally-cli/src/lib/**/*.test.ts",
+    ],
+    exclude: [
+      "tally-cli/src/integration/**",
     ],
   },
 });
