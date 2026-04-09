@@ -7,6 +7,7 @@ import { execFile } from "node:child_process";
 import { resolve } from "node:path";
 import { promisify } from "node:util";
 import { NO_AUTH_SENTINEL } from "../lib/api-client";
+import { FIXTURE_BOOK_ID } from "./reset-fixture";
 
 const execFileAsync = promisify(execFile);
 
@@ -34,6 +35,10 @@ const DEFAULT_ENV: CliEnv = {
 };
 
 let resolvedDefaults: CliEnv = { ...DEFAULT_ENV };
+
+function preferredIntegrationBookId(): string {
+  return process.env.TALLY_BOOK ?? process.env.TEST_BOOK_ID ?? FIXTURE_BOOK_ID;
+}
 
 function candidateApiUrls(): string[] {
   const urls = [
@@ -161,7 +166,7 @@ export async function requireDevApi(): Promise<void> {
           const createResponse = await fetch(`${chosenApiUrl}/api/books`, {
             body: JSON.stringify({
               payload: {
-                bookId: `cli-integration-${Date.now()}`,
+                bookId: preferredIntegrationBookId(),
                 name: "CLI Integration Book",
               },
             }),
@@ -210,7 +215,7 @@ export async function requireDevApi(): Promise<void> {
       const createResponse = await fetch(`${chosenApiUrl}/api/books`, {
         body: JSON.stringify({
           payload: {
-            bookId: `cli-integration-${Date.now()}`,
+            bookId: preferredIntegrationBookId(),
             name: "CLI Integration Book",
           },
         }),

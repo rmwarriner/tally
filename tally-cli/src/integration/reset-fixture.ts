@@ -28,8 +28,13 @@ function removeEphemeralRegressionBooks(dataDirectory: string): void {
     return;
   }
 
+  const ephemeralPatterns = [
+    /^regression(?:-json)?-\d+\.json$/,
+    /^cli-integration-\d+\.json$/,
+  ];
+
   for (const fileName of readdirSync(dataDirectory)) {
-    if (/^regression(?:-json)?-\d+\.json$/.test(fileName)) {
+    if (ephemeralPatterns.some((pattern) => pattern.test(fileName))) {
       unlinkSync(join(dataDirectory, fileName));
     }
   }
