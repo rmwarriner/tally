@@ -197,7 +197,7 @@ async function runTransactionsList(command: Command): Promise<void> {
   );
 
   if (context.format === "json") {
-    console.log(JSON.stringify(body, null, 2));
+    console.log(JSON.stringify(body.transactions, null, 2));
     return;
   }
 

@@ -29,7 +29,7 @@ import { mkdirSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import { requireDevApi, runCli } from "./helpers";
+import { getResolvedDefaults, requireDevApi, runCli } from "./helpers";
 
 // Isolated config dir so `tally use` tests never touch ~/.tally
 const TEST_CONFIG_HOME = join(tmpdir(), `tally-integration-${Math.random().toString(36).slice(2)}`);
@@ -266,8 +266,11 @@ describe("tally use", () => {
   });
 
   it("subsequent commands use the stored book without --book flag", async () => {
+    const defaults = getResolvedDefaults();
+    const knownBook = defaults.book ?? process.env.TALLY_BOOK ?? "demo";
+
     // Write a known book ID via `tally use`
-    await runCli(["use", process.env.TALLY_BOOK ?? "demo"], {
+    await runCli(["use", knownBook], {
       configHome: TEST_CONFIG_HOME,
     });
 

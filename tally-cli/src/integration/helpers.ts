@@ -10,7 +10,7 @@ import { promisify } from "node:util";
 const execFileAsync = promisify(execFile);
 
 const CLI_ENTRY = resolve(import.meta.dirname, "../../src/index.ts");
-const TSX_BIN = resolve(import.meta.dirname, "../../../../node_modules/.bin/tsx");
+const TSX_BIN = resolve(import.meta.dirname, "../../../node_modules/.bin/tsx");
 
 export interface CliResult {
   stdout: string;
@@ -28,12 +28,58 @@ export interface CliEnv {
 
 const DEFAULT_ENV: CliEnv = {
   apiUrl: process.env.TALLY_API_URL ?? "http://127.0.0.1:4000",
-  token: process.env.TALLY_TOKEN ?? "dev-token",
+  token: process.env.TALLY_TOKEN,
   book: process.env.TALLY_BOOK ?? process.env.TEST_BOOK_ID,
 };
 
+let resolvedDefaults: CliEnv = { ...DEFAULT_ENV };
+
+function candidateApiUrls(): string[] {
+  const urls = [
+    process.env.TALLY_API_URL,
+    "http://127.0.0.1:4000",
+    "http://localhost:3000",
+  ].filter((value): value is string => typeof value === "string" && value.length > 0);
+  return [...new Set(urls)];
+}
+
+function candidateTokens(): Array<string | undefined> {
+  const values = [
+    process.env.TALLY_TOKEN,
+    process.env.TALLY_API_AUTH_TOKEN,
+    "top-secret",
+    "dev-token",
+    undefined,
+  ];
+  const deduped = new Set<string>();
+  const ordered: Array<string | undefined> = [];
+  for (const value of values) {
+    if (value === undefined) {
+      ordered.push(undefined);
+      continue;
+    }
+    if (!deduped.has(value)) {
+      deduped.add(value);
+      ordered.push(value);
+    }
+  }
+  return ordered;
+}
+
+function withAuthHeaders(token: string | undefined): HeadersInit {
+  const headers = new Headers();
+  if (token) {
+    headers.set("authorization", `Bearer ${token}`);
+  }
+  return headers;
+}
+
+export function getResolvedDefaults(): CliEnv {
+  return { ...resolvedDefaults };
+}
+
 export async function runCli(args: string[], env: CliEnv = {}): Promise<CliResult> {
-  const resolved = { ...DEFAULT_ENV, ...env };
+  const resolved = { ...resolvedDefaults, ...env };
 
   const childEnv: Record<string, string> = {
     ...process.env as Record<string, string>,
@@ -72,16 +118,60 @@ export async function runCli(args: string[], env: CliEnv = {}): Promise<CliResul
  * Call this in beforeAll — if it throws, skip the suite cleanly.
  */
 export async function requireDevApi(): Promise<void> {
-  const url = DEFAULT_ENV.apiUrl ?? "http://127.0.0.1:4000";
-  let res: Response;
-  try {
-    res = await fetch(`${url}/healthz`);
-  } catch (err) {
+  let chosenApiUrl: string | undefined;
+  for (const url of candidateApiUrls()) {
+    try {
+      const res = await fetch(`${url}/healthz`);
+      if (res.ok) {
+        chosenApiUrl = url;
+        break;
+      }
+    } catch {
+      // Try next URL candidate.
+    }
+  }
+
+  if (!chosenApiUrl) {
     throw new Error(
-      `Dev API not reachable at ${url}. Run pnpm dev:api before integration tests.\nCause: ${String(err)}`,
+      "Dev API not reachable. Set TALLY_API_URL and run pnpm dev:api before integration tests.",
     );
   }
-  if (!res.ok) {
-    throw new Error(`Dev API health check returned ${res.status} at ${url}/healthz`);
+
+  let chosenToken: string | undefined;
+  let chosenBook: string | undefined;
+
+  for (const token of candidateTokens()) {
+    try {
+      const res = await fetch(`${chosenApiUrl}/api/books`, {
+        headers: withAuthHeaders(token),
+      });
+      if (!res.ok) {
+        continue;
+      }
+
+      const body = (await res.json()) as {
+        books?: Array<{ id: string }>;
+      };
+      const firstBook = body.books?.[0]?.id;
+      if (firstBook) {
+        chosenToken = token;
+        chosenBook = process.env.TALLY_BOOK ?? process.env.TEST_BOOK_ID ?? firstBook;
+        break;
+      }
+    } catch {
+      // Continue probing candidates.
+    }
   }
+
+  if (!chosenToken || !chosenBook) {
+    throw new Error(
+      "Could not resolve a valid auth token/book for integration tests. Set TALLY_TOKEN and TALLY_BOOK explicitly.",
+    );
+  }
+
+  resolvedDefaults = {
+    apiUrl: chosenApiUrl,
+    book: chosenBook,
+    token: chosenToken,
+  };
 }
