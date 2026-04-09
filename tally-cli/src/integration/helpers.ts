@@ -201,7 +201,7 @@ export async function requireDevApi(): Promise<void> {
       };
       const firstBook = body.books?.[0]?.id;
       if (firstBook) {
-        chosenToken = token ?? "integration-token";
+        chosenToken = token ?? NO_AUTH_SENTINEL;
         chosenBook = process.env.TALLY_BOOK ?? process.env.TEST_BOOK_ID ?? firstBook;
         break;
       }
@@ -228,7 +228,7 @@ export async function requireDevApi(): Promise<void> {
       const created = (await createResponse.json()) as { book?: { id?: string } };
       const createdId = created.book?.id;
       if (createdId) {
-        chosenToken = token ?? "integration-token";
+        chosenToken = token ?? NO_AUTH_SENTINEL;
         chosenBook = process.env.TALLY_BOOK ?? process.env.TEST_BOOK_ID ?? createdId;
         break;
       }
