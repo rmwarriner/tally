@@ -27,7 +27,7 @@ export interface CliEnv {
 }
 
 const DEFAULT_ENV: CliEnv = {
-  apiUrl: process.env.TALLY_API_URL ?? "http://127.0.0.1:3000",
+  apiUrl: process.env.TALLY_API_URL ?? "http://127.0.0.1:4000",
   token: process.env.TALLY_TOKEN ?? "dev-token",
   book: process.env.TALLY_BOOK ?? process.env.TEST_BOOK_ID,
 };
@@ -72,13 +72,16 @@ export async function runCli(args: string[], env: CliEnv = {}): Promise<CliResul
  * Call this in beforeAll — if it throws, skip the suite cleanly.
  */
 export async function requireDevApi(): Promise<void> {
-  const url = DEFAULT_ENV.apiUrl ?? "http://localhost:3000";
+  const url = DEFAULT_ENV.apiUrl ?? "http://127.0.0.1:4000";
+  let res: Response;
   try {
-    const res = await fetch(`${url}/healthz`);
-    if (!res.ok) throw new Error(`Health check failed: ${res.status}`);
-  } catch {
+    res = await fetch(`${url}/healthz`);
+  } catch (err) {
     throw new Error(
-      `Dev API not reachable at ${url}. Run pnpm dev:api before integration tests.`,
+      `Dev API not reachable at ${url}. Run pnpm dev:api before integration tests.\nCause: ${String(err)}`,
     );
+  }
+  if (!res.ok) {
+    throw new Error(`Dev API health check returned ${res.status} at ${url}/healthz`);
   }
 }
