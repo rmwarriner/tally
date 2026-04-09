@@ -353,4 +353,59 @@ describe("gnucash xml adapter", () => {
       "book: baseCommodityCode is required.",
     ]);
   });
+
+  it("parses reconciliation, close period, and audit fallbacks when attributes are omitted", () => {
+    const xml = `<?xml version="1.0" encoding="utf-8"?>
+<gnc-v2 xmlns:ws="https://tally.dev/ns/workspace">
+  <ws:workspace schemaVersion="1" id="ws-1" name="Test" baseCommodityCode="USD">
+    <ws:householdMembers></ws:householdMembers>
+    <ws:householdMemberRoles></ws:householdMemberRoles>
+    <ws:commodities></ws:commodities>
+    <ws:accounts></ws:accounts>
+    <ws:transactions></ws:transactions>
+    <ws:scheduledTransactions></ws:scheduledTransactions>
+    <ws:baselineBudgetLines></ws:baselineBudgetLines>
+    <ws:envelopes></ws:envelopes>
+    <ws:envelopeAllocations></ws:envelopeAllocations>
+    <ws:importBatches></ws:importBatches>
+    <ws:reconciliationSessions>
+      <ws:reconciliationSession>
+        <ws:clearedTransactionIds><item>txn-1</item></ws:clearedTransactionIds>
+      </ws:reconciliationSession>
+    </ws:reconciliationSessions>
+    <ws:closePeriods>
+      <ws:closePeriod notes="optional-note" />
+    </ws:closePeriods>
+    <ws:auditEvents>
+      <ws:auditEvent />
+    </ws:auditEvents>
+  </ws:workspace>
+</gnc-v2>`;
+
+    const parsed = parseGnuCashXml(xml);
+    expect(parsed.errors).toEqual([]);
+    expect(parsed.document?.reconciliationSessions[0]).toMatchObject({
+      accountId: "",
+      difference: { commodityCode: "USD", quantity: 0 },
+      statementBalance: { commodityCode: "USD", quantity: 0 },
+      statementDate: "",
+    });
+    expect(parsed.document?.closePeriods[0]).toMatchObject({
+      closedAt: "",
+      closedBy: "",
+      from: "",
+      id: "",
+      notes: "optional-note",
+      to: "",
+    });
+    expect(parsed.document?.auditEvents[0]).toMatchObject({
+      actor: "",
+      bookId: "ws-1",
+      entityIds: [],
+      eventType: "transaction.created",
+      id: "",
+      occurredAt: "",
+      summary: {},
+    });
+  });
 });

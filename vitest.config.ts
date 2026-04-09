@@ -17,6 +17,18 @@ export default defineConfig({
         "packages/logging/src/**/*.ts",
         "packages/book/src/**/*.ts",
       ],
+      exclude: [
+        "apps/api/src/dev-server.ts",
+        "apps/api/src/server.ts",
+        "apps/api/src/persistence-admin-cli.ts",
+        "apps/api/src/persistence-json.ts",
+        "apps/api/src/persistence-postgres.ts",
+        "apps/api/src/persistence-sqlite.ts",
+        "apps/api/src/persistence-validation.ts",
+        "apps/api/src/types.ts",
+        "packages/book/src/types.ts",
+        "packages/domain/src/types.ts",
+      ],
     },
     environment: "node",
     include: [

@@ -1,7 +1,7 @@
 import { mkdtemp, rm } from "node:fs/promises";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { buildGnuCashXmlExport, createDemoBook } from "@tally/book";
 import { saveBookToFile } from "@tally/book/src/node";
 import {
@@ -12,6 +12,7 @@ import {
   createJsonManagedAuthStore,
   createBookService,
 } from "./index";
+import { createNodeHttpServer } from "./http";
 import type { HttpRequestObserver } from "./observability";
 
 describe("api http transport", () => {
@@ -2556,5 +2557,173 @@ Lacct-expense-utilities
     expect(response.status).toBe(409);
 
     await fixture.cleanup();
+  });
+
+  it("returns 400 for invalid transaction attachment unlink identifiers", async () => {
+    const fixture = await createFixture();
+    const service = createBookService({
+      repository: createFileSystemBookRepository({ rootDirectory: fixture.directory }),
+    });
+    const handler = createTestHttpHandler({
+      authIdentities: [{ actor: "Primary", role: "member", token: "tok-primary" }],
+      service,
+    });
+
+    const response = await handler(
+      new Request(
+        `http://localhost/api/books/${fixture.book.id}/transactions/%2Fbad/attachments/att-1`,
+        {
+          headers: { authorization: "Bearer tok-primary" },
+          method: "DELETE",
+        },
+      ),
+    );
+
+    expect(response.status).toBe(400);
+    await expect(response.json()).resolves.toMatchObject({
+      errors: [
+        "Workspace, transaction, or attachment identifier is invalid.",
+      ],
+    });
+
+    await fixture.cleanup();
+  });
+
+  it("returns 429 when transaction attachment unlink hits mutation rate limit", async () => {
+    const fixture = await createFixture();
+    const service = createBookService({
+      repository: createFileSystemBookRepository({ rootDirectory: fixture.directory }),
+    });
+    const handler = createTestHttpHandler({
+      authIdentities: [{ actor: "Primary", role: "member", token: "tok-primary" }],
+      rateLimiter: createInMemoryRateLimiter({ now: () => 1000 }),
+      rateLimitPolicy: {
+        import: { keyPrefix: "import", limit: 120, windowMs: 60_000 },
+        mutation: { keyPrefix: "mutation", limit: 1, windowMs: 60_000 },
+        read: { keyPrefix: "read", limit: 120, windowMs: 60_000 },
+      },
+      service,
+    });
+
+    const first = await handler(
+      new Request(
+        `http://localhost/api/books/${fixture.book.id}/transactions/txn-valid/attachments/att-valid`,
+        {
+          headers: { authorization: "Bearer tok-primary" },
+          method: "DELETE",
+        },
+      ),
+    );
+    expect(first.status).toBe(404);
+
+    const response = await handler(
+      new Request(
+        `http://localhost/api/books/${fixture.book.id}/transactions/txn-valid/attachments/att-valid`,
+        {
+          headers: { authorization: "Bearer tok-primary" },
+          method: "DELETE",
+        },
+      ),
+    );
+
+    expect(response.status).toBe(429);
+    await expect(response.json()).resolves.toMatchObject({
+      errors: ["Rate limit exceeded. Retry later."],
+    });
+
+    await fixture.cleanup();
+  });
+
+  it("adapts fetch handler responses through the node http server", async () => {
+    let writtenBody: Buffer | undefined;
+    const headers = new Map<string, string>();
+    const server = createNodeHttpServer({
+      handler: async (request) =>
+        new Response(
+          JSON.stringify({
+            method: request.method,
+            path: new URL(request.url).pathname,
+          }),
+          {
+            headers: {
+              "content-type": "application/json",
+              "x-test": "ok",
+            },
+            status: 201,
+          },
+        ),
+    });
+
+    const listener = server.listeners("request")[0] as (request: unknown, response: unknown) => Promise<void>;
+    const request = {
+      headers: {
+        "content-type": "application/json",
+        host: "localhost",
+      },
+      method: "POST",
+      url: "/ping",
+      async *[Symbol.asyncIterator]() {
+        yield Buffer.from(JSON.stringify({ ok: true }));
+      },
+    };
+    const response = {
+      end(body: Buffer) {
+        writtenBody = body;
+      },
+      setHeader(key: string, value: string) {
+        headers.set(key, value);
+      },
+      statusCode: 0,
+    };
+
+    await listener(request, response);
+
+    expect(response.statusCode).toBe(201);
+    expect(headers.get("x-test")).toBe("ok");
+    expect(JSON.parse((writtenBody ?? Buffer.from("{}")).toString("utf8"))).toEqual({
+      method: "POST",
+      path: "/ping",
+    });
+  });
+
+  it("returns 500 when the fetch handler throws in node http server mode", async () => {
+    let writtenBody: string | undefined;
+    const headers = new Map<string, string>();
+    const logger = {
+      child: () => logger,
+      error: vi.fn(),
+    };
+    const server = createNodeHttpServer({
+      handler: async () => {
+        throw new Error("boom");
+      },
+      logger,
+    });
+
+    const listener = server.listeners("request")[0] as (request: unknown, response: unknown) => Promise<void>;
+    const request = {
+      headers: { host: "localhost" },
+      method: "GET",
+      url: "/boom",
+      async *[Symbol.asyncIterator]() {},
+    };
+    const response = {
+      end(body: string) {
+        writtenBody = body;
+      },
+      setHeader(key: string, value: string) {
+        headers.set(key, value);
+      },
+      statusCode: 0,
+    };
+
+    await listener(request, response);
+
+    expect(response.statusCode).toBe(500);
+    expect(headers.get("content-type")).toContain("application/json");
+    expect(JSON.parse(writtenBody ?? "{}")).toEqual({ errors: ["Internal server error."] });
+    expect(logger.error).toHaveBeenCalledWith("node http server request failed", {
+      error: "boom",
+    });
   });
 });
