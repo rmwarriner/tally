@@ -25,7 +25,7 @@
  * coverage is prioritised — it adds build complexity and platform constraints.
  * ─────────────────────────────────────────────────────────────────────────────
  */
-import { mkdirSync, rmSync, writeFileSync } from "node:fs";
+import { mkdtempSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
@@ -39,6 +39,13 @@ import {
 
 // Isolated config dir so `tally use` tests never touch ~/.tally
 const TEST_CONFIG_HOME = join(tmpdir(), `tally-integration-${Math.random().toString(36).slice(2)}`);
+const PHASE2_FIXTURE_DIR = mkdtempSync(join(tmpdir(), "tally-cli-phase2-"));
+
+function writeFixtureFile(name: string, contents: string): string {
+  const path = join(PHASE2_FIXTURE_DIR, name);
+  writeFileSync(path, contents, "utf8");
+  return path;
+}
 
 beforeAll(async () => {
   // Ensure no stale config state from previous runs.
@@ -48,6 +55,11 @@ beforeAll(async () => {
   resetIntegrationFixture();
   process.env.TEST_BOOK_ID = FIXTURE_BOOK_ID;
   await requireDevApi();
+});
+
+afterAll(() => {
+  rmSync(TEST_CONFIG_HOME, { force: true, recursive: true });
+  rmSync(PHASE2_FIXTURE_DIR, { force: true, recursive: true });
 });
 
 // ─── books list ─────────────────────────────────────────────────────────────
@@ -184,6 +196,179 @@ describe("tally transactions list", () => {
       "1900-01-31",
     ]);
     expect(result.exitCode).toBe(0);
+  });
+});
+
+// ─── reports ────────────────────────────────────────────────────────────────
+
+describe("tally report", () => {
+  it("returns report JSON for every Phase 2 report surface", async () => {
+    const commands = [
+      ["report", "net-worth"],
+      ["report", "income"],
+      ["report", "cash-flow"],
+      ["report", "budget"],
+      ["report", "envelopes"],
+    ] as const;
+
+    for (const command of commands) {
+      const result = await runCli([...command]);
+      expect(result.exitCode).toBe(0);
+      const parsed = JSON.parse(result.stdout) as { kind?: string };
+      expect(typeof parsed.kind).toBe("string");
+    }
+  });
+
+  it("supports csv output for reports", async () => {
+    const result = await runCli(["report", "income", "--format", "csv"]);
+    expect(result.exitCode).toBe(0);
+    const [header] = result.stdout.trim().split("\n");
+    expect(header).toBe("account,id,type,amount");
+  });
+});
+
+// ─── import/export happy paths ──────────────────────────────────────────────
+
+describe("tally import/export", () => {
+  it("imports csv, qif, ofx, qfx, and gnucash files", async () => {
+    const csvPath = writeFixtureFile(
+      `import-${Date.now()}.csv`,
+      [
+        "occurredOn,description,amount,counterpartAccountId,cashAccountId,payee,memo,tags",
+        "2026-04-03,CLI CSV import,12.34,acct-expense-groceries,acct-checking,Local Shop,Receipt,food|household",
+      ].join("\n"),
+    );
+
+    const qifPath = writeFixtureFile(
+      `import-${Date.now()}.qif`,
+      [
+        "!Type:Bank",
+        "D04/03/2026",
+        "T-45.12",
+        "PCity Utilities",
+        "MElectric bill",
+        "Lacct-expense-utilities",
+        "^",
+      ].join("\n"),
+    );
+
+    const ofxPayload = [
+      "OFXHEADER:100",
+      "<OFX>",
+      "<BANKMSGSRSV1>",
+      "<STMTTRNRS>",
+      "<STMTRS>",
+      "<BANKTRANLIST>",
+      "<STMTTRN>",
+      "<TRNTYPE>DEBIT",
+      "<DTPOSTED>20260403000000",
+      "<TRNAMT>-22.50",
+      "<FITID>fit-cli-1",
+      "<NAME>Corner Market",
+      "<MEMO>Snacks",
+      "</STMTTRN>",
+      "</BANKTRANLIST>",
+      "</STMTRS>",
+      "</STMTTRNRS>",
+      "</BANKMSGSRSV1>",
+      "</OFX>",
+    ].join("\n");
+
+    const ofxPath = writeFixtureFile(`import-${Date.now()}.ofx`, ofxPayload);
+    const qfxPath = writeFixtureFile(`import-${Date.now()}.qfx`, ofxPayload);
+    const gnucashPath = join(PHASE2_FIXTURE_DIR, `export-${Date.now()}.gnucash.xml`);
+
+    const csvImport = await runCli(["import", "csv", csvPath, "--format", "json"]);
+    expect(csvImport.exitCode).toBe(0);
+
+    const qifImport = await runCli([
+      "import",
+      "qif",
+      qifPath,
+      "--cash-account",
+      FIXTURE_CREDIT_ACCOUNT_ID,
+      "--counterpart-account",
+      FIXTURE_DEBIT_ACCOUNT_ID,
+      "--format",
+      "json",
+    ]);
+    expect(qifImport.exitCode).toBe(0);
+
+    const ofxImport = await runCli([
+      "import",
+      "ofx",
+      ofxPath,
+      "--cash-account",
+      FIXTURE_CREDIT_ACCOUNT_ID,
+      "--counterpart-account",
+      FIXTURE_DEBIT_ACCOUNT_ID,
+      "--format",
+      "json",
+    ]);
+    expect(ofxImport.exitCode).toBe(0);
+
+    const qfxImport = await runCli([
+      "import",
+      "qfx",
+      qfxPath,
+      "--cash-account",
+      FIXTURE_CREDIT_ACCOUNT_ID,
+      "--counterpart-account",
+      FIXTURE_DEBIT_ACCOUNT_ID,
+      "--format",
+      "json",
+    ]);
+    expect(qfxImport.exitCode).toBe(0);
+
+    const gnucashExport = await runCli(["export", "gnucash", "--out", gnucashPath]);
+    expect(gnucashExport.exitCode).toBe(0);
+
+    const gnucashImport = await runCli(["import", "gnucash", gnucashPath, "--format", "json"]);
+    expect(gnucashImport.exitCode).toBe(0);
+  });
+
+  it("exports qif, ofx, qfx, and gnucash files to --out paths", async () => {
+    const qifOut = join(PHASE2_FIXTURE_DIR, `export-${Date.now()}.qif`);
+    const ofxOut = join(PHASE2_FIXTURE_DIR, `export-${Date.now()}.ofx`);
+    const qfxOut = join(PHASE2_FIXTURE_DIR, `export-${Date.now()}.qfx`);
+    const xmlOut = join(PHASE2_FIXTURE_DIR, `export-${Date.now()}.gnucash.xml`);
+
+    const qif = await runCli([
+      "export",
+      "qif",
+      "--account",
+      FIXTURE_CREDIT_ACCOUNT_ID,
+      "--out",
+      qifOut,
+    ]);
+    expect(qif.exitCode).toBe(0);
+    expect(readFileSync(qifOut, "utf8")).toContain("!Type:Bank");
+
+    const ofx = await runCli([
+      "export",
+      "ofx",
+      "--account",
+      FIXTURE_CREDIT_ACCOUNT_ID,
+      "--out",
+      ofxOut,
+    ]);
+    expect(ofx.exitCode).toBe(0);
+    expect(readFileSync(ofxOut, "utf8")).toContain("<OFX>");
+
+    const qfx = await runCli([
+      "export",
+      "qfx",
+      "--account",
+      FIXTURE_CREDIT_ACCOUNT_ID,
+      "--out",
+      qfxOut,
+    ]);
+    expect(qfx.exitCode).toBe(0);
+    expect(readFileSync(qfxOut, "utf8")).toContain("<OFX>");
+
+    const xml = await runCli(["export", "gnucash", "--out", xmlOut]);
+    expect(xml.exitCode).toBe(0);
+    expect(readFileSync(xmlOut, "utf8")).toContain("<?xml");
   });
 });
 

@@ -1,18 +1,10 @@
 import { randomUUID } from "node:crypto";
 import { confirm, input, select } from "@inquirer/prompts";
 import type { Command } from "commander";
+import { loadAccounts, resolveAccountId, type CliAccount } from "../lib/accounts";
 import { buildContext } from "../lib/context";
 import { parseHumanDate, resolveDateRange } from "../lib/period";
 import { formatMoney, printRows } from "../lib/output";
-
-interface Account {
-  id: string;
-  name: string;
-}
-
-interface AccountsEnvelope {
-  accounts: Account[];
-}
 
 interface TransactionPosting {
   accountId: string;
@@ -41,35 +33,6 @@ function addDateOptions(command: Command): Command {
     .option("-p, --period <expr>", "period shorthand")
     .option("-b, --begin <date>", "start date (inclusive)")
     .option("-e, --end <date>", "end date (inclusive)");
-}
-
-async function loadAccounts(command: Command): Promise<Account[]> {
-  const context = buildContext(command, { requireBook: true });
-  const body = await context.api.requestJson<AccountsEnvelope>(
-    "GET",
-    `/api/books/${encodeURIComponent(context.bookId ?? "")}/accounts`,
-    { query: { includeArchived: true } },
-  );
-  return body.accounts;
-}
-
-function resolveAccountId(accounts: Account[], selector: string): string {
-  const trimmed = selector.trim();
-  const exact = accounts.find((account) => account.id === trimmed);
-  if (exact) {
-    return exact.id;
-  }
-
-  const lower = trimmed.toLowerCase();
-  const matches = accounts.filter((account) => account.name.toLowerCase().includes(lower));
-  if (matches.length === 1) {
-    return matches[0]!.id;
-  }
-  if (matches.length > 1) {
-    throw new Error(`Account selector "${selector}" is ambiguous (${matches.length} matches).`);
-  }
-
-  throw new Error(`No account found for selector "${selector}".`);
 }
 
 function deriveTransactionStatus(transaction: Transaction): "pending" | "cleared" | "deleted" {
@@ -124,7 +87,7 @@ async function promptForPostingAmount(): Promise<number> {
   return side === "debit" ? absolute : -absolute;
 }
 
-async function collectPostingsInteractively(accounts: Account[]): Promise<TransactionPosting[]> {
+async function collectPostingsInteractively(accounts: CliAccount[]): Promise<TransactionPosting[]> {
   const postings: TransactionPosting[] = [];
   let imbalance = 0;
 

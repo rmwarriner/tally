@@ -1,8 +1,13 @@
 #!/usr/bin/env node
 import { Command } from "commander";
 import { registerAccountsCommands } from "./commands/accounts";
+import { registerBackupCommands } from "./commands/backup";
 import { registerBooksCommands } from "./commands/books";
 import { registerDashboardCommand } from "./commands/dashboard";
+import { registerExportCommands } from "./commands/export";
+import { registerImportCommands } from "./commands/import";
+import { registerReconcileCommand } from "./commands/reconcile";
+import { registerReportCommands } from "./commands/report";
 import { registerTransactionsCommands } from "./commands/transactions";
 import { registerUseCommand } from "./commands/use";
 import { ApiResponseError, NetworkError } from "./lib/api-client";
@@ -69,6 +74,11 @@ async function main(): Promise<void> {
   registerTransactionsCommands(program);
   registerAccountsCommands(program);
   registerDashboardCommand(program);
+  registerReportCommands(program);
+  registerImportCommands(program);
+  registerExportCommands(program);
+  registerReconcileCommand(program);
+  registerBackupCommands(program);
 
   await program.parseAsync(process.argv);
 }

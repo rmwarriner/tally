@@ -44,7 +44,61 @@ This is the canonical issue tracker for day-to-day solo development.
     - local issue queue documented
     - agent guidance updated to reference local queue
 ## Ready
-- [ ] (empty)
+- [ ] I-003 Implement tally CLI — Phase 2 (data operations)
+  - status: ready
+  - risk: R2
+  - type: feature
+  - owner: agent
+  - links: /Users/robert/Projects/tally/docs/cli-spec.md, /Users/robert/Projects/tally/docs/cli-handoff-core.md
+  - rollback: tally-cli is standalone; revert commits to tally-cli/ only — no effect on other packages
+  - acceptance:
+    - `tally report net-worth|income|cash-flow|budget|envelopes` renders report output (table + json)
+    - `tally import csv|qif|ofx|qfx|gnucash <file>` posts to the appropriate import endpoint and reports row/entry counts
+    - `tally export qif|ofx|qfx|gnucash` streams file to stdout or writes to `--out <file>`
+    - `tally reconcile` opens an interactive reconciliation session (TTY) or accepts `--statement-balance` flag for non-TTY
+    - `tally backup create` creates a backup and prints the backup ID
+    - `tally backup list` lists backups (table + json)
+    - `tally backup restore <id>` restores a backup with a confirmation prompt in TTY mode
+    - period flags (`-p`, `-b`, `-e`) work on all report and register surfaces
+    - `--format csv` works on report and transaction list outputs
+    - integration tests added for import/export happy paths and report smoke tests
+    - `pnpm ci:verify` passes
+  - handoff:
+    - current state: Phase 2 command surface is implemented in `tally-cli/src/commands/` (`report`, `import`, `export`, `reconcile`, `backup`) and wired in `src/index.ts`; integration suite now includes report smoke coverage and import/export happy paths
+    - next step: rerun `pnpm test:cli:integration` in an environment with a running dev API (`TALLY_API_URL`) to exercise live HTTP paths end-to-end, then proceed to I-004
+    - commands run: `pnpm --filter @tally-cli/app typecheck`, `pnpm --filter @tally-cli/app test`, `pnpm test:cli:integration` (failed: dev API unreachable), `pnpm ci:verify`
+    - known risks: `pnpm test:cli:integration` currently requires an active dev API and failed in this environment; reconcile TTY flow currently captures cleared transaction IDs via a comma-separated prompt (not per-row multi-select UX)
+    - open questions: (resolved) `tally report budget` and `tally report envelopes` accept both `--period` and `--budget-id`; if `--budget-id` is omitted, default to the first budget in the book
+
+- [ ] I-004 Implement tally CLI — Phase 3 (admin and second tier)
+  - status: ready
+  - risk: R2
+  - type: feature
+  - owner: agent
+  - links: /Users/robert/Projects/tally/docs/cli-spec.md
+  - rollback: tally-cli is standalone; revert commits to tally-cli/ only
+  - acceptance:
+    - `tally schedules list` lists scheduled transactions (table + json)
+    - `tally schedules add` creates a schedule (interactive TTY or direct flags)
+    - `tally schedules execute|skip|defer <id>` executes, skips, or defers the next occurrence
+    - `tally approvals list` lists pending approvals
+    - `tally approvals request <transactionId>` requests a destroy approval
+    - `tally approvals grant|deny <approvalId>` grants or denies an approval
+    - `tally audit list` lists audit events with `--since`, `--type`, `--limit` filters
+    - `tally close` closes the current period (prompts for confirmation in TTY)
+    - `tally members list|add|remove` manages household members
+    - `tally members role <actor> <role>` sets a member role
+    - `tally tokens list|new|revoke` manages API tokens
+    - all commands respect `--format table|json` and global flags
+    - self-approval guard surfaced as a clear CLI error
+    - integration tests cover schedules list, approvals list/grant/deny, and audit list
+    - `pnpm ci:verify` passes
+  - handoff:
+    - current state: not started; depends on I-003 being complete first
+    - next step: start after I-003 is merged; implement command files following Phase 2 patterns
+    - commands run: (none yet)
+    - known risks: approval grant/deny requires a second distinct actor token — Codex should add a minimal hardcoded `reviewer` token to `tally-cli/src/integration/reset-fixture.ts` alongside the existing test token
+    - open questions: (resolved) `tally close` requires `--confirm` flag explicitly (both TTY and non-TTY); no prompt-only path — period lock is irreversible
 ## Backlog
 - [ ] (add next item here)
 ## Blocked
