@@ -140,6 +140,7 @@ mint_managed_token() {
 
 case "$MODE" in
   none)
+    echo "warning: __TALLY_NO_AUTH__ is a CLI-only sentinel. Do not send it in an Authorization header with curl." >&2
     print_token "__TALLY_NO_AUTH__"
     ;;
   env)
