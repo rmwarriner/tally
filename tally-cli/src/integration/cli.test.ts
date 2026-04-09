@@ -199,7 +199,7 @@ describe("tally transactions add — simple path", () => {
     ]);
 
     expect(result.exitCode).toBe(0);
-    expect(result.stdout).toMatch(/posted|transaction/i);
+    expect(result.stdout).toMatch(/txn-cli-|\"description\":\s*\"regression test\"/i);
   });
 
   it("exits 1 with message on invalid account id", async () => {
