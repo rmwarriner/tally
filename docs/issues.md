@@ -44,7 +44,28 @@ This is the canonical issue tracker for day-to-day solo development.
     - local issue queue documented
     - agent guidance updated to reference local queue
 ## Ready
-- [ ] (empty)
+- [ ] I-002 Implement tally CLI — Phase 1 (daily driver)
+  - status: ready
+  - risk: R1
+  - type: feature
+  - owner: agent
+  - links: /Users/robert/Projects/tally/docs/cli-spec.md
+  - rollback: tally-cli is a standalone package; removal has no effect on other packages
+  - acceptance:
+    - `tally books list` and `tally use <id>` work against a running dev API
+    - `tally transactions list` returns paginated results with period filtering
+    - `tally add` completes a balanced transaction in both direct and multi-posting modes
+    - `tally bal` renders an account balance tree
+    - `tally dashboard` renders a summary
+    - config file written/read correctly; env vars and flags override it
+    - TTY detection switches default output format to json when piped
+    - unit tests cover config resolution, API client, and amount formatting
+  - handoff:
+    - current state: tally-cli/ exists as a package.json placeholder only
+    - next step: implement per docs/cli-spec.md Phase 1 scope
+    - commands run: none
+    - known risks: none — pure API client, no persistence touch
+    - open questions: none, spec is complete
 ## Backlog
 - [ ] (add next item here)
 ## Blocked

@@ -1,6 +1,6 @@
 # Project Status
 
-Last reviewed: 2026-04-09 (PR test-policy enforcement and diff-coverage gate added)
+Last reviewed: 2026-04-09 (CLI spec authored; Phase 1 queued for implementation)
 
 ## Current State
 
@@ -25,6 +25,7 @@ This repository currently includes:
 - documented register-first desktop UI direction for the next phase of shell work
 - architecture guardrails and baseline metrics documentation for April refactor execution
 - web Playwright E2E harness with ledger smoke and keyboard workflow coverage
+- CLI command surface spec with phased rollout plan (`docs/cli-spec.md`)
 
 ## Completed
 
@@ -162,6 +163,12 @@ This repository currently includes:
 ## Remaining Follow-Up
 
 The repository is no longer mainly missing core backend foundations.
+
+**Near-term client work:**
+1. CLI Phase 1 (daily driver) — `tally transactions`, `tally bal`, `tally dashboard`, config/auth; spec in `docs/cli-spec.md`, queued as I-002
+2. CLI Phase 2 (data operations) — import/export, reports, reconciliation, backup
+3. CLI Phase 3 (second tier) — schedules, approvals, audit, close, members, tokens
+4. Desktop client — Tauri-first shell (Electron fallback); register-first UI direction documented; pending Figma design completion
 
 **Longer-horizon product and architecture work:**
 1. Budgeting-model definition for remaining-to-budget, rollover, cleanup, and envelope funding semantics
