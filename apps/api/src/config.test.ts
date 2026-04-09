@@ -19,7 +19,7 @@ describe("api runtime config", () => {
       corsAllowedOrigins: [],
       dataDirectory: "/tmp/tally/data",
       host: "127.0.0.1",
-      persistenceBackend: "json",
+      persistenceBackend: "sqlite",
       port: 4000,
       postgresUrl: "",
       logFormat: "auto",

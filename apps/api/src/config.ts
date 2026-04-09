@@ -72,7 +72,7 @@ function parseLogFormat(value: string | undefined): ApiLogFormat {
 }
 
 function parsePersistenceBackend(value: string | undefined): ApiPersistenceBackend {
-  const candidate = value ?? "json";
+  const candidate = value ?? "sqlite";
 
   if (candidate === "json" || candidate === "postgres" || candidate === "sqlite") {
     return candidate;

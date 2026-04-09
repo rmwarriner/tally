@@ -1,6 +1,6 @@
 # Configuration And Error Handling
 
-Last reviewed: 2026-04-06
+Last reviewed: 2026-04-09
 
 ## Scope
 
@@ -13,7 +13,7 @@ This repository now treats runtime configuration and operational failures as typ
 - boolean runtime toggles must be validated explicitly
 - runtime mode must be explicit and validated against supported values
 - log output format must be explicit and validated against supported formats (`auto`, `pretty`, `json`)
-- persistence backend selection must be explicit and validated against supported backend identifiers
+- persistence backend selection must be validated against supported backend identifiers (`json`, `sqlite`, `postgres`) and use the runtime default (`sqlite`) when unset
 - backend-specific path settings must be resolved and validated during startup
 - backend-specific connection settings must be validated when a networked backend is selected
 - auth secrets may be provided inline or by file path, but only one source may be configured at a time

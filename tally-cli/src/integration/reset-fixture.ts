@@ -1,6 +1,7 @@
 import { createHash } from "node:crypto";
 import { existsSync, mkdirSync, readFileSync, readdirSync, unlinkSync, writeFileSync } from "node:fs";
-import { isAbsolute, join, resolve } from "node:path";
+import { dirname, isAbsolute, join, resolve } from "node:path";
+import { DatabaseSync } from "node:sqlite";
 
 export const FIXTURE_BOOK_ID = "workspace-cli-integration";
 export const FIXTURE_DEBIT_ACCOUNT_ID = "acct-expense-groceries";
@@ -25,6 +26,20 @@ function resolveApiDataDirectory(): string {
   }
 
   // API runtime resolves relative data dir from apps/api working directory.
+  return resolve(join(repoRoot(), "apps/api"), configured);
+}
+
+function resolveSqlitePath(dataDirectory: string): string {
+  const configured = process.env.TALLY_API_SQLITE_PATH;
+
+  if (!configured) {
+    return resolve(dataDirectory, "workspaces.sqlite");
+  }
+
+  if (isAbsolute(configured)) {
+    return configured;
+  }
+
   return resolve(join(repoRoot(), "apps/api"), configured);
 }
 
@@ -79,6 +94,83 @@ function seedManagedAuthFixture(dataDirectory: string): void {
   writeFileSync(managedAuthPath, `${JSON.stringify(managedAuthFixture, null, 2)}\n`, "utf8");
 }
 
+function seedSqliteFixture(params: {
+  fixture: Record<string, unknown>;
+  sqlitePath: string;
+}): void {
+  mkdirSync(dirname(params.sqlitePath), { recursive: true });
+  const database = new DatabaseSync(params.sqlitePath);
+  try {
+    database.exec(`
+      PRAGMA journal_mode = WAL;
+      PRAGMA foreign_keys = ON;
+      CREATE TABLE IF NOT EXISTS workspaces (
+        id TEXT PRIMARY KEY,
+        document_json TEXT NOT NULL,
+        version INTEGER NOT NULL DEFAULT 1,
+        updated_at TEXT NOT NULL
+      );
+      CREATE TABLE IF NOT EXISTS api_tokens (
+        id TEXT PRIMARY KEY,
+        actor TEXT NOT NULL,
+        role TEXT NOT NULL,
+        secret_hash TEXT NOT NULL UNIQUE,
+        created_at TEXT NOT NULL,
+        created_by TEXT NOT NULL,
+        revoked_at TEXT
+      );
+      CREATE TABLE IF NOT EXISTS api_sessions (
+        id TEXT PRIMARY KEY,
+        token_id TEXT NOT NULL,
+        actor TEXT NOT NULL,
+        role TEXT NOT NULL,
+        secret_hash TEXT NOT NULL UNIQUE,
+        created_at TEXT NOT NULL,
+        expires_at TEXT NOT NULL,
+        revoked_at TEXT
+      );
+    `);
+
+    const now = new Date().toISOString();
+    const serialized = `${JSON.stringify(params.fixture)}\n`;
+    database
+      .prepare(`
+        INSERT INTO workspaces (id, document_json, version, updated_at)
+        VALUES (?, ?, ?, ?)
+        ON CONFLICT(id) DO UPDATE SET
+          document_json = excluded.document_json,
+          version = excluded.version,
+          updated_at = excluded.updated_at
+      `)
+      .run(FIXTURE_BOOK_ID, serialized, 1, now);
+
+    database.prepare("DELETE FROM api_sessions WHERE token_id IN (?, ?)").run("tok-cli-admin", "tok-cli-reviewer");
+    database.prepare("DELETE FROM api_tokens WHERE id IN (?, ?)").run("tok-cli-admin", "tok-cli-reviewer");
+    const insertToken = database.prepare(`
+      INSERT INTO api_tokens (id, actor, role, secret_hash, created_at, created_by)
+      VALUES (?, ?, ?, ?, ?, ?)
+    `);
+    insertToken.run(
+      "tok-cli-admin",
+      FIXTURE_ADMIN_ACTOR,
+      "admin",
+      hashSecret(FIXTURE_ADMIN_TOKEN_SECRET),
+      "2026-04-09T00:00:00.000Z",
+      "fixture-seed",
+    );
+    insertToken.run(
+      "tok-cli-reviewer",
+      FIXTURE_REVIEWER_ACTOR,
+      "admin",
+      hashSecret(FIXTURE_REVIEWER_TOKEN_SECRET),
+      "2026-04-09T00:00:00.000Z",
+      "fixture-seed",
+    );
+  } finally {
+    database.close();
+  }
+}
+
 export function resetIntegrationFixture(): void {
   const root = repoRoot();
   const sourceTemplatePath = join(root, "apps/api/data/workspace-household-demo.json");
@@ -109,4 +201,8 @@ export function resetIntegrationFixture(): void {
   const targetPath = join(dataDirectory, `${FIXTURE_BOOK_ID}.json`);
   writeFileSync(targetPath, `${JSON.stringify(fixture, null, 2)}\n`, "utf8");
   seedManagedAuthFixture(dataDirectory);
+  seedSqliteFixture({
+    fixture,
+    sqlitePath: resolveSqlitePath(dataDirectory),
+  });
 }

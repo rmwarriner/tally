@@ -47,11 +47,12 @@ Administrative persistence migration and export commands are documented in `docs
 - `TALLY_API_PERSISTENCE_BACKEND`
   - persistence backend selector
   - `json`, `sqlite`, or `postgres`
-  - defaults to `json`
+  - defaults to `sqlite`
+  - `json` remains supported but is deprecated as a runtime backend
 - `TALLY_API_SQLITE_PATH`
   - sqlite database file path
   - only used when `TALLY_API_PERSISTENCE_BACKEND=sqlite`
-  - defaults to `books.sqlite` under the configured data directory
+  - defaults to `workspaces.sqlite` under `TALLY_DATA_DIR`
 - `TALLY_API_POSTGRES_URL`
   - postgres connection string
   - required when `TALLY_API_PERSISTENCE_BACKEND=postgres`
@@ -235,6 +236,7 @@ The Tally API validates the proxy key before trusting any injected actor or role
 ## Current Deployment Assumptions
 
 - persistence currently supports `json`, `sqlite`, and `postgres`
+- default runtime backend is `sqlite` when `TALLY_API_PERSISTENCE_BACKEND` is unset
 - `json` stores one book file per document under the configured data directory
 - `sqlite` stores workspaces and repository-managed backups in a single database file
 - `postgres` stores workspaces and repository-managed backups in relational tables behind the same repository contract
@@ -244,6 +246,26 @@ The Tally API validates the proxy key before trusting any injected actor or role
 - liveness and readiness are exposed at `/healthz` and `/readyz` (`/health/live` and `/health/ready` remain backward-compatible aliases)
 - request correlation is carried through logs with `requestId`
 - backup creation and restore are currently exposed through the same authenticated API process
+
+## JSON to SQLite Upgrade
+
+For existing deployments currently using `json`, migrate all books with the admin CLI `copy-all` workflow, then switch runtime config to sqlite.
+
+1. Run migration:
+
+```bash
+pnpm --filter @tally/api persistence:admin -- \
+  copy-all \
+  --source-backend json \
+  --source-data-dir ./data \
+  --target-backend sqlite \
+  --target-sqlite-path ./data/workspaces.sqlite \
+  --report-path ./tmp/persistence-copy-all-report.json
+```
+
+2. Review the report for failures; if needed, rerun with `retry-failures`.
+3. Set `TALLY_API_PERSISTENCE_BACKEND=sqlite` (and optionally `TALLY_API_SQLITE_PATH`) for runtime startup.
+4. Restart the API and verify readiness (`/readyz`) reports `persistenceBackend: "sqlite"`.
 
 ## API Versioning
 

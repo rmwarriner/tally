@@ -1,6 +1,6 @@
 # Project Status
 
-Last reviewed: 2026-04-09 (CLI Phases 1-3 implemented, integration suite passing, quality gates green)
+Last reviewed: 2026-04-09 (CLI Phases 1-3 implemented, integration suite passing, SQLite default persistence promoted, quality gates green)
 
 ## Current State
 
@@ -28,6 +28,7 @@ This repository currently includes:
 - CLI command surface spec with phased rollout plan (`docs/cli-spec.md`)
 - implemented `tally-cli` command package across Phases 1-3 with TypeScript command tree, config module, API client, output formatters, and period/date parsing
 - deterministic CLI integration fixture reset flow with fixed test book/account IDs
+- deterministic CLI integration fixture reset flow now seeds both JSON and SQLite persistence paths (including managed-auth tokens) so integration behavior is stable across backend defaults
 - CLI integration suite passing (47/47) against dev API fixture data
 - quality gates passing via `pnpm ci:verify`
 
@@ -98,6 +99,7 @@ This repository currently includes:
 - file-backed auth secret loading and safe runtime configuration logging
 - runtime-selectable log output format (`auto`, `pretty`, `json`) for human-friendly local console output and structured production logs
 - initial persistence abstraction under the API repository, with JSON, SQLite, and Postgres backends now supported plus admin copy/copy-all/export/import workflow, validation reports, dry-run verification, and backup-backed rollback support between them
+- SQLite promoted as default API persistence backend; explicit runtime `json` selection remains supported but now logs a deprecation warning
 - CI and security quality gates
 - PR test-policy gate with required rationale + test-debt issue linkage for approved test exceptions
 - changed-line diff coverage gate for production TypeScript source in pull requests

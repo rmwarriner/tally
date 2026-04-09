@@ -134,6 +134,14 @@ export function createBookPersistenceBackendFromOptions(params: {
     });
   }
 
+  params.logger?.warn(
+    'persistence backend "json" is deprecated as a runtime backend and will be removed in a future release; use sqlite or postgres',
+    {
+      persistenceBackend: "json",
+      recommendedBackends: ["sqlite", "postgres"],
+    },
+  );
+
   return createFileSystemBookPersistenceBackend({
     logger: params.logger,
     rootDirectory: params.options.dataDirectory,

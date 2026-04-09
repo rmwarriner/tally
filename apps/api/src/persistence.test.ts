@@ -3,8 +3,10 @@ import { join } from "node:path";
 import { tmpdir } from "node:os";
 import { afterEach, describe, expect, it } from "vitest";
 import { createDemoBook } from "@tally/book";
+import { createLogger, type LogRecord } from "@tally/logging";
 import { createApiRuntimeConfig } from "./config";
 import {
+  createBookPersistenceBackendFromOptions,
   createBookPersistenceBackend,
   importBookDocument,
 } from "./persistence";
@@ -163,6 +165,43 @@ describe("book persistence backends", () => {
     const backend = createBookPersistenceBackend({ config });
 
     expect(backend.kind).toBe("postgres");
+    await backend.close?.();
+  });
+
+  it("emits a deprecation warning when json backend is explicitly selected", async () => {
+    const directory = await mkdtemp(join(tmpdir(), "tally-json-deprecation-"));
+    cleanupPaths.push(directory);
+    const records: LogRecord[] = [];
+    const logger = createLogger({
+      minLevel: "debug",
+      service: "api-persistence-tests",
+      sink(record) {
+        records.push(record);
+      },
+    });
+
+    const backend = createBookPersistenceBackendFromOptions({
+      logger,
+      options: {
+        dataDirectory: directory,
+        persistenceBackend: "json",
+        postgresUrl: "",
+        sqlitePath: join(directory, "workspaces.sqlite"),
+      },
+    });
+
+    expect(backend.kind).toBe("json");
+    expect(records).toContainEqual(
+      expect.objectContaining({
+        level: "warn",
+        message:
+          'persistence backend "json" is deprecated as a runtime backend and will be removed in a future release; use sqlite or postgres',
+        fields: expect.objectContaining({
+          persistenceBackend: "json",
+          recommendedBackends: ["sqlite", "postgres"],
+        }),
+      }),
+    );
     await backend.close?.();
   });
 

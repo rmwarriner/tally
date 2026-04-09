@@ -123,6 +123,30 @@ This is the canonical issue tracker for day-to-day solo development.
     - commands run: `pnpm -r typecheck`, `pnpm --filter @tally/book test`, `pnpm --filter @tally/api test`, `pnpm ci:verify`
     - known risks: overspend eligibility is validated against current persisted `envelope.availableAmount` (per issue decision), so this route assumes an already-overspent envelope state exists in the book; rollover changes are still represented via updated envelope balances under `close.recorded` without a dedicated rollover-specific audit event
     - open questions: none — scope is bounded to book commands and one new API route; CLI envelope operation commands are explicitly deferred to a follow-up
+
+- [ ] I-007 Promote SQLite to primary persistence backend
+  - status: ready
+  - risk: R2
+  - type: feature
+  - owner: agent
+  - links: /Users/robert/Projects/tally/apps/api/src/config.ts, /Users/robert/Projects/tally/apps/api/src/persistence.ts, /Users/robert/Projects/tally/apps/api/src/persistence-json.ts, /Users/robert/Projects/tally/docs/api-runtime-operations.md, /Users/robert/Projects/tally/docs/ideas.md (Track 6)
+  - rollback: single-line config default revert at apps/api/src/config.ts:75; no schema changes — fully reversible
+  - acceptance:
+    - default persistence backend changes from `"json"` to `"sqlite"` in `parsePersistenceBackend` (config.ts:75); a fresh API start with no `TALLY_API_PERSISTENCE_BACKEND` env var uses SQLite
+    - `TALLY_API_SQLITE_PATH` defaults to a sensible path within `dataDirectory` when SQLite is active and no explicit path is set; this default is documented in `docs/api-runtime-operations.md`
+    - when `TALLY_API_PERSISTENCE_BACKEND=json` is explicitly set, the API emits a structured deprecation warning at startup: `persistence backend "json" is deprecated as a runtime backend and will be removed in a future release; use sqlite or postgres`
+    - JSON backend remains in code and continues to pass its existing tests — it is not removed in this issue, only deprecated at runtime
+    - `docs/api-runtime-operations.md` is updated to reflect SQLite as the new default, document the `TALLY_API_SQLITE_PATH` variable, and describe the one-step JSON→SQLite migration path using the existing admin CLI (`persistence-admin-cli`)
+    - the existing admin CLI `copy-all` migration path (json→sqlite) is verified end-to-end and documented in `docs/api-runtime-operations.md` as the upgrade procedure for existing JSON deployments
+    - `pnpm dev:api` starts successfully against a fresh SQLite database with demo workspace seeded
+    - all existing tests continue to pass — tests that explicitly set `persistenceBackend: "json"` are unaffected; any tests relying on the implicit default are updated to set their backend explicitly
+    - `pnpm ci:verify` passes
+  - handoff:
+    - current state: runtime default persistence backend is now `"sqlite"` (`parsePersistenceBackend` fallback changed); explicit `json` selection now emits a structured startup deprecation warning in `createBookPersistenceBackendFromOptions`; `TALLY_API_SQLITE_PATH` default remains `workspaces.sqlite` under `TALLY_DATA_DIR`; `docs/api-runtime-operations.md` now documents SQLite as default plus JSON→SQLite `copy-all` upgrade path
+    - next step: no additional implementation required for I-007 scope; JSON backend remains supported and deprecation-only as planned
+    - commands run: `pnpm -r typecheck`, `pnpm test`, `pnpm coverage`, `pnpm security:secrets`, `pnpm ci:verify`, `pnpm dev:api` (startup check), `TALLY_API_PORT=4011 pnpm dev:api` (successful startup + seed validation on alternate port)
+    - known risks: local default port `4000` may already be occupied in some environments (`EADDRINUSE`), so startup verification may require a temporary port override
+    - open questions: none — JSON backend stays in code (not removed); full removal and repurposing as import/export format only is explicitly deferred to a follow-up issue
 ## Blocked
 - [ ] (empty)
 ## Done

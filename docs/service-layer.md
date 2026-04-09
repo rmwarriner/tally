@@ -1,6 +1,6 @@
 # Service Layer
 
-Last reviewed: 2026-04-08
+Last reviewed: 2026-04-09
 
 ## Current Implementation
 
@@ -51,6 +51,7 @@ Implemented pieces:
 - an explicit persistence backend seam underneath the repository, with the current JSON/file implementation wired through it
 - a sqlite persistence backend with the same repository contract for load, save, backup, and restore flows
 - a postgres persistence backend with the same repository contract for load, save, backup, and restore flows
+- sqlite promoted as the default runtime persistence backend; explicit `json` runtime selection now emits a deprecation warning while remaining supported
 - an admin persistence migration and export workflow for copy, copy-all, export, and import operations across supported backends
 - dry-run validation reports plus backup-backed rollback handling for persistence copy and import operations
 - multi-book persistence migration, partial-failure policy controls, and retry-from-report workflow across supported backends
@@ -85,6 +86,8 @@ Defaults:
 - API host: `127.0.0.1`
 - API port: `4000`
 - data directory: `./data` relative to the API process working directory
+- persistence backend: `sqlite`
+- sqlite database path: `workspaces.sqlite` under `TALLY_DATA_DIR`
 
 When started through the repository root with `pnpm dev:api`, the default data directory resolves to:
 
