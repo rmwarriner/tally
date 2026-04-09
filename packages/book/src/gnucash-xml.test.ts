@@ -390,7 +390,7 @@ describe("gnucash xml adapter", () => {
       statementBalance: { commodityCode: "USD", quantity: 0 },
       statementDate: "",
     });
-    expect(parsed.document?.closePeriods[0]).toMatchObject({
+    expect(parsed.document?.closePeriods?.[0]).toMatchObject({
       closedAt: "",
       closedBy: "",
       from: "",

@@ -2691,6 +2691,9 @@ Lacct-expense-utilities
     const headers = new Map<string, string>();
     const logger = {
       child: () => logger,
+      debug: vi.fn(),
+      info: vi.fn(),
+      warn: vi.fn(),
       error: vi.fn(),
     };
     const server = createNodeHttpServer({

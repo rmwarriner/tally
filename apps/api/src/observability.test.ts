@@ -157,7 +157,10 @@ describe("api observability", () => {
     };
     const logger = {
       child: () => logger,
+      debug: vi.fn(),
       info: vi.fn(),
+      warn: vi.fn(),
+      error: vi.fn(),
     };
 
     const observability = createApiObservability({

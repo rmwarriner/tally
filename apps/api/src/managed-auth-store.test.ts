@@ -3,7 +3,6 @@ import { join } from "node:path";
 import { tmpdir } from "node:os";
 import { afterEach, describe, expect, it } from "vitest";
 import type { ApiRuntimeConfig } from "./config";
-import { ApiError } from "./errors";
 import {
   createJsonManagedAuthStore,
   createManagedAuthStore,
@@ -96,7 +95,7 @@ describe("managed auth store", () => {
 
     await store.revokeToken(issued.token.id);
     await expect(store.verifyBearer(issued.secret)).resolves.toBeUndefined();
-    await expect(store.exchangeSession({ tokenId: issued.token.id })).rejects.toMatchObject<ApiError>({
+    await expect(store.exchangeSession({ tokenId: issued.token.id })).rejects.toMatchObject({
       code: "auth.required",
       status: 401,
     });
