@@ -154,8 +154,35 @@ export async function requireDevApi(): Promise<void> {
       };
       const firstBook = body.books?.[0]?.id;
       if (firstBook) {
-        chosenToken = token;
+        chosenToken = token ?? "integration-token";
         chosenBook = process.env.TALLY_BOOK ?? process.env.TEST_BOOK_ID ?? firstBook;
+        break;
+      }
+
+      // No visible books yet; attempt to create one so integration tests have a stable target.
+      const createResponse = await fetch(`${chosenApiUrl}/api/books`, {
+        body: JSON.stringify({
+          payload: {
+            bookId: `cli-integration-${Date.now()}`,
+            name: "CLI Integration Book",
+          },
+        }),
+        headers: {
+          ...Object.fromEntries(new Headers(withAuthHeaders(token)).entries()),
+          "content-type": "application/json",
+        },
+        method: "POST",
+      });
+
+      if (!createResponse.ok) {
+        continue;
+      }
+
+      const created = (await createResponse.json()) as { book?: { id?: string } };
+      const createdId = created.book?.id;
+      if (createdId) {
+        chosenToken = token ?? "integration-token";
+        chosenBook = process.env.TALLY_BOOK ?? process.env.TEST_BOOK_ID ?? createdId;
         break;
       }
     } catch {
