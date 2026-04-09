@@ -39,3 +39,15 @@ pnpm --filter @tally-cli/app test
 pnpm --filter @tally-cli/app test:integration
 pnpm --filter @tally-cli/app start -- --help
 ```
+
+## Token Helper
+
+Use the repo helper to populate `TALLY_TOKEN` quickly:
+
+```bash
+# No-auth local dev API mode
+eval "$(scripts/get-cli-token.sh --mode none --print-export)"
+
+# Managed token creation (requires admin/local-admin bootstrap token)
+eval "$(scripts/get-cli-token.sh --mode managed --admin-token "$BOOTSTRAP_TOKEN" --actor "$USER" --role admin --print-export)"
+```
