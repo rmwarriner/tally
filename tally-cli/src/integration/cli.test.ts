@@ -3,9 +3,37 @@
  * Requires: pnpm dev:api running, TALLY_API_URL + TALLY_TOKEN + TALLY_BOOK set (or defaults).
  *
  * Run: pnpm --filter @tally-cli/app test:integration
+ *
+ * ── Known automation gap ─────────────────────────────────────────────────────
+ * The multi-posting interactive flow in `tally transactions add` cannot be
+ * tested with subprocess I/O redirection because @inquirer/prompts requires a
+ * real TTY. The non-TTY guard (exit 1 when stdin is not a TTY) IS tested.
+ *
+ * To automate the interactive flow, use node-pty to allocate a pseudo-terminal
+ * and drive keystrokes programmatically:
+ *
+ *   import pty from "node-pty";
+ *   const term = pty.spawn("tsx", [CLI_ENTRY, "add"], { name: "xterm", cols: 80, rows: 30 });
+ *   term.write("expenses:food\r");          // account ID + Enter
+ *   term.write("85.42\r");                  // amount + Enter
+ *   term.write("assets:checking\r");        // second account + Enter
+ *   term.write("-85.42\r");                 // balancing amount + Enter
+ *   term.write("y\r");                      // confirm
+ *   // assert exit code 0 and stdout contains "posted"
+ *
+ * node-pty requires a native build (node-gyp). Add it only when interactive
+ * coverage is prioritised — it adds build complexity and platform constraints.
+ * ─────────────────────────────────────────────────────────────────────────────
  */
-import { beforeAll, describe, expect, it } from "vitest";
+import { mkdirSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { requireDevApi, runCli } from "./helpers";
+
+// Isolated config dir so `tally use` tests never touch ~/.tally
+const TEST_CONFIG_HOME = join(tmpdir(), `tally-integration-${Math.random().toString(36).slice(2)}`);
+mkdirSync(join(TEST_CONFIG_HOME, ".tally"), { recursive: true });
 
 beforeAll(async () => {
   await requireDevApi();
@@ -199,6 +227,76 @@ describe("tally transactions add — non-TTY guard", () => {
     const result = await runCli(["add"]);
     expect(result.exitCode).toBe(1);
     expect(result.stderr.length).toBeGreaterThan(0);
+  });
+});
+
+// ─── bare tally (no subcommand → dashboard) ─────────────────────────────────
+
+describe("bare tally invocation", () => {
+  it("renders dashboard output (exit 0)", async () => {
+    const result = await runCli([]);
+    expect(result.exitCode).toBe(0);
+    expect(result.stdout.length).toBeGreaterThan(0);
+  });
+
+  it("produces same output as tally dashboard", async () => {
+    const [bare, explicit] = await Promise.all([
+      runCli([]),
+      runCli(["dashboard"]),
+    ]);
+    expect(bare.stdout).toBe(explicit.stdout);
+  });
+
+  it("exits 1 with book error when TALLY_BOOK is unset", async () => {
+    const result = await runCli([], { book: undefined });
+    expect(result.exitCode).toBe(1);
+    expect(result.stderr).toMatch(/book/i);
+  });
+});
+
+// ─── tally use ───────────────────────────────────────────────────────────────
+
+describe("tally use", () => {
+  it("writes bookId to config and prints confirmation", async () => {
+    const result = await runCli(["use", "test-book-123"], {
+      configHome: TEST_CONFIG_HOME,
+    });
+    expect(result.exitCode).toBe(0);
+    expect(result.stdout).toMatch(/test-book-123/);
+  });
+
+  it("subsequent commands use the stored book without --book flag", async () => {
+    // Write a known book ID via `tally use`
+    await runCli(["use", process.env.TALLY_BOOK ?? "demo"], {
+      configHome: TEST_CONFIG_HOME,
+    });
+
+    // Now run dashboard without --book — should resolve from config
+    const result = await runCli(["dashboard"], {
+      configHome: TEST_CONFIG_HOME,
+      book: undefined,
+    });
+    expect(result.exitCode).toBe(0);
+  });
+});
+
+// ─── tally books new ─────────────────────────────────────────────────────────
+
+describe("tally books new", () => {
+  it("creates a book and returns its id and name", async () => {
+    const name = `regression-${Date.now()}`;
+    const result = await runCli(["books", "new", name]);
+    expect(result.exitCode).toBe(0);
+    // Output should contain the book name
+    expect(result.stdout).toContain(name.toLowerCase().replace(/[^a-z0-9]+/g, "-"));
+  });
+
+  it("returns valid JSON with --format json", async () => {
+    const name = `regression-json-${Date.now()}`;
+    const result = await runCli(["books", "new", name, "--format", "json"]);
+    expect(result.exitCode).toBe(0);
+    const parsed = JSON.parse(result.stdout) as unknown;
+    expect(parsed).toBeTruthy();
   });
 });
 
