@@ -7,7 +7,7 @@ import { execFile } from "node:child_process";
 import { resolve } from "node:path";
 import { promisify } from "node:util";
 import { NO_AUTH_SENTINEL } from "../lib/api-client";
-import { FIXTURE_BOOK_ID } from "./reset-fixture";
+import { FIXTURE_ADMIN_TOKEN_SECRET, FIXTURE_BOOK_ID } from "./reset-fixture";
 
 const execFileAsync = promisify(execFile);
 
@@ -54,6 +54,7 @@ function candidateTokens(): Array<string | undefined> {
   const values = [
     process.env.TALLY_TOKEN,
     process.env.TALLY_API_AUTH_TOKEN,
+    FIXTURE_ADMIN_TOKEN_SECRET,
     "top-secret",
     "dev-token",
     undefined,

@@ -94,11 +94,11 @@ This is the canonical issue tracker for day-to-day solo development.
     - integration tests cover schedules list, approvals list/grant/deny, and audit list
     - `pnpm ci:verify` passes
   - handoff:
-    - current state: not started; depends on I-003 being complete first
-    - next step: start after I-003 is merged; implement command files following Phase 2 patterns
-    - commands run: (none yet)
-    - known risks: approval grant/deny requires a second distinct actor token — Codex should add a minimal hardcoded `reviewer` token to `tally-cli/src/integration/reset-fixture.ts` alongside the existing test token
-    - open questions: (resolved) `tally close` requires `--confirm` flag explicitly (both TTY and non-TTY); no prompt-only path — period lock is irreversible
+    - current state: Phase 3 command surface is implemented in `tally-cli/src/commands/` (`schedules`, `approvals`, `audit`, `close`, `members`, `tokens`) and wired in `tally-cli/src/index.ts`; integration fixture now seeds managed auth tokens for both requester and reviewer actors via `tally-cli/src/integration/reset-fixture.ts`, and integration suite includes Phase 3 coverage additions
+    - next step: rerun `pnpm test:cli:integration` with a running dev API (`pnpm dev:api` + reachable `TALLY_API_URL`) to execute live HTTP integration scenarios end-to-end, then close I-004
+    - commands run: `pnpm --filter @tally-cli/app typecheck`, `pnpm --filter @tally-cli/app test`, `pnpm test:cli:integration` (failed: dev API unreachable), `pnpm ci:verify`
+    - known risks: `pnpm test:cli:integration` is environment-dependent and could not run here without a reachable dev API; `tally close` intentionally requires explicit `--confirm` plus explicit period/range (no TTY prompt fallback) per resolved decision
+    - open questions: none; resolved decisions applied (`tally close --confirm` required, reviewer token seeded in reset fixture)
 ## Backlog
 - [ ] (add next item here)
 ## Blocked

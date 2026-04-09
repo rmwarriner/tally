@@ -3,11 +3,17 @@ import { Command } from "commander";
 import { registerAccountsCommands } from "./commands/accounts";
 import { registerBackupCommands } from "./commands/backup";
 import { registerBooksCommands } from "./commands/books";
+import { registerCloseCommand } from "./commands/close";
 import { registerDashboardCommand } from "./commands/dashboard";
 import { registerExportCommands } from "./commands/export";
 import { registerImportCommands } from "./commands/import";
+import { registerMembersCommands } from "./commands/members";
 import { registerReconcileCommand } from "./commands/reconcile";
 import { registerReportCommands } from "./commands/report";
+import { registerSchedulesCommands } from "./commands/schedules";
+import { registerApprovalsCommands } from "./commands/approvals";
+import { registerAuditCommands } from "./commands/audit";
+import { registerTokensCommands } from "./commands/tokens";
 import { registerTransactionsCommands } from "./commands/transactions";
 import { registerUseCommand } from "./commands/use";
 import { ApiResponseError, NetworkError } from "./lib/api-client";
@@ -79,6 +85,12 @@ async function main(): Promise<void> {
   registerExportCommands(program);
   registerReconcileCommand(program);
   registerBackupCommands(program);
+  registerSchedulesCommands(program);
+  registerApprovalsCommands(program);
+  registerAuditCommands(program);
+  registerCloseCommand(program);
+  registerMembersCommands(program);
+  registerTokensCommands(program);
 
   await program.parseAsync(process.argv);
 }

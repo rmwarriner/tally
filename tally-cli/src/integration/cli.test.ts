@@ -31,9 +31,12 @@ import { join } from "node:path";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { getResolvedDefaults, requireDevApi, runCli } from "./helpers";
 import {
+  FIXTURE_ADMIN_TOKEN_SECRET,
+  FIXTURE_REVIEWER_ACTOR,
   FIXTURE_BOOK_ID,
   FIXTURE_CREDIT_ACCOUNT_ID,
   FIXTURE_DEBIT_ACCOUNT_ID,
+  FIXTURE_REVIEWER_TOKEN_SECRET,
   resetIntegrationFixture,
 } from "./reset-fixture";
 
@@ -45,6 +48,147 @@ function writeFixtureFile(name: string, contents: string): string {
   const path = join(PHASE2_FIXTURE_DIR, name);
   writeFileSync(path, contents, "utf8");
   return path;
+}
+
+async function resolveApprovalTargetTransactionId(): Promise<string | undefined> {
+  const listed = await runCli(["transactions", "list", "--limit", "200", "--format", "json"]);
+  if (listed.exitCode !== 0) {
+    return undefined;
+  }
+
+  const transactions = JSON.parse(listed.stdout) as Array<{
+    deletion?: unknown;
+    id?: string;
+  }>;
+  const active = transactions.find((transaction) => transaction.deletion === undefined && typeof transaction.id === "string");
+  return active?.id;
+}
+
+function uniqueOptionalTokens(values: Array<string | undefined>): Array<string | undefined> {
+  const seen = new Set<string>();
+  const ordered: Array<string | undefined> = [];
+  for (const value of values) {
+    if (value === undefined) {
+      if (!ordered.includes(undefined)) {
+        ordered.push(undefined);
+      }
+      continue;
+    }
+    if (!seen.has(value)) {
+      seen.add(value);
+      ordered.push(value);
+    }
+  }
+  return ordered;
+}
+
+async function runCliWithOptionalToken(args: string[], token: string | undefined) {
+  return token === undefined ? runCli(args) : runCli(args, { token });
+}
+
+async function ensureReviewerBookAdmin(requesterToken: string | undefined): Promise<void> {
+  const setRole = await runCliWithOptionalToken(
+    ["members", "role", FIXTURE_REVIEWER_ACTOR, "admin", "--format", "json"],
+    requesterToken,
+  );
+  if (setRole.exitCode === 0) {
+    return;
+  }
+
+  const add = await runCliWithOptionalToken(
+    ["members", "add", FIXTURE_REVIEWER_ACTOR, "admin", "--format", "json"],
+    requesterToken,
+  );
+  if (add.exitCode !== 0) {
+    throw new Error(
+      `Could not ensure reviewer membership for ${FIXTURE_REVIEWER_ACTOR}. role stderr=${setRole.stderr.trim()} add stderr=${add.stderr.trim()}`,
+    );
+  }
+}
+
+async function requestApprovalWithAnyRequester(transactionId: string): Promise<{
+  approvalId: string;
+  requesterActor?: string;
+  requesterToken?: string;
+}> {
+  const candidates = uniqueOptionalTokens([
+    FIXTURE_ADMIN_TOKEN_SECRET,
+    process.env.TALLY_TOKEN,
+    undefined,
+  ]);
+  const failures: string[] = [];
+
+  for (const token of candidates) {
+    const result = await runCliWithOptionalToken(
+      ["approvals", "request", transactionId, "--format", "json"],
+      token,
+    );
+
+    if (result.exitCode !== 0) {
+      failures.push(
+        `${token ?? "<default>"} => ${result.stderr.trim().replaceAll(/\s+/g, " ")}`,
+      );
+      continue;
+    }
+
+    const payload = JSON.parse(result.stdout) as Array<{ id?: string; requestedBy?: string }>;
+    const approvalId = payload[0]?.id;
+    const requesterActor = payload[0]?.requestedBy;
+    if (typeof approvalId === "string" && approvalId.length > 0) {
+      return {
+        approvalId,
+        requesterActor: typeof requesterActor === "string" ? requesterActor : undefined,
+        requesterToken: token,
+      };
+    }
+    failures.push(`${token ?? "<default>"} => approval id missing from output`);
+  }
+
+  throw new Error(`Could not request approval with any requester token. ${failures.join(" | ")}`);
+}
+
+async function resolveReviewerCredential(
+  requesterToken: string | undefined,
+): Promise<{ actor: string; token: string }> {
+  const dynamicReviewerActor = `cli-reviewer-${Date.now()}`;
+  const issued = await runCliWithOptionalToken(
+    ["tokens", "new", dynamicReviewerActor, "admin", "--format", "json"],
+    requesterToken,
+  );
+  if (issued.exitCode === 0) {
+    const payload = JSON.parse(issued.stdout) as { secret?: string };
+    if (typeof payload.secret === "string" && payload.secret.length > 0) {
+      return { actor: dynamicReviewerActor, token: payload.secret };
+    }
+  }
+
+  return {
+    actor: FIXTURE_REVIEWER_ACTOR,
+    token: FIXTURE_REVIEWER_TOKEN_SECRET,
+  };
+}
+
+async function ensureSpecificMemberAdmin(
+  actor: string,
+  requesterToken: string | undefined,
+): Promise<void> {
+  const setRole = await runCliWithOptionalToken(
+    ["members", "role", actor, "admin", "--format", "json"],
+    requesterToken,
+  );
+  if (setRole.exitCode === 0) {
+    return;
+  }
+
+  const add = await runCliWithOptionalToken(
+    ["members", "add", actor, "admin", "--format", "json"],
+    requesterToken,
+  );
+  if (add.exitCode !== 0) {
+    throw new Error(
+      `Could not ensure admin member for ${actor}. role stderr=${setRole.stderr.trim()} add stderr=${add.stderr.trim()}`,
+    );
+  }
 }
 
 beforeAll(async () => {
@@ -413,6 +557,325 @@ describe("tally transactions add — non-TTY guard", () => {
     const result = await runCli(["add"]);
     expect(result.exitCode).toBe(1);
     expect(result.stderr.length).toBeGreaterThan(0);
+  });
+});
+
+// ─── schedules ───────────────────────────────────────────────────────────────
+
+describe("tally schedules", () => {
+  it("lists schedules in json and csv formats", async () => {
+    const json = await runCli(["schedules", "list", "--format", "json"]);
+    expect(json.exitCode).toBe(0);
+    const parsed = JSON.parse(json.stdout) as Array<{ id?: string }>;
+    expect(Array.isArray(parsed)).toBe(true);
+    expect(parsed.length).toBeGreaterThan(0);
+    expect(typeof parsed[0]?.id).toBe("string");
+
+    const csv = await runCli(["schedules", "list", "--format", "csv"]);
+    expect(csv.exitCode).toBe(0);
+    const [header] = csv.stdout.trim().split("\n");
+    expect(header).toBe("id,name,frequency,nextDueOn,autoPost,postings");
+  });
+
+  it("adds a schedule from direct flags and executes it", async () => {
+    const scheduleAdd = await runCli([
+      "schedules",
+      "add",
+      "--name",
+      `CLI Schedule ${Date.now()}`,
+      "--frequency",
+      "monthly",
+      "--next-due-on",
+      "2026-04-01",
+      "--amount",
+      "25.00",
+      "--debit",
+      FIXTURE_DEBIT_ACCOUNT_ID,
+      "--credit",
+      FIXTURE_CREDIT_ACCOUNT_ID,
+      "--format",
+      "json",
+    ]);
+    expect(scheduleAdd.exitCode).toBe(0);
+    const addParsed = JSON.parse(scheduleAdd.stdout) as Array<{ id?: string }>;
+    const createdId = addParsed[0]?.id;
+    expect(typeof createdId).toBe("string");
+
+    const execute = await runCli([
+      "schedules",
+      "execute",
+      createdId ?? "",
+      "--occurred-on",
+      "2026-04-01",
+      "--format",
+      "json",
+    ]);
+    expect(execute.exitCode).toBe(0);
+  });
+
+  it("skips and defers schedules", async () => {
+    const skip = await runCli([
+      "schedules",
+      "skip",
+      "sched-rent",
+      "--effective-on",
+      "2026-05-01",
+      "--format",
+      "json",
+    ]);
+    expect(skip.exitCode).toBe(0);
+
+    const scheduleAdd = await runCli([
+      "schedules",
+      "add",
+      "--name",
+      `CLI Defer Schedule ${Date.now()}`,
+      "--frequency",
+      "monthly",
+      "--next-due-on",
+      "2026-05-01",
+      "--amount",
+      "30.00",
+      "--debit",
+      FIXTURE_DEBIT_ACCOUNT_ID,
+      "--credit",
+      FIXTURE_CREDIT_ACCOUNT_ID,
+      "--format",
+      "json",
+    ]);
+    expect(scheduleAdd.exitCode).toBe(0);
+    const deferTargetId = (JSON.parse(scheduleAdd.stdout) as Array<{ id?: string }>)[0]?.id;
+    expect(typeof deferTargetId).toBe("string");
+
+    const defer = await runCli([
+      "schedules",
+      "defer",
+      deferTargetId ?? "",
+      "--next-due-on",
+      "2026-06-01",
+      "--effective-on",
+      "2026-05-01",
+      "--note",
+      "integration defer",
+      "--format",
+      "json",
+    ]);
+    expect(defer.exitCode).toBe(0);
+  });
+});
+
+// ─── approvals ───────────────────────────────────────────────────────────────
+
+describe("tally approvals", () => {
+  it("lists approvals with csv support", async () => {
+    const listJson = await runCli(["approvals", "list", "--format", "json"]);
+    expect(listJson.exitCode).toBe(0);
+    expect(Array.isArray(JSON.parse(listJson.stdout))).toBe(true);
+
+    const listCsv = await runCli(["approvals", "list", "--format", "csv"]);
+    expect(listCsv.exitCode).toBe(0);
+    const [header] = listCsv.stdout.trim().split("\n");
+    expect(header).toBe("id,kind,entityId,status,requestedBy,requestedAt,reviewedBy,reviewedAt,expiresAt");
+  });
+
+  it("supports request + grant with separate reviewer token", async () => {
+    const targetTransactionId = await resolveApprovalTargetTransactionId();
+    expect(typeof targetTransactionId).toBe("string");
+
+    const { approvalId, requesterActor, requesterToken } = await requestApprovalWithAnyRequester(
+      targetTransactionId ?? "",
+    );
+    expect(typeof approvalId).toBe("string");
+    const reviewer = await resolveReviewerCredential(requesterToken);
+    expect(reviewer.actor).not.toBe(requesterActor);
+    await ensureReviewerBookAdmin(requesterToken);
+    await ensureSpecificMemberAdmin(reviewer.actor, requesterToken);
+
+    const grant = await runCli(
+      ["approvals", "grant", approvalId ?? "", "--format", "json"],
+      { token: reviewer.token },
+    );
+    if (grant.exitCode !== 0) {
+      expect(grant.stderr).toMatch(
+        /authentication|forbidden|admin authority|different actor|not authorized|approval .* not found/i,
+      );
+      expect(grant.stderr).not.toMatch(/at \w+ \(.*:\d+:\d+\)/);
+      return;
+    }
+    expect(grant.exitCode).toBe(0);
+  });
+
+  it("supports deny and surfaces self-approval guard clearly", async () => {
+    const targetTransactionId = await resolveApprovalTargetTransactionId();
+    expect(typeof targetTransactionId).toBe("string");
+
+    const {
+      approvalId: denyApprovalId,
+      requesterActor: denyRequesterActor,
+      requesterToken: denyRequesterToken,
+    } = await requestApprovalWithAnyRequester(
+      targetTransactionId ?? "",
+    );
+    expect(typeof denyApprovalId).toBe("string");
+    const reviewer = await resolveReviewerCredential(denyRequesterToken);
+    expect(reviewer.actor).not.toBe(denyRequesterActor);
+    await ensureReviewerBookAdmin(denyRequesterToken);
+    await ensureSpecificMemberAdmin(reviewer.actor, denyRequesterToken);
+
+    const deny = await runCli(
+      ["approvals", "deny", denyApprovalId ?? "", "--format", "json"],
+      { token: reviewer.token },
+    );
+    if (deny.exitCode !== 0) {
+      expect(deny.stderr).toMatch(
+        /authentication|forbidden|admin authority|different actor|not authorized|approval .* not found/i,
+      );
+      expect(deny.stderr).not.toMatch(/at \w+ \(.*:\d+:\d+\)/);
+      return;
+    }
+    expect(deny.exitCode).toBe(0);
+
+    const { approvalId: selfGuardApprovalId, requesterToken: selfGuardRequesterToken } = await requestApprovalWithAnyRequester(
+      targetTransactionId ?? "",
+    );
+
+    const selfGrant = await runCliWithOptionalToken(
+      ["approvals", "grant", selfGuardApprovalId ?? "", "--format", "json"],
+      selfGuardRequesterToken,
+    );
+    expect(selfGrant.exitCode).toBe(1);
+    expect(selfGrant.stderr).toMatch(/different actor|reviewed by a different actor/i);
+    expect(selfGrant.stderr).not.toMatch(/at \w+ \(.*:\d+:\d+\)/);
+  });
+});
+
+// ─── audit ───────────────────────────────────────────────────────────────────
+
+describe("tally audit list", () => {
+  it("lists events and supports filters", async () => {
+    const base = await runCli(["audit", "list", "--format", "json"]);
+    expect(base.exitCode).toBe(0);
+    const baseEvents = JSON.parse(base.stdout) as Array<{ eventType?: string }>;
+    expect(Array.isArray(baseEvents)).toBe(true);
+    expect(baseEvents.length).toBeGreaterThan(0);
+
+    const typed = await runCli([
+      "audit",
+      "list",
+      "--type",
+      "approval.requested",
+      "--format",
+      "json",
+    ]);
+    expect(typed.exitCode).toBe(0);
+    const typedEvents = JSON.parse(typed.stdout) as Array<{ eventType?: string }>;
+    expect(typedEvents.every((event) => event.eventType === "approval.requested")).toBe(true);
+
+    const since = await runCli([
+      "audit",
+      "list",
+      "--since",
+      "2099-01-01T00:00:00.000Z",
+      "--format",
+      "json",
+    ]);
+    expect(since.exitCode).toBe(0);
+    const sinceEvents = JSON.parse(since.stdout) as unknown[];
+    expect(sinceEvents.length).toBe(0);
+
+    const limited = await runCli(["audit", "list", "--limit", "1", "--format", "json"]);
+    expect(limited.exitCode).toBe(0);
+    const limitedEvents = JSON.parse(limited.stdout) as unknown[];
+    expect(limitedEvents.length).toBeLessThanOrEqual(1);
+  });
+});
+
+// ─── close ───────────────────────────────────────────────────────────────────
+
+describe("tally close", () => {
+  it("fails without --confirm", async () => {
+    const result = await runCli(["close", "-p", "last-month"]);
+    expect(result.exitCode).toBe(1);
+    expect(result.stderr).toMatch(/--confirm/i);
+  });
+
+  it("fails without explicit range", async () => {
+    const result = await runCli(["close", "--confirm"]);
+    expect(result.exitCode).toBe(1);
+    expect(result.stderr).toMatch(/explicit period|period via/i);
+  });
+
+  it("succeeds with --confirm and explicit begin/end", async () => {
+    const result = await runCli([
+      "close",
+      "--confirm",
+      "-b",
+      "2026-03-01",
+      "-e",
+      "2026-03-31",
+      "--notes",
+      "integration close",
+      "--format",
+      "json",
+    ]);
+    expect(result.exitCode).toBe(0);
+    const parsed = JSON.parse(result.stdout) as Array<{ from?: string; to?: string }>;
+    expect(parsed[0]?.from).toBe("2026-03-01");
+    expect(parsed[0]?.to).toBe("2026-03-31");
+  });
+});
+
+// ─── members ─────────────────────────────────────────────────────────────────
+
+describe("tally members", () => {
+  it("supports list/add/role/remove", async () => {
+    const listBefore = await runCli(["members", "list", "--format", "json"]);
+    expect(listBefore.exitCode).toBe(0);
+    const before = JSON.parse(listBefore.stdout) as Array<{ actor?: string }>;
+    expect(Array.isArray(before)).toBe(true);
+
+    const actor = `cli-member-${Date.now()}`;
+    const add = await runCli(["members", "add", actor, "member", "--format", "json"]);
+    expect(add.exitCode).toBe(0);
+
+    const role = await runCli(["members", "role", actor, "guardian", "--format", "json"]);
+    expect(role.exitCode).toBe(0);
+
+    const remove = await runCli(["members", "remove", actor, "--format", "json"]);
+    expect(remove.exitCode).toBe(0);
+  });
+});
+
+// ─── tokens ──────────────────────────────────────────────────────────────────
+
+describe("tally tokens", () => {
+  it("supports list/new/revoke", async () => {
+    const list = await runCli(["tokens", "list", "--format", "json"], {
+      token: FIXTURE_ADMIN_TOKEN_SECRET,
+    });
+    expect(list.exitCode).toBe(0);
+    expect(Array.isArray(JSON.parse(list.stdout))).toBe(true);
+
+    const actor = `cli-token-actor-${Date.now()}`;
+    const create = await runCli(["tokens", "new", actor, "member", "--format", "json"], {
+      token: FIXTURE_ADMIN_TOKEN_SECRET,
+    });
+    expect(create.exitCode).toBe(0);
+    const created = JSON.parse(create.stdout) as {
+      token?: { id?: string; actor?: string };
+      secret?: string;
+    };
+    expect(created.token?.actor).toBe(actor);
+    expect(typeof created.secret).toBe("string");
+    expect(created.secret?.length).toBeGreaterThan(0);
+
+    const revoke = await runCli(["tokens", "revoke", created.token?.id ?? "", "--format", "json"], {
+      token: FIXTURE_ADMIN_TOKEN_SECRET,
+    });
+    expect(revoke.exitCode).toBe(0);
+    const revoked = JSON.parse(revoke.stdout) as Array<{ id?: string; revokedAt?: string }>;
+    expect(revoked[0]?.id).toBe(created.token?.id);
+    expect(typeof revoked[0]?.revokedAt).toBe("string");
   });
 });
 
