@@ -3,6 +3,18 @@
 Purpose: token-efficient implementation handoff for Codex.  
 Reference spec: `docs/cli-spec.md` (full UX and long-form details).
 
+## Implementation Status (2026-04-09)
+
+Implemented in `tally-cli/src`:
+- command tree and entrypoint (`books`, `use`, `dashboard`, `transactions`, `accounts`, plus aliases)
+- config resolution and secure config writes
+- API client with auth header, query serialization, and write precondition support
+- output formatter and period/date parsing modules
+- package typecheck and unit tests passing
+
+Still pending for closure:
+- run integration tests against a live dev API and reconcile any contract/UX deltas before marking Phase 1 done
+
 ## 1) Scope (Now vs Later)
 
 Implement now (Phase 1 daily driver only):

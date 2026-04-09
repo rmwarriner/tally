@@ -1,6 +1,6 @@
 # Project Status
 
-Last reviewed: 2026-04-09 (CLI spec authored; Phase 1 queued for implementation)
+Last reviewed: 2026-04-09 (CLI Phase 1 implemented in package; integration validation pending)
 
 ## Current State
 
@@ -26,6 +26,7 @@ This repository currently includes:
 - architecture guardrails and baseline metrics documentation for April refactor execution
 - web Playwright E2E harness with ledger smoke and keyboard workflow coverage
 - CLI command surface spec with phased rollout plan (`docs/cli-spec.md`)
+- implemented `tally-cli` Phase 1 command package with TypeScript command tree, config module, API client, output formatters, and period/date parsing
 
 ## Completed
 
@@ -98,6 +99,23 @@ This repository currently includes:
 - PR test-policy gate with required rationale + test-debt issue linkage for approved test exceptions
 - changed-line diff coverage gate for production TypeScript source in pull requests
 - security baseline documentation and audited hardening for API/runtime boundaries
+- CLI-local Vitest config and package-level unit suite for config resolution, API client behavior, output formatting, and date/period parsing
+
+### CLI Phase 1 Implementation (2026-04-09)
+
+- CLI entrypoint implemented in `tally-cli/src/index.ts` with global flags and standardized error handling
+- Phase 1 commands implemented:
+  - `tally books list`
+  - `tally books new <name>`
+  - `tally use <bookId>`
+  - `tally` and `tally dashboard`
+  - `tally transactions list` (`tally reg`, `tally transactions ls`)
+  - `tally transactions add` (`tally add`) with direct and interactive multi-posting flows
+  - `tally accounts list` (`tally bal`)
+- config precedence implemented (flag > env > config file) with secure `0600` write behavior for `~/.tally/config.json`
+- API client implemented with query serialization, auth header wiring, normalized error mapping, and optimistic-write precondition handling for book write routes
+- package-level `typecheck` and unit tests pass locally
+- integration tests are present (`tally-cli/src/integration`) but still require execution against a running dev API for final Phase 1 verification
 
 ### Approval And Review Semantics
 
@@ -165,7 +183,7 @@ This repository currently includes:
 The repository is no longer mainly missing core backend foundations.
 
 **Near-term client work:**
-1. CLI Phase 1 (daily driver) — `tally transactions`, `tally bal`, `tally dashboard`, config/auth; spec in `docs/cli-spec.md`, queued as I-002
+1. CLI Phase 1 validation and hardening — run integration suite against dev API, close contract gaps, and complete acceptance verification for I-002
 2. CLI Phase 2 (data operations) — import/export, reports, reconciliation, backup
 3. CLI Phase 3 (second tier) — schedules, approvals, audit, close, members, tokens
 4. Desktop client — Tauri-first shell (Electron fallback); register-first UI direction documented; pending Figma design completion

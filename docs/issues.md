@@ -43,9 +43,8 @@ This is the canonical issue tracker for day-to-day solo development.
   - acceptance:
     - local issue queue documented
     - agent guidance updated to reference local queue
-## Ready
 - [ ] I-002 Implement tally CLI — Phase 1 (daily driver)
-  - status: ready
+  - status: in-progress
   - risk: R1
   - type: feature
   - owner: agent
@@ -61,11 +60,13 @@ This is the canonical issue tracker for day-to-day solo development.
     - TTY detection switches default output format to json when piped
     - unit tests cover config resolution, API client, and amount formatting
   - handoff:
-    - current state: tally-cli/ exists as a package.json placeholder only
-    - next step: implement per docs/cli-spec.md Phase 1 scope
-    - commands run: none
-    - known risks: none — pure API client, no persistence touch
-    - open questions: none, spec is complete
+    - current state: Phase 1 command/code scaffolding is implemented in `tally-cli/src`; package typecheck and unit tests pass
+    - next step: run integration tests against a live dev API, address any response-shape or UX-contract mismatches, then close item
+    - commands run: `pnpm --filter @tally-cli/app typecheck`, `pnpm --filter @tally-cli/app test`
+    - known risks: integration-path regressions may still exist until live API verification is completed
+    - open questions: whether dashboard/balance output presentation should be tightened to match final UX examples before marking done
+## Ready
+- [ ] (empty)
 ## Backlog
 - [ ] (add next item here)
 ## Blocked
@@ -81,4 +82,3 @@ This is the canonical issue tracker for day-to-day solo development.
     - queue file exists
     - workflow instructions included
   - completed: 2026-04-09
-

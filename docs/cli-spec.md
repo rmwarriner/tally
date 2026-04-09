@@ -3,6 +3,8 @@
 Primary implementation handoff: `docs/cli-handoff-core.md`  
 This appendix keeps only reference details that are likely to be reused across phases.
 
+Implementation note (2026-04-09): Phase 1 commands are now implemented in `tally-cli/src`. Use `docs/cli-handoff-core.md` for current execution status and remaining validation work.
+
 ## Baseline
 
 - Package: `tally-cli/` (`@tally-cli/app`)
