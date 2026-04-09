@@ -78,6 +78,48 @@ Tbad
     expect(result.errors).toContain("entry 2: amount is required.");
   });
 
+  it("parses slash dates with two-digit years and reports missing date", () => {
+    const result = parseQif(`!Type:Bank
+D04/03/69
+T1.00
+^
+D04/03/70
+T2.00
+^
+T3.00
+^
+`);
+
+    expect(result.entries).toEqual([
+      {
+        amount: 1,
+        date: "2069-04-03",
+      },
+      {
+        amount: 2,
+        date: "1970-04-03",
+      },
+    ]);
+    expect(result.errors).toContain("entry 3: date is required.");
+  });
+
+  it("ignores unknown qif prefixes without failing valid entries", () => {
+    const result = parseQif(`!Type:Bank
+D04/10/2026
+T42.00
+Xignored
+^
+`);
+
+    expect(result.errors).toEqual([]);
+    expect(result.entries).toEqual([
+      {
+        amount: 42,
+        date: "2026-04-10",
+      },
+    ]);
+  });
+
   it("exports split transactions with fallback categories and sanitized text", () => {
     const book = createDemoBook();
     book.transactions.push({
@@ -102,5 +144,29 @@ Tbad
     expect(result.contents).toContain("PStore Name");
     expect(result.contents).toContain("MSplit groceries   trip");
     expect(result.contents).toContain("L[Split]");
+  });
+
+  it("exports fallback payee, memo, and category id when account is missing", () => {
+    const book = createDemoBook();
+    book.transactions.push({
+      description: "Manual transfer",
+      id: "txn-fallbacks-1",
+      occurredOn: "2026-04-18",
+      postings: [
+        { accountId: "acct-checking", amount: { commodityCode: "USD", quantity: -25 } },
+        { accountId: "acct-unknown-counterpart", amount: { commodityCode: "USD", quantity: 25 } },
+      ],
+    });
+
+    const result = buildQifExport({
+      accountId: "acct-checking",
+      from: "2026-04-01",
+      to: "2026-04-30",
+      book,
+    });
+
+    expect(result.contents).toContain("PManual transfer");
+    expect(result.contents).toContain("MManual transfer");
+    expect(result.contents).toContain("Lacct-unknown-counterpart");
   });
 });
