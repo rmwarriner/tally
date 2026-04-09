@@ -106,6 +106,29 @@ This is the canonical issue tracker for day-to-day solo development.
 ## Blocked
 - [ ] (empty)
 ## Done
+- [x] I-005 Define and implement envelope budgeting model semantics
+  - status: done
+  - risk: R2
+  - type: feature
+  - owner: agent
+  - links: /Users/robert/Projects/tally/packages/domain/src/budgeting.ts, /Users/robert/Projects/tally/packages/domain/src/types.ts, /Users/robert/Projects/tally/docs/ideas.md (Track 2)
+  - rollback: pure domain package change; revert commits to packages/domain/ only — no effect on persistence, API, or clients
+  - acceptance:
+    - `computeRemainingToAllocate(accounts, transactions, allocations, range)` is implemented and exported from `packages/domain`; derives total unallocated money available to fund envelopes by summing inflows to `isEnvelopeFundingSource` accounts in the period and subtracting total `fund` allocations in the period
+    - `buildEnvelopeBudgetSnapshot` line gains an `overspent: boolean` field (true when `available < 0`)
+    - `cover-overspend` allocations are correctly applied in `buildEnvelopeBudgetSnapshot`: donor envelope balance decreases, covered envelope balance increases
+    - `buildPeriodCloseRollover(envelopes, snapshot)` is implemented and exported; returns an updated `availableAmount` per envelope: positive carried balance if `rolloverEnabled`, zero if not (unspent released back to pool)
+    - `validateBudgetConfiguration` flags envelopes with `available < 0` that have no covering `cover-overspend` allocation in the period
+    - all new and changed functions have unit tests in `packages/domain/src/budgeting.test.ts` — cover rollover on/off, overspend + coverage, remaining-to-budget with multiple funding sources, cleanup releasing to pool
+    - `pnpm --filter @tally/domain test` passes
+    - `pnpm ci:verify` passes
+  - handoff:
+    - current state: `packages/domain/src/budgeting.ts` now implements `computeRemainingToAllocate`, `buildPeriodCloseRollover`, `EnvelopeBudgetSnapshotLine.overspent`, `cover-overspend` balance effects, and overspend coverage checks in `validateBudgetConfiguration`; `packages/domain/src/budgeting.test.ts` now covers rollover on/off cleanup behavior, overspend + coverage flows, and remaining-to-budget derivation from multiple funding sources
+    - next step: wire `buildPeriodCloseRollover` into close-period command handling in a follow-up issue (explicitly out of scope here)
+    - commands run: `pnpm --filter @tally/domain test`, `pnpm --filter @tally-cli/app test -- src/lib/config.test.ts`, `pnpm ci:verify`
+    - known risks: `cover-overspend` donor/receiver movement is represented by signed allocation quantities because the current allocation type has no counterparty envelope field; this works in pure computation but may need explicit data-model support in follow-up UX/API work. `computeRemainingToAllocate` returns per-commodity totals as `MoneyAmount[]`, so callers must choose the expected commodity when presenting a single remaining-to-budget value
+    - open questions: none — scope is bounded to pure domain functions; close-period wiring is explicitly deferred
+  - completed: 2026-04-09
 - [x] I-000 Bootstrap local issue queue
   - status: done
   - risk: R1

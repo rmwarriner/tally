@@ -33,6 +33,13 @@ describe("getConfigPath", () => {
 describe("resolveConfig — precedence", () => {
   const base = { api: undefined, book: undefined, format: undefined, noColor: false, token: undefined };
 
+  beforeEach(() => {
+    // Make precedence assertions deterministic even when the host shell exports TALLY_* values.
+    vi.stubEnv("TALLY_API_URL", "");
+    vi.stubEnv("TALLY_TOKEN", "");
+    vi.stubEnv("TALLY_BOOK", "");
+  });
+
   it("flag wins over env and config file", () => {
     vi.stubEnv("TALLY_API_URL", "http://env-api");
     vi.stubEnv("TALLY_TOKEN", "env-token");
