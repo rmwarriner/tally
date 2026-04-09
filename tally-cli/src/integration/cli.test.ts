@@ -30,12 +30,20 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { getResolvedDefaults, requireDevApi, runCli } from "./helpers";
+import {
+  FIXTURE_BOOK_ID,
+  FIXTURE_CREDIT_ACCOUNT_ID,
+  FIXTURE_DEBIT_ACCOUNT_ID,
+  resetIntegrationFixture,
+} from "./reset-fixture";
 
 // Isolated config dir so `tally use` tests never touch ~/.tally
 const TEST_CONFIG_HOME = join(tmpdir(), `tally-integration-${Math.random().toString(36).slice(2)}`);
 mkdirSync(join(TEST_CONFIG_HOME, ".tally"), { recursive: true });
 
 beforeAll(async () => {
+  resetIntegrationFixture();
+  process.env.TEST_BOOK_ID = FIXTURE_BOOK_ID;
   await requireDevApi();
 });
 
@@ -180,24 +188,14 @@ describe("tally transactions list", () => {
 
 describe("tally transactions add — simple path", () => {
   it("posts a balanced transaction with all flags and prints id", async () => {
-    // This test needs real account IDs from the seeded dev book.
-    // Set TEST_DEBIT_ACCOUNT and TEST_CREDIT_ACCOUNT in env to run.
-    const debit = process.env.TEST_DEBIT_ACCOUNT;
-    const credit = process.env.TEST_CREDIT_ACCOUNT;
-
-    if (!debit || !credit) {
-      console.warn("Skipping add test — set TEST_DEBIT_ACCOUNT and TEST_CREDIT_ACCOUNT");
-      return;
-    }
-
     const result = await runCli([
       "add",
       "42.00",
       "regression test",
       "--debit",
-      debit,
+      FIXTURE_DEBIT_ACCOUNT_ID,
       "--credit",
-      credit,
+      FIXTURE_CREDIT_ACCOUNT_ID,
     ]);
 
     expect(result.exitCode).toBe(0);
