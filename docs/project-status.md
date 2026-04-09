@@ -1,6 +1,6 @@
 # Project Status
 
-Last reviewed: 2026-04-09 (CLI Phase 1 implemented in package; integration validation pending)
+Last reviewed: 2026-04-09 (CLI Phase 1 implemented, integration suite passing, deterministic fixture reset added)
 
 ## Current State
 
@@ -27,6 +27,9 @@ This repository currently includes:
 - web Playwright E2E harness with ledger smoke and keyboard workflow coverage
 - CLI command surface spec with phased rollout plan (`docs/cli-spec.md`)
 - implemented `tally-cli` Phase 1 command package with TypeScript command tree, config module, API client, output formatters, and period/date parsing
+- deterministic CLI integration fixture reset flow with fixed test book/account IDs
+- CLI integration suite passing (31/31) against dev API fixture data
+- quality gates passing via `pnpm ci:verify`
 
 ## Completed
 
@@ -115,7 +118,9 @@ This repository currently includes:
 - config precedence implemented (flag > env > config file) with secure `0600` write behavior for `~/.tally/config.json`
 - API client implemented with query serialization, auth header wiring, normalized error mapping, and optimistic-write precondition handling for book write routes
 - package-level `typecheck` and unit tests pass locally
-- integration tests are present (`tally-cli/src/integration`) but still require execution against a running dev API for final Phase 1 verification
+- integration tests now run against deterministic reset data in `tally-cli/src/integration/reset-fixture.ts`
+- integration suite passes end-to-end (31/31) against a running dev API
+- integration coverage no longer depends on arbitrary environment book/account state
 
 ### Approval And Review Semantics
 
@@ -183,10 +188,9 @@ This repository currently includes:
 The repository is no longer mainly missing core backend foundations.
 
 **Near-term client work:**
-1. CLI Phase 1 validation and hardening — run integration suite against dev API, close contract gaps, and complete acceptance verification for I-002
-2. CLI Phase 2 (data operations) — import/export, reports, reconciliation, backup
-3. CLI Phase 3 (second tier) — schedules, approvals, audit, close, members, tokens
-4. Desktop client — Tauri-first shell (Electron fallback); register-first UI direction documented; pending Figma design completion
+1. CLI Phase 2 (data operations) — import/export, reports, reconciliation, backup
+2. CLI Phase 3 (second tier) — schedules, approvals, audit, close, members, tokens
+3. Desktop client — Tauri-first shell (Electron fallback); register-first UI direction documented; pending Figma design completion
 
 **Longer-horizon product and architecture work:**
 1. Budgeting-model definition for remaining-to-budget, rollover, cleanup, and envelope funding semantics

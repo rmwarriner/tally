@@ -5,15 +5,14 @@ Reference spec: `docs/cli-spec.md` (full UX and long-form details).
 
 ## Implementation Status (2026-04-09)
 
-Implemented in `tally-cli/src`:
+Implemented and validated in `tally-cli/src`:
 - command tree and entrypoint (`books`, `use`, `dashboard`, `transactions`, `accounts`, plus aliases)
 - config resolution and secure config writes
 - API client with auth header, query serialization, and write precondition support
 - output formatter and period/date parsing modules
 - package typecheck and unit tests passing
-
-Still pending for closure:
-- run integration tests against a live dev API and reconcile any contract/UX deltas before marking Phase 1 done
+- integration tests passing against deterministic reset fixture data (`src/integration/reset-fixture.ts`)
+- quality gates passing (`pnpm ci:verify`)
 
 ## 1) Scope (Now vs Later)
 
@@ -123,7 +122,7 @@ Standard stderr messages + exit code `1`:
    - transactions list
    - transactions add (fast path, then interactive multi-posting)
    - accounts list/bal
-6. Add tests and pass typecheck.
+6. Add tests, pass typecheck, and validate integration suite against deterministic fixture reset data.
 
 ## 7) Acceptance Criteria
 
@@ -138,7 +137,7 @@ Quality gates:
   - config precedence and validation
   - api-client success + failure mapping
   - amount formatting
-- Integration tests against live dev API:
+- Integration tests against live dev API fixture data:
   - `transactions list`
   - `transactions add`
   - `accounts list`
@@ -176,14 +175,14 @@ Success: print `✓ transaction <id> posted`
 ```ts
 { accounts: Array<{ id, code, name, type, parentAccountId?, archivedAt? }> }
 ```
-**Note:** this endpoint does NOT return balances. For `tally bal`, fetch `GET /api/books/:bookId/dashboard` and use `dashboard.accountBalances` if present. Verify the exact field name against `buildDashboardSnapshot` in `packages/book/` before implementing — field name is an open assumption.
+**Note:** this endpoint does NOT return balances. For `tally bal`, fetch `GET /api/books/:bookId/dashboard` and use `dashboard.accountBalances` (validated in implementation/tests).
 
 ### `GET /api/books/:bookId/dashboard` query params
 ```
 from   ISO date (required)
 to     ISO date (required)
 ```
-For bare `tally dashboard`, use `from = today - 30 days, to = today`.
+For bare `tally dashboard`, default to current month-to-date (`from = month start`, `to = today`) when no range flags are supplied.
 
 ## 9) Multi-Posting Mode — Blank Input Rule
 
@@ -191,9 +190,8 @@ Blank input at any posting prompt is **ignored and re-prompted**. Do not treat b
 - Unbalanced total reaches exactly `0.00` → prompt to confirm and POST
 - User sends `Ctrl+C` → abort with no POST
 
-## 10) Open Assumptions (Resolve During Implementation)
+## 10) Follow-On Notes
 
-- Query parameter names for period/date/account filters should match current API handler contract.
-- Dashboard `accountBalances` field name — verify against `buildDashboardSnapshot` in `packages/book/src/` before rendering.
-- Dashboard response shape may evolve; renderer should ignore unknown fields gracefully.
-- CSV output for list-like endpoints first; non-tabular commands should return a clear `error: csv not supported for this command` message.
+- Query parameter names for period/date/account filters are validated in CLI Phase 1 integration tests.
+- Dashboard response handling remains intentionally tolerant of unknown fields.
+- CSV output is supported for list-like endpoints in Phase 1.

@@ -4,7 +4,7 @@ CLI package for Tally (`@tally-cli/app`).
 
 ## Current Status (2026-04-09)
 
-Phase 1 (daily driver) command implementation is in place:
+Phase 1 (daily driver) implementation and validation are complete:
 
 - `tally books list`
 - `tally books new <name>`
@@ -25,7 +25,11 @@ Validation:
 
 - `pnpm --filter @tally-cli/app typecheck` passes
 - `pnpm --filter @tally-cli/app test` passes
-- integration tests exist at `src/integration` and require a running dev API
+- `pnpm --filter @tally-cli/app test:integration` passes against a running dev API
+- integration tests use deterministic fixture reset data (`src/integration/reset-fixture.ts`) with fixed IDs:
+  - book: `workspace-cli-integration`
+  - debit account: `acct-expense-groceries`
+  - credit account: `acct-checking`
 
 ## Commands
 
