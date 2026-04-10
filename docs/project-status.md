@@ -1,6 +1,6 @@
 # Project Status
 
-Last reviewed: 2026-04-10 (shell UI rebuild merged: chrome, global period state, register balance modes, COA sidebar)
+Last reviewed: 2026-04-10 (visual design pass merged: CSS variable architecture, light/dark theme, density, amount style preferences)
 
 ## Current State
 
@@ -31,6 +31,7 @@ This repository currently includes:
 - deterministic CLI integration fixture reset flow now seeds both JSON and SQLite persistence paths (including managed-auth tokens) so integration behavior is stable across backend defaults
 - CLI integration suite passing (47/47) against dev API fixture data
 - quality gates passing via `pnpm ci:verify`
+- CSS custom property theme architecture with light and dark themes; user-selectable density (compact/comfortable) and amount display style (colour+sign, colour only, sign only) persisted to localStorage; component polish across buttons, inputs, register rows, and status chips
 
 ## Completed
 
@@ -208,7 +209,8 @@ This repository currently includes:
 The repository is no longer mainly missing core backend foundations.
 
 **Near-term client work:**
-1. Desktop client — shell chrome complete; next: inline register editing (Slice 1 of `docs/ledger-ui-rebuild-plan.md`); Tauri wrapper spike deferred until register model is stable
+1. Desktop client — shell chrome and visual design pass complete; next: inline register editing (Slice 2 of `docs/ledger-ui-rebuild-plan.md` — inline split editing); Tauri wrapper spike deferred until register model is stable
+2. UI theming: Gruvbox theme as first named theme once custom theme architecture (theme picker, named themes) is implemented; spec in `docs/ideas.md` Track 7
 
 **Longer-horizon product and architecture work:**
 1. Budgeting-model definition for remaining-to-budget, rollover, cleanup, and envelope funding semantics
@@ -232,5 +234,6 @@ The idea backlog is organized by track in `docs/ideas.md`:
 - automation, sync, and AI-assisted workflows
 - family-scale collaboration and review flows
 - operations and infrastructure
+- UI theming and visual customisation (Track 7 — Gruvbox as first named theme)
 
 The next roadmap phase should promote a small number of these tracks into bounded implementation slices. See `docs/ideas.md` for the full list and promotion criteria.
