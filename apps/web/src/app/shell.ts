@@ -58,6 +58,8 @@ export interface LedgerBookModel {
   availableAccounts: FinanceBookDocument["accounts"];
   filteredBalances: LedgerBalanceSummary[];
   filteredTransactions: LedgerTransactionDetail[];
+  isFiltered: boolean;
+  openingBalance: number;
   selectedAccountBalance: LedgerBalanceSummary | null;
   selectedAccount:
     | (FinanceBookDocument["accounts"][number] & {
@@ -66,6 +68,7 @@ export interface LedgerBookModel {
       })
     | null;
   selectedTransaction: LedgerTransactionDetail | null;
+  totalCount: number;
 }
 
 export interface ReconciliationCandidate {
@@ -637,8 +640,9 @@ export function createLedgerBookModel(input: {
   book: FinanceBookDocument;
 }): LedgerBookModel {
   const searchTokens = normalizeSearchTokens(input.searchText);
+  const isFiltered = searchTokens.length > 0;
   const accountById = new Map(input.book.accounts.map((account) => [account.id, account]));
-  const filteredTransactions = input.book.transactions
+  const candidateTransactions = input.book.transactions
     .map((transaction) => {
       const matchedAccountIds = transaction.postings.map((posting) => posting.accountId);
       const postings = transaction.postings.map((posting) => {
@@ -683,28 +687,33 @@ export function createLedgerBookModel(input: {
         return false;
       }
 
-      if (searchTokens.length === 0) {
-        return true;
-      }
-
-      const searchCorpus = normalizeAccountSearchValue(
-        [
-          transaction.id,
-          transaction.description,
-          transaction.payee ?? "",
-          transaction.occurredOn,
-          transaction.status,
-          transaction.tags.join(" "),
-          ...transaction.postings.map(
-          (posting) =>
-            `${posting.accountId} ${posting.accountCode ?? ""} ${posting.accountName} ${posting.memo ?? ""}`,
-          ),
-        ].join(" "),
-      );
-
-      return searchTokens.every((token) => searchCorpus.includes(token));
+      return true;
     })
     .sort((left, right) => right.occurredOn.localeCompare(left.occurredOn));
+
+  const totalCount = candidateTransactions.length;
+  const filteredTransactions = candidateTransactions.filter((transaction) => {
+    if (searchTokens.length === 0) {
+      return true;
+    }
+
+    const searchCorpus = normalizeAccountSearchValue(
+      [
+        transaction.id,
+        transaction.description,
+        transaction.payee ?? "",
+        transaction.occurredOn,
+        transaction.status,
+        transaction.tags.join(" "),
+        ...transaction.postings.map(
+          (posting) =>
+            `${posting.accountId} ${posting.accountCode ?? ""} ${posting.accountName} ${posting.memo ?? ""}`,
+        ),
+      ].join(" "),
+    );
+
+    return searchTokens.every((token) => searchCorpus.includes(token));
+  });
 
   const filteredBalances = input.accountBalances.filter((balance) => {
     if (!input.selectedAccountId) {
@@ -730,14 +739,37 @@ export function createLedgerBookModel(input: {
     : null;
   const selectedTransaction =
     filteredTransactions.find((transaction) => transaction.id === input.selectedTransactionId) ?? null;
+  const rangeStart = input.rangeStart;
+  const openingBalance =
+    input.selectedAccountId && rangeStart
+      ? input.book.transactions.reduce((sum, transaction) => {
+          if (transaction.occurredOn >= rangeStart) {
+            return sum;
+          }
+
+          return (
+            sum +
+            transaction.postings.reduce((postingSum, posting) => {
+              if (posting.accountId !== input.selectedAccountId) {
+                return postingSum;
+              }
+
+              return postingSum + posting.amount.quantity;
+            }, 0)
+          );
+        }, 0)
+      : 0;
 
   return {
     availableAccounts: input.book.accounts,
     filteredBalances,
     filteredTransactions,
+    isFiltered,
+    openingBalance,
     selectedAccountBalance:
       filteredBalances.find((balance) => balance.accountId === input.selectedAccountId) ?? null,
     selectedAccount,
     selectedTransaction,
+    totalCount,
   };
 }
