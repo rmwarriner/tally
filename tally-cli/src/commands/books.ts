@@ -1,6 +1,7 @@
 import { randomUUID } from "node:crypto";
 import type { Command } from "commander";
-import { buildContext } from "../lib/context";
+import { buildContext, getGlobalOptions } from "../lib/context";
+import { writeConfig } from "../lib/config";
 import { printRows } from "../lib/output";
 
 interface BooksEnvelope {
@@ -51,6 +52,7 @@ export function registerBooksCommands(program: Command): void {
     .argument("<name>", "book name")
     .action(async function booksNewAction(name: string) {
       const context = buildContext(this);
+      const globalOptions = getGlobalOptions(this);
       const bookId = toBookId(name);
       const created = await context.api.requestJson<BookEnvelope>("POST", "/api/books", {
         body: {
@@ -59,6 +61,11 @@ export function registerBooksCommands(program: Command): void {
             name,
           },
         },
+      });
+      writeConfig({
+        apiUrl: globalOptions.api,
+        currentBook: created.book.id,
+        token: globalOptions.token,
       });
 
       printRows(

@@ -4,30 +4,11 @@
  *
  * Run: pnpm --filter @tally-cli/app test:integration
  *
- * ── Known automation gap ─────────────────────────────────────────────────────
- * The multi-posting interactive flow in `tally transactions add` cannot be
- * tested with subprocess I/O redirection because @inquirer/prompts requires a
- * real TTY. The non-TTY guard (exit 1 when stdin is not a TTY) IS tested.
- *
- * To automate the interactive flow, use node-pty to allocate a pseudo-terminal
- * and drive keystrokes programmatically:
- *
- *   import pty from "node-pty";
- *   const term = pty.spawn("tsx", [CLI_ENTRY, "add"], { name: "xterm", cols: 80, rows: 30 });
- *   term.write("expenses:food\r");          // account ID + Enter
- *   term.write("85.42\r");                  // amount + Enter
- *   term.write("assets:checking\r");        // second account + Enter
- *   term.write("-85.42\r");                 // balancing amount + Enter
- *   term.write("y\r");                      // confirm
- *   // assert exit code 0 and stdout contains "posted"
- *
- * node-pty requires a native build (node-gyp). Add it only when interactive
- * coverage is prioritised — it adds build complexity and platform constraints.
- * ─────────────────────────────────────────────────────────────────────────────
  */
 import { mkdtempSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { join, resolve } from "node:path";
+import * as pty from "node-pty";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { getResolvedDefaults, requireDevApi, runCli } from "./helpers";
 import {
@@ -43,11 +24,76 @@ import {
 // Isolated config dir so `tally use` tests never touch ~/.tally
 const TEST_CONFIG_HOME = join(tmpdir(), `tally-integration-${Math.random().toString(36).slice(2)}`);
 const PHASE2_FIXTURE_DIR = mkdtempSync(join(tmpdir(), "tally-cli-phase2-"));
+const CLI_ENTRY = resolve(import.meta.dirname, "../../src/index.ts");
+const TSX_BIN = resolve(import.meta.dirname, "../../../node_modules/.bin/tsx");
 
 function writeFixtureFile(name: string, contents: string): string {
   const path = join(PHASE2_FIXTURE_DIR, name);
   writeFileSync(path, contents, "utf8");
   return path;
+}
+
+interface PtyResult {
+  exitCode: number;
+  output: string;
+}
+
+function stripAnsi(value: string): string {
+  return value
+    .replace(/\x1b\[[0-9;?]*[ -/]*[@-~]/g, "")
+    .replace(/\x1b\][^\u0007]*\u0007/g, "");
+}
+
+async function runCliWithPty(args: string[], writes: Array<{ text: string; waitMs?: number }>): Promise<PtyResult> {
+  const defaults = getResolvedDefaults();
+  const env: Record<string, string> = {
+    ...(process.env as Record<string, string>),
+    HOME: TEST_CONFIG_HOME,
+    NO_COLOR: "1",
+  };
+
+  if (defaults.apiUrl) {
+    env.TALLY_API_URL = defaults.apiUrl;
+  }
+  if (defaults.token) {
+    env.TALLY_TOKEN = defaults.token;
+  }
+  if (defaults.book) {
+    env.TALLY_BOOK = defaults.book;
+  }
+
+  return new Promise((resolveResult, reject) => {
+    let output = "";
+    const term = pty.spawn(TSX_BIN, [CLI_ENTRY, ...args], {
+      cols: 120,
+      cwd: resolve(import.meta.dirname, "../../.."),
+      env,
+      name: "xterm-256color",
+      rows: 40,
+    });
+
+    term.onData((chunk) => {
+      output += chunk;
+    });
+
+    term.onExit(({ exitCode }) => {
+      resolveResult({
+        exitCode,
+        output: stripAnsi(output),
+      });
+    });
+
+    (async () => {
+      for (const write of writes) {
+        await new Promise((resolveWait) => {
+          setTimeout(resolveWait, write.waitMs ?? 120);
+        });
+        term.write(write.text);
+      }
+    })().catch((error) => {
+      reject(error);
+    });
+  });
 }
 
 async function resolveApprovalTargetTransactionId(): Promise<string | undefined> {
@@ -568,6 +614,45 @@ describe("tally transactions add — non-TTY guard", () => {
   });
 });
 
+describe("tally transactions add — interactive PTY flow", () => {
+  it("offers create-or-retry when account is missing and continues after creating one", async () => {
+    const selector = `pty-missing-${Date.now()}`;
+    const createdAccountId = `acct-${selector}`;
+    const result = await runCliWithPty(["add"], [
+      { text: "PTY missing account flow\r" },
+      { text: "today\r" },
+      { text: "\r" }, // keep default status (pending)
+      { text: `${selector}\r` },
+      { text: "\x1b[B\r" }, // choose "Create this account now"
+      { text: `${createdAccountId}\r` },
+      { text: "PTY Missing Account\r" },
+      { text: "9901\r" },
+      { text: "\r" }, // keep default account type (asset)
+      { text: "12\r" },
+      { text: "\r" }, // posting side debit (+)
+      { text: `${FIXTURE_CREDIT_ACCOUNT_ID}\r` },
+      { text: "-12\r" },
+      { text: "\r" }, // confirm post
+    ]);
+
+    expect(result.exitCode).toBe(0);
+    expect(result.output).toMatch(/Created account/i);
+    expect(result.output).toMatch(/txn-cli-/i);
+
+    const filtered = await runCli([
+      "transactions",
+      "list",
+      "--account",
+      createdAccountId,
+      "--limit",
+      "5",
+      "--format",
+      "json",
+    ]);
+    expect(filtered.exitCode).toBe(0);
+  }, 45000);
+});
+
 // ─── schedules ───────────────────────────────────────────────────────────────
 
 describe("tally schedules", () => {
@@ -957,6 +1042,21 @@ describe("tally books new", () => {
     expect(result.exitCode).toBe(0);
     const parsed = JSON.parse(result.stdout) as unknown;
     expect(parsed).toBeTruthy();
+  });
+
+  it("sets newly created book as current for subsequent commands", async () => {
+    const name = `autouse-${Date.now()}`;
+    const created = await runCli(["books", "new", name], {
+      book: undefined,
+      configHome: TEST_CONFIG_HOME,
+    });
+    expect(created.exitCode).toBe(0);
+
+    const dashboard = await runCli(["dashboard"], {
+      book: undefined,
+      configHome: TEST_CONFIG_HOME,
+    });
+    expect(dashboard.exitCode).toBe(0);
   });
 });
 

@@ -2,7 +2,7 @@ import { randomUUID } from "node:crypto";
 import { confirm, input, select } from "@inquirer/prompts";
 import type { Command } from "commander";
 import { loadAccounts, resolveAccountId, type CliAccount } from "../lib/accounts";
-import { buildContext } from "../lib/context";
+import { buildContext, type CommandContext } from "../lib/context";
 import { parseHumanDate, resolveDateRange } from "../lib/period";
 import { formatMoney, printRows } from "../lib/output";
 
@@ -26,6 +26,13 @@ interface Transaction {
 interface TransactionsEnvelope {
   nextCursor?: string;
   transactions: Transaction[];
+}
+
+class InteractiveCancelledError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = "InteractiveCancelledError";
+  }
 }
 
 function addDateOptions(command: Command): Command {
@@ -87,14 +94,143 @@ async function promptForPostingAmount(): Promise<number> {
   return side === "debit" ? absolute : -absolute;
 }
 
-async function collectPostingsInteractively(accounts: CliAccount[]): Promise<TransactionPosting[]> {
+function toSuggestedAccountId(selector: string): string {
+  const normalized = selector
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "");
+  if (normalized.length > 0) {
+    return `acct-${normalized}`;
+  }
+  return `acct-${randomUUID().slice(0, 8)}`;
+}
+
+function toSuggestedAccountName(selector: string, fallbackId: string): string {
+  const trimmed = selector.trim();
+  if (trimmed.length > 0) {
+    return trimmed;
+  }
+  return fallbackId;
+}
+
+async function promptToCreateAccount(
+  context: CommandContext,
+  selector: string,
+): Promise<CliAccount> {
+  const defaultId = toSuggestedAccountId(selector);
+  const accountId = (
+    await input({
+      default: defaultId,
+      message: "New account ID:",
+      validate: (value) => {
+        if (value.trim().length === 0) {
+          return "Account ID is required.";
+        }
+        return true;
+      },
+    })
+  ).trim();
+  const accountName = (
+    await input({
+      default: toSuggestedAccountName(selector, accountId),
+      message: "New account name:",
+      validate: (value) => (value.trim().length > 0 ? true : "Account name is required."),
+    })
+  ).trim();
+  const accountCode = (
+    await input({
+      message: "New account code:",
+      validate: (value) => (value.trim().length > 0 ? true : "Account code is required."),
+    })
+  ).trim();
+  const accountType = await select({
+    choices: [
+      { name: "Asset", value: "asset" },
+      { name: "Liability", value: "liability" },
+      { name: "Equity", value: "equity" },
+      { name: "Income", value: "income" },
+      { name: "Expense", value: "expense" },
+    ],
+    message: "Account type:",
+  });
+
+  await context.api.writeBookJson(
+    "POST",
+    context.bookId ?? "",
+    `/api/books/${encodeURIComponent(context.bookId ?? "")}/accounts`,
+    {
+      account: {
+        code: accountCode,
+        id: accountId,
+        name: accountName,
+        type: accountType,
+      },
+    },
+  );
+
+  console.log(`Created account ${accountName} (${accountId}).`);
+  return {
+    id: accountId,
+    name: accountName,
+  };
+}
+
+async function collectPostingsInteractively(
+  context: CommandContext,
+  accounts: CliAccount[],
+): Promise<TransactionPosting[]> {
   const postings: TransactionPosting[] = [];
   let imbalance = 0;
 
   while (postings.length < 2 || imbalance !== 0) {
     console.log(`\nPosting ${postings.length + 1}`);
-    const accountSelector = await input({ message: "Account:" });
-    const accountId = resolveAccountId(accounts, accountSelector);
+    let accountId = "";
+
+    while (!accountId) {
+      const accountSelector = await input({
+        message: "Account:",
+        validate: (value) => (value.trim().length > 0 ? true : "Account is required."),
+      });
+
+      try {
+        accountId = resolveAccountId(accounts, accountSelector);
+      } catch (error) {
+        const message = error instanceof Error ? error.message : "Unable to resolve account.";
+        if (!message.startsWith("No account found for selector")) {
+          console.log(message);
+          continue;
+        }
+
+        const action = await select({
+          choices: [
+            { name: "Try a different account", value: "retry" },
+            { name: "Create this account now", value: "create" },
+            { name: "Cancel transaction", value: "cancel" },
+          ],
+          message: `No account found for "${accountSelector.trim()}".`,
+        });
+
+        if (action === "cancel") {
+          throw new InteractiveCancelledError("Transaction add cancelled.");
+        }
+
+        if (action === "retry") {
+          continue;
+        }
+
+        try {
+          const created = await promptToCreateAccount(context, accountSelector);
+          accounts.push(created);
+          accountId = created.id;
+        } catch (createError) {
+          const createMessage =
+            createError instanceof Error ? createError.message : "Could not create account.";
+          console.log(`Could not create account: ${createMessage}`);
+        }
+      }
+    }
+
     const quantity = await promptForPostingAmount();
     postings.push({
       accountId,
@@ -243,7 +379,15 @@ async function runTransactionsAdd(
       message: "Status:",
     });
 
-    postings = await collectPostingsInteractively(accounts);
+    try {
+      postings = await collectPostingsInteractively(context, accounts);
+    } catch (error) {
+      if (error instanceof InteractiveCancelledError) {
+        console.log("Cancelled.");
+        return;
+      }
+      throw error;
+    }
     const imbalance = postings.reduce((sum, posting) => sum + posting.amount.quantity, 0);
     if (imbalance !== 0) {
       throw new Error("Transaction is unbalanced.");
