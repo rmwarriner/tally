@@ -243,6 +243,14 @@ describe("tally dashboard", () => {
     expect(result.exitCode).toBe(1);
     expect(result.stderr).toMatch(/book/i);
   });
+
+  it("exits 1 with guidance when the configured book does not exist", async () => {
+    const result = await runCli(["dashboard"], { book: `missing-${Date.now()}` });
+    expect(result.exitCode).toBe(1);
+    expect(result.stderr).toMatch(/selected book/i);
+    expect(result.stderr).toMatch(/books list/i);
+    expect(result.stderr).toMatch(/tally use/i);
+  });
 });
 
 // ─── accounts list / bal ────────────────────────────────────────────────────

@@ -19,6 +19,20 @@ import { registerUseCommand } from "./commands/use";
 import { ApiResponseError, NetworkError } from "./lib/api-client";
 import type { OutputFormat } from "./lib/types";
 
+function extractMissingBookId(message: string): string | null {
+  const workspaceMatch = message.match(/^Workspace (.+) was not found\.?$/i);
+  if (workspaceMatch?.[1]) {
+    return workspaceMatch[1];
+  }
+
+  const bookMatch = message.match(/^Book (.+) was not found\.?$/i);
+  if (bookMatch?.[1]) {
+    return bookMatch[1];
+  }
+
+  return null;
+}
+
 function printError(error: unknown): void {
   if (error instanceof NetworkError) {
     console.error(`error: ${error.message}`);
@@ -28,6 +42,17 @@ function printError(error: unknown): void {
   if (error instanceof ApiResponseError) {
     if (error.status === 401 || error.status === 403) {
       console.error("error: authentication failed - check TALLY_TOKEN or config file");
+      return;
+    }
+
+    const missingBookId = extractMissingBookId(error.message);
+    if (error.status === 404 && (error.code === "book.not_found" || missingBookId)) {
+      if (missingBookId) {
+        console.error(`error: selected book '${missingBookId}' was not found.`);
+      } else {
+        console.error("error: selected book was not found.");
+      }
+      console.error("hint: run `tally books list` then `tally use <bookId>`.");
       return;
     }
 
