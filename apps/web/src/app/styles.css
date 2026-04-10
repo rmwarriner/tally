@@ -25,10 +25,8 @@
   --status-cleared-text: #8b5c12;
   --status-reconciled-bg: rgba(232, 245, 233, 0.95);
   --status-reconciled-text: #2f6f37;
-  --amount-positive-default: #006b5f;
-  --amount-negative-default: #8f2d1f;
-  --amount-positive: var(--amount-positive-default);
-  --amount-negative: var(--amount-negative-default);
+  --amount-positive: #006b5f;
+  --amount-negative: #8f2d1f;
   --activity-bar-bg: rgba(31, 35, 33, 0.94);
   --activity-bar-text: #fdf8ef;
   --activity-bar-button-active: rgba(255, 255, 255, 0.20);
@@ -68,10 +66,8 @@
   --status-cleared-text: #c8903a;
   --status-reconciled-bg: rgba(40, 80, 45, 0.45);
   --status-reconciled-text: #7ac880;
-  --amount-positive-default: #4dc4b0;
-  --amount-negative-default: #e87060;
-  --amount-positive: var(--amount-positive-default);
-  --amount-negative: var(--amount-negative-default);
+  --amount-positive: #4dc4b0;
+  --amount-negative: #e87060;
   --activity-bar-bg: #141716;
   --activity-bar-text: #e8e4dd;
   --activity-bar-button-active: rgba(255, 255, 255, 0.15);
@@ -130,6 +126,12 @@ input,
 select,
 textarea {
   font: inherit;
+}
+
+fieldset {
+  border: 0;
+  padding: 0;
+  margin: 0;
 }
 
 input:not([type="radio"]):not([type="checkbox"]):not([type="range"]),
