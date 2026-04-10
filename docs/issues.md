@@ -102,8 +102,8 @@ This is the canonical issue tracker for day-to-day solo development.
     - open questions: none; resolved decisions applied (`tally close --confirm` required with explicit period/range, reviewer token seeded in reset fixture)
   - completed: 2026-04-09
 ## Backlog
-- [ ] I-006 Complete envelope operations layer (rollover wiring + cover-overspend command)
-  - status: ready
+- [x] I-006 Complete envelope operations layer (rollover wiring + cover-overspend command)
+  - status: done
   - risk: R2
   - type: feature
   - owner: agent
@@ -123,9 +123,10 @@ This is the canonical issue tracker for day-to-day solo development.
     - commands run: `pnpm -r typecheck`, `pnpm --filter @tally/book test`, `pnpm --filter @tally/api test`, `pnpm ci:verify`
     - known risks: overspend eligibility is validated against current persisted `envelope.availableAmount` (per issue decision), so this route assumes an already-overspent envelope state exists in the book; rollover changes are still represented via updated envelope balances under `close.recorded` without a dedicated rollover-specific audit event
     - open questions: none — scope is bounded to book commands and one new API route; CLI envelope operation commands are explicitly deferred to a follow-up
+  - completed: 2026-04-10
 
-- [ ] I-007 Promote SQLite to primary persistence backend
-  - status: ready
+- [x] I-007 Promote SQLite to primary persistence backend
+  - status: done
   - risk: R2
   - type: feature
   - owner: agent
@@ -147,6 +148,7 @@ This is the canonical issue tracker for day-to-day solo development.
     - commands run: `pnpm -r typecheck`, `pnpm test`, `pnpm coverage`, `pnpm security:secrets`, `pnpm ci:verify`, `pnpm dev:api` (startup check), `TALLY_API_PORT=4011 pnpm dev:api` (successful startup + seed validation on alternate port)
     - known risks: local default port `4000` may already be occupied in some environments (`EADDRINUSE`), so startup verification may require a temporary port override
     - open questions: none — JSON backend stays in code (not removed); full removal and repurposing as import/export format only is explicitly deferred to a follow-up issue
+  - completed: 2026-04-10
 ## Blocked
 - [ ] (empty)
 ## Done

@@ -234,6 +234,17 @@ Parked as a future-facing architecture and product-shaping investigation.
 - What service, identity, and UI boundaries would make modular embedding feasible?
 - What data ownership boundaries should remain inside Ledger even if other household modules exist?
 
+### Expose the Tally API as an MCP service
+Surface the Tally API as a Model Context Protocol (MCP) server so that AI assistants (Claude, Codex, etc.) can query accounts, transactions, budgets, and envelopes directly via tool calls rather than through raw HTTP.
+
+Parked until the API surface is more stable and the team is ready to define the MCP tool contract.
+
+**Key open questions:**
+- Which resources and actions should be exposed as MCP tools — read-only first, or include mutations?
+- Should this be a separate MCP adapter package or a transport layer built into `apps/api`?
+- How should the existing token-based auth model map to MCP session credentials?
+- How do audit events and the no-trust-client-identity rule apply to AI-issued mutations?
+
 ---
 
 ## Track 4: Automation, Sync, and AI-assisted Workflows
