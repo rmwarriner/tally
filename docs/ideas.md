@@ -490,3 +490,14 @@ A light Gruvbox variant (`bg0` → `#fbf1c7`, `fg` → `#3c3836`) can follow as 
 - Ship dark-only first or dark + light together?
 - Should Gruvbox be the default theme out of the box, or opt-in from a theme picker?
 - How do amount positive/negative colours interact with the Gruvbox bright palette at the warm background?
+
+### Status bar active user indicator
+
+Extend the bottom-left status node (currently API online/offline dot + label) to also show the authenticated user, formatted consistently with the right-hand register status node — e.g. `● online · Primary` or `● online · robert`.
+
+The identity value is already available on the authenticated request context at the API boundary (`actor` field). The shell receives the book response which includes household member records; the active actor can be resolved from the token/session to a display name without an extra round-trip.
+
+**Key open questions:**
+- Should it show the raw actor identifier or resolve to the household member display name?
+- How should it render when the shell is unauthenticated or the API is offline (no identity to show)?
+- Does this belong on the left status node alongside API status, or warrant its own node?
