@@ -1,5 +1,4 @@
 import type { Dispatch, SetStateAction } from "react";
-import { LedgerSidebar } from "./LedgerSidebar";
 import type { DashboardResponse, BookResponse } from "./api";
 import { formatCurrency } from "./app-format";
 import type {
@@ -65,13 +64,10 @@ export function ShellSidebarContent(props: ShellSidePanelsProps) {
       );
     case "ledger":
       return (
-        <LedgerSidebar
-          ledgerBook={props.ledgerBook}
-          selectedLedgerAccountId={props.selectedLedgerAccountId}
-          selectedLedgerTransactionId={props.selectedLedgerTransactionId}
-          setSelectedLedgerAccountId={props.setSelectedLedgerAccountId}
-          setSelectedLedgerTransactionId={props.setSelectedLedgerTransactionId}
-        />
+        <div className="tree-section">
+          <h3>Ledger accounts</h3>
+          <p>Select accounts from the chart of accounts sidebar.</p>
+        </div>
       );
     case "budget":
       return (
