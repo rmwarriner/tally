@@ -159,7 +159,7 @@ export function App() {
     setInlineDraftField,
     startInlineEdit,
   } = useLedgerInlineRowEditState();
-  const { book, busy, dashboard, error, loading, runMutation } =
+  const { activeBookId, book, busy, dashboard, error, loading, runMutation } =
     useBookRuntime({
       range: currentPeriod,
       bookId: BOOK_ID,
@@ -745,7 +745,7 @@ export function App() {
     }
 
     await runMutation("Transaction update", async () => {
-      await putTransaction(BOOK_ID, transactionEditor.transactionId, {
+      await putTransaction(activeBookId, transactionEditor.transactionId, {
         actor: "Primary",
         transaction: {
           description: transactionEditor.description.trim(),
@@ -789,7 +789,7 @@ export function App() {
     }
 
     await runMutation("Transaction update", async () => {
-      await putTransaction(BOOK_ID, sourceTransaction.id, {
+      await putTransaction(activeBookId, sourceTransaction.id, {
         actor: "Primary",
         transaction: {
           description: trimmedDescription,
@@ -822,7 +822,7 @@ export function App() {
   }) {
     await runMutation("Transaction post", async () => {
       const amount = Number.parseFloat(input.amount);
-      await postTransaction(BOOK_ID, {
+      await postTransaction(activeBookId, {
         actor: "Primary",
         transaction: {
           description: input.description,
@@ -847,7 +847,7 @@ export function App() {
 
   async function deleteInlineLedgerTransaction(transactionId: string) {
     await runMutation("Transaction delete", async () => {
-      await deleteTransaction(BOOK_ID, transactionId, {
+      await deleteTransaction(activeBookId, transactionId, {
         actor: "Primary",
       });
     });
@@ -880,7 +880,7 @@ export function App() {
     }
 
     await runMutation("Transaction update", async () => {
-      await putTransaction(BOOK_ID, sourceTransaction.id, {
+      await putTransaction(activeBookId, sourceTransaction.id, {
         actor: "Primary",
         transaction: {
           description: sourceTransaction.description,

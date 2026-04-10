@@ -1,12 +1,39 @@
 import { useCallback, useEffect, useState } from "react";
-import { fetchDashboard, fetchBook, type DashboardResponse, type BookResponse } from "./api";
+import {
+  ApiClientError,
+  fetchBooks,
+  fetchDashboard,
+  fetchBook,
+  type DashboardResponse,
+  type BookResponse,
+} from "./api";
 
 interface UseBookRuntimeInput {
   range: { from: string; to: string };
   bookId: string;
 }
 
+const LAST_BOOK_ID_STORAGE_KEY = "tally:last-book-id";
+
+function readStoredBookId(): string | null {
+  if (typeof window === "undefined") {
+    return null;
+  }
+
+  const value = window.localStorage.getItem(LAST_BOOK_ID_STORAGE_KEY);
+  return value && value.trim().length > 0 ? value : null;
+}
+
+function writeStoredBookId(bookId: string): void {
+  if (typeof window === "undefined") {
+    return;
+  }
+
+  window.localStorage.setItem(LAST_BOOK_ID_STORAGE_KEY, bookId);
+}
+
 export function useBookRuntime(input: UseBookRuntimeInput) {
+  const [activeBookId, setActiveBookId] = useState(() => readStoredBookId() ?? input.bookId);
   const [dashboard, setDashboard] = useState<DashboardResponse["dashboard"] | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
@@ -19,19 +46,35 @@ export function useBookRuntime(input: UseBookRuntimeInput) {
     setError(null);
 
     try {
+      const booksResponse = await fetchBooks();
+      const availableBookIds = booksResponse.books.map((book) => book.id);
+      const targetBookId = availableBookIds.includes(activeBookId)
+        ? activeBookId
+        : availableBookIds[0];
+
+      if (!targetBookId) {
+        throw new Error("No workspaces are available.");
+      }
+
       const [bookResponse, dashboardResponse] = await Promise.all([
-        fetchBook(input.bookId),
-        fetchDashboard({ ...input.range, bookId: input.bookId }),
+        fetchBook(targetBookId),
+        fetchDashboard({ ...input.range, bookId: targetBookId }),
       ]);
 
       setBook(bookResponse.book);
       setDashboard(dashboardResponse.dashboard);
+      setActiveBookId(targetBookId);
+      writeStoredBookId(targetBookId);
     } catch (loadError) {
+      if (loadError instanceof ApiClientError && loadError.code === "book.not_found") {
+        setError("No available workspace matched the selected workspace.");
+        return;
+      }
       setError(loadError instanceof Error ? loadError.message : "Failed to load book.");
     } finally {
       setLoading(false);
     }
-  }, [input.range, input.bookId]);
+  }, [activeBookId, input.range]);
 
   useEffect(() => {
     void loadBookData();
@@ -56,6 +99,7 @@ export function useBookRuntime(input: UseBookRuntimeInput) {
   );
 
   return {
+    activeBookId,
     book,
     busy,
     dashboard,
