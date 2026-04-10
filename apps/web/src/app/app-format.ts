@@ -51,6 +51,23 @@ export function formatSignedCurrency(amount: number): string {
   return amount < 0 ? `-${formatted}` : formatted;
 }
 
+export type AmountStyle = "both" | "color" | "sign";
+
+export function formatAmount(
+  value: number,
+  formatCurrencyFn: (n: number) => string,
+  style: AmountStyle,
+): string {
+  const formatted = formatCurrencyFn(Math.abs(value));
+  if (value > 0 && (style === "both" || style === "sign")) {
+    return `+${formatted}`;
+  }
+  if (value < 0) {
+    return `-${formatted}`;
+  }
+  return formatted;
+}
+
 export function formatTransactionStatus(status: "cleared" | "open" | "reconciled"): string {
   switch (status) {
     case "reconciled":

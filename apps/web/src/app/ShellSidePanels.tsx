@@ -188,5 +188,15 @@ export function ShellInspectorContent(props: ShellInspectorContentProps) {
           </p>
         </div>
       );
+    case "settings":
+      return (
+        <div className="inspector-section">
+          <h3>Display guidance</h3>
+          <p>
+            Theme, density, and amount display controls apply immediately and persist to local storage
+            for this workspace shell.
+          </p>
+        </div>
+      );
   }
 }

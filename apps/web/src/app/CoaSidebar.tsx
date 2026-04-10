@@ -29,18 +29,18 @@ export function CoaSidebar(props: CoaSidebarProps) {
       <div className="coa-quick-actions">
         {props.selectedAccountId ? (
           <>
-            <button type="button" onClick={props.onAddTransaction}>
+            <button className="btn-secondary" type="button" onClick={props.onAddTransaction}>
               + Txn
             </button>
-            <button type="button" onClick={props.onReconcile}>
+            <button className="btn-secondary" type="button" onClick={props.onReconcile}>
               Reconcile
             </button>
-            <button type="button" onClick={props.onNewAccount}>
+            <button className="btn-secondary" type="button" onClick={props.onNewAccount}>
               + Sub-account
             </button>
           </>
         ) : (
-          <button type="button" onClick={props.onNewAccount}>
+          <button className="btn-secondary" type="button" onClick={props.onNewAccount}>
             + Account
           </button>
         )}

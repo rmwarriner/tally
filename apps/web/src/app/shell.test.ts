@@ -28,6 +28,7 @@ describe("web shell view model", () => {
       "imports",
       "automations",
       "reports",
+      "settings",
     ]);
     expect(getBookViewDefinition("ledger")).toMatchObject({
       detail: "Double-entry ledger",

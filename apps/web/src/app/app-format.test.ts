@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { formatPeriodLabel, parsePeriodExpression } from "./app-format";
+import { formatAmount, formatPeriodLabel, parsePeriodExpression } from "./app-format";
 
 describe("app format helpers", () => {
   it("formats period labels from iso date", () => {
@@ -36,5 +36,41 @@ describe("app format helpers", () => {
     expect(parsePeriodExpression("")).toBeNull();
     expect(parsePeriodExpression("2026-13")).toBeNull();
     expect(parsePeriodExpression("foo 2026")).toBeNull();
+  });
+});
+
+describe("formatAmount", () => {
+  const fmt = (n: number) => `$${Math.abs(n).toFixed(2)}`;
+
+  it("both: adds + prefix for positive", () => {
+    expect(formatAmount(50, fmt, "both")).toBe("+$50.00");
+  });
+
+  it("both: adds - prefix for negative", () => {
+    expect(formatAmount(-50, fmt, "both")).toBe("-$50.00");
+  });
+
+  it("both: zero has no prefix", () => {
+    expect(formatAmount(0, fmt, "both")).toBe("$0.00");
+  });
+
+  it("color: no + prefix for positive", () => {
+    expect(formatAmount(50, fmt, "color")).toBe("$50.00");
+  });
+
+  it("color: - prefix for negative", () => {
+    expect(formatAmount(-50, fmt, "color")).toBe("-$50.00");
+  });
+
+  it("sign: + prefix for positive", () => {
+    expect(formatAmount(50, fmt, "sign")).toBe("+$50.00");
+  });
+
+  it("sign: - prefix for negative", () => {
+    expect(formatAmount(-50, fmt, "sign")).toBe("-$50.00");
+  });
+
+  it("sign: zero has no prefix", () => {
+    expect(formatAmount(0, fmt, "sign")).toBe("$0.00");
   });
 });
