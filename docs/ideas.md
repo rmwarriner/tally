@@ -459,3 +459,34 @@ Receipt scanning and document attachment are mentioned in the product vision but
 - Where do files live — local filesystem next to the book, or a separate object store?
 - What file types and size limits should be enforced?
 - How does attachment storage interact with backup/restore?
+
+## Track 7: UI Theming and Visual Customisation
+
+### Gruvbox default theme
+
+Implement a Gruvbox-inspired colour theme as the first named theme to ship with the product. Gruvbox uses warm, retro-style earth tones with clearly distinct foreground/background contrast ratios — a natural fit for the ledger book mental model.
+
+The CSS variable architecture from the visual design pass (`data-theme` attribute, full semantic token set in `styles.css`) already supports this: a Gruvbox theme is just a new `[data-theme="gruvbox"]` selector block in `styles.css` with all tokens mapped to Gruvbox palette values.
+
+Gruvbox palette reference (dark variant as the primary target):
+- bg0_h `#1d2021` → `--bg`
+- bg0 `#282828` → `--surface`
+- bg1 `#3c3836` → `--surface-alt`
+- bg2 `#504945` → `--surface-input`
+- fg1 `#ebdbb2` → `--text`
+- fg4 `#a89984` → `--text-muted`
+- bright_green `#b8bb26` → `--amount-positive`
+- bright_red `#fb4934` → `--amount-negative`
+- bright_yellow `#fabd2f` → `--accent` / `--accent-warm`
+- bright_aqua `#8ec07c` → `--accent` (or bright_green — decide at implementation)
+- neutral_orange `#d65d0e` → `--warning`
+- neutral_red `#cc241d` → `--danger`
+
+A light Gruvbox variant (`bg0` → `#fbf1c7`, `fg` → `#3c3836`) can follow as a second step.
+
+**Parked until:** the custom theme architecture (user-selectable named themes, theme switcher in settings) is implemented. The visual design pass ships first; Gruvbox is the first theme to populate the picker.
+
+**Key open questions:**
+- Ship dark-only first or dark + light together?
+- Should Gruvbox be the default theme out of the box, or opt-in from a theme picker?
+- How do amount positive/negative colours interact with the Gruvbox bright palette at the warm background?
