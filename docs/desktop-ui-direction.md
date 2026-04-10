@@ -1,20 +1,19 @@
 # Desktop UI Direction
 
-Last reviewed: 2026-04-06
+Last reviewed: 2026-04-10
 
 ## Intent
 
-The desktop shell should borrow the spatial workflow of tools like VS Code and Obsidian without copying their visual language.
+The desktop shell is a digital ledger book — specifically a 3-ring binder with tabbed account dividers. This is not a VS Code clone; the layout resembles an IDE workbench because both solve the same underlying problem (hierarchical navigation + keyboard-first + multi-context work), but the mental model is grounded in accounting tradition.
 
-The goal is not to make a code editor for finance. The goal is to use a familiar, high-productivity shell model for dense accounting work:
+- **Activity bar** — switches major sections of the binder (ledger, budget, reports, settings)
+- **COA sidebar** — the spine of the binder, persistent across all activities
+- **Tabs** — account dividers; each tab opens one account register
+- **Register** — the ruled pages; the primary surface and the heart of the system
+- **Bottom panel** — the front pocket of the binder; global appliance operations only
+- **Status bar** — minimal floating status nodes, Obsidian-style
 
-- activity bar for major work modes
-- left pane whose contents depend on the active mode
-- middle document area for the primary working surface
-- right contextual pane for focused supporting detail
-- later, an optional bottom utility panel for secondary tools and status
-
-The distinctive part of the product should come from accounting-native workflows, not from cloning another application's styling.
+The distinctive part of the product should come from accounting-native workflows, not from visual styling.
 
 ## Core Principle
 
@@ -42,43 +41,77 @@ This rule is intended to keep the desktop shell understandable for household use
 
 ### Activity Bar
 
-The activity bar selects the current workspace mode, such as ledger, budget, envelopes, automation, imports, reporting, or review-oriented workflows.
+The activity bar switches major binder sections: ledger, budget, envelopes, reports, settings. Each section is a distinct part of the binder, not a reconfiguration of the ledger view.
 
-### Left Pane
+### COA Sidebar
 
-The left pane is mode-specific.
+The COA sidebar is persistent across all activities — it does not change when the activity bar selection changes. This matches Obsidian's file tree, not VS Code's mode-switching explorer.
 
-Examples:
+The sidebar shows the full chart of accounts hierarchy. Clicking any account opens that account register in the middle area regardless of which activity is active.
 
-- ledger mode: chart of accounts, saved searches, register shortcuts
-- budget mode: budget sheets, categories, periods
-- import mode: import batches and review queues
+Quick action buttons at the top of the sidebar are contextual to the current tree selection:
+- account selected → add transaction, reconcile, add sub-account
+- no selection → add account, import
 
 ### Middle Document Area
 
-The middle area is the primary work surface and should support a document or tab model.
+The middle area is the primary work surface with a tab/document model.
 
-In ledger mode, selecting an account should open that account register in the middle area. Multiple account registers should eventually be open at once in tabs or an equivalent document model.
+Tabs are account dividers — each open tab corresponds to one account register. This is the 3-ring binder metaphor: the tab is the physical divider, the register is the ruled pages behind it. Tabs are not "open files."
+
+Multiple account registers can be open simultaneously and independently filtered.
 
 ### Right Contextual Pane
 
-The right pane should be optional and hidden by default. When visible, it should respond to the current focus in the middle area.
-
-Examples:
+The right pane is optional and hidden by default. When visible, it responds to the current focus in the middle area:
 
 - no register row selected: account-level context
-- register row selected: transaction-level context
+- register row selected: transaction detail, attachments, audit trail
 - import review focused: import diagnostics and mapping detail
 
-The right pane should support the primary surface, not compete with it.
+The right pane supports the primary surface; it does not compete with it.
 
-### Bottom Utility Panel
+### Bottom Panel (Global Appliance)
 
-The bottom panel is a later addition for secondary tools such as audit trail, validation output, batch review, status, and other utility surfaces that should not crowd the main register.
+The bottom panel is the front pocket of the binder — a global appliance for operations that affect the whole book rather than a specific account:
+
+- import and export flows
+- reconciliation queue
+- scheduled transaction log
+- rules engine output
+
+The bottom panel is not a developer terminal. It should not expose raw API logs or HTTP status codes to end users. Developer/debug output may live behind a separate toggle for development builds.
+
+### Status Bar
+
+The status bar follows the Obsidian model: status nodes float near the edges of the screen and occupy only as much width as they need. Nothing stretches uselessly across the full width.
+
+Candidate status nodes:
+- bottom-left: API online/offline indicator (dot, green/amber/red)
+- bottom-right: current period balance, last reconciliation date
+
+The status bar also signals which register mode is active:
+- complete slice (account + period, no text search): "47 transactions · balance $7,108.81"
+- filtered slice (text search active): "showing 4 of 47 · filtered total −$297.69"
+
+## Period Selector
+
+The period selector is a global temporal context — a single `currentPeriod` in application state that all views subscribe to and interpret appropriately. It is not a per-view filter.
+
+- **Ledger**: shows transactions within the period; computes opening balance as of period start
+- **Reports**: bounds the report to the period
+- **Scheduled transactions**: shows upcoming transactions within the range
+- **Import/export**: restricts to the period
+
+The period selector lives in the topbar as a persistent pill — it is application-level context, not a ledger control. Natural language input is supported ("last quarter", "YTD", "since last reconciliation").
+
+The period selector and command palette share the same interaction pattern (spotlight-style input). They may be implemented as the same component with different modes: a `>` prefix invokes a command, a date or range string sets the period, natural language may do either.
 
 ## Register-First Direction
 
 The ledger should feel like a true accounting register, not a CRUD table with an attached form.
+
+The general ledger is the master. Selecting an account focuses on that account's slice of the general ledger — it is not a separate data store. The period selector further narrows the temporal window. Text search narrows further still, but changes the semantics of what the register shows.
 
 Desired direction:
 
@@ -86,13 +119,27 @@ Desired direction:
 - new transaction entry from a blank row, similar to established desktop finance tools
 - split and posting editing available without displacing the register as the main surface
 - active ledger balance visible in context
-- date or timeframe filtering alongside other register filters
 - support for multiple open registers
+
+### Balance Column — Two Modes
+
+The balance column behavior depends on the active filter state:
+
+**Complete slice** (account + period, no text search active):
+- Show running balance
+- Pre-compute the opening balance as of period start from all transactions before the period boundary
+- Each transaction within the period accumulates from that opening balance
+
+**Filtered slice** (text search active):
+- Drop the running balance column — it is undefined because hidden transactions affect it
+- Show per-row amounts only
+- Show filtered subtotal in the status bar
+- The register is honest about what it is displaying
 
 Longer-term power-user direction:
 
 - linked register tabs that can follow each other based on a shared rule such as date
-- a command palette that can handle both search and action-oriented finance workflows
+- a command palette with natural language support for search and action-oriented finance workflows
 
 ## What Makes This Unique
 
@@ -116,12 +163,14 @@ Areas with real differentiation potential:
 ## Near-Term Design Priorities
 
 1. Move the desktop shell decisively toward a register-first layout.
-2. Support multiple open account registers.
+2. Support multiple open account registers (tabs as account dividers).
 3. Shift routine transaction editing toward inline register behavior.
 4. Use the right pane as contextual support rather than the primary editing surface.
-5. Improve register filtering with date, status, tag, and account-aware controls.
-6. Decide where reconciliation should live outside or alongside the main register.
-7. Explore command palette and linked-register workflows after the register model is stable.
+5. Implement the period selector as global application state; wire all views to it.
+6. Implement the two balance modes (complete slice vs filtered slice) in the register.
+7. Scope the bottom panel to global appliance operations; remove developer-facing log output from the end-user surface.
+8. Implement Obsidian-style status bar with per-mode status messaging.
+9. Explore command palette and natural language period input after the register model is stable.
 
 ## Relationship To Native Desktop Work
 

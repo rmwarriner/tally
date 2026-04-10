@@ -1,6 +1,6 @@
 # Project Status
 
-Last reviewed: 2026-04-09 (CLI Phases 1-3 implemented, integration suite passing, SQLite default persistence promoted, compact pretty log format, quality gates green)
+Last reviewed: 2026-04-10 (shell UI rebuild merged: chrome, global period state, register balance modes, COA sidebar)
 
 ## Current State
 
@@ -40,7 +40,8 @@ This repository currently includes:
 - architecture baseline documented
 - service-layer next move documented
 - GitHub repository initialized and roadmap execution tracking established
-- desktop UI direction documented around a register-first shell model
+- desktop UI direction documented and finalized (ledger book mental model, global period selector, two balance modes, Obsidian-style status bar); wireframe at `docs/design/shell-wireframe.excalidraw`
+- shell chrome rebuilt: `ShellTopbar`, `ShellActivityBar`, `CoaSidebar`, `ShellStatusBar`; COA sidebar persistent across all activity views; period selector promoted to global application state; register two balance modes (running balance on complete slice, filtered subtotal on text-search slice); COA contextual quick actions wired to existing mutation handlers
 
 ### Domain And Workspace
 
@@ -206,7 +207,7 @@ This repository currently includes:
 The repository is no longer mainly missing core backend foundations.
 
 **Near-term client work:**
-1. Desktop client — Tauri-first shell (Electron fallback); register-first UI direction documented; pending Figma design completion
+1. Desktop client — shell chrome complete; next: inline register editing (Slice 1 of `docs/ledger-ui-rebuild-plan.md`); Tauri wrapper spike deferred until register model is stable
 
 **Longer-horizon product and architecture work:**
 1. Budgeting-model definition for remaining-to-budget, rollover, cleanup, and envelope funding semantics

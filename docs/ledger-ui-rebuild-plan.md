@@ -1,6 +1,6 @@
 # Ledger UI Rebuild Plan
 
-Last reviewed: 2026-04-06
+Last reviewed: 2026-04-10
 
 ## Purpose
 
@@ -38,10 +38,30 @@ The ledger mode should evolve from a form-supported table into a true register-f
 - inline-first transaction editing in the register
 - new transaction entry from register rows
 - split editing that supports the register instead of displacing it
-- support for multiple open account registers (tab/document model)
+- support for multiple open account registers (tabs as account dividers — see mental model below)
 - keyboard-first navigation and mutation workflows
+- period selector wired as global application state; register responds to `currentPeriod`
+- two balance modes: running balance for complete slices, filtered subtotal for text-search slices
 
 Design intent source: `docs/desktop-ui-direction.md`.
+
+## Mental Model
+
+The general ledger is the master data set. Selecting an account in the COA sidebar focuses on that account's slice of the general ledger — not a separate data store. The period selector (global application state) further narrows the temporal window. Text search narrows further still, but changes the semantics of what the register shows.
+
+Tabs are account dividers in the binder metaphor. Each open tab corresponds to one account register. They are not "open files."
+
+### Balance Column
+
+**Complete slice** (account + period, no text search):
+- Show running balance
+- Opening balance = sum of all postings to the account before period start
+- Each transaction within the period accumulates from that opening balance
+
+**Filtered slice** (text search active):
+- Drop running balance column — undefined because hidden transactions affect it
+- Show per-row amounts only
+- Status bar shows filtered subtotal: "showing N of M · filtered total −$X"
 
 ## Cross-Mode Rule
 
@@ -96,7 +116,9 @@ Primary files:
 Scope:
 
 - support multiple open account registers
-- preserve independent filters/selection per open register
+- tabs represent account dividers (the binder metaphor) — not arbitrary open views
+- preserve independent text filters and selection state per open register
+- all tabs share the global `currentPeriod` — period selector is not per-tab
 - add close/reorder behavior for open register tabs
 
 Primary files:

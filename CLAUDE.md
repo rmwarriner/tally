@@ -98,6 +98,28 @@ This repository is maintained by a solo developer. AI assistants and automation 
 - Ensure repository guidance remains compatible with both Claude Code and Codex.
 - Follow `docs/ai-team-operations.md` for definition of done, risk escalation, do-not-touch boundaries, and handoff requirements.
 
+## Codex Execution Rules
+
+These rules apply to every Codex task without exception.
+
+**Git discipline**
+- Branch from `main` before making any changes: `git checkout main && git pull && git checkout -b <type>/<description>`
+- Commit after each logical unit of work with a clear message
+- Push and open a PR when done: `gh pr create` using `.github/PULL_REQUEST_TEMPLATE.md`
+- Never push directly to `main`
+
+**PR requirements**
+- Fill out every section of `.github/PULL_REQUEST_TEMPLATE.md` including risk tier, rollback plan, and handoff packet
+- `pnpm ci:verify` must pass before the PR is opened
+- Append a one-line completion entry to `docs/project-status.md` before opening the PR
+
+**Non-negotiables**
+- TDD: write the failing test before the implementation for any logic changes
+- Never remove or skip audit event emission from mutation paths
+- Never trust client-supplied actor identity
+- Never add dependencies without explicit instruction
+- Do not modify files outside the stated task scope
+
 ## Key Documentation
 
 | Topic | File |
