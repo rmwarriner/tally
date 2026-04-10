@@ -7,7 +7,8 @@ export type BookView =
   | "envelopes"
   | "imports"
   | "automations"
-  | "reports";
+  | "reports"
+  | "settings";
 
 export interface BookViewDefinition {
   description: string;
@@ -579,6 +580,15 @@ export const bookViews: BookViewDefinition[] = [
     label: "Reports",
     shortLabel: "RE",
     title: "Reporting and close",
+  },
+  {
+    description: "Display and workspace preferences for shell presentation defaults.",
+    detail: "Workspace preferences",
+    emptyMessage: "Display preferences control theme, density, and amount presentation.",
+    id: "settings",
+    label: "Settings",
+    shortLabel: "ST",
+    title: "Display and workspace settings",
   },
 ];
 

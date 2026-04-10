@@ -10,6 +10,7 @@ import type {
   postScheduledTransaction,
 } from "./api";
 import { BOOK_ID } from "./app-constants";
+import type { AmountStyle } from "./app-format";
 import type {
   BudgetLineFormState,
   CsvFormState,
@@ -18,6 +19,7 @@ import type {
   ScheduleFormState,
 } from "./non-ledger-state";
 import type { OverviewCard, BookView, BookViewDefinition } from "./shell";
+import type { AppPreferences, Density, Theme } from "./use-preferences";
 
 interface NonLedgerMainPanelsProps {
   activeView: BookView;
@@ -50,9 +52,13 @@ interface NonLedgerMainPanelsProps {
   setCsvForm: Dispatch<SetStateAction<CsvFormState>>;
   setEnvelopeAllocationForm: Dispatch<SetStateAction<EnvelopeAllocationFormState>>;
   setEnvelopeForm: Dispatch<SetStateAction<EnvelopeFormState>>;
+  setAmountStyle: (value: AmountStyle) => void;
+  setDensity: (value: Density) => void;
   setScheduleForm: Dispatch<SetStateAction<ScheduleFormState>>;
+  setTheme: (value: Theme) => void;
   topBudgetVarianceRows: DashboardResponse["dashboard"]["budgetSnapshot"];
   bookEnvelopes: BookResponse["book"]["envelopes"];
+  preferences: AppPreferences;
 }
 
 export function NonLedgerMainPanels(props: NonLedgerMainPanelsProps) {
@@ -86,9 +92,13 @@ export function NonLedgerMainPanels(props: NonLedgerMainPanelsProps) {
     setCsvForm,
     setEnvelopeAllocationForm,
     setEnvelopeForm,
+    setAmountStyle,
+    setDensity,
     setScheduleForm,
+    setTheme,
     topBudgetVarianceRows,
     bookEnvelopes,
+    preferences,
   } = props;
   const [inlineBudgetDrafts, setInlineBudgetDrafts] = useState<
     Record<
@@ -1219,6 +1229,84 @@ export function NonLedgerMainPanels(props: NonLedgerMainPanelsProps) {
             Reporting and close workflow are planned roadmap work. The desktop shell now reserves a
             dedicated surface for those flows instead of overloading the operational screens.
           </p>
+        </article>
+      );
+    case "settings":
+      return (
+        <article className="panel">
+          <div className="panel-header">
+            <span>Display</span>
+            <span className="muted">Workspace preferences</span>
+          </div>
+          <div className="form-stack">
+            <fieldset>
+              <legend className="eyebrow">Theme</legend>
+              <div className="ledger-chip-row">
+                {(["light", "dark"] as const).map((theme) => (
+                  <label
+                    key={theme}
+                    className={`ledger-chip${preferences.theme === theme ? " active" : ""}`}
+                  >
+                    <input
+                      type="radio"
+                      name="theme"
+                      value={theme}
+                      checked={preferences.theme === theme}
+                      onChange={() => setTheme(theme)}
+                      style={{ position: "absolute", opacity: 0, pointerEvents: "none" }}
+                    />
+                    {theme.charAt(0).toUpperCase() + theme.slice(1)}
+                  </label>
+                ))}
+              </div>
+            </fieldset>
+            <fieldset>
+              <legend className="eyebrow">Register density</legend>
+              <div className="ledger-chip-row">
+                {(["comfortable", "compact"] as const).map((density) => (
+                  <label
+                    key={density}
+                    className={`ledger-chip${preferences.density === density ? " active" : ""}`}
+                  >
+                    <input
+                      type="radio"
+                      name="density"
+                      value={density}
+                      checked={preferences.density === density}
+                      onChange={() => setDensity(density)}
+                      style={{ position: "absolute", opacity: 0, pointerEvents: "none" }}
+                    />
+                    {density.charAt(0).toUpperCase() + density.slice(1)}
+                  </label>
+                ))}
+              </div>
+            </fieldset>
+            <fieldset>
+              <legend className="eyebrow">Amount display</legend>
+              <div className="ledger-chip-row">
+                {([
+                  { value: "both", label: "Colour + sign" },
+                  { value: "color", label: "Colour only" },
+                  { value: "sign", label: "Sign only" },
+                ] as const).map(({ value, label }) => (
+                  <label
+                    key={value}
+                    className={`ledger-chip${preferences.amountStyle === value ? " active" : ""}`}
+                  >
+                    <input
+                      type="radio"
+                      name="amountStyle"
+                      value={value}
+                      checked={preferences.amountStyle === value}
+                      onChange={() => setAmountStyle(value)}
+                      style={{ position: "absolute", opacity: 0, pointerEvents: "none" }}
+                    />
+                    {label}
+                  </label>
+                ))}
+              </div>
+            </fieldset>
+          </div>
         </article>
       );
     default:

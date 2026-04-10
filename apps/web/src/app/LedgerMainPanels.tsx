@@ -2,11 +2,13 @@ import type { Dispatch, ReactNode, RefObject, SetStateAction } from "react";
 import type { BookResponse } from "./api";
 import { LedgerOperationsPanels } from "./LedgerOperationsPanels";
 import { LedgerRegisterPanel } from "./LedgerRegisterPanel";
+import type { AmountStyle } from "./app-format";
 import type { LedgerInlineRowEditDraft } from "./ledger-state";
 import type { createLedgerBookModel, createReconciliationBookModel } from "./shell";
 
 interface LedgerMainPanelsProps {
   activeLedgerRegisterTabId: string;
+  amountStyle: AmountStyle;
   busy: string | null;
   expenseAccounts: BookResponse["book"]["accounts"];
   formatCurrency: (amount: number) => string;
@@ -92,6 +94,7 @@ export function LedgerMainPanels(props: LedgerMainPanelsProps) {
     <>
       <LedgerRegisterPanel
         activeLedgerRegisterTabId={props.activeLedgerRegisterTabId}
+        amountStyle={props.amountStyle}
         busy={props.busy}
         expenseAccounts={props.expenseAccounts}
         formatCurrency={props.formatCurrency}

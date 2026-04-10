@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState, type Dispatch, type RefObject, type SetStateAction } from "react";
 import type { BookResponse } from "./api";
+import { formatAmount, type AmountStyle } from "./app-format";
 import {
   getInlineSplitAccountApplyKeyAction,
   getInlineSplitAccountGuidance,
@@ -36,6 +37,7 @@ interface InlineSplitDraft {
 
 interface LedgerRegisterPanelProps {
   activeLedgerRegisterTabId: string;
+  amountStyle: AmountStyle;
   busy: string | null;
   expenseAccounts: BookResponse["book"]["accounts"];
   formatCurrency: (amount: number) => string;
@@ -262,11 +264,12 @@ export function LedgerRegisterPanel(props: LedgerRegisterPanelProps) {
               key={tab.id}
               className={`register-tab${props.activeLedgerRegisterTabId === tab.id ? " active" : ""}`}
             >
-              <button type="button" onClick={() => props.onActivateLedgerRegisterTab(tab.id)}>
+              <button className="btn-ghost" type="button" onClick={() => props.onActivateLedgerRegisterTab(tab.id)}>
                 {tab.label}
               </button>
               <div className="register-tab-actions">
                 <button
+                  className="btn-ghost"
                   disabled={tabIndex === 0}
                   type="button"
                   onClick={() => props.onMoveLedgerRegisterTab("left", tab.id)}
@@ -274,6 +277,7 @@ export function LedgerRegisterPanel(props: LedgerRegisterPanelProps) {
                   ←
                 </button>
                 <button
+                  className="btn-ghost"
                   disabled={tabIndex + 1 >= props.ledgerRegisterTabs.length}
                   type="button"
                   onClick={() => props.onMoveLedgerRegisterTab("right", tab.id)}
@@ -281,6 +285,7 @@ export function LedgerRegisterPanel(props: LedgerRegisterPanelProps) {
                   →
                 </button>
                 <button
+                  className="btn-ghost"
                   disabled={props.ledgerRegisterTabs.length <= 1 || tab.id === "tab-all"}
                   type="button"
                   onClick={() => props.onCloseLedgerRegisterTab(tab.id)}
@@ -302,6 +307,7 @@ export function LedgerRegisterPanel(props: LedgerRegisterPanelProps) {
               ))}
             </select>
             <button
+              className="btn-secondary"
               disabled={!newRegisterTabAccountId}
               type="button"
               onClick={() => {
@@ -480,6 +486,7 @@ export function LedgerRegisterPanel(props: LedgerRegisterPanelProps) {
               </td>
               <td>
                 <button
+                  className="btn-primary"
                   data-testid="ledger-post-transaction"
                   disabled={newRowSaveDisabled || props.busy !== null}
                   type="button"
@@ -553,11 +560,11 @@ export function LedgerRegisterPanel(props: LedgerRegisterPanelProps) {
                     <tr
                       key={transaction.id}
                       data-transaction-id={transaction.id}
-                      className={
-                        props.selectedLedgerTransactionId === transaction.id
-                          ? "register-row selected"
-                          : "register-row"
-                      }
+                      className={[
+                        "register-row",
+                        props.selectedLedgerTransactionId === transaction.id ? "selected" : "",
+                        isEditingRow ? "editing" : "",
+                      ].filter(Boolean).join(" ")}
                       onClick={() => props.setSelectedLedgerTransactionId(transaction.id)}
                     >
                       <td>
@@ -659,13 +666,17 @@ export function LedgerRegisterPanel(props: LedgerRegisterPanelProps) {
                           <strong
                             className={
                               (runningBalances.get(transaction.id) ?? 0) > 0
-                                ? "numeric-positive"
+                                ? "amount-positive"
                                 : (runningBalances.get(transaction.id) ?? 0) < 0
-                                  ? "numeric-negative"
-                                  : ""
+                                  ? "amount-negative"
+                                  : "amount-neutral"
                             }
                           >
-                            {props.formatCurrency(runningBalances.get(transaction.id) ?? 0)}
+                            {formatAmount(
+                              runningBalances.get(transaction.id) ?? 0,
+                              props.formatCurrency,
+                              props.amountStyle,
+                            )}
                           </strong>
                         </td>
                       ) : null}
@@ -674,6 +685,7 @@ export function LedgerRegisterPanel(props: LedgerRegisterPanelProps) {
                         {rowDraft ? (
                           <div className="posting-editor-row">
                             <button
+                              className="btn-primary"
                               data-testid={`ledger-save-${transaction.id}`}
                               disabled={inlineSaveDisabled}
                               type="button"
@@ -687,6 +699,7 @@ export function LedgerRegisterPanel(props: LedgerRegisterPanelProps) {
                               Save
                             </button>
                             <button
+                              className="btn-secondary"
                               data-testid={`ledger-cancel-${transaction.id}`}
                               type="button"
                               onClick={(event) => {
@@ -700,6 +713,7 @@ export function LedgerRegisterPanel(props: LedgerRegisterPanelProps) {
                         ) : (
                           <div className="posting-editor-row">
                             <button
+                              className="btn-secondary"
                               data-testid={`ledger-delete-${transaction.id}`}
                               disabled={props.busy !== null}
                               type="button"
@@ -711,6 +725,7 @@ export function LedgerRegisterPanel(props: LedgerRegisterPanelProps) {
                               Delete
                             </button>
                             <button
+                              className="btn-secondary"
                               data-testid={`ledger-edit-${transaction.id}`}
                               type="button"
                               onClick={(event) => {
@@ -722,6 +737,7 @@ export function LedgerRegisterPanel(props: LedgerRegisterPanelProps) {
                               Edit
                             </button>
                             <button
+                              className="btn-secondary"
                               type="button"
                               onClick={(event) => {
                                 event.stopPropagation();
@@ -739,6 +755,7 @@ export function LedgerRegisterPanel(props: LedgerRegisterPanelProps) {
                               {isExpandedRow ? "Hide splits" : "Show splits"}
                             </button>
                             <button
+                              className="btn-secondary"
                               type="button"
                               onClick={(event) => {
                                 event.stopPropagation();
@@ -748,6 +765,7 @@ export function LedgerRegisterPanel(props: LedgerRegisterPanelProps) {
                               Link tabs
                             </button>
                             <button
+                              className="btn-secondary"
                               type="button"
                               onClick={(event) => {
                                 event.stopPropagation();
@@ -1245,6 +1263,7 @@ export function LedgerRegisterPanel(props: LedgerRegisterPanelProps) {
                                         <span>Cleared</span>
                                       </label>
                                       <button
+                                        className="btn-secondary"
                                         disabled={posting.postingIndex === 0}
                                         type="button"
                                         onClick={() => {
@@ -1268,6 +1287,7 @@ export function LedgerRegisterPanel(props: LedgerRegisterPanelProps) {
                                         Up
                                       </button>
                                       <button
+                                        className="btn-secondary"
                                         disabled={posting.postingIndex + 1 >= splitRowCount}
                                         type="button"
                                         onClick={() => {
@@ -1291,6 +1311,7 @@ export function LedgerRegisterPanel(props: LedgerRegisterPanelProps) {
                                         Down
                                       </button>
                                       <button
+                                        className="btn-secondary"
                                         disabled={isEditingSplitRow.length <= 2}
                                         type="button"
                                         onClick={() => {
@@ -1330,6 +1351,7 @@ export function LedgerRegisterPanel(props: LedgerRegisterPanelProps) {
                                     first account match.
                                   </div>
                                   <button
+                                    className="btn-secondary"
                                     type="button"
                                     onClick={(event) => {
                                       event.stopPropagation();
@@ -1390,6 +1412,7 @@ export function LedgerRegisterPanel(props: LedgerRegisterPanelProps) {
                                     </div>
                                   ) : null}
                                   <button
+                                    className="btn-primary"
                                     ref={splitSaveButtonRef}
                                     disabled={splitSaveDisabled}
                                     type="button"
@@ -1410,6 +1433,7 @@ export function LedgerRegisterPanel(props: LedgerRegisterPanelProps) {
                                     {props.busy === "Transaction update" ? "Saving..." : "Save split changes"}
                                   </button>
                                   <button
+                                    className="btn-secondary"
                                     type="button"
                                     onClick={(event) => {
                                       event.stopPropagation();
@@ -1424,6 +1448,7 @@ export function LedgerRegisterPanel(props: LedgerRegisterPanelProps) {
                                 </>
                               ) : (
                                 <button
+                                  className="btn-secondary"
                                   type="button"
                                   onClick={(event) => {
                                     event.stopPropagation();
@@ -1448,6 +1473,7 @@ export function LedgerRegisterPanel(props: LedgerRegisterPanelProps) {
                                 </button>
                               )}
                               <button
+                                className="btn-secondary"
                                 type="button"
                                 onClick={(event) => {
                                   event.stopPropagation();

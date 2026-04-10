@@ -1,5 +1,4 @@
 import { useEffect, useRef, useState } from "react";
-import { colors, typography } from "@tally/ui";
 import {
   deleteTransaction,
   postBaselineBudgetLine,
@@ -20,7 +19,6 @@ import {
   movePostingIndex,
   type PostingFocusField,
   type BookView,
-  bookViews
 } from "./shell";
 import {
   getLedgerRegisterTabHotkeyAction,
@@ -50,6 +48,7 @@ import {
 } from "./transaction-editor";
 import { useBookRuntime } from "./use-book-runtime";
 import { useNonLedgerFormState } from "./non-ledger-state";
+import { usePreferences } from "./use-preferences";
 import { ShellTopbar } from "./ShellTopbar";
 import { ShellActivityBar } from "./ShellActivityBar";
 import { CoaSidebar } from "./CoaSidebar";
@@ -141,6 +140,7 @@ export function App() {
     },
   ]);
   const [activeLedgerRegisterTabId, setActiveLedgerRegisterTabId] = useState("tab-all");
+  const { preferences, setAmountStyle, setDensity, setTheme } = usePreferences();
   const activeLedgerRegisterTab =
     ledgerRegisterTabs.find((tab) => tab.id === activeLedgerRegisterTabId) ?? ledgerRegisterTabs[0];
   const activeLedgerRegisterTabIndex = Math.max(
@@ -970,6 +970,7 @@ export function App() {
       return (
         <LedgerMainPanels
           activeLedgerRegisterTabId={activeLedgerRegisterTabId}
+          amountStyle={preferences.amountStyle}
           busy={busy}
           expenseAccounts={expenseAccounts}
           formatCurrency={formatCurrency}
@@ -1067,9 +1068,13 @@ export function App() {
         setCsvForm={setCsvForm}
         setEnvelopeAllocationForm={setEnvelopeAllocationForm}
         setEnvelopeForm={setEnvelopeForm}
+        setAmountStyle={setAmountStyle}
+        setDensity={setDensity}
         setScheduleForm={setScheduleForm}
+        setTheme={setTheme}
         topBudgetVarianceRows={topBudgetVarianceRows}
         bookEnvelopes={bookEnvelopes}
+        preferences={preferences}
       />
     );
   }
@@ -1087,7 +1092,12 @@ export function App() {
   }
 
   return (
-    <div className="workspace">
+    <div
+      className="workspace"
+      data-theme={preferences.theme}
+      data-density={preferences.density}
+      data-amount-style={preferences.amountStyle}
+    >
       <ShellTopbar
         currentPeriodLabel={currentPeriodLabel}
         isPeriodInputOpen={isPeriodInputOpen}
@@ -1184,21 +1194,6 @@ export function App() {
           </div>
         </div>
       ) : null}
-
-      <style>{`
-        :root {
-          --background: ${colors.background};
-          --panel: ${colors.panel};
-          --panel-alt: ${colors.panelAlt};
-          --text: ${colors.text};
-          --text-muted: ${colors.textMuted};
-          --accent: ${colors.accent};
-          --accent-soft: ${colors.accentSoft};
-          --border: ${colors.border};
-          --display-font: ${typography.display};
-          --mono-font: ${typography.mono};
-        }
-      `}</style>
     </div>
   );
 }

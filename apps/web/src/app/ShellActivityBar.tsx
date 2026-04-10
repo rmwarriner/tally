@@ -6,10 +6,12 @@ interface ShellActivityBarProps {
 }
 
 export function ShellActivityBar(props: ShellActivityBarProps) {
+  const primaryViews = bookViews.filter((view) => view.id !== "settings");
+
   return (
     <aside className="shell-activity-bar">
       <nav className="shell-activity-nav" aria-label="Book sections">
-        {bookViews.map((view) => (
+        {primaryViews.map((view) => (
           <button
             key={view.id}
             className={`shell-activity-button${props.activeView === view.id ? " active" : ""}`}
@@ -20,7 +22,11 @@ export function ShellActivityBar(props: ShellActivityBarProps) {
           </button>
         ))}
       </nav>
-      <button className="shell-activity-settings" type="button">
+      <button
+        className={`shell-activity-settings${props.activeView === "settings" ? " active" : ""}`}
+        type="button"
+        onClick={() => props.onViewChange("settings")}
+      >
         ST
       </button>
     </aside>
