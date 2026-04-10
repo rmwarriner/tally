@@ -31,14 +31,16 @@ import {
 import { LedgerMainPanels } from "./LedgerMainPanels";
 import { LedgerTransactionEditorPanel } from "./LedgerTransactionEditorPanel";
 import { NonLedgerMainPanels } from "./NonLedgerMainPanels";
-import { ShellInspectorContent, ShellSidebarContent } from "./ShellSidePanels";
+import { ShellInspectorContent } from "./ShellSidePanels";
 import { APRIL_RANGE, BOOK_ID } from "./app-constants";
 import {
   createTransactionId,
   createEntityId,
   formatAccountOptionLabel,
   formatCurrency,
+  formatPeriodLabel,
   formatTransactionStatus,
+  parsePeriodExpression,
   parseCsvRows,
 } from "./app-format";
 import {
@@ -48,6 +50,10 @@ import {
 } from "./transaction-editor";
 import { useBookRuntime } from "./use-book-runtime";
 import { useNonLedgerFormState } from "./non-ledger-state";
+import { ShellTopbar } from "./ShellTopbar";
+import { ShellActivityBar } from "./ShellActivityBar";
+import { CoaSidebar } from "./CoaSidebar";
+import { ShellStatusBar } from "./ShellStatusBar";
 import "../app/styles.css";
 
 function ShellState(props: { message: string; title: string }) {
@@ -59,9 +65,29 @@ function ShellState(props: { message: string; title: string }) {
   );
 }
 
+function getAccountSideAmountForTransaction(input: {
+  selectedAccountId: string | null;
+  transaction: {
+    postings: Array<{
+      accountId: string;
+      amount: number;
+    }>;
+  };
+}): number {
+  if (!input.selectedAccountId) {
+    return 0;
+  }
+
+  return input.transaction.postings.reduce((sum, posting) => {
+    if (posting.accountId !== input.selectedAccountId) {
+      return sum;
+    }
+    return sum + posting.amount;
+  }, 0);
+}
+
 interface LedgerRegisterTabState {
   id: string;
-  ledgerRange: { from: string; to: string };
   ledgerSearchText: string;
   ledgerStatusFilter: "all" | "cleared" | "open" | "reconciled";
   selectedLedgerAccountId: string | null;
@@ -70,6 +96,8 @@ interface LedgerRegisterTabState {
 
 export function App() {
   const [activeView, setActiveView] = useState<BookView>("overview");
+  const [currentPeriod, setCurrentPeriod] = useState(APRIL_RANGE);
+  const [isPeriodInputOpen, setIsPeriodInputOpen] = useState(false);
   const [isLedgerDetailOpen, setIsLedgerDetailOpen] = useState(false);
   const [isLedgerOperationsOpen, setIsLedgerOperationsOpen] = useState(false);
   const [isCommandPaletteOpen, setIsCommandPaletteOpen] = useState(false);
@@ -106,7 +134,6 @@ export function App() {
   const [ledgerRegisterTabs, setLedgerRegisterTabs] = useState<LedgerRegisterTabState[]>([
     {
       id: "tab-all",
-      ledgerRange: APRIL_RANGE,
       ledgerSearchText: "",
       ledgerStatusFilter: "all",
       selectedLedgerAccountId: null,
@@ -120,7 +147,6 @@ export function App() {
     0,
     ledgerRegisterTabs.findIndex((tab) => tab.id === activeLedgerRegisterTabId),
   );
-  const ledgerRange = activeLedgerRegisterTab?.ledgerRange ?? APRIL_RANGE;
   const ledgerSearchText = activeLedgerRegisterTab?.ledgerSearchText ?? "";
   const ledgerStatusFilter = activeLedgerRegisterTab?.ledgerStatusFilter ?? "all";
   const selectedLedgerAccountId = activeLedgerRegisterTab?.selectedLedgerAccountId ?? null;
@@ -133,9 +159,9 @@ export function App() {
     setInlineDraftField,
     startInlineEdit,
   } = useLedgerInlineRowEditState();
-  const { book, busy, dashboard, error, loading, runMutation, statusMessage } =
+  const { activeBookId, book, busy, dashboard, error, loading, runMutation } =
     useBookRuntime({
-      range: APRIL_RANGE,
+      range: currentPeriod,
       bookId: BOOK_ID,
     });
 
@@ -151,6 +177,8 @@ export function App() {
   );
   const fundingAccounts = bookAccounts.filter((account) => account.type === "asset");
   const activeViewDefinition = getBookViewDefinition(activeView);
+  const currentPeriodLabel = formatPeriodLabel(currentPeriod.from);
+  const apiStatus = loading ? "unknown" : error ? "offline" : "online";
   const {
     budgetSnapshot: baselineSnapshot = [],
     envelopeSnapshot = [],
@@ -186,8 +214,8 @@ export function App() {
   const ledgerBook = loadedBook
       ? createLedgerBookModel({
         accountBalances,
-        rangeEnd: ledgerRange.to,
-        rangeStart: ledgerRange.from,
+        rangeEnd: currentPeriod.to,
+        rangeStart: currentPeriod.from,
         searchText: ledgerSearchText,
         statusFilter: ledgerStatusFilter,
         selectedAccountId: selectedLedgerAccountId,
@@ -198,10 +226,31 @@ export function App() {
         availableAccounts: [],
         filteredBalances: [],
         filteredTransactions: [],
+        isFiltered: false,
+        openingBalance: 0,
         selectedAccountBalance: null,
         selectedAccount: null,
         selectedTransaction: null,
+        totalCount: 0,
       };
+  const filteredTotal = ledgerBook.filteredTransactions.reduce((sum, transaction) => {
+    return (
+      sum +
+      getAccountSideAmountForTransaction({
+        selectedAccountId: selectedLedgerAccountId,
+        transaction,
+      })
+    );
+  }, 0);
+  const runningBalance = ledgerBook.openingBalance + filteredTotal;
+  const registerStatus =
+    selectedLedgerAccountId === null
+      ? ledgerBook.isFiltered
+        ? `showing ${ledgerBook.filteredTransactions.length} of ${ledgerBook.totalCount} · select an account to see filtered total`
+        : `${ledgerBook.filteredTransactions.length} transactions · select an account to see balance`
+      : ledgerBook.isFiltered
+        ? `showing ${ledgerBook.filteredTransactions.length} of ${ledgerBook.totalCount} · filtered total ${formatCurrency(filteredTotal)}`
+        : `${ledgerBook.filteredTransactions.length} transactions · balance ${formatCurrency(runningBalance)}`;
   const reconciliationBook = loadedBook
     ? createReconciliationBookModel({
         selectedAccountId: reconciliationForm.accountId,
@@ -442,18 +491,12 @@ export function App() {
     });
   }
 
-  function setLedgerRange(nextValue: { from: string; to: string } | ((current: { from: string; to: string }) => { from: string; to: string })) {
-    setLedgerRegisterTabs((currentTabs) =>
-      currentTabs.map((tab) => {
-        if (tab.id !== activeLedgerRegisterTabId) {
-          return tab;
-        }
-        return {
-          ...tab,
-          ledgerRange: typeof nextValue === "function" ? nextValue(tab.ledgerRange) : nextValue,
-        };
-      }),
-    );
+  function setLedgerRange(
+    nextValue:
+      | { from: string; to: string }
+      | ((current: { from: string; to: string }) => { from: string; to: string }),
+  ) {
+    setCurrentPeriod((current) => (typeof nextValue === "function" ? nextValue(current) : nextValue));
   }
 
   function setLedgerSearchText(nextValue: string | ((current: string) => string)) {
@@ -541,7 +584,6 @@ export function App() {
 
       const nextTab: LedgerRegisterTabState = {
         id: `tab-${accountId}-${currentTabs.length + 1}`,
-        ledgerRange: APRIL_RANGE,
         ledgerSearchText: "",
         ledgerStatusFilter: "all",
         selectedLedgerAccountId: accountId,
@@ -703,7 +745,7 @@ export function App() {
     }
 
     await runMutation("Transaction update", async () => {
-      await putTransaction(BOOK_ID, transactionEditor.transactionId, {
+      await putTransaction(activeBookId, transactionEditor.transactionId, {
         actor: "Primary",
         transaction: {
           description: transactionEditor.description.trim(),
@@ -747,7 +789,7 @@ export function App() {
     }
 
     await runMutation("Transaction update", async () => {
-      await putTransaction(BOOK_ID, sourceTransaction.id, {
+      await putTransaction(activeBookId, sourceTransaction.id, {
         actor: "Primary",
         transaction: {
           description: trimmedDescription,
@@ -780,7 +822,7 @@ export function App() {
   }) {
     await runMutation("Transaction post", async () => {
       const amount = Number.parseFloat(input.amount);
-      await postTransaction(BOOK_ID, {
+      await postTransaction(activeBookId, {
         actor: "Primary",
         transaction: {
           description: input.description,
@@ -805,7 +847,7 @@ export function App() {
 
   async function deleteInlineLedgerTransaction(transactionId: string) {
     await runMutation("Transaction delete", async () => {
-      await deleteTransaction(BOOK_ID, transactionId, {
+      await deleteTransaction(activeBookId, transactionId, {
         actor: "Primary",
       });
     });
@@ -838,7 +880,7 @@ export function App() {
     }
 
     await runMutation("Transaction update", async () => {
-      await putTransaction(BOOK_ID, sourceTransaction.id, {
+      await putTransaction(activeBookId, sourceTransaction.id, {
         actor: "Primary",
         transaction: {
           description: sourceTransaction.description,
@@ -858,6 +900,32 @@ export function App() {
         },
       });
     });
+  }
+
+  function openCoaAddTransactionFlow() {
+    setActiveView("ledger");
+    setIsLedgerDetailOpen(false);
+    setIsLedgerOperationsOpen(false);
+    if (selectedLedgerAccountId) {
+      openLedgerRegisterTabForAccount(selectedLedgerAccountId);
+    }
+  }
+
+  function openCoaNewAccountFlow() {
+    // TODO(I-008): replace this temporary redirect with a dedicated account creation flow.
+    setActiveView("budget");
+  }
+
+  function openCoaReconciliationFlow() {
+    setActiveView("ledger");
+    setIsLedgerOperationsOpen(true);
+    if (selectedLedgerAccountId) {
+      openLedgerRegisterTabForAccount(selectedLedgerAccountId);
+      setReconciliationForm((current) => ({
+        ...current,
+        accountId: selectedLedgerAccountId,
+      }));
+    }
   }
 
   function renderTransactionEditorPanel() {
@@ -910,12 +978,15 @@ export function App() {
           inlineEditingTransactionId={inlineEditingTransactionId}
           isLedgerDetailOpen={isLedgerDetailOpen}
           isLedgerOperationsOpen={isLedgerOperationsOpen}
-          ledgerRange={ledgerRange}
+          ledgerRange={currentPeriod}
           ledgerRegisterTabs={labeledLedgerRegisterTabs}
           ledgerSearchInputRef={ledgerSearchInputRef}
           ledgerSearchText={ledgerSearchText}
           ledgerStatusFilter={ledgerStatusFilter}
           ledgerBook={ledgerBook}
+          ledgerIsFiltered={ledgerBook.isFiltered}
+          ledgerOpeningBalance={ledgerBook.openingBalance}
+          ledgerTotalCount={ledgerBook.totalCount}
           liquidAccounts={liquidAccounts}
           onActivateLedgerRegisterTab={setActiveLedgerRegisterTabId}
           onCancelInlineEdit={cancelInlineEdit}
@@ -1003,118 +1074,46 @@ export function App() {
     );
   }
 
-  function renderSidebarContent() {
-    return (
-      <ShellSidebarContent
-        activeView={activeView}
-        baselineSnapshot={baselineSnapshot}
-        budgetConfigurationErrors={budgetConfigurationErrors}
-        dueTransactions={dueTransactions}
-        getBookViewDefinition={getBookViewDefinition}
-        ledgerValidationErrors={ledgerValidationErrors}
-        ledgerBook={ledgerBook}
-        overviewCards={overviewCards}
-        selectedLedgerAccountId={selectedLedgerAccountId}
-        selectedLedgerTransactionId={selectedLedgerTransactionId}
-        setActiveView={setActiveView}
-        setSelectedLedgerAccountId={setSelectedLedgerAccountId}
-        setSelectedLedgerTransactionId={setSelectedLedgerTransactionId}
-        bookAccounts={bookAccounts}
-        bookEnvelopes={bookEnvelopes}
-        bookSchedules={bookSchedules}
-      />
-    );
-  }
-
   function renderInspectorContent() {
     return (
       <ShellInspectorContent
         activeView={activeView}
-        baselineSnapshot={baselineSnapshot}
         budgetConfigurationErrors={budgetConfigurationErrors}
         dueTransactions={dueTransactions}
-        getBookViewDefinition={getBookViewDefinition}
         ledgerValidationErrors={ledgerValidationErrors}
         ledgerBook={ledgerBook}
-        overviewCards={overviewCards}
-        selectedLedgerAccountId={selectedLedgerAccountId}
-        selectedLedgerTransactionId={selectedLedgerTransactionId}
-        setActiveView={setActiveView}
-        setSelectedLedgerAccountId={setSelectedLedgerAccountId}
-        setSelectedLedgerTransactionId={setSelectedLedgerTransactionId}
-        bookAccounts={bookAccounts}
-        bookEnvelopes={bookEnvelopes}
-        bookSchedules={bookSchedules}
       />
     );
   }
 
   return (
     <div className="workspace">
-      <aside className="activity-bar">
-        <div className="brand">GN</div>
-        <nav>
-          {bookViews.map((view) => (
-            <button
-              key={view.id}
-              className={`activity-button${activeView === view.id ? " active" : ""}`}
-              type="button"
-              onClick={() => setActiveView(view.id)}
-            >
-              {view.shortLabel}
-            </button>
-          ))}
-        </nav>
-      </aside>
-
-      <section className="sidebar">
-        <div className="panel-header">
-          <span>{activeViewDefinition.label}</span>
-          <span className="muted">{loadedBook.name}</span>
-        </div>
-        {renderSidebarContent()}
-      </section>
+      <ShellTopbar
+        currentPeriodLabel={currentPeriodLabel}
+        isPeriodInputOpen={isPeriodInputOpen}
+        onPeriodClick={() => setIsPeriodInputOpen(true)}
+        onPeriodSubmit={(text) => {
+          const parsedRange = parsePeriodExpression(text);
+          if (parsedRange) {
+            setCurrentPeriod(parsedRange);
+          }
+          setIsPeriodInputOpen(false);
+        }}
+        onPeriodCancel={() => setIsPeriodInputOpen(false)}
+        onCommandPaletteClick={() => setIsCommandPaletteOpen(true)}
+      />
+      <ShellActivityBar activeView={activeView} onViewChange={setActiveView} />
+      <CoaSidebar
+        accounts={bookAccounts}
+        activeView={activeView}
+        selectedAccountId={selectedLedgerAccountId}
+        onAccountSelect={setSelectedLedgerAccountId}
+        onAddTransaction={openCoaAddTransactionFlow}
+        onNewAccount={openCoaNewAccountFlow}
+        onReconcile={openCoaReconciliationFlow}
+      />
 
       <main className="editor-area">
-        <header className="editor-header">
-          <div>
-            <p className="eyebrow">{activeViewDefinition.detail}</p>
-            <h1>{activeViewDefinition.title}</h1>
-            <p className="editor-description">{activeViewDefinition.description}</p>
-            {statusMessage ? <p className="status-banner success">{statusMessage}</p> : null}
-            {error ? <p className="status-banner error">{error}</p> : null}
-          </div>
-          <div className="header-stats">
-            <div className="stat-card">
-              <span>Net worth</span>
-              <strong>{formatCurrency(netWorth.quantity)}</strong>
-            </div>
-            <div className="stat-card">
-              <span>Accounts with balances</span>
-              <strong>{accountBalances.length}</strong>
-            </div>
-            <div className="stat-card">
-              <span>Schedules due</span>
-              <strong>{dueTransactions.length}</strong>
-            </div>
-          </div>
-        </header>
-
-        <section className="view-tabs">
-          {bookViews.map((view) => (
-            <button
-              key={view.id}
-              data-testid={`view-tab-${view.id}`}
-              className={`view-tab${activeView === view.id ? " active" : ""}`}
-              type="button"
-              onClick={() => setActiveView(view.id)}
-            >
-              <span>{view.label}</span>
-              <small>{view.detail}</small>
-            </button>
-          ))}
-        </section>
-
         <section className={`editor-grid view-${activeView}`}>{renderMainPanels()}</section>
       </main>
 
@@ -1125,6 +1124,8 @@ export function App() {
         </div>
         {renderInspectorContent()}
       </aside>
+
+      <ShellStatusBar apiStatus={apiStatus} registerStatus={registerStatus} />
 
       {isCommandPaletteOpen ? (
         <div className="command-palette-overlay" role="dialog" aria-modal="true">

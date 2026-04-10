@@ -50,7 +50,9 @@ interface LedgerRegisterPanelProps {
   ledgerSearchText: string;
   ledgerStatusFilter: "all" | "cleared" | "open" | "reconciled";
   ledgerBook: ReturnType<typeof createLedgerBookModel>;
+  isFiltered: boolean;
   liquidAccounts: BookResponse["book"]["accounts"];
+  openingBalance: number;
   onActivateLedgerRegisterTab: (tabId: string) => void;
   onCancelInlineEdit: () => void;
   onCloseLedgerRegisterTab: (tabId: string) => void;
@@ -73,6 +75,7 @@ interface LedgerRegisterPanelProps {
   setLedgerStatusFilter: Dispatch<SetStateAction<"all" | "cleared" | "open" | "reconciled">>;
   setSelectedLedgerAccountId: Dispatch<SetStateAction<string | null>>;
   setSelectedLedgerTransactionId: Dispatch<SetStateAction<string | null>>;
+  totalCount: number;
 }
 
 export function LedgerRegisterPanel(props: LedgerRegisterPanelProps) {
@@ -112,6 +115,27 @@ export function LedgerRegisterPanel(props: LedgerRegisterPanelProps) {
   const newRowAccountIsValid = newTransactionDraft.expenseAccountId.trim().length > 0;
   const newRowSaveDisabled =
     !newRowDateIsValid || !newRowDescriptionIsValid || !newRowAmountIsValid || !newRowAccountIsValid;
+  const visibleColumnCount = props.isFiltered ? 7 : 8;
+  const getTransactionAmount = (transaction: ReturnType<typeof createLedgerBookModel>["filteredTransactions"][number]) => {
+    if (!props.selectedLedgerAccountId) {
+      return 0;
+    }
+
+    return transaction.postings.reduce((sum, posting) => {
+      if (posting.accountId !== props.selectedLedgerAccountId) {
+        return sum;
+      }
+
+      return sum + posting.amount;
+    }, 0);
+  };
+  const runningBalances = new Map<string, number>();
+  const balanceRows = [...props.ledgerBook.filteredTransactions].reverse();
+  let runningBalance = props.openingBalance;
+  for (const transaction of balanceRows) {
+    runningBalance += getTransactionAmount(transaction);
+    runningBalances.set(transaction.id, runningBalance);
+  }
 
   useEffect(() => {
     if (newTransactionDraft.expenseAccountId) {
@@ -373,6 +397,7 @@ export function LedgerRegisterPanel(props: LedgerRegisterPanelProps) {
               <th>Description</th>
               <th>Payee</th>
               <th>Accounts</th>
+              {!props.isFiltered ? <th>Balance</th> : null}
               <th>Tags</th>
               <th>Actions</th>
             </tr>
@@ -445,6 +470,7 @@ export function LedgerRegisterPanel(props: LedgerRegisterPanelProps) {
                   />
                 </div>
               </td>
+              {!props.isFiltered ? <td /> : null}
               <td>
                 {!newRowDateIsValid ? <div className="form-hint error-text">YYYY-MM-DD required.</div> : null}
                 {!newRowDescriptionIsValid ? (
@@ -628,6 +654,21 @@ export function LedgerRegisterPanel(props: LedgerRegisterPanelProps) {
                         )}
                       </td>
                       <td>{transaction.postings.map((posting) => posting.accountName).join(", ")}</td>
+                      {!props.isFiltered ? (
+                        <td>
+                          <strong
+                            className={
+                              (runningBalances.get(transaction.id) ?? 0) > 0
+                                ? "numeric-positive"
+                                : (runningBalances.get(transaction.id) ?? 0) < 0
+                                  ? "numeric-negative"
+                                  : ""
+                            }
+                          >
+                            {props.formatCurrency(runningBalances.get(transaction.id) ?? 0)}
+                          </strong>
+                        </td>
+                      ) : null}
                       <td>{transaction.tags.join(", ")}</td>
                       <td>
                         {rowDraft ? (
@@ -722,7 +763,7 @@ export function LedgerRegisterPanel(props: LedgerRegisterPanelProps) {
                     </tr>
                     {isExpandedRow ? (
                       <tr className="register-row">
-                        <td colSpan={7}>
+                        <td colSpan={visibleColumnCount}>
                           <div className="detail-stack">
                             <div className="panel-header">
                               <span>Split preview</span>
@@ -1426,7 +1467,7 @@ export function LedgerRegisterPanel(props: LedgerRegisterPanelProps) {
               })
             ) : (
               <tr>
-                <td colSpan={7}>
+                <td colSpan={visibleColumnCount}>
                   <div className="table-empty-state">
                     No transactions match the current account filter, date range, and search text.
                   </div>
@@ -1435,6 +1476,11 @@ export function LedgerRegisterPanel(props: LedgerRegisterPanelProps) {
             )}
           </tbody>
         </table>
+        {props.isFiltered ? (
+          <p className="form-hint">
+            showing {props.ledgerBook.filteredTransactions.length} of {props.totalCount}
+          </p>
+        ) : null}
       </article>
 
       <article className="panel">

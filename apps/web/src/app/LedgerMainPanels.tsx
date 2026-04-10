@@ -25,7 +25,9 @@ interface LedgerMainPanelsProps {
   ledgerSearchText: string;
   ledgerStatusFilter: "all" | "cleared" | "open" | "reconciled";
   ledgerBook: ReturnType<typeof createLedgerBookModel>;
+  ledgerIsFiltered: boolean;
   liquidAccounts: BookResponse["book"]["accounts"];
+  ledgerOpeningBalance: number;
   onActivateLedgerRegisterTab: (tabId: string) => void;
   onCancelInlineEdit: () => void;
   onCloseLedgerRegisterTab: (tabId: string) => void;
@@ -81,6 +83,7 @@ interface LedgerMainPanelsProps {
   setSelectedLedgerAccountId: Dispatch<SetStateAction<string | null>>;
   setSelectedLedgerTransactionId: Dispatch<SetStateAction<string | null>>;
   setSelectedReconciliationTransactionIds: Dispatch<SetStateAction<Record<string, boolean>>>;
+  ledgerTotalCount: number;
   transactionEditorPanel: ReactNode;
 }
 
@@ -101,7 +104,9 @@ export function LedgerMainPanels(props: LedgerMainPanelsProps) {
         ledgerSearchText={props.ledgerSearchText}
         ledgerStatusFilter={props.ledgerStatusFilter}
         ledgerBook={props.ledgerBook}
+        isFiltered={props.ledgerIsFiltered}
         liquidAccounts={props.liquidAccounts}
+        openingBalance={props.ledgerOpeningBalance}
         onActivateLedgerRegisterTab={props.onActivateLedgerRegisterTab}
         onCancelInlineEdit={props.onCancelInlineEdit}
         onCloseLedgerRegisterTab={props.onCloseLedgerRegisterTab}
@@ -122,6 +127,7 @@ export function LedgerMainPanels(props: LedgerMainPanelsProps) {
         setLedgerStatusFilter={props.setLedgerStatusFilter}
         setSelectedLedgerAccountId={props.setSelectedLedgerAccountId}
         setSelectedLedgerTransactionId={props.setSelectedLedgerTransactionId}
+        totalCount={props.ledgerTotalCount}
       />
 
       {props.isLedgerDetailOpen ? (

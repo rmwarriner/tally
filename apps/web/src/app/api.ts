@@ -45,6 +45,14 @@ export interface BookResponse {
   book: FinanceBookDocument;
 }
 
+export interface BooksResponse {
+  books: Array<{
+    id: string;
+    name: string;
+    role: "admin" | "guardian" | "local-admin" | "member";
+  }>;
+}
+
 interface ErrorResponse {
   error?: {
     code?: string;
@@ -88,6 +96,13 @@ export async function fetchBook(bookId: string): Promise<BookResponse> {
   await ensureOk(response, "Failed to load book.");
 
   return readJson<BookResponse>(response);
+}
+
+export async function fetchBooks(): Promise<BooksResponse> {
+  const response = await fetch("/api/books");
+  await ensureOk(response, "Failed to load books.");
+
+  return readJson<BooksResponse>(response);
 }
 
 export async function fetchDashboard(params: {
