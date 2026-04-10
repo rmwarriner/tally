@@ -160,6 +160,9 @@ describe("web shell view model", () => {
       },
     ]);
     expect(model.filteredTransactions.map((transaction) => transaction.id)).toEqual(["txn-grocery-1"]);
+    expect(model.isFiltered).toBe(true);
+    expect(model.totalCount).toBe(2);
+    expect(model.openingBalance).toBe(0);
     expect(model.selectedAccount).toMatchObject({
       balanceCount: 1,
       id: "acct-checking",
@@ -606,6 +609,79 @@ describe("web shell view model", () => {
     });
 
     expect(model.filteredTransactions.map((transaction) => transaction.id)).toEqual(["txn-grocery-1"]);
+    expect(model.totalCount).toBe(1);
+  });
+
+  it("computes opening balance and total count before text filtering", () => {
+    const model = createLedgerBookModel({
+      accountBalances: [],
+      rangeEnd: "2026-04-30",
+      rangeStart: "2026-04-01",
+      searchText: "landlord",
+      selectedAccountId: "acct-checking",
+      selectedTransactionId: null,
+      book: {
+        accounts: [
+          { code: "1000", id: "acct-checking", name: "Checking", type: "asset" },
+          { code: "6100", id: "acct-expense-rent", name: "Rent", type: "expense" },
+          { code: "4000", id: "acct-income-salary", name: "Salary", type: "income" },
+        ],
+        auditEvents: [],
+        baseCommodityCode: "USD",
+        baselineBudgetLines: [],
+        commodities: [],
+        envelopeAllocations: [],
+        envelopes: [],
+        householdMembers: ["Primary"],
+        id: "workspace-household-demo",
+        importBatches: [],
+        name: "Household",
+        reconciliationSessions: [],
+        schemaVersion: 1,
+        version: 1,
+        scheduledTransactions: [],
+        transactions: [
+          {
+            description: "Prior month ending balance",
+            id: "txn-prior",
+            occurredOn: "2026-03-30",
+            payee: "Opening",
+            postings: [
+              { accountId: "acct-checking", amount: { commodityCode: "USD", quantity: 1000 } },
+              { accountId: "acct-income-salary", amount: { commodityCode: "USD", quantity: -1000 } },
+            ],
+            tags: [],
+          },
+          {
+            description: "Monthly rent",
+            id: "txn-rent",
+            occurredOn: "2026-04-05",
+            payee: "Landlord",
+            postings: [
+              { accountId: "acct-expense-rent", amount: { commodityCode: "USD", quantity: 900 } },
+              { accountId: "acct-checking", amount: { commodityCode: "USD", quantity: -900 } },
+            ],
+            tags: ["housing"],
+          },
+          {
+            description: "Coffee",
+            id: "txn-coffee",
+            occurredOn: "2026-04-07",
+            payee: "Cafe",
+            postings: [
+              { accountId: "acct-expense-rent", amount: { commodityCode: "USD", quantity: 10 } },
+              { accountId: "acct-checking", amount: { commodityCode: "USD", quantity: -10 } },
+            ],
+            tags: ["food"],
+          },
+        ],
+      },
+    });
+
+    expect(model.isFiltered).toBe(true);
+    expect(model.openingBalance).toBe(1000);
+    expect(model.totalCount).toBe(2);
+    expect(model.filteredTransactions.map((transaction) => transaction.id)).toEqual(["txn-rent"]);
   });
 
   it("filters ledger transactions by explicit status filter", () => {
