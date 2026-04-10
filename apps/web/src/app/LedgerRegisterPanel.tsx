@@ -130,8 +130,9 @@ export function LedgerRegisterPanel(props: LedgerRegisterPanelProps) {
     }, 0);
   };
   const runningBalances = new Map<string, number>();
+  const balanceRows = [...props.ledgerBook.filteredTransactions].reverse();
   let runningBalance = props.openingBalance;
-  for (const transaction of props.ledgerBook.filteredTransactions) {
+  for (const transaction of balanceRows) {
     runningBalance += getTransactionAmount(transaction);
     runningBalances.set(transaction.id, runningBalance);
   }
