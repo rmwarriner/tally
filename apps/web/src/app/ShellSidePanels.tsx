@@ -1,138 +1,15 @@
-import type { Dispatch, SetStateAction } from "react";
-import type { DashboardResponse, BookResponse } from "./api";
-import { formatCurrency } from "./app-format";
-import type {
-  LedgerBookModel,
-  OverviewCard,
-  BookView,
-  BookViewDefinition,
-} from "./shell";
+import type { DashboardResponse } from "./api";
+import type { LedgerBookModel, BookView } from "./shell";
 
-interface ShellSidePanelsProps {
+interface ShellInspectorContentProps {
   activeView: BookView;
-  baselineSnapshot: DashboardResponse["dashboard"]["budgetSnapshot"];
   budgetConfigurationErrors: string[];
   dueTransactions: DashboardResponse["dashboard"]["dueTransactions"];
-  getBookViewDefinition: (view: BookView) => BookViewDefinition;
   ledgerValidationErrors: string[];
   ledgerBook: LedgerBookModel;
-  overviewCards: OverviewCard[];
-  selectedLedgerAccountId: string | null;
-  selectedLedgerTransactionId: string | null;
-  setActiveView: (view: BookView) => void;
-  setSelectedLedgerAccountId: Dispatch<SetStateAction<string | null>>;
-  setSelectedLedgerTransactionId: Dispatch<SetStateAction<string | null>>;
-  bookAccounts: BookResponse["book"]["accounts"];
-  bookEnvelopes: BookResponse["book"]["envelopes"];
-  bookSchedules: BookResponse["book"]["scheduledTransactions"];
 }
 
-export function ShellSidebarContent(props: ShellSidePanelsProps) {
-  switch (props.activeView) {
-    case "overview":
-      return (
-        <>
-          <div className="tree-section">
-            <h3>Focus queues</h3>
-            {props.overviewCards.map((card) => {
-              const targetView = props.getBookViewDefinition(card.id);
-
-              return (
-                <button
-                  key={card.id}
-                  className="tree-button"
-                  type="button"
-                  onClick={() => props.setActiveView(card.id)}
-                >
-                  <span>{targetView.label}</span>
-                  <span className="muted">{card.metric}</span>
-                </button>
-              );
-            })}
-          </div>
-
-          <div className="tree-section">
-            <h3>Accounts</h3>
-            {props.bookAccounts.slice(0, 8).map((account) => (
-              <div key={account.id} className="tree-item">
-                <span>{account.name}</span>
-                <span className="muted">{account.code}</span>
-              </div>
-            ))}
-          </div>
-        </>
-      );
-    case "ledger":
-      return (
-        <div className="tree-section">
-          <h3>Ledger accounts</h3>
-          <p>Select accounts from the chart of accounts sidebar.</p>
-        </div>
-      );
-    case "budget":
-      return (
-        <div className="tree-section">
-          <h3>Budget categories</h3>
-          {props.baselineSnapshot.map((row) => (
-            <div key={row.accountId} className="tree-item">
-              <span>{row.accountName}</span>
-              <span className="muted">{formatCurrency(row.planned.quantity)}</span>
-            </div>
-          ))}
-        </div>
-      );
-    case "envelopes":
-      return (
-        <div className="tree-section">
-          <h3>Envelopes</h3>
-          {props.bookEnvelopes.map((envelope) => (
-            <div key={envelope.id} className="tree-item">
-              <span>{envelope.name}</span>
-              <span className="muted">{formatCurrency(envelope.availableAmount.quantity)}</span>
-            </div>
-          ))}
-        </div>
-      );
-    case "imports":
-      return (
-        <div className="tree-section">
-          <h3>Interchange formats</h3>
-          {["CSV", "OFX / QFX", "QIF", "GnuCash XML"].map((item) => (
-            <div key={item} className="tree-item">
-              <span>{item}</span>
-              <span className="muted">{item === "CSV" ? "Live" : "Planned"}</span>
-            </div>
-          ))}
-        </div>
-      );
-    case "automations":
-      return (
-        <div className="tree-section">
-          <h3>Schedules</h3>
-          {props.bookSchedules.map((schedule) => (
-            <div key={schedule.id} className="tree-item">
-              <span>{schedule.name}</span>
-              <span className="muted">{schedule.nextDueOn}</span>
-            </div>
-          ))}
-        </div>
-      );
-    case "reports":
-      return (
-        <div className="tree-section">
-          <h3>Planned views</h3>
-          {["Net worth", "Cash flow", "Budget variance", "Envelope burn-down"].map((item) => (
-            <div key={item} className="tree-item">
-              <span>{item}</span>
-              <span className="muted">Roadmap</span>
-            </div>
-          ))}
-        </div>
-      );
-  }
-}
-
-export function ShellInspectorContent(props: ShellSidePanelsProps) {
+export function ShellInspectorContent(props: ShellInspectorContentProps) {
   switch (props.activeView) {
     case "overview":
       return (

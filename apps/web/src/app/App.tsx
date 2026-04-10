@@ -243,9 +243,14 @@ export function App() {
     );
   }, 0);
   const runningBalance = ledgerBook.openingBalance + filteredTotal;
-  const registerStatus = ledgerBook.isFiltered
-    ? `showing ${ledgerBook.filteredTransactions.length} of ${ledgerBook.totalCount} · filtered total ${formatCurrency(filteredTotal)}`
-    : `${ledgerBook.filteredTransactions.length} transactions · balance ${formatCurrency(runningBalance)}`;
+  const registerStatus =
+    selectedLedgerAccountId === null
+      ? ledgerBook.isFiltered
+        ? `showing ${ledgerBook.filteredTransactions.length} of ${ledgerBook.totalCount} · select an account to see filtered total`
+        : `${ledgerBook.filteredTransactions.length} transactions · select an account to see balance`
+      : ledgerBook.isFiltered
+        ? `showing ${ledgerBook.filteredTransactions.length} of ${ledgerBook.totalCount} · filtered total ${formatCurrency(filteredTotal)}`
+        : `${ledgerBook.filteredTransactions.length} transactions · balance ${formatCurrency(runningBalance)}`;
   const reconciliationBook = loadedBook
     ? createReconciliationBookModel({
         selectedAccountId: reconciliationForm.accountId,
@@ -907,6 +912,7 @@ export function App() {
   }
 
   function openCoaNewAccountFlow() {
+    // TODO(I-008): replace this temporary redirect with a dedicated account creation flow.
     setActiveView("budget");
   }
 
@@ -1072,21 +1078,10 @@ export function App() {
     return (
       <ShellInspectorContent
         activeView={activeView}
-        baselineSnapshot={baselineSnapshot}
         budgetConfigurationErrors={budgetConfigurationErrors}
         dueTransactions={dueTransactions}
-        getBookViewDefinition={getBookViewDefinition}
         ledgerValidationErrors={ledgerValidationErrors}
         ledgerBook={ledgerBook}
-        overviewCards={overviewCards}
-        selectedLedgerAccountId={selectedLedgerAccountId}
-        selectedLedgerTransactionId={selectedLedgerTransactionId}
-        setActiveView={setActiveView}
-        setSelectedLedgerAccountId={setSelectedLedgerAccountId}
-        setSelectedLedgerTransactionId={setSelectedLedgerTransactionId}
-        bookAccounts={bookAccounts}
-        bookEnvelopes={bookEnvelopes}
-        bookSchedules={bookSchedules}
       />
     );
   }

@@ -102,6 +102,19 @@ This is the canonical issue tracker for day-to-day solo development.
     - open questions: none; resolved decisions applied (`tally close --confirm` required with explicit period/range, reviewer token seeded in reset fixture)
   - completed: 2026-04-09
 ## Backlog
+- [ ] I-008 Replace COA "+ Account" budget redirect with real account-creation flow
+  - status: backlog
+  - risk: R2
+  - type: feature
+  - owner: agent
+  - links: /Users/robert/Projects/tally/apps/web/src/app/App.tsx
+  - rollback: keep current temporary redirect behavior in `openCoaNewAccountFlow`
+  - acceptance:
+    - clicking `+ Account` or `+ Sub-account` in COA opens a dedicated account-creation flow
+    - flow supports parent account context for sub-account creation
+    - budget view is no longer used as placeholder navigation for account creation
+    - `pnpm --filter @tally/web typecheck` and `pnpm test` pass
+
 - [x] I-006 Complete envelope operations layer (rollover wiring + cover-overspend command)
   - status: done
   - risk: R2
