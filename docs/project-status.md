@@ -1,6 +1,6 @@
 # Project Status
 
-Last reviewed: 2026-04-10 (visual design pass merged: CSS variable architecture, light/dark theme, density, amount style preferences)
+Last reviewed: 2026-04-11
 
 ## Current State
 
@@ -86,6 +86,8 @@ This repository currently includes:
 - web desktop shell now includes workspace navigation, ledger drill-down, keyboard register navigation, account code/name search, account autocomplete, active-ledger balance context, transaction status display, date-range register filtering, reconciliation matching, and a fuller register detail pane
 - visual design pass: CSS variable architecture, light/dark theme, compact/comfortable density, amount display style (both/color/sign), component polish (buttons, inputs, register rows, chips), preferences persistence
 - ledger UI Slice 2 (inline split editing) completed: register split preview now supports quick inline split account/amount/memo editing with reorder/add/remove controls, live balance validation callouts, save-through-service wiring, and dynamic balances-panel as-of date display
+- COA account creation flow: `+ Account` and `+ Sub-account` open a real inline creation modal; account POSTed through existing API route; parent type pre-set for sub-accounts
+- ledger UI Slice 4 (keyboard hardening): `e` begins inline edit on selected row; Tab/Shift+Tab traverses date→description→payee fields; hotkey suppression regression coverage added
 - mobile workspace reads and dashboard reads now load through service-backed API calls
 - mobile envelope operations, transaction capture, schedule editing, due-schedule approvals, and schedule exceptions now write through the same authenticated service boundary
 - mobile reconciliation capture now records statement sessions through the same service boundary
@@ -210,7 +212,7 @@ This repository currently includes:
 The repository is no longer mainly missing core backend foundations.
 
 **Near-term client work:**
-1. Desktop client — shell chrome and visual design pass complete; next: inline register editing (Slice 2 of `docs/ledger-ui-rebuild-plan.md` — inline split editing); Tauri wrapper spike deferred until register model is stable
+1. Desktop client — ledger UI Slices 1–4 complete (inline row editing, split editing, multi-register tabs, keyboard hardening); COA account creation flow shipped; next slice TBD from `docs/ledger-ui-rebuild-plan.md` deferred cleanup backlog or a new execution item
 2. UI theming: Gruvbox theme as first named theme once custom theme architecture (theme picker, named themes) is implemented; spec in `docs/ideas.md` Track 7
 
 **Longer-horizon product and architecture work:**
@@ -238,6 +240,3 @@ The idea backlog is organized by track in `docs/ideas.md`:
 - UI theming and visual customisation (Track 7 — Gruvbox as first named theme)
 
 The next roadmap phase should promote a small number of these tracks into bounded implementation slices. See `docs/ideas.md` for the full list and promotion criteria.
-
-- I-008 complete (2026-04-11): COA + Account/+ Sub-account now uses inline account creation flow in web app.
-- I-010 Slice 4 complete (2026-04-11): Ledger keyboard workflow hardening now supports `e` to begin inline edit, Tab/Shift+Tab inline field traversal, and explicit hotkey suppression regression coverage.

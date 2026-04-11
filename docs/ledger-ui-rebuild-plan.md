@@ -1,6 +1,6 @@
 # Ledger UI Rebuild Plan
 
-Last reviewed: 2026-04-10
+Last reviewed: 2026-04-11
 
 ## Purpose
 
@@ -83,7 +83,7 @@ The current ledger code is now modularized enough for targeted rebuild slices:
 
 ## Implementation Slices
 
-### Slice 1: Register Row Editing Foundation
+### ~~Slice 1: Register Row Editing Foundation~~ *(done)*
 
 Scope:
 
@@ -97,7 +97,7 @@ Primary files:
 - `apps/web/src/app/ledger-state.ts`
 - `apps/web/src/app/shell.ts`
 
-### Slice 2: Inline Split Editing In Register Context
+### ~~Slice 2: Inline Split Editing In Register Context~~ *(done)*
 
 Scope:
 
@@ -111,7 +111,7 @@ Primary files:
 - `apps/web/src/app/LedgerTransactionEditorPanel.tsx`
 - `apps/web/src/app/transaction-editor.ts`
 
-### Slice 3: Register Tabs / Multi-Register Support
+### ~~Slice 3: Register Tabs / Multi-Register Support~~ *(done)*
 
 Scope:
 
@@ -127,7 +127,7 @@ Primary files:
 - `apps/web/src/app/LedgerRegisterPanel.tsx`
 - `apps/web/src/app/App.tsx` (composition wiring)
 
-### Slice 4: Keyboard-First Workflow Hardening
+### ~~Slice 4: Keyboard-First Workflow Hardening~~ *(done)*
 
 Scope:
 
