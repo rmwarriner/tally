@@ -28,6 +28,7 @@ export default defineConfig({
         "apps/api/src/persistence-sqlite.ts",
         "apps/api/src/persistence-validation.ts",
         "apps/api/src/types.ts",
+        "apps/web/src/app/*.tsx",
         "apps/web/src/app/app-constants.ts",
         "apps/web/src/app/non-ledger-state.ts",
         "apps/web/src/app/transaction-editor.ts",

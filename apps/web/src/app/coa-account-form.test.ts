@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { canSaveCoaAccountDraft } from "./coa-account-form";
+import { canSaveCoaAccountDraft, createCoaAccountDraft } from "./coa-account-form";
 
 describe("coa account form validation", () => {
   it("disables save when code is empty", () => {
@@ -30,5 +30,18 @@ describe("coa account form validation", () => {
         type: "asset",
       }),
     ).toBe(true);
+  });
+});
+
+describe("createCoaAccountDraft", () => {
+  it("creates a root account draft with default asset type", () => {
+    const draft = createCoaAccountDraft({ parentAccountId: null });
+    expect(draft).toEqual({ code: "", name: "", type: "asset", parentAccountId: undefined });
+  });
+
+  it("creates a sub-account draft with parent type and id", () => {
+    const draft = createCoaAccountDraft({ parentAccountId: "acct-1", parentAccountType: "expense" });
+    expect(draft.type).toBe("expense");
+    expect(draft.parentAccountId).toBe("acct-1");
   });
 });

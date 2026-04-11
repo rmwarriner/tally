@@ -292,4 +292,25 @@ describe("web api client", () => {
       status: 429,
     });
   });
+
+  it("falls back to the caller message when the error body is unreadable", async () => {
+    const fetchMock = vi.fn().mockResolvedValue({
+      json: async () => { throw new Error("not json"); },
+      ok: false,
+      status: 500,
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    await expect(
+      postAccount("workspace-household-demo", {
+        id: "acct-cash",
+        code: "1000",
+        name: "Cash",
+        type: "asset",
+      }),
+    ).rejects.toMatchObject({
+      message: "Failed to post account.",
+      status: 500,
+    });
+  });
 });
