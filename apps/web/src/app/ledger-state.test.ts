@@ -267,6 +267,17 @@ describe("validateInlineLedgerSplitDrafts", () => {
       isBalanced: false,
     });
   });
+
+  it("returns splitBalance as the sum of parseable split amounts", () => {
+    expect(
+      validateInlineLedgerSplitDrafts({
+        splits: [
+          { accountId: "acct-checking", amount: "100" },
+          { accountId: "acct-expense-food", amount: "-60" },
+        ],
+      }).splitBalance,
+    ).toBe(40);
+  });
 });
 
 describe("moveInlineSplitDraft", () => {
