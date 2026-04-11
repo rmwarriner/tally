@@ -124,11 +124,11 @@ This is the canonical issue tracker for day-to-day solo development.
   - completed: 2026-04-11
 
 - [ ] I-008 Replace COA "+ Account" budget redirect with real account-creation flow
-  - status: backlog
+  - status: in-progress
   - risk: R2
   - type: feature
   - owner: agent
-  - links: /Users/robert/Projects/tally/apps/web/src/app/App.tsx
+  - links: /Users/robert/Projects/tally/apps/web/src/app/App.tsx, /Users/robert/Projects/tally/apps/web/src/app/api.ts, /Users/robert/Projects/tally/apps/web/src/app/CoaSidebar.tsx
   - rollback: keep current temporary redirect behavior in `openCoaNewAccountFlow`
   - acceptance:
     - clicking `+ Account` or `+ Sub-account` in COA opens a dedicated account-creation flow
