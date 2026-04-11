@@ -1,9 +1,7 @@
 import type { FinanceBookDocument } from "@tally/book";
-import type { BookView } from "./shell";
 
 interface CoaSidebarProps {
   accounts: FinanceBookDocument["accounts"];
-  activeView: BookView;
   onAddTransaction: () => void;
   onAccountSelect: (accountId: string | null) => void;
   onNewAccount: (parentAccountId: string | null) => void;
@@ -22,10 +20,6 @@ const accountTypeOrder: Array<FinanceBookDocument["accounts"][number]["type"]> =
 export function CoaSidebar(props: CoaSidebarProps) {
   return (
     <section className="sidebar coa-sidebar">
-      <div className="panel-header">
-        <span>Chart of accounts</span>
-        <span className="muted">{props.activeView}</span>
-      </div>
       <div className="coa-quick-actions">
         {props.selectedAccountId ? (
           <>

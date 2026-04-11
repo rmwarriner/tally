@@ -244,3 +244,5 @@ The idea backlog is organized by track in `docs/ideas.md`:
 The next roadmap phase should promote a small number of these tracks into bounded implementation slices. See `docs/ideas.md` for the full list and promotion criteria.
 
 - 2026-04-11: I-013 fixed web write paths to send If-Match book version headers across transaction/account/reconciliation/import/budget/envelope/schedule mutations.
+
+- 2026-04-11: I-014 shipped shell redesign slice 1 foundation in web (Geist + JetBrains Mono fonts, Phosphor activity bar icons, and redundant sidebar/overview/inspector chrome removal).

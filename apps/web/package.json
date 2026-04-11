@@ -4,9 +4,12 @@
   "private": true,
   "type": "module",
   "dependencies": {
-    "@tally/domain": "workspace:*",
+    "@fontsource/jetbrains-mono": "^5.2.8",
+    "@phosphor-icons/react": "^2.1.10",
     "@tally/book": "workspace:*",
+    "@tally/domain": "workspace:*",
     "@tally/ui": "workspace:*",
+    "geist": "^1.7.0",
     "react": "^19.0.0",
     "react-dom": "^19.0.0"
   },

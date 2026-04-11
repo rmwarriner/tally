@@ -141,10 +141,6 @@ export function NonLedgerMainPanels(props: NonLedgerMainPanelsProps) {
       return (
         <>
           <article className="panel overview-panel">
-            <div className="panel-header">
-              <span>Workspace modes</span>
-              <span className="muted">Desktop command center</span>
-            </div>
             <div className="overview-card-grid">
               {overviewCards.map((card) => {
                 const targetView = getBookViewDefinition(card.id);
