@@ -1,6 +1,6 @@
 # AI Team Operations
 
-Last reviewed: 2026-04-09
+Last reviewed: 2026-04-11
 
 This document defines how the solo maintainer, Claude Code, and Codex work together with minimal process overhead.
 
@@ -16,13 +16,13 @@ This document defines how the solo maintainer, Claude Code, and Codex work toget
 | File | Owner | Purpose |
 |---|---|---|
 | `CLAUDE.md` | Shared policy | Canonical source of truth for all agents — rules, conventions, non-negotiables, PR requirements |
-| `AGENTS.md` | Codex-specific | Operational startup instructions for Codex only (worktree sync, handoff mechanics). Always references `CLAUDE.md` as policy source. Never duplicates or overrides policy. |
+| `AGENTS.md` | Codex-specific | Operational instructions for Codex only (handoff mechanics, document ownership). Always references `CLAUDE.md` as policy source. Never duplicates or overrides policy. |
 | `docs/handoffs/I-NNN.md` | Claude Code | Task specs drafted by Claude Code, read by Codex on demand |
 
 **Handoff flow:**
 1. User asks Claude Code "what's next" or "write up the next handoffs"
 2. Claude reads `docs/issues.md` and roadmap docs, drafts specs into `docs/handoffs/I-NNN.md`, pushes to `main`
-3. User tells Codex: "start on I-NNN" — Codex reads `docs/handoffs/I-NNN.md`, checks dependencies, syncs worktree, and begins
+3. User tells Codex: "start on I-NNN" — Codex fetches origin, reads `docs/handoffs/I-NNN.md`, checks dependencies, and begins
 4. While Codex executes, Claude can freely draft further handoffs in `docs/handoffs/` without interference
 5. Codex finishes and opens (or auto-merges) a PR
 6. User asks Claude to review the PR if R2/R3; Claude fetches the PR branch for review

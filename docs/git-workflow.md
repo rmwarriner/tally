@@ -94,39 +94,27 @@ When needed, mirror an execution item to a GitHub issue using the appropriate te
 - verify Git state sequentially after commit and push operations instead of running `git push` and `git status` in parallel
 - after a push, run a fresh `git status --short --branch`; if needed, confirm with `git rev-parse HEAD` and `git rev-parse origin/main`
 
-## Workspace Setup (Worktrees)
+## Workspace Setup
 
-Two git worktrees keep Claude Code and Codex from colliding when they work concurrently:
+Both Claude Code and Codex work in the same directory: `/Users/robert/Projects/tally`.
 
-| Worktree | Path | Who uses it | Branch |
-|---|---|---|---|
-| primary | `/Users/robert/Projects/tally` | Claude Code | always `main` |
-| codex | `/Users/robert/Projects/tally-codex` | Codex | feature branches |
+| Agent | Directory | Branch |
+|---|---|---|
+| Claude Code | `/Users/robert/Projects/tally` | always `main` |
+| Codex | `/Users/robert/Projects/tally` | feature branches only, never `main` |
 
-**One-time setup** (already done):
+**Claude Code** stays on `main` at all times. For PR review, `gh pr diff <number>` is sufficient — no checkout needed.
+
+**Codex** fetches and creates a feature branch before any work:
 ```bash
-git worktree add ../tally-codex --detach HEAD
-cd ../tally-codex && pnpm install
-```
-
-**Claude Code** stays in `tally/` on `main`. For PR review, use a detached checkout:
-```bash
-git fetch origin
-git checkout --detach origin/feat/<task>
-# review, then return to main:
-git checkout main
-```
-
-**Codex** starts each session from `tally-codex/`:
-```bash
-cd /Users/robert/Projects/tally-codex
+cd /Users/robert/Projects/tally
 git fetch origin
 git checkout -B feat/<task> origin/main
 ```
 
-After a Codex PR merges, Claude Code pulls `main` in `tally/`:
+After a Codex PR merges, Claude Code pulls `main`:
 ```bash
-git pull --ff-only
+git pull
 ```
 
 ## Local Workflow

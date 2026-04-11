@@ -103,7 +103,7 @@ This repository is maintained by a solo developer. AI assistants and automation 
 These rules apply to every Codex task without exception.
 
 **Session start**
-- Run the worktree sync from `AGENTS.md` before doing anything else
+- Run `git fetch origin` before doing anything else
 - When told to "start on I-NNN", read `docs/handoffs/I-NNN.md` for the full spec
 - Check the `Dependencies:` field first — stop and prompt if any listed issue is not yet merged
 
