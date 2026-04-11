@@ -102,14 +102,7 @@ This is the canonical issue tracker for day-to-day solo development.
     - open questions: none; resolved decisions applied (`tally close --confirm` required with explicit period/range, reviewer token seeded in reset fixture)
   - completed: 2026-04-09
 ## Ready
-- [ ] I-017 Shell redesign slice 4 — typography hierarchy and register visual identity
-  - status: ready
-  - risk: R2
-  - type: feature
-  - owner: agent
-  - links: docs/handoffs/I-017.md, docs/shell-redesign-plan.md
-  - rollback: revert styles.css and minor className changes in apps/web/ only
-  - depends: I-016
+- [ ] (empty)
 
 ## Backlog
 - [ ] (empty)
@@ -164,6 +157,9 @@ This is the canonical issue tracker for day-to-day solo development.
 ## Blocked
 - [ ] (empty)
 ## Done
+- [x] I-017 Shell redesign slice 4 — typography hierarchy and register visual identity
+  - status: done
+  - completed: 2026-04-11
 - [x] I-016 Shell redesign slice 3 — inspector panel redesign
   - status: done
   - completed: 2026-04-11
