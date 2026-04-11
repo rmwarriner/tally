@@ -40,6 +40,13 @@ Structure:
 
 **Branch:** `feat/I-NNN-description`
 
+**First step — sync and create branch:**
+```bash
+cd /Users/robert/Projects/tally
+git fetch origin
+git checkout -B feat/I-NNN-description origin/main
+```
+
 **Dependencies:** I-NNN merged  (or "none")
 
 **Context:** <why this work is being done>
@@ -53,8 +60,8 @@ Structure:
 **Rollback:** <one-line revert plan>
 
 **Final step:** push the branch and open a PR using `.github/PULL_REQUEST_TEMPLATE.md`. Fill out all sections. `pnpm ci:verify` must pass before opening the PR. Append a one-line completion entry to `docs/project-status.md` before opening the PR.
-- If risk tier is **R1**: run `gh pr merge --squash --delete-branch --yes` immediately after `gh pr create`. Local `pnpm ci:verify` is the gate; no waiting for remote CI.
-- If risk tier is **R2 or R3**: leave the PR open for maintainer review. Do not merge.
+- If risk tier is **R1 or R2**: run `gh pr merge --squash --delete-branch` immediately after `gh pr create`. Local `pnpm ci:verify` is the gate; no waiting for remote CI.
+- If risk tier is **R3**: leave the PR open for maintainer review. Do not merge.
 ```
 
 ## Post-Merge Checklist
