@@ -1,7 +1,7 @@
 import { useState } from "react";
 import type { AmountStyle } from "./app-format";
 
-export type Theme = "light" | "dark";
+export type Theme = "light" | "dark" | "gruvbox";
 export type Density = "compact" | "comfortable";
 
 export interface AppPreferences {
@@ -18,6 +18,10 @@ const DEFAULTS: AppPreferences = {
 
 const STORAGE_KEY = "tally.preferences";
 
+export function resolveStoredTheme(theme: unknown): Theme {
+  return theme === "dark" || theme === "gruvbox" ? theme : "light";
+}
+
 function loadPreferences(): AppPreferences {
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
@@ -27,7 +31,7 @@ function loadPreferences(): AppPreferences {
 
     const parsed = JSON.parse(raw) as Partial<AppPreferences>;
     return {
-      theme: parsed.theme === "dark" ? "dark" : "light",
+      theme: resolveStoredTheme(parsed.theme),
       density: parsed.density === "compact" ? "compact" : "comfortable",
       amountStyle:
         parsed.amountStyle === "color" || parsed.amountStyle === "sign"
