@@ -3,15 +3,9 @@ set -euo pipefail
 
 CODEX_WORKTREE="/Users/robert/Projects/tally-codex"
 
-echo "==> Syncing tally-codex worktree..."
 cd "$CODEX_WORKTREE"
 git fetch origin
-
-# main is checked out in tally/ — cannot check it out here.
-# Just report the current branch and ensure we're up to date with origin/main.
-CURRENT_BRANCH=$(git branch --show-current)
-echo "    Current branch: $CURRENT_BRANCH"
-echo "    Remote fetched. origin/main is current."
+echo "==> Fetched origin. Current branch: $(git branch --show-current)"
 echo ""
 
 exec /opt/homebrew/bin/codex

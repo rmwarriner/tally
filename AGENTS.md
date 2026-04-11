@@ -13,11 +13,9 @@ Run these commands at the start of every session before reading any handoff or d
 ```bash
 cd /Users/robert/Projects/tally-codex
 git fetch origin
-git checkout main
-git pull --ff-only
 ```
 
-This ensures the worktree is current with `main` before branching. Do not skip this step even if the worktree appears up to date.
+This updates all remote refs so that `origin/main` is current. Do not skip this step. Do not run `git checkout main` — `main` is permanently checked out in a separate worktree and cannot be checked out here.
 
 ## Starting an Issue
 
