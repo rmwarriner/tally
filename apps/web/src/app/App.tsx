@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, type CSSProperties } from "react";
 import {
   deleteTransaction,
   postBaselineBudgetLine,
@@ -18,6 +18,7 @@ import {
   getPostingBalanceSummary,
   getBookViewDefinition,
   movePostingIndex,
+  shouldHandleLedgerHotkey,
   type PostingFocusField,
   type BookView,
 } from "./shell";
@@ -114,6 +115,7 @@ export function App() {
   const [isPeriodInputOpen, setIsPeriodInputOpen] = useState(false);
   const [isLedgerDetailOpen, setIsLedgerDetailOpen] = useState(false);
   const [isLedgerOperationsOpen, setIsLedgerOperationsOpen] = useState(false);
+  const [isInspectorOpen, setIsInspectorOpen] = useState(false);
   const [isCommandPaletteOpen, setIsCommandPaletteOpen] = useState(false);
   const [coaAccountDraft, setCoaAccountDraft] = useState<CoaAccountDraft | null>(null);
   const [transactionEditor, setTransactionEditor] = useState<TransactionEditorState | null>(null);
@@ -431,6 +433,18 @@ export function App() {
 
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
+      if (
+        !event.ctrlKey &&
+        !event.metaKey &&
+        !event.altKey &&
+        event.key.toLowerCase() === "i" &&
+        shouldHandleLedgerHotkey(event.target)
+      ) {
+        event.preventDefault();
+        setIsInspectorOpen((current) => !current);
+        return;
+      }
+
       if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === "k") {
         event.preventDefault();
         setIsCommandPaletteOpen((current) => !current);
@@ -1182,13 +1196,18 @@ export function App() {
     return (
       <ShellInspectorContent
         activeView={activeView}
-        budgetConfigurationErrors={budgetConfigurationErrors}
-        dueTransactions={dueTransactions}
-        ledgerValidationErrors={ledgerValidationErrors}
+        book={loadedBook!}
+        currentPeriod={currentPeriod}
+        isInspectorOpen={isInspectorOpen}
         ledgerBook={ledgerBook}
+        onToggleInspector={() => setIsInspectorOpen((current) => !current)}
       />
     );
   }
+
+  const workspaceStyle = {
+    "--inspector-width": isInspectorOpen ? "280px" : "0px",
+  } as CSSProperties;
 
   return (
     <div
@@ -1196,6 +1215,7 @@ export function App() {
       data-theme={preferences.theme}
       data-density={preferences.density}
       data-amount-style={preferences.amountStyle}
+      style={workspaceStyle}
     >
       <ShellTopbar
         currentPeriodLabel={currentPeriodLabel}
