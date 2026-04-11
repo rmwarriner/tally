@@ -101,20 +101,6 @@ This is the canonical issue tracker for day-to-day solo development.
     - known risks: approval grant/deny integration assertions include environment-tolerant fallback paths because reviewer credentials can differ by runtime auth backend/book membership state; production self-approval guard remains enforced
     - open questions: none; resolved decisions applied (`tally close --confirm` required with explicit period/range, reviewer token seeded in reset fixture)
   - completed: 2026-04-09
-## Ready
-- [ ] I-012 Theme picker architecture + Gruvbox theme
-  - status: ready
-  - risk: R1
-  - type: feature
-  - owner: agent
-  - links: docs/codex-handoff.md, docs/ideas.md (Track 7)
-  - rollback: revert changes to use-preferences.ts, styles.css, NonLedgerMainPanels.tsx — no other packages affected
-  - acceptance:
-    - `Theme` type extended to `"light" | "dark" | "gruvbox"` with deserialisation guard updated
-    - `[data-theme="gruvbox"]` CSS block added with full Gruvbox dark palette mapped to semantic tokens
-    - theme radio group in Settings includes "Gruvbox" option; selection persists across reloads
-    - `pnpm ci:verify` passes
-
 ## Backlog
 - [ ] (empty)
 
