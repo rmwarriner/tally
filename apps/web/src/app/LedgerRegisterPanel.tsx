@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState, type Dispatch, type RefObject, type SetStateAction } from "react";
 import type { BookResponse } from "./api";
-import { formatAmount, type AmountStyle } from "./app-format";
+import { formatAmount, formatSignedCurrency, type AmountStyle } from "./app-format";
 import {
   getInlineSplitAccountApplyKeyAction,
   getInlineSplitAccountGuidance,
@@ -80,6 +80,13 @@ interface LedgerRegisterPanelProps {
   totalCount: number;
 }
 
+function formatDateAsYyyyMmDd(value: Date): string {
+  const year = value.getFullYear();
+  const month = String(value.getMonth() + 1).padStart(2, "0");
+  const day = String(value.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+}
+
 export function LedgerRegisterPanel(props: LedgerRegisterPanelProps) {
   const [expandedTransactionId, setExpandedTransactionId] = useState<string | null>(null);
   const [editingSplitTransactionId, setEditingSplitTransactionId] = useState<string | null>(null);
@@ -117,6 +124,9 @@ export function LedgerRegisterPanel(props: LedgerRegisterPanelProps) {
   const newRowAccountIsValid = newTransactionDraft.expenseAccountId.trim().length > 0;
   const newRowSaveDisabled =
     !newRowDateIsValid || !newRowDescriptionIsValid || !newRowAmountIsValid || !newRowAccountIsValid;
+  const balanceAsOfDate = /^\d{4}-\d{2}-\d{2}$/.test(props.ledgerRange.to.trim())
+    ? props.ledgerRange.to.trim()
+    : formatDateAsYyyyMmDd(new Date());
   const visibleColumnCount = props.isFiltered ? 7 : 8;
   const getTransactionAmount = (transaction: ReturnType<typeof createLedgerBookModel>["filteredTransactions"][number]) => {
     if (!props.selectedLedgerAccountId) {
@@ -1401,16 +1411,26 @@ export function LedgerRegisterPanel(props: LedgerRegisterPanelProps) {
                                       Each split must reference an account.
                                     </div>
                                   ) : null}
-                                  {!splitAmountsAreValid ? (
-                                    <div className="form-hint error-text">
-                                      Split amounts must be valid numbers.
+                                  {splitIsBalanced ? (
+                                    <div className="editor-balance-callout balanced">
+                                      <div className="editor-balance-callout-header">
+                                        <strong>Balanced</strong>
+                                      </div>
                                     </div>
-                                  ) : null}
-                                  {splitAmountsAreValid && !splitIsBalanced ? (
-                                    <div className="form-hint error-text">
-                                      Split amounts must balance to zero.
+                                  ) : (
+                                    <div className="editor-balance-callout warning">
+                                      <div className="editor-balance-callout-header">
+                                        {splitAmountsAreValid ? (
+                                          <span>
+                                            Remaining difference:{" "}
+                                            {formatSignedCurrency(splitValidation?.splitBalance ?? 0)}
+                                          </span>
+                                        ) : (
+                                          <span>Invalid amounts - fix before saving.</span>
+                                        )}
+                                      </div>
                                     </div>
-                                  ) : null}
+                                  )}
                                   <button
                                     className="btn-primary"
                                     ref={splitSaveButtonRef}
@@ -1512,7 +1532,7 @@ export function LedgerRegisterPanel(props: LedgerRegisterPanelProps) {
       <article className="panel">
         <div className="panel-header">
           <span>Balances</span>
-          <span className="muted">As of 2026-04-30</span>
+          <span className="muted">As of {balanceAsOfDate}</span>
         </div>
         {props.ledgerBook.filteredBalances.map((balance) => (
           <button

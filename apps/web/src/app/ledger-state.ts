@@ -70,6 +70,7 @@ export interface InlineLedgerSplitValidation {
   hasMinimumRows: boolean;
   isBalanced: boolean;
   parsedAmounts: number[];
+  splitBalance: number;
 }
 
 export type InlineSplitAccountResolution = "empty" | "resolved" | "unresolved";
@@ -187,6 +188,7 @@ export function validateInlineLedgerSplitDrafts(input: {
     hasMinimumRows,
     isBalanced,
     parsedAmounts,
+    splitBalance,
   };
 }
 

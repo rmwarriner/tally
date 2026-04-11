@@ -1,5 +1,5 @@
 # Local Issue Queue
-Last reviewed: 2026-04-09
+Last reviewed: 2026-04-11
 This is the canonical issue tracker for day-to-day solo development.
 ## How To Use
 - add new work to `Backlog` with the next `I-###` id
@@ -102,6 +102,27 @@ This is the canonical issue tracker for day-to-day solo development.
     - open questions: none; resolved decisions applied (`tally close --confirm` required with explicit period/range, reviewer token seeded in reset fixture)
   - completed: 2026-04-09
 ## Backlog
+- [x] I-009 Complete and close ledger UI Slice 2 — inline split editing
+  - status: done
+  - risk: R2
+  - type: feature
+  - owner: agent
+  - links: /Users/robert/Projects/tally/docs/ledger-ui-rebuild-plan.md (Slice 2), /Users/robert/Projects/tally/apps/web/src/app/LedgerRegisterPanel.tsx, /Users/robert/Projects/tally/apps/web/src/app/ledger-state.ts
+  - rollback: changes are confined to `apps/web/` and `packages/ui/`; revert commits to those paths only
+  - acceptance:
+    - `InlineLedgerSplitValidation` in `ledger-state.ts` gains a `splitBalance: number` field (the computed sum of parsed amounts, or `NaN` when any amount is invalid); `validateInlineLedgerSplitDrafts` exposes it; the existing test suite gains a case asserting the returned `splitBalance` value
+    - the inline split edit footer in `LedgerRegisterPanel.tsx` shows a live balance callout when `isEditingSplitRow` is active: "Remaining difference: $X.XX" when not balanced (using the existing `formatSignedCurrency` helper on `splitBalance`), or a "Balanced" indicator when `isBalanced` is true — mirroring the style of the callout in `LedgerTransactionEditorPanel`
+    - the hardcoded `"As of 2026-04-30"` string in the Balances panel (`LedgerRegisterPanel.tsx:1515`) is replaced with a value derived from the current period end date (passed in via props from `App.tsx`) or — if no period end is available — today's date formatted as `YYYY-MM-DD`
+    - `pnpm --filter @tally/web typecheck` passes
+    - `pnpm ci:verify` passes
+    - one entry appended to `docs/project-status.md` confirming Slice 2 complete
+  - handoff:
+    - current state: most of Slice 2 is already implemented — the register has row expansion with split preview, "Quick edit splits" inline form (account search, amount, memo, cleared, reorder, add/remove), save through `putTransaction`, and an "Advanced" fallback button; `ledger-state.ts` helpers (`validateInlineLedgerSplitDrafts`, `moveInlineSplitDraft`, etc.) are unit-tested in `ledger-state.test.ts`
+    - next step: two concrete gaps remain — (1) no live numeric balance amount shown in the split edit footer, and (2) hardcoded date in Balances panel; fix both, verify acceptance criteria, update project-status.md
+    - known risks: `InlineLedgerSplitDraft` interface (`ledger-state.ts:61`) only has `accountId` and `amount` fields — the register passes a richer object that conforms because TypeScript structural typing allows extra fields; adding `splitBalance` to the return type is additive and safe
+    - open questions: none — balance callout should mirror the existing `editor-balance-callout` CSS class already used in `LedgerTransactionEditorPanel`
+  - completed: 2026-04-11
+
 - [ ] I-008 Replace COA "+ Account" budget redirect with real account-creation flow
   - status: backlog
   - risk: R2
