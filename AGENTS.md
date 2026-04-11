@@ -6,17 +6,6 @@ All execution rules, non-negotiables, PR requirements, coding conventions, and p
 
 This file contains only Codex-specific operational instructions — session startup, worktree sync, and handoff mechanics — that are not relevant to Claude Code and do not belong in the shared policy file.
 
-## Codex Session Start
-
-Run these commands at the start of every session before reading any handoff or doing any work:
-
-```bash
-cd /Users/robert/Projects/tally
-git fetch origin
-```
-
-This updates all remote refs so that `origin/main` is current. Do not skip this step.
-
 ## Starting an Issue
 
 When told to "start on I-NNN", first run `git fetch origin` to ensure you have the latest handoff files, then read `docs/handoffs/I-NNN.md` for the full spec.

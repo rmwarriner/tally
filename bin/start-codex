@@ -1,11 +1,9 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-CODEX_WORKTREE="/Users/robert/Projects/tally"
-
-cd "$CODEX_WORKTREE"
+cd /Users/robert/Projects/tally
 git fetch origin
-echo "==> Fetched origin. Current branch: $(git branch --show-current)"
+echo "==> Fetched origin. Ready."
 echo ""
 
 exec /opt/homebrew/bin/codex
