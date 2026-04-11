@@ -1,5 +1,16 @@
 import { describe, expect, it } from "vitest";
-import { formatAmount, formatPeriodLabel, parsePeriodExpression } from "./app-format";
+import {
+  createEntityId,
+  createTransactionId,
+  formatAccountOptionLabel,
+  formatAmount,
+  formatCurrency,
+  formatPeriodLabel,
+  formatSignedCurrency,
+  formatTransactionStatus,
+  parseCsvRows,
+  parsePeriodExpression,
+} from "./app-format";
 
 describe("app format helpers", () => {
   it("formats period labels from iso date", () => {
@@ -36,6 +47,105 @@ describe("app format helpers", () => {
     expect(parsePeriodExpression("")).toBeNull();
     expect(parsePeriodExpression("2026-13")).toBeNull();
     expect(parsePeriodExpression("foo 2026")).toBeNull();
+  });
+});
+
+describe("formatCurrency", () => {
+  it("formats positive, zero, and negative values as USD", () => {
+    expect(formatCurrency(1234.5)).toBe("$1,234.50");
+    expect(formatCurrency(0)).toBe("$0.00");
+    expect(formatCurrency(-50)).toBe("-$50.00");
+  });
+});
+
+describe("formatSignedCurrency", () => {
+  it("keeps positive and zero unsigned and prepends minus for negatives", () => {
+    expect(formatSignedCurrency(50)).toBe("$50.00");
+    expect(formatSignedCurrency(-50)).toBe("-$50.00");
+    expect(formatSignedCurrency(0)).toBe("$0.00");
+  });
+});
+
+describe("formatTransactionStatus", () => {
+  it("maps each status to its label", () => {
+    expect(formatTransactionStatus("cleared")).toBe("Cleared");
+    expect(formatTransactionStatus("reconciled")).toBe("Reconciled");
+    expect(formatTransactionStatus("open")).toBe("Open");
+  });
+});
+
+describe("formatAccountOptionLabel", () => {
+  it("includes code when present", () => {
+    expect(formatAccountOptionLabel({ name: "Checking", code: "1000" } as never)).toBe(
+      "Checking (1000)",
+    );
+  });
+
+  it("returns just name when code is empty or missing", () => {
+    expect(formatAccountOptionLabel({ name: "Savings", code: "" } as never)).toBe("Savings");
+    expect(formatAccountOptionLabel({ name: "Cash" } as never)).toBe("Cash");
+  });
+});
+
+describe("parseCsvRows", () => {
+  it("parses a single valid csv row", () => {
+    expect(parseCsvRows("2026-04-01,Coffee,-4.25,acc-expense,acc-cash")).toEqual([
+      {
+        occurredOn: "2026-04-01",
+        description: "Coffee",
+        amount: -4.25,
+        counterpartAccountId: "acc-expense",
+        cashAccountId: "acc-cash",
+      },
+    ]);
+  });
+
+  it("parses multiple rows", () => {
+    expect(
+      parseCsvRows(
+        [
+          "2026-04-01,Coffee,-4.25,acc-expense,acc-cash",
+          "2026-04-02,Paycheck,1250,acc-income,acc-checking",
+        ].join("\n"),
+      ),
+    ).toEqual([
+      {
+        occurredOn: "2026-04-01",
+        description: "Coffee",
+        amount: -4.25,
+        counterpartAccountId: "acc-expense",
+        cashAccountId: "acc-cash",
+      },
+      {
+        occurredOn: "2026-04-02",
+        description: "Paycheck",
+        amount: 1250,
+        counterpartAccountId: "acc-income",
+        cashAccountId: "acc-checking",
+      },
+    ]);
+  });
+
+  it("trims whitespace around rows and values", () => {
+    expect(parseCsvRows("  2026-04-03, Lunch , -12.5 , acc-food , acc-checking  ")).toEqual([
+      {
+        occurredOn: "2026-04-03",
+        description: "Lunch",
+        amount: -12.5,
+        counterpartAccountId: "acc-food",
+        cashAccountId: "acc-checking",
+      },
+    ]);
+  });
+});
+
+describe("id helpers", () => {
+  it("createTransactionId uses txn-web- prefix", () => {
+    expect(createTransactionId()).toMatch(/^txn-web-/);
+  });
+
+  it("createEntityId uses provided prefix", () => {
+    expect(createEntityId("acct")).toMatch(/^acct-/);
   });
 });
 

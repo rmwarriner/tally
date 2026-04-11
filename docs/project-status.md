@@ -112,6 +112,7 @@ This repository currently includes:
 - changed-line diff coverage gate for production TypeScript source in pull requests
 - security baseline documentation and audited hardening for API/runtime boundaries
 - CLI-local Vitest config and package-level unit suite for config resolution, API client behavior, output formatting, and date/period parsing
+- app-format.ts test coverage expanded to cover all exported functions
 
 ### CLI Implementation (Phases 1-3, 2026-04-09)
 
