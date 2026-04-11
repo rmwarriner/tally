@@ -26,8 +26,8 @@ try {
     console.error("AGENTS.md must contain a pointer to CLAUDE.md as the canonical policy source.");
     hasError = true;
   }
-  if (!agents.includes("## Codex Session Start")) {
-    console.error("AGENTS.md must contain a '## Codex Session Start' section with worktree sync instructions.");
+  if (!agents.includes("## Starting an Issue")) {
+    console.error("AGENTS.md must contain a '## Starting an Issue' section.");
     hasError = true;
   }
   if (!agents.includes("docs/handoffs/")) {
