@@ -7,6 +7,7 @@ describe("LedgerOperationsPanels", () => {
   it("renders reconciliation summary and empty candidate hint", () => {
     const html = renderToStaticMarkup(
       createElement(LedgerOperationsPanels, {
+        bookVersion: 42,
         busy: null,
         liquidAccounts: [
           { code: "1000", id: "acct-checking", name: "Checking", type: "asset" },

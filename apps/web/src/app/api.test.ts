@@ -25,7 +25,7 @@ describe("web api client", () => {
     });
     vi.stubGlobal("fetch", fetchMock);
 
-    await postTransaction("workspace-household-demo", {
+    await postTransaction("workspace-household-demo", 42, {
       actor: "Primary",
       transaction: {
         id: "txn-1",
@@ -38,6 +38,9 @@ describe("web api client", () => {
     expect(fetchMock).toHaveBeenCalledWith(
       "/api/books/workspace-household-demo/transactions",
       expect.objectContaining({
+        headers: expect.objectContaining({
+          "if-match": "\"book-42\"",
+        }),
         method: "POST",
       }),
     );
@@ -50,7 +53,7 @@ describe("web api client", () => {
     });
     vi.stubGlobal("fetch", fetchMock);
 
-    await postAccount("workspace-household-demo", {
+    await postAccount("workspace-household-demo", 42, {
       id: "acct-cash",
       code: "1000",
       name: "Cash",
@@ -60,6 +63,9 @@ describe("web api client", () => {
     expect(fetchMock).toHaveBeenCalledWith(
       "/api/books/workspace-household-demo/accounts",
       expect.objectContaining({
+        headers: expect.objectContaining({
+          "if-match": "\"book-42\"",
+        }),
         method: "POST",
       }),
     );
@@ -72,7 +78,7 @@ describe("web api client", () => {
     });
     vi.stubGlobal("fetch", fetchMock);
 
-    await putTransaction("workspace-household-demo", "txn-grocery-1", {
+    await putTransaction("workspace-household-demo", 42, "txn-grocery-1", {
       actor: "Primary",
       transaction: {
         description: "Updated groceries",
@@ -85,6 +91,9 @@ describe("web api client", () => {
     expect(fetchMock).toHaveBeenCalledWith(
       "/api/books/workspace-household-demo/transactions/txn-grocery-1",
       expect.objectContaining({
+        headers: expect.objectContaining({
+          "if-match": "\"book-42\"",
+        }),
         method: "PUT",
       }),
     );
@@ -97,7 +106,7 @@ describe("web api client", () => {
     });
     vi.stubGlobal("fetch", fetchMock);
 
-    await postCsvImport("workspace-household-demo", {
+    await postCsvImport("workspace-household-demo", 42, {
       actor: "Primary",
       payload: {
         batchId: "import-1",
@@ -110,6 +119,9 @@ describe("web api client", () => {
     expect(fetchMock).toHaveBeenCalledWith(
       "/api/books/workspace-household-demo/imports/csv",
       expect.objectContaining({
+        headers: expect.objectContaining({
+          "if-match": "\"book-42\"",
+        }),
         method: "POST",
       }),
     );
@@ -122,7 +134,7 @@ describe("web api client", () => {
     });
     vi.stubGlobal("fetch", fetchMock);
 
-    await postReconciliation("workspace-household-demo", {
+    await postReconciliation("workspace-household-demo", 42, {
       actor: "Primary",
       payload: {
         accountId: "acct-checking",
@@ -135,6 +147,9 @@ describe("web api client", () => {
     expect(fetchMock).toHaveBeenCalledWith(
       "/api/books/workspace-household-demo/reconciliations",
       expect.objectContaining({
+        headers: expect.objectContaining({
+          "if-match": "\"book-42\"",
+        }),
         method: "POST",
       }),
     );
@@ -147,7 +162,7 @@ describe("web api client", () => {
     });
     vi.stubGlobal("fetch", fetchMock);
 
-    await postBaselineBudgetLine("workspace-household-demo", {
+    await postBaselineBudgetLine("workspace-household-demo", 42, {
       line: {
         accountId: "acct-expense-groceries",
         budgetPeriod: "monthly",
@@ -159,6 +174,9 @@ describe("web api client", () => {
     expect(fetchMock).toHaveBeenCalledWith(
       "/api/books/workspace-household-demo/budget-lines",
       expect.objectContaining({
+        headers: expect.objectContaining({
+          "if-match": "\"book-42\"",
+        }),
         method: "POST",
       }),
     );
@@ -171,7 +189,7 @@ describe("web api client", () => {
     });
     vi.stubGlobal("fetch", fetchMock);
 
-    await postEnvelope("workspace-household-demo", {
+    await postEnvelope("workspace-household-demo", 42, {
       envelope: {
         availableAmount: { commodityCode: "USD", quantity: 150 },
         expenseAccountId: "acct-expense-housing",
@@ -183,7 +201,7 @@ describe("web api client", () => {
       },
     });
 
-    await postEnvelopeAllocation("workspace-household-demo", {
+    await postEnvelopeAllocation("workspace-household-demo", 42, {
       allocation: {
         amount: { commodityCode: "USD", quantity: 50 },
         envelopeId: "env-groceries",
@@ -197,6 +215,9 @@ describe("web api client", () => {
       1,
       "/api/books/workspace-household-demo/envelopes",
       expect.objectContaining({
+        headers: expect.objectContaining({
+          "if-match": "\"book-42\"",
+        }),
         method: "POST",
       }),
     );
@@ -204,6 +225,9 @@ describe("web api client", () => {
       2,
       "/api/books/workspace-household-demo/envelope-allocations",
       expect.objectContaining({
+        headers: expect.objectContaining({
+          "if-match": "\"book-42\"",
+        }),
         method: "POST",
       }),
     );
@@ -216,7 +240,7 @@ describe("web api client", () => {
     });
     vi.stubGlobal("fetch", fetchMock);
 
-    await postScheduledTransaction("workspace-household-demo", {
+    await postScheduledTransaction("workspace-household-demo", 42, {
       schedule: {
         autoPost: false,
         frequency: "monthly",
@@ -242,6 +266,9 @@ describe("web api client", () => {
     expect(fetchMock).toHaveBeenCalledWith(
       "/api/books/workspace-household-demo/schedules",
       expect.objectContaining({
+        headers: expect.objectContaining({
+          "if-match": "\"book-42\"",
+        }),
         method: "POST",
       }),
     );
@@ -302,7 +329,7 @@ describe("web api client", () => {
     vi.stubGlobal("fetch", fetchMock);
 
     await expect(
-      postAccount("workspace-household-demo", {
+      postAccount("workspace-household-demo", 42, {
         id: "acct-cash",
         code: "1000",
         name: "Cash",

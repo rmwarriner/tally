@@ -476,6 +476,7 @@ export function App() {
       />
     );
   }
+  const bookVersion = loadedBook.version;
 
   function addPostingToEditor() {
     setTransactionEditor((current) => {
@@ -763,7 +764,7 @@ export function App() {
     }
 
     await runMutation("Transaction update", async () => {
-      await putTransaction(activeBookId, transactionEditor.transactionId, {
+      await putTransaction(activeBookId, bookVersion, transactionEditor.transactionId, {
         actor: "Primary",
         transaction: {
           description: transactionEditor.description.trim(),
@@ -807,7 +808,7 @@ export function App() {
     }
 
     await runMutation("Transaction update", async () => {
-      await putTransaction(activeBookId, sourceTransaction.id, {
+      await putTransaction(activeBookId, bookVersion, sourceTransaction.id, {
         actor: "Primary",
         transaction: {
           description: trimmedDescription,
@@ -840,7 +841,7 @@ export function App() {
   }) {
     await runMutation("Transaction post", async () => {
       const amount = Number.parseFloat(input.amount);
-      await postTransaction(activeBookId, {
+      await postTransaction(activeBookId, bookVersion, {
         actor: "Primary",
         transaction: {
           description: input.description,
@@ -865,7 +866,7 @@ export function App() {
 
   async function deleteInlineLedgerTransaction(transactionId: string) {
     await runMutation("Transaction delete", async () => {
-      await deleteTransaction(activeBookId, transactionId, {
+      await deleteTransaction(activeBookId, bookVersion, transactionId, {
         actor: "Primary",
       });
     });
@@ -898,7 +899,7 @@ export function App() {
     }
 
     await runMutation("Transaction update", async () => {
-      await putTransaction(activeBookId, sourceTransaction.id, {
+      await putTransaction(activeBookId, bookVersion, sourceTransaction.id, {
         actor: "Primary",
         transaction: {
           description: sourceTransaction.description,
@@ -958,7 +959,7 @@ export function App() {
     }
 
     await runMutation("Account create", async () => {
-      await postAccount(activeBookId, {
+      await postAccount(activeBookId, bookVersion, {
         id: createEntityId("acct-web"),
         code: coaAccountDraft.code.trim(),
         name: coaAccountDraft.name.trim(),
@@ -1041,6 +1042,7 @@ export function App() {
           ledgerIsFiltered={ledgerBook.isFiltered}
           ledgerOpeningBalance={ledgerBook.openingBalance}
           ledgerTotalCount={ledgerBook.totalCount}
+          bookVersion={bookVersion}
           liquidAccounts={liquidAccounts}
           onActivateLedgerRegisterTab={setActiveLedgerRegisterTabId}
           onCancelInlineEdit={cancelInlineEdit}
@@ -1093,6 +1095,7 @@ export function App() {
       <NonLedgerMainPanels
         activeView={activeView}
         baselineSnapshot={baselineSnapshot}
+        bookVersion={bookVersion}
         budgetLineForm={budgetLineForm}
         busy={busy}
         createEntityId={createEntityId}

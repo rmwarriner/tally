@@ -12,6 +12,7 @@ interface ReconciliationFormState {
 }
 
 interface LedgerOperationsPanelsProps {
+  bookVersion: number;
   busy: string | null;
   liquidAccounts: BookResponse["book"]["accounts"];
   reconciliationForm: ReconciliationFormState;
@@ -34,7 +35,7 @@ export function LedgerOperationsPanels(props: LedgerOperationsPanelsProps) {
           onSubmit={(event) => {
             event.preventDefault();
             void props.runMutation("Reconciliation", async () => {
-              await postReconciliation(BOOK_ID, {
+              await postReconciliation(BOOK_ID, props.bookVersion, {
                 actor: "Primary",
                 payload: {
                   accountId: props.reconciliationForm.accountId,
