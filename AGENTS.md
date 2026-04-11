@@ -10,6 +10,21 @@ This file contains only Codex-specific operational instructions — session star
 
 When told to "start on I-NNN", first run `git fetch origin` to ensure you have the latest handoff files, then read `docs/handoffs/I-NNN.md` for the full spec.
 
+## One-Off Fixes
+
+For small corrections not tied to a formal issue, no handoff file is needed. Branch from `origin/main` using `fix/`, `chore/`, or `docs/` prefix, make the change, run `pnpm ci:verify`, then create and auto-merge the PR as R1:
+
+```bash
+git fetch origin
+git checkout -B fix/short-description origin/main
+# make the fix
+pnpm ci:verify
+gh pr create --title "fix: ..." --body "..."
+gh pr merge --squash --delete-branch
+```
+
+Do not append to `docs/project-status.md` for one-off fixes unless the change is meaningful enough to note.
+
 ## Ancillary Documents
 
 - `docs/project-status.md` — append a one-line completion entry on your feature branch before opening the PR. This is the only tracking doc Codex touches.
