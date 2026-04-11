@@ -3,6 +3,7 @@ import {
   ApiClientError,
   fetchDashboard,
   postBaselineBudgetLine,
+  postAccount,
   postCsvImport,
   postEnvelope,
   postEnvelopeAllocation,
@@ -36,6 +37,28 @@ describe("web api client", () => {
 
     expect(fetchMock).toHaveBeenCalledWith(
       "/api/books/workspace-household-demo/transactions",
+      expect.objectContaining({
+        method: "POST",
+      }),
+    );
+  });
+
+  it("posts accounts to the service route", async () => {
+    const fetchMock = vi.fn().mockResolvedValue({
+      json: async () => ({ book: { id: "workspace-household-demo" } }),
+      ok: true,
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    await postAccount("workspace-household-demo", {
+      id: "acct-cash",
+      code: "1000",
+      name: "Cash",
+      type: "asset",
+    });
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      "/api/books/workspace-household-demo/accounts",
       expect.objectContaining({
         method: "POST",
       }),
@@ -267,6 +290,27 @@ describe("web api client", () => {
       code: "security.rate_limited",
       message: "Rate limit exceeded. Retry later.",
       status: 429,
+    });
+  });
+
+  it("falls back to the caller message when the error body is unreadable", async () => {
+    const fetchMock = vi.fn().mockResolvedValue({
+      json: async () => { throw new Error("not json"); },
+      ok: false,
+      status: 500,
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    await expect(
+      postAccount("workspace-household-demo", {
+        id: "acct-cash",
+        code: "1000",
+        name: "Cash",
+        type: "asset",
+      }),
+    ).rejects.toMatchObject({
+      message: "Failed to post account.",
+      status: 500,
     });
   });
 });

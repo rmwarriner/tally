@@ -238,3 +238,5 @@ The idea backlog is organized by track in `docs/ideas.md`:
 - UI theming and visual customisation (Track 7 — Gruvbox as first named theme)
 
 The next roadmap phase should promote a small number of these tracks into bounded implementation slices. See `docs/ideas.md` for the full list and promotion criteria.
+
+- I-008 complete (2026-04-11): COA + Account/+ Sub-account now uses inline account creation flow in web app.
