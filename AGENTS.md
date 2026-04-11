@@ -1,8 +1,10 @@
 # AGENTS.md
 
-Canonical repository agent guidance lives in [CLAUDE.md](CLAUDE.md).
+**Policy source of truth: [CLAUDE.md](CLAUDE.md)**
 
-All execution rules, non-negotiables, PR requirements, and coding conventions are defined there and apply to every Codex session without exception.
+All execution rules, non-negotiables, PR requirements, coding conventions, and project standards are defined in `CLAUDE.md` and apply to every Codex session without exception. Do not duplicate or override policy text here.
+
+This file contains only Codex-specific operational instructions — session startup, worktree sync, and handoff mechanics — that are not relevant to Claude Code and do not belong in the shared policy file.
 
 ## Codex Session Start
 

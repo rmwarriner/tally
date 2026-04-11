@@ -11,6 +11,14 @@ This document defines how the solo maintainer, Claude Code, and Codex work toget
 | Claude Code | `tally/` (primary, always `main`) | analysis, planning, doc edits, PR review, Codex handoffs |
 | Codex | `tally-codex/` (feature branches) | all implementation, TDD, CI verification, PR authoring |
 
+## Agent File Responsibilities
+
+| File | Owner | Purpose |
+|---|---|---|
+| `CLAUDE.md` | Shared policy | Canonical source of truth for all agents — rules, conventions, non-negotiables, PR requirements |
+| `AGENTS.md` | Codex-specific | Operational startup instructions for Codex only (worktree sync, handoff mechanics). Always references `CLAUDE.md` as policy source. Never duplicates or overrides policy. |
+| `docs/handoffs/I-NNN.md` | Claude Code | Task specs drafted by Claude Code, read by Codex on demand |
+
 **Handoff flow:**
 1. User asks Claude Code "what's next" or "write up the next handoffs"
 2. Claude reads `docs/issues.md` and roadmap docs, drafts specs into `docs/handoffs/I-NNN.md`, pushes to `main`
