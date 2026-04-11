@@ -460,15 +460,49 @@ Receipt scanning and document attachment are mentioned in the product vision but
 - What file types and size limits should be enforced?
 - How does attachment storage interact with backup/restore?
 
-## Track 7: UI Theming and Visual Customisation
+## Track 7: Visual Design and Aesthetics
 
-### Gruvbox default theme
+Visual quality is a first-class product concern, not a phase deferred until workflows are complete. Users decide whether to adopt an app based on how it feels to use — a beautiful, considered design invites daily use in a way that a functionally correct but utilitarian interface does not. GnuCash has the right accounting model and a decades-long adoption problem; that is the specific failure mode to avoid.
 
-Implement a Gruvbox-inspired colour theme as the first named theme to ship with the product. Gruvbox uses warm, retro-style earth tones with clearly distinct foreground/background contrast ratios — a natural fit for the ledger book mental model.
+The items in this track are not cosmetic extras. They are the difference between an app that users choose and an app that users tolerate.
 
-The CSS variable architecture from the visual design pass (`data-theme` attribute, full semantic token set in `styles.css`) already supports this: a Gruvbox theme is just a new `[data-theme="gruvbox"]` selector block in `styles.css` with all tokens mapped to Gruvbox palette values.
+---
 
-Gruvbox palette reference (dark variant as the primary target):
+### Design language system
+
+Define and implement a coherent design language that applies consistently across all surfaces: typography, spacing scale, component shape (radius, shadow, border treatment), and color semantics. Currently the shell has a CSS variable architecture and a functional dark/light theme, but no explicit design language — the visual result is internally consistent but aesthetically unresolved.
+
+**What this covers:**
+- Typography: a considered font pairing with a clear hierarchy for headings, body, labels, amounts, and monospace register values. Not system-ui defaults.
+- Spacing scale: a defined step scale (e.g. 4px base) applied consistently so sections, rows, and components group and breathe in a principled way.
+- Component shape: a single radius and shadow decision applied uniformly to inputs, buttons, cards, chips, and panels.
+- Color roles: semantic color applied with restraint — positive/negative amounts, warning, danger, accent — with a neutral base that recedes rather than competes.
+
+**Key open questions:**
+- What typeface family? (serif for ledger-book character, monospace-influenced for data density, or a neutral grotesque used with more intention?)
+- Does the shape language lean minimal and recessive or does it have a more distinct material quality?
+- How tightly should the design language be documented and enforced — CSS custom properties only, or a component library with enforced tokens?
+
+---
+
+### Theme picker architecture
+
+Implement user-selectable named themes accessible from Settings. The CSS variable token architecture already supports this; what is missing is the picker UI, the settings persistence, and the convention for registering named themes. This is the prerequisite for Gruvbox and any future themes.
+
+**Should not be deferred until after all register slices are complete.** A named theme early in the product's life signals visual intent and gives the daily development environment an aesthetic identity worth working inside.
+
+**Key open questions:**
+- Where in Settings does the theme picker live — alongside density and amount style, or a dedicated Appearance section?
+- Is the picker a dropdown, a swatch grid, or a live preview panel?
+- Should the theme name be persisted to `localStorage` alongside density/amount style (consistent with current pattern)?
+
+---
+
+### Gruvbox theme
+
+Implement Gruvbox as the first named theme. Gruvbox uses warm, retro earth tones with strong contrast ratios — a natural fit for the ledger book mental model and a well-known palette with a dedicated following. The implementation is a single `[data-theme="gruvbox"]` CSS selector block.
+
+Gruvbox palette reference (dark variant as primary target):
 - bg0_h `#1d2021` → `--bg`
 - bg0 `#282828` → `--surface`
 - bg1 `#3c3836` → `--surface-alt`
@@ -484,20 +518,81 @@ Gruvbox palette reference (dark variant as the primary target):
 
 A light Gruvbox variant (`bg0` → `#fbf1c7`, `fg` → `#3c3836`) can follow as a second step.
 
-**Parked until:** the custom theme architecture (user-selectable named themes, theme switcher in settings) is implemented. The visual design pass ships first; Gruvbox is the first theme to populate the picker.
+**Parked until:** theme picker architecture is implemented.
 
 **Key open questions:**
 - Ship dark-only first or dark + light together?
-- Should Gruvbox be the default theme out of the box, or opt-in from a theme picker?
-- How do amount positive/negative colours interact with the Gruvbox bright palette at the warm background?
+- Should Gruvbox be the default out of the box, or opt-in from the picker?
+- How do positive/negative amount colors interact with the Gruvbox warm background at both density modes?
+
+---
+
+### Register visual identity
+
+The register is the heart of the product and its primary visual statement. Currently it reads as a functional HTML table. The target is a surface that conveys precision and craft — dense but considered, data-rich but not visually noisy.
+
+**Specific properties to address:**
+- Row rhythm: height, padding, and border treatment that makes rows feel intentional rather than default. The running balance and amount columns should be visually distinct from each other and from description text.
+- Amount typography: right-aligned, monospace or tabular-figures, with positive/negative color applied with restraint. Numbers should scan instantly.
+- Row states: hover, selected, inline-editing, and saving states that are clearly differentiated without being heavy. The editing state should feel like activation, not breakage.
+- Inline edit fields: inputs that appear within a row should feel embedded, not dropped-in from a form.
+- Balance callout: the out-of-balance warning in split editing should feel informative and considered, not like a validation error dump.
+
+**Key open questions:**
+- Should the register lean toward a spreadsheet aesthetic (Airtable/Linear) or a more document-like ledger book aesthetic?
+- How do the two density modes (compact/comfortable) manifest specifically in the register — is it purely row height, or also typography scale?
+
+---
+
+### Designed empty states
+
+Every primary surface that can be empty needs a deliberate visual treatment. Currently blank states are unstyled or absent. A designed empty state signals craft and guides the user forward.
+
+**Surfaces that need treatment:**
+- Empty register (no transactions in period)
+- New book with no accounts
+- Empty envelope list
+- Empty schedule list
+- Empty audit log
+- Search with no results
+
+Each empty state should have a short explanatory label and a clear primary action, with visual treatment that matches the surrounding surface.
+
+---
+
+### Motion and micro-interactions
+
+Subtle, functional motion applied at key interaction points: row expansion in the register, inline edit activation/save/cancel, panel open/close, error/success state transitions, async loading. The goal is not decorative animation but motion that makes state changes legible and the interface feel responsive.
+
+**Parked until:** the design language and register visual identity are more settled, so motion is designed against a stable visual base rather than applied to placeholder components.
+
+**Key open questions:**
+- What is the appropriate duration and easing for register row transitions? (Likely 100–150ms, ease-out — fast enough to not impede power users.)
+- Should async save states use a spinner, a progress indicator on the row, or a subtle color pulse?
+- How does motion interact with the `prefers-reduced-motion` media query — full disable or reduced intensity?
+
+---
+
+### Iconography
+
+The shell currently uses text labels for most actions. A coherent icon set would reduce visual noise in dense surfaces (register toolbar, status bar, COA sidebar quick actions) and signal product maturity.
+
+**Parked until:** the design language and component shape are settled, so icon style (stroke weight, corner radius) matches the overall language.
+
+**Key open questions:**
+- Custom icons vs. a curated open-source set (Lucide, Phosphor, Radix Icons)?
+- Which surfaces get icons first — the activity bar, the COA sidebar quick actions, the status bar, or all simultaneously?
+- How should icons relate to text labels — icons with labels, icons-only with tooltips, or context-dependent?
+
+---
 
 ### Status bar active user indicator
 
-Extend the bottom-left status node (currently API online/offline dot + label) to also show the authenticated user, formatted consistently with the right-hand register status node — e.g. `● online · Primary` or `● online · robert`.
+Extend the bottom-left status node (currently API online/offline dot + label) to also show the authenticated user — e.g. `● online · robert`.
 
-The identity value is already available on the authenticated request context at the API boundary (`actor` field). The shell receives the book response which includes household member records; the active actor can be resolved from the token/session to a display name without an extra round-trip.
+The identity is already available on the book response via household member records; no extra round-trip needed.
 
 **Key open questions:**
-- Should it show the raw actor identifier or resolve to the household member display name?
-- How should it render when the shell is unauthenticated or the API is offline (no identity to show)?
-- Does this belong on the left status node alongside API status, or warrant its own node?
+- Raw actor identifier or resolved household member display name?
+- How does it render when the shell is unauthenticated or the API is offline?
+- Same left status node alongside API status, or a separate node?

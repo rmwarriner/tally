@@ -1,6 +1,6 @@
 # Desktop UI Direction
 
-Last reviewed: 2026-04-10
+Last reviewed: 2026-04-11
 
 ## Intent
 
@@ -13,7 +13,9 @@ The desktop shell is a digital ledger book — specifically a 3-ring binder with
 - **Bottom panel** — the front pocket of the binder; global appliance operations only
 - **Status bar** — minimal floating status nodes, Obsidian-style
 
-The distinctive part of the product should come from accounting-native workflows, not from visual styling.
+The product earns its distinction through two things working together: accounting-native workflows that no consumer app offers, and a visual quality that makes users *want* to open it. Neither replaces the other. A beautiful skin over a broken workflow is decoration; a correct workflow inside a utilitarian shell is GnuCash — technically right, practically abandoned by modern users.
+
+The goal is an app that is both a precision instrument and a joy to work with.
 
 ## Core Principle
 
@@ -141,11 +143,40 @@ Longer-term power-user direction:
 - linked register tabs that can follow each other based on a shared rule such as date
 - a command palette with natural language support for search and action-oriented finance workflows
 
+## Visual Identity
+
+Visual quality is not a phase that comes after workflow stabilises — it is a property of every surface as it ships. Retrofitting aesthetics onto a utilitarian skeleton rarely works; the structural decisions that make an interface feel crafted (spacing rhythm, typographic hierarchy, component shape language, transitions) need to be present from the start or deliberately rebuilt.
+
+### What makes an interface feel beautiful in practice
+
+- **Typography** — a considered font pairing with a clear size and weight hierarchy, not just system-ui at 14px. Headers, body, labels, and amounts should all read as distinct without being loud.
+- **Spacing rhythm** — consistent, generous whitespace. Rows that breathe. Sections that group naturally without hard borders everywhere.
+- **Component shape language** — a coherent radius, shadow, and border treatment applied consistently. Inputs, buttons, chips, and cards should feel like they came from the same hand.
+- **Color with intention** — semantic color used sparingly and meaningfully. Positive amounts, warnings, and selected states should pop; everything else should recede.
+- **Motion and transitions** — subtle and functional, not decorative. Row expansion, save states, error appearance, panel open/close — these should feel smooth, not janky or instantaneous.
+- **Designed empty states** — a blank register, a new book, an empty envelope list should each have a considered visual treatment. Blank white space with no message signals an unfinished product.
+- **Loading and async states** — skeleton rows or subtle spinners instead of layout shifts. The interface should never feel broken while it waits.
+- **Iconography** — intentional, consistent icons that reinforce meaning rather than decorate. A custom or carefully curated icon set distinguishes the product from a generic web app.
+
+### The register as a precision instrument
+
+The register is the heart of the product and should look like it. Design references to draw from: spreadsheet-native apps (Airtable, Linear, Notion) that made dense tabular data feel modern. The register should convey density and power without feeling like a raw HTML table. Key properties:
+
+- Row height that reflects information density mode (compact vs comfortable) while always feeling intentional
+- Amount column typography that makes numbers easy to scan — monospace, right-aligned, with positive/negative color applied with restraint
+- Running balance column visually distinct from the amount column — it is context, not an action target
+- Selected, editing, and hover states that are clearly differentiated without being heavy
+- The inline editing state should feel like the row is activated, not broken
+
+### Visual pass per slice
+
+Each ledger rebuild slice should ship with its visual treatment considered, not as a placeholder. A slice is not done if the interaction works but the visual result looks unfinished. This applies to tabs (Slice 3), keyboard states (Slice 4), and everything that follows.
+
 ## What Makes This Unique
 
-The product should not try to be unique through styling alone. It should become distinctive through accounting-native power and workflow quality.
+The product earns differentiation through both dimensions together: accounting-native power that consumer apps lack, delivered in an interface that users find genuinely enjoyable to spend time in.
 
-Areas with real differentiation potential:
+Workflow differentiators:
 
 - linked registers for cross-account investigation
 - genuinely strong keyboard-first ledger workflows
@@ -153,12 +184,23 @@ Areas with real differentiation potential:
 - dedicated register modes for review, reconciliation, and audit-oriented work
 - context-aware suggestions such as balancing help, likely account/category suggestions, and anomaly surfacing
 
+Visual differentiators:
+
+- a register that looks and feels like a precision financial instrument, not a data table
+- a coherent design language applied consistently across all surfaces
+- named themes (starting with Gruvbox) that give the product a distinct aesthetic identity
+- transitions and micro-interactions that make financial operations feel deliberate and satisfying
+
 ## What To Avoid
 
 - copying VS Code visually instead of learning from its shell flow
 - letting the desktop UI become half register and half form-builder
 - pushing routine transaction editing into the inspector by default
 - overloading the main ledger view with specialized workflows like reconciliation if they need a distinct mode
+- shipping a slice as "done" when the interaction works but the visual result is placeholder quality
+- treating visual polish as a later phase — aesthetics retrofitted onto a utilitarian skeleton rarely recover
+- raw HTML table aesthetics in the register — borders on every cell, no row rhythm, no visual hierarchy
+- layout shifts and unstyled loading states that signal an unfinished product
 
 ## Near-Term Design Priorities
 
@@ -171,6 +213,9 @@ Areas with real differentiation potential:
 7. Scope the bottom panel to global appliance operations; remove developer-facing log output from the end-user surface.
 8. Implement Obsidian-style status bar with per-mode status messaging.
 9. Explore command palette and natural language period input after the register model is stable.
+10. Define and implement the design language system — typography, spacing scale, component shape — as a deliberate pass rather than accumulated defaults.
+11. Ship the theme picker and Gruvbox as the first named theme; do not defer this until all register slices are complete.
+12. Audit and designed empty states, loading states, and async feedback across all primary surfaces.
 
 ## Relationship To Native Desktop Work
 
