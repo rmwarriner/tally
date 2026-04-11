@@ -4,6 +4,23 @@ Last reviewed: 2026-04-09
 
 This document defines how the solo maintainer, Claude Code, and Codex work together with minimal process overhead.
 
+## Role Separation
+
+| Agent | Worktree | Responsibilities |
+|---|---|---|
+| Claude Code | `tally/` (primary, always `main`) | analysis, planning, doc edits, PR review, Codex handoffs |
+| Codex | `tally-codex/` (feature branches) | all implementation, TDD, CI verification, PR authoring |
+
+**Handoff flow:**
+1. User asks Claude Code "what's next" or "prep a Codex handoff"
+2. Claude reads `docs/issues.md` and the roadmap, picks the next item, and produces a spec packet: acceptance criteria, files to touch, test requirements, risk tier, and branch name
+3. User pastes the spec to Codex; Codex checks out the branch in `tally-codex/` and implements
+4. Codex opens a PR; user asks Claude to review it
+5. Claude fetches and detach-checks out the PR branch for review — no changes pushed from `tally/`
+6. After merge, Claude pulls `main` in `tally/` and updates any remaining docs
+
+See `docs/git-workflow.md` → **Workspace Setup** for worktree paths and commands.
+
 ## Definition Of Done
 
 A task is done only when all are true:

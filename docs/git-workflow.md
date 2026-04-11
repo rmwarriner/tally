@@ -94,6 +94,41 @@ When needed, mirror an execution item to a GitHub issue using the appropriate te
 - verify Git state sequentially after commit and push operations instead of running `git push` and `git status` in parallel
 - after a push, run a fresh `git status --short --branch`; if needed, confirm with `git rev-parse HEAD` and `git rev-parse origin/main`
 
+## Workspace Setup (Worktrees)
+
+Two git worktrees keep Claude Code and Codex from colliding when they work concurrently:
+
+| Worktree | Path | Who uses it | Branch |
+|---|---|---|---|
+| primary | `/Users/robert/Projects/tally` | Claude Code | always `main` |
+| codex | `/Users/robert/Projects/tally-codex` | Codex | feature branches |
+
+**One-time setup** (already done):
+```bash
+git worktree add ../tally-codex --detach HEAD
+cd ../tally-codex && pnpm install
+```
+
+**Claude Code** stays in `tally/` on `main`. For PR review, use a detached checkout:
+```bash
+git fetch origin
+git checkout --detach origin/feat/<task>
+# review, then return to main:
+git checkout main
+```
+
+**Codex** starts each session from `tally-codex/`:
+```bash
+cd /Users/robert/Projects/tally-codex
+git fetch origin
+git checkout -B feat/<task> origin/main
+```
+
+After a Codex PR merges, Claude Code pulls `main` in `tally/`:
+```bash
+git pull --ff-only
+```
+
 ## Local Workflow
 
 1. update `main`
