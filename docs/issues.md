@@ -123,8 +123,8 @@ This is the canonical issue tracker for day-to-day solo development.
     - open questions: none — balance callout should mirror the existing `editor-balance-callout` CSS class already used in `LedgerTransactionEditorPanel`
   - completed: 2026-04-11
 
-- [ ] I-008 Replace COA "+ Account" budget redirect with real account-creation flow
-  - status: in-progress
+- [x] I-008 Replace COA "+ Account" budget redirect with real account-creation flow
+  - status: done
   - risk: R2
   - type: feature
   - owner: agent
