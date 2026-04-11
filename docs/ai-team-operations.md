@@ -46,6 +46,15 @@ Structure:
 **Final step:** push the branch and open a PR using `.github/PULL_REQUEST_TEMPLATE.md`. Fill out all sections. `pnpm ci:verify` must pass before opening the PR.
 ```
 
+## Post-Merge Checklist
+
+Run these steps after every PR is squash-merged:
+
+1. Pull `main` in `tally/`: `git pull`
+2. If `docs/codex-handoff.md` exists, delete it: `git rm docs/codex-handoff.md && git commit -m "docs: remove stale codex handoff" && git push origin main`
+
+Claude Code will prompt you to run these steps after confirming a merge.
+
 ## Definition Of Done
 
 A task is done only when all are true:
