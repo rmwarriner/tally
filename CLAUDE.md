@@ -102,6 +102,12 @@ This repository is maintained by a solo developer. AI assistants and automation 
 
 These rules apply to every Codex task without exception.
 
+**Session start — handoff check**
+- Before doing anything else, check whether `docs/codex-handoff.md` exists
+- If it exists, read it and ask the user: "A handoff file is present — would you like me to execute it?"
+- Wait for confirmation before proceeding; do not execute automatically
+- If no handoff file is present, proceed normally
+
 **Git discipline**
 - Branch from `main` before making any changes: `git checkout main && git pull && git checkout -b <type>/<description>`
 - Commit after each logical unit of work with a clear message
