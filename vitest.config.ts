@@ -13,6 +13,7 @@ export default defineConfig({
       reporter: ["text", "html", "json", "json-summary"],
       include: [
         "apps/api/src/**/*.ts",
+        "apps/web/src/app/ledger-state.ts",
         "packages/domain/src/**/*.ts",
         "packages/logging/src/**/*.ts",
         "packages/book/src/**/*.ts",
