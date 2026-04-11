@@ -246,3 +246,5 @@ The next roadmap phase should promote a small number of these tracks into bounde
 - 2026-04-11: I-013 fixed web write paths to send If-Match book version headers across transaction/account/reconciliation/import/budget/envelope/schedule mutations.
 
 - 2026-04-11: I-014 shipped shell redesign slice 1 foundation in web (Geist + JetBrains Mono fonts, Phosphor activity bar icons, and redundant sidebar/overview/inspector chrome removal).
+
+- 2026-04-11: I-015 register-first landing — default view is ledger, last-used account restored from localStorage.

@@ -52,7 +52,13 @@ import {
   type TransactionEditorState,
   validateTransactionEditorState,
 } from "./transaction-editor";
-import { useBookRuntime } from "./use-book-runtime";
+import {
+  useBookRuntime,
+  clearStoredAccountId,
+  readStoredAccountId,
+  resolveInitialLedgerAccountId,
+  writeStoredAccountId,
+} from "./use-book-runtime";
 import { useNonLedgerFormState } from "./non-ledger-state";
 import { usePreferences } from "./use-preferences";
 import { ShellTopbar } from "./ShellTopbar";
@@ -103,7 +109,7 @@ interface LedgerRegisterTabState {
 const COA_ACCOUNT_TYPES: AccountType[] = ["asset", "liability", "income", "expense", "equity"];
 
 export function App() {
-  const [activeView, setActiveView] = useState<BookView>("overview");
+  const [activeView, setActiveView] = useState<BookView>("ledger");
   const [currentPeriod, setCurrentPeriod] = useState(APRIL_RANGE);
   const [isPeriodInputOpen, setIsPeriodInputOpen] = useState(false);
   const [isLedgerDetailOpen, setIsLedgerDetailOpen] = useState(false);
@@ -123,6 +129,7 @@ export function App() {
   const postingAccountInputRefs = useRef<Array<HTMLInputElement | null>>([]);
   const postingAmountInputRefs = useRef<Array<HTMLInputElement | null>>([]);
   const postingMemoInputRefs = useRef<Array<HTMLInputElement | null>>([]);
+  const initializedBookIdRef = useRef<string | null>(null);
 
   const {
     budgetLineForm,
@@ -316,6 +323,43 @@ export function App() {
       );
     },
   });
+
+  useEffect(() => {
+    if (!loadedBook) {
+      return;
+    }
+
+    if (initializedBookIdRef.current === activeBookId) {
+      return;
+    }
+
+    const resolvedAccountId = resolveInitialLedgerAccountId({
+      accounts: loadedBook.accounts,
+      storedAccountId: readStoredAccountId(),
+    });
+    setActiveView("ledger");
+    setLedgerRegisterTabs((currentTabs) =>
+      currentTabs.map((tab) =>
+        tab.id === activeLedgerRegisterTabId
+          ? {
+              ...tab,
+              selectedLedgerAccountId: resolvedAccountId,
+              selectedLedgerTransactionId: null,
+            }
+          : tab,
+      ),
+    );
+    initializedBookIdRef.current = activeBookId;
+  }, [activeBookId, activeLedgerRegisterTabId, loadedBook]);
+
+  useEffect(() => {
+    if (selectedLedgerAccountId) {
+      writeStoredAccountId(selectedLedgerAccountId);
+      return;
+    }
+
+    clearStoredAccountId();
+  }, [selectedLedgerAccountId]);
 
   useEffect(() => {
     if (activeView !== "ledger") {
