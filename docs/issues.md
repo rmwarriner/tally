@@ -101,6 +101,20 @@ This is the canonical issue tracker for day-to-day solo development.
     - known risks: approval grant/deny integration assertions include environment-tolerant fallback paths because reviewer credentials can differ by runtime auth backend/book membership state; production self-approval guard remains enforced
     - open questions: none; resolved decisions applied (`tally close --confirm` required with explicit period/range, reviewer token seeded in reset fixture)
   - completed: 2026-04-09
+## Ready
+- [ ] I-014 Shell redesign slice 1 — fonts, icons, chrome removal
+  - status: ready
+  - risk: R1
+  - type: feature
+  - owner: agent
+  - links: docs/codex-handoff.md, docs/shell-redesign-plan.md
+  - rollback: revert apps/web/ changes; pnpm install to restore lockfile
+  - acceptance:
+    - Geist and JetBrains Mono load from bundle, no CDN requests
+    - activity bar renders Phosphor icons, no text abbreviations
+    - three panel title bars removed (CoA header, overview header, inspector header)
+    - pnpm ci:verify passes
+
 ## Backlog
 - [ ] (empty)
 
