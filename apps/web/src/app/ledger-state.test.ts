@@ -6,6 +6,7 @@ import {
   createLedgerInlineRowEditDraft,
   getInlineSplitAccountGuidance,
   getInlineSplitAccountResolution,
+  getLedgerRowHotkeyAction,
   getSplitQuickEditKeyAction,
   getSplitReorderKeyAction,
   getLedgerHotkeySelectionUpdate,
@@ -81,17 +82,38 @@ describe("getLedgerHotkeySelectionUpdate", () => {
   });
 
   it("ignores hotkeys while target is an input field", () => {
+    const input = { tagName: "INPUT" } as unknown as EventTarget;
     expect(
       getLedgerHotkeySelectionUpdate({
         eventKey: "j",
         filteredTransactions: transactions,
         selectedLedgerTransactionId: "txn-1",
-        target: { tagName: "INPUT" } as unknown as EventTarget,
+        target: input,
       }),
     ).toEqual({
       handled: false,
       focusSearch: false,
       nextSelectedLedgerTransactionId: "txn-1",
+    });
+  });
+});
+
+describe("getLedgerRowHotkeyAction", () => {
+  it("returns begin-inline-edit for e on non-input target", () => {
+    expect(getLedgerRowHotkeyAction({ key: "e", target: { tagName: "DIV" } as unknown as EventTarget })).toEqual({
+      type: "begin-inline-edit",
+    });
+  });
+
+  it("returns none for e on input target", () => {
+    expect(getLedgerRowHotkeyAction({ key: "e", target: { tagName: "INPUT" } as unknown as EventTarget })).toEqual({
+      type: "none",
+    });
+  });
+
+  it("returns none for other keys", () => {
+    expect(getLedgerRowHotkeyAction({ key: "k", target: { tagName: "DIV" } as unknown as EventTarget })).toEqual({
+      type: "none",
     });
   });
 });

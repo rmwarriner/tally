@@ -528,6 +528,12 @@ export function LedgerRegisterPanel(props: LedgerRegisterPanelProps) {
               props.ledgerBook.filteredTransactions.map((transaction) => {
                 const isEditingRow = props.inlineEditingTransactionId === transaction.id;
                 const rowDraft = isEditingRow && props.inlineEditDraft ? props.inlineEditDraft : null;
+                const focusInlineField = (field: "date" | "description" | "payee") => {
+                  const fieldInput = document.querySelector<HTMLInputElement>(
+                    `[data-testid="ledger-inline-${field}-${transaction.id}"]`,
+                  );
+                  fieldInput?.focus();
+                };
                 const isExpandedRow = expandedTransactionId === transaction.id;
                 const isEditingSplitRow =
                   editingSplitTransactionId === transaction.id ? editingSplitDraft : null;
@@ -588,6 +594,15 @@ export function LedgerRegisterPanel(props: LedgerRegisterPanelProps) {
                                 props.onUpdateInlineEditField("occurredOn", event.target.value)
                               }
                               onKeyDown={(event) => {
+                                if (event.key === "Tab") {
+                                  event.preventDefault();
+                                  if (event.shiftKey) {
+                                    focusInlineField("payee");
+                                  } else {
+                                    focusInlineField("description");
+                                  }
+                                }
+
                                 if (event.key === "Enter") {
                                   event.preventDefault();
                                   if (!inlineSaveDisabled) {
@@ -625,6 +640,15 @@ export function LedgerRegisterPanel(props: LedgerRegisterPanelProps) {
                                 props.onUpdateInlineEditField("description", event.target.value)
                               }
                               onKeyDown={(event) => {
+                                if (event.key === "Tab") {
+                                  event.preventDefault();
+                                  if (event.shiftKey) {
+                                    focusInlineField("date");
+                                  } else {
+                                    focusInlineField("payee");
+                                  }
+                                }
+
                                 if (event.key === "Enter") {
                                   event.preventDefault();
                                   if (!inlineSaveDisabled) {
@@ -655,9 +679,20 @@ export function LedgerRegisterPanel(props: LedgerRegisterPanelProps) {
                             onClick={(event) => event.stopPropagation()}
                             onChange={(event) => props.onUpdateInlineEditField("payee", event.target.value)}
                             onKeyDown={(event) => {
+                              if (event.key === "Tab") {
+                                event.preventDefault();
+                                if (event.shiftKey) {
+                                  focusInlineField("description");
+                                } else if (!inlineSaveDisabled) {
+                                  props.onSaveInlineEdit(transaction.id);
+                                }
+                              }
+
                               if (event.key === "Enter") {
                                 event.preventDefault();
-                                props.onSaveInlineEdit(transaction.id);
+                                if (!inlineSaveDisabled) {
+                                  props.onSaveInlineEdit(transaction.id);
+                                }
                               }
 
                               if (event.key === "Escape") {
