@@ -24,6 +24,7 @@ import type { AppPreferences, Density, Theme } from "./use-preferences";
 interface NonLedgerMainPanelsProps {
   activeView: BookView;
   baselineSnapshot: DashboardResponse["dashboard"]["budgetSnapshot"];
+  bookVersion: number;
   budgetLineForm: BudgetLineFormState;
   busy: string | null;
   createEntityId: (prefix: string) => string;
@@ -64,6 +65,7 @@ interface NonLedgerMainPanelsProps {
 export function NonLedgerMainPanels(props: NonLedgerMainPanelsProps) {
   const {
     baselineSnapshot,
+    bookVersion,
     budgetLineForm,
     busy,
     createEntityId,
@@ -310,7 +312,7 @@ export function NonLedgerMainPanels(props: NonLedgerMainPanelsProps) {
                           type="button"
                           onClick={() => {
                             void runMutation("Budget line save", async () => {
-                              await postBaselineBudgetLine(BOOK_ID, {
+                              await postBaselineBudgetLine(BOOK_ID, bookVersion, {
                                 line: {
                                   accountId: row.accountId,
                                   budgetPeriod: draft.budgetPeriod,
@@ -344,7 +346,7 @@ export function NonLedgerMainPanels(props: NonLedgerMainPanelsProps) {
               onSubmit={(event) => {
                 event.preventDefault();
                 void runMutation("Budget line save", async () => {
-                  await postBaselineBudgetLine(BOOK_ID, {
+                  await postBaselineBudgetLine(BOOK_ID, bookVersion, {
                     line: {
                       accountId: budgetLineForm.accountId,
                       budgetPeriod: budgetLineForm.budgetPeriod as "monthly" | "quarterly" | "annually",
@@ -523,7 +525,7 @@ export function NonLedgerMainPanels(props: NonLedgerMainPanelsProps) {
                           type="button"
                           onClick={() => {
                             void runMutation("Envelope save", async () => {
-                              await postEnvelope(BOOK_ID, {
+                              await postEnvelope(BOOK_ID, bookVersion, {
                                 envelope: {
                                   availableAmount: {
                                     commodityCode: "USD",
@@ -563,7 +565,7 @@ export function NonLedgerMainPanels(props: NonLedgerMainPanelsProps) {
               onSubmit={(event) => {
                 event.preventDefault();
                 void runMutation("Envelope save", async () => {
-                  await postEnvelope(BOOK_ID, {
+                  await postEnvelope(BOOK_ID, bookVersion, {
                     envelope: {
                       availableAmount: {
                         commodityCode: "USD",
@@ -692,7 +694,7 @@ export function NonLedgerMainPanels(props: NonLedgerMainPanelsProps) {
               onSubmit={(event) => {
                 event.preventDefault();
                 void runMutation("Envelope allocation", async () => {
-                  await postEnvelopeAllocation(BOOK_ID, {
+                  await postEnvelopeAllocation(BOOK_ID, bookVersion, {
                     allocation: {
                       amount: {
                         commodityCode: "USD",
@@ -797,7 +799,7 @@ export function NonLedgerMainPanels(props: NonLedgerMainPanelsProps) {
               onSubmit={(event) => {
                 event.preventDefault();
                 void runMutation("CSV import", async () => {
-                  await postCsvImport(BOOK_ID, {
+                  await postCsvImport(BOOK_ID, bookVersion, {
                     actor: "Primary",
                     payload: {
                       batchId: `import-web-${Date.now()}`,
@@ -982,7 +984,7 @@ export function NonLedgerMainPanels(props: NonLedgerMainPanelsProps) {
                           onClick={() => {
                             const amount = Number.parseFloat(draft.amount);
                             void runMutation("Schedule save", async () => {
-                              await postScheduledTransaction(BOOK_ID, {
+                              await postScheduledTransaction(BOOK_ID, bookVersion, {
                                 schedule: {
                                   ...schedule,
                                   autoPost: draft.autoPost,
@@ -1048,7 +1050,7 @@ export function NonLedgerMainPanels(props: NonLedgerMainPanelsProps) {
                 event.preventDefault();
                 void runMutation("Schedule save", async () => {
                   const amount = Number.parseFloat(scheduleForm.amount);
-                  await postScheduledTransaction(BOOK_ID, {
+                  await postScheduledTransaction(BOOK_ID, bookVersion, {
                     schedule: {
                       autoPost: scheduleForm.autoPost,
                       frequency: scheduleForm.frequency as

@@ -9,6 +9,7 @@ import type { createLedgerBookModel, createReconciliationBookModel } from "./she
 interface LedgerMainPanelsProps {
   activeLedgerRegisterTabId: string;
   amountStyle: AmountStyle;
+  bookVersion: number;
   busy: string | null;
   expenseAccounts: BookResponse["book"]["accounts"];
   formatCurrency: (amount: number) => string;
@@ -166,6 +167,7 @@ export function LedgerMainPanels(props: LedgerMainPanelsProps) {
         </div>
         {props.isLedgerOperationsOpen ? (
           <LedgerOperationsPanels
+            bookVersion={props.bookVersion}
             busy={props.busy}
             liquidAccounts={props.liquidAccounts}
             reconciliationForm={props.reconciliationForm}

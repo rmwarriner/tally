@@ -120,6 +120,7 @@ export async function fetchDashboard(params: {
 
 export async function postTransaction(
   bookId: string,
+  bookVersion: number,
   body: {
     actor?: string;
     transaction: {
@@ -139,6 +140,7 @@ export async function postTransaction(
     body: JSON.stringify(body),
     headers: {
       "content-type": "application/json",
+      "if-match": `"book-${bookVersion}"`,
     },
     method: "POST",
   });
@@ -149,12 +151,14 @@ export async function postTransaction(
 
 export async function postAccount(
   bookId: string,
+  bookVersion: number,
   account: Account,
 ): Promise<BookResponse> {
   const response = await fetch(`/api/books/${bookId}/accounts`, {
     body: JSON.stringify({ account }),
     headers: {
       "content-type": "application/json",
+      "if-match": `"book-${bookVersion}"`,
     },
     method: "POST",
   });
@@ -165,6 +169,7 @@ export async function postAccount(
 
 export async function putTransaction(
   bookId: string,
+  bookVersion: number,
   transactionId: string,
   body: {
     actor?: string;
@@ -187,6 +192,7 @@ export async function putTransaction(
     body: JSON.stringify(body),
     headers: {
       "content-type": "application/json",
+      "if-match": `"book-${bookVersion}"`,
     },
     method: "PUT",
   });
@@ -197,6 +203,7 @@ export async function putTransaction(
 
 export async function deleteTransaction(
   bookId: string,
+  bookVersion: number,
   transactionId: string,
   body: {
     actor?: string;
@@ -206,6 +213,7 @@ export async function deleteTransaction(
     body: JSON.stringify(body),
     headers: {
       "content-type": "application/json",
+      "if-match": `"book-${bookVersion}"`,
     },
     method: "DELETE",
   });
@@ -216,6 +224,7 @@ export async function deleteTransaction(
 
 export async function postReconciliation(
   bookId: string,
+  bookVersion: number,
   body: {
     actor?: string;
     payload: {
@@ -231,6 +240,7 @@ export async function postReconciliation(
     body: JSON.stringify(body),
     headers: {
       "content-type": "application/json",
+      "if-match": `"book-${bookVersion}"`,
     },
     method: "POST",
   });
@@ -241,6 +251,7 @@ export async function postReconciliation(
 
 export async function postCsvImport(
   bookId: string,
+  bookVersion: number,
   body: {
     actor?: string;
     payload: {
@@ -255,6 +266,7 @@ export async function postCsvImport(
     body: JSON.stringify(body),
     headers: {
       "content-type": "application/json",
+      "if-match": `"book-${bookVersion}"`,
     },
     method: "POST",
   });
@@ -265,6 +277,7 @@ export async function postCsvImport(
 
 export async function postBaselineBudgetLine(
   bookId: string,
+  bookVersion: number,
   body: {
     line: BaselineBudgetLine;
   },
@@ -273,6 +286,7 @@ export async function postBaselineBudgetLine(
     body: JSON.stringify(body),
     headers: {
       "content-type": "application/json",
+      "if-match": `"book-${bookVersion}"`,
     },
     method: "POST",
   });
@@ -283,6 +297,7 @@ export async function postBaselineBudgetLine(
 
 export async function postEnvelope(
   bookId: string,
+  bookVersion: number,
   body: {
     envelope: Envelope;
   },
@@ -291,6 +306,7 @@ export async function postEnvelope(
     body: JSON.stringify(body),
     headers: {
       "content-type": "application/json",
+      "if-match": `"book-${bookVersion}"`,
     },
     method: "POST",
   });
@@ -301,6 +317,7 @@ export async function postEnvelope(
 
 export async function postEnvelopeAllocation(
   bookId: string,
+  bookVersion: number,
   body: {
     allocation: EnvelopeAllocation;
   },
@@ -309,6 +326,7 @@ export async function postEnvelopeAllocation(
     body: JSON.stringify(body),
     headers: {
       "content-type": "application/json",
+      "if-match": `"book-${bookVersion}"`,
     },
     method: "POST",
   });
@@ -319,6 +337,7 @@ export async function postEnvelopeAllocation(
 
 export async function postScheduledTransaction(
   bookId: string,
+  bookVersion: number,
   body: {
     schedule: ScheduledTransaction;
   },
@@ -327,6 +346,7 @@ export async function postScheduledTransaction(
     body: JSON.stringify(body),
     headers: {
       "content-type": "application/json",
+      "if-match": `"book-${bookVersion}"`,
     },
     method: "POST",
   });
