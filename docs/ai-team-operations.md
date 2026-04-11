@@ -13,13 +13,38 @@ This document defines how the solo maintainer, Claude Code, and Codex work toget
 
 **Handoff flow:**
 1. User asks Claude Code "what's next" or "prep a Codex handoff"
-2. Claude reads `docs/issues.md` and the roadmap, picks the next item, and produces a spec packet: acceptance criteria, files to touch, test requirements, risk tier, and branch name
-3. User pastes the spec to Codex; Codex checks out the branch in `tally-codex/` and implements
-4. Codex opens a PR; user asks Claude to review it
-5. Claude fetches and detach-checks out the PR branch for review — no changes pushed from `tally/`
-6. After merge, Claude pulls `main` in `tally/` and updates any remaining docs
+2. Claude reads `docs/issues.md` and the roadmap, picks the next item, and writes the spec to `docs/codex-handoff.md`, then pushes to `main`
+3. User opens Codex in `tally-codex/`; Codex detects the handoff file at session start and asks whether to execute it
+4. User confirms; Codex checks out the branch, implements, and opens a PR
+5. User asks Claude to review the PR; Claude fetches and detach-checks out the PR branch — no changes pushed from `tally/`
+6. After merge, Claude pulls `main` in `tally/`, updates `docs/issues.md`, and deletes `docs/codex-handoff.md`
 
 See `docs/git-workflow.md` → **Workspace Setup** for worktree paths and commands.
+
+## Handoff File Format
+
+`docs/codex-handoff.md` is the task spec passed from Claude Code to Codex. It is a temporary file — deleted as part of post-merge cleanup after every task.
+
+Structure:
+```
+# Codex Handoff — <issue id>
+
+**Branch:** `feat/<branch-name>`
+
+**First step:** `git fetch origin && git checkout -B feat/<branch-name> origin/main`
+
+**Context:** <why this work is being done>
+
+**Acceptance criteria:** <numbered list of observable outcomes and verification commands>
+
+**Key files:** <file paths and what to change in each>
+
+**Risk:** <R1/R2/R3>
+
+**Rollback:** <one-line revert plan>
+
+**Final step:** push the branch and open a PR using `.github/PULL_REQUEST_TEMPLATE.md`. Fill out all sections. `pnpm ci:verify` must pass before opening the PR.
+```
 
 ## Definition Of Done
 
