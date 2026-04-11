@@ -4,7 +4,3 @@ Canonical repository agent guidance lives in [CLAUDE.md](CLAUDE.md).
 
 This file is intentionally a thin pointer so Claude Code and Codex share one policy source of truth.
 Do not duplicate policy text here.
-
-## Session Start
-
-**Before anything else:** check whether `docs/codex-handoff.md` exists. If it does, read it and tell the user: "A handoff file is present — would you like me to execute it?" Wait for confirmation before proceeding. If no handoff file is present, proceed normally.
