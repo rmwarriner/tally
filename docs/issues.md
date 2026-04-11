@@ -102,14 +102,6 @@ This is the canonical issue tracker for day-to-day solo development.
     - open questions: none; resolved decisions applied (`tally close --confirm` required with explicit period/range, reviewer token seeded in reset fixture)
   - completed: 2026-04-09
 ## Ready
-- [ ] I-015 Shell redesign slice 2 — register-first landing
-  - status: ready
-  - risk: R2
-  - type: feature
-  - owner: agent
-  - links: docs/handoffs/I-015.md, docs/shell-redesign-plan.md
-  - rollback: revert App.tsx and use-book-runtime.ts changes only
-
 - [ ] I-016 Shell redesign slice 3 — inspector panel redesign
   - status: ready
   - risk: R2
@@ -181,6 +173,9 @@ This is the canonical issue tracker for day-to-day solo development.
 ## Blocked
 - [ ] (empty)
 ## Done
+- [x] I-015 Shell redesign slice 2 — register-first landing
+  - status: done
+  - completed: 2026-04-11
 - [x] I-011 Expand app-format test coverage for all exports
   - status: done
   - completed: 2026-04-11
