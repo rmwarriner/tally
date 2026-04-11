@@ -1242,7 +1242,7 @@ export function NonLedgerMainPanels(props: NonLedgerMainPanelsProps) {
             <fieldset>
               <legend className="eyebrow">Theme</legend>
               <div className="ledger-chip-row">
-                {(["light", "dark"] as const).map((theme) => (
+                {(["light", "dark", "gruvbox"] as const).map((theme) => (
                   <label
                     key={theme}
                     className={`ledger-chip${preferences.theme === theme ? " active" : ""}`}
@@ -1255,7 +1255,7 @@ export function NonLedgerMainPanels(props: NonLedgerMainPanelsProps) {
                       onChange={() => setTheme(theme)}
                       style={{ position: "absolute", opacity: 0, pointerEvents: "none" }}
                     />
-                    {theme.charAt(0).toUpperCase() + theme.slice(1)}
+                    {theme === "gruvbox" ? "Gruvbox" : theme.charAt(0).toUpperCase() + theme.slice(1)}
                   </label>
                 ))}
               </div>

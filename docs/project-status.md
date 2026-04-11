@@ -32,6 +32,7 @@ This repository currently includes:
 - CLI integration suite passing (47/47) against dev API fixture data
 - quality gates passing via `pnpm ci:verify`
 - CSS custom property theme architecture with light and dark themes; user-selectable density (compact/comfortable) and amount display style (colour+sign, colour only, sign only) persisted to localStorage; component polish across buttons, inputs, register rows, and status chips
+- 2026-04-11: shipped named-theme support in web preferences with a new Gruvbox theme option and persisted selection
 
 ## Completed
 
