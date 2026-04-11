@@ -102,6 +102,27 @@ This is the canonical issue tracker for day-to-day solo development.
     - open questions: none; resolved decisions applied (`tally close --confirm` required with explicit period/range, reviewer token seeded in reset fixture)
   - completed: 2026-04-09
 ## Backlog
+- [ ] I-010 Ledger UI Slice 4 — keyboard-first workflow hardening
+  - status: in-progress
+  - risk: R2
+  - type: feature
+  - owner: agent
+  - links: /Users/robert/Projects/tally/docs/ledger-ui-rebuild-plan.md (Slice 4), /Users/robert/Projects/tally/apps/web/src/app/ledger-state.ts, /Users/robert/Projects/tally/apps/web/src/app/LedgerRegisterPanel.tsx
+  - rollback: changes confined to `apps/web/`; revert commits to those paths only
+  - acceptance:
+    - pressing `e` on a selected register row (when not in any input) triggers inline edit for that row — wired through a new `getLedgerRowHotkeyAction` helper in `ledger-state.ts` that returns `{ type: "begin-inline-edit" }` for `e` and `{ type: "none" }` otherwise; helper has unit tests
+    - `Tab` advances focus between inline edit fields in order: date → description → payee → (wraps or saves); `Shift+Tab` moves in reverse; implemented via `onKeyDown` handlers on each field, consistent with existing `Enter`/`Escape` handling
+    - `getLedgerHotkeySelectionUpdate` suppresses `j`/`k`/`ArrowUp`/`ArrowDown` when the active document element is inside an inline edit row (i.e. `shouldHandleLedgerHotkey` already handles input targets — verify this covers the inline edit inputs and add a regression test asserting hotkeys are ignored when target is an inline edit input)
+    - `pnpm --filter @tally/web typecheck` passes
+    - `pnpm ci:verify` passes
+    - one entry appended to `docs/project-status.md` confirming Slice 4 complete
+  - handoff:
+    - current state: `j`/`k`/`ArrowUp`/`ArrowDown` navigate row selection, `/` focuses search, `Escape` clears selection — all in `getLedgerHotkeySelectionUpdate`; inline edit is triggered only via the "Edit" button click (`onStartInlineEdit`); inline edit fields handle `Enter` (save) and `Escape` (cancel) per-field but have no Tab navigation and no keyboard entry point
+    - next step: add `getLedgerRowHotkeyAction` to `ledger-state.ts`, wire `e` key in `useLedgerKeyboardAndSelectionSync` to call `onStartInlineEdit` on the selected transaction, add Tab/Shift+Tab field navigation to the three inline edit inputs in `LedgerRegisterPanel.tsx`, add regression test for hotkey suppression during inline edit
+    - known risks: `onStartInlineEdit` receives a full transaction object — the key handler in `useLedgerKeyboardAndSelectionSync` will need access to the selected transaction object, not just its id; check the existing hook signature in `ledger-state.ts:422` before wiring
+    - open questions: should `Enter` on a selected row also trigger inline edit (in addition to `e`)? Leave as `e`-only for now to avoid conflicting with existing row expand behavior
+  - completed:
+
 - [x] I-009 Complete and close ledger UI Slice 2 — inline split editing
   - status: done
   - risk: R2
