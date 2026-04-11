@@ -290,6 +290,13 @@ export function App() {
     activeView,
     filteredTransactions: ledgerBook.filteredTransactions,
     ledgerSearchInputRef,
+    onBeginInlineEdit: (transaction) =>
+      startInlineEdit({
+        description: transaction.description,
+        occurredOn: transaction.occurredOn,
+        payee: transaction.payee,
+        transactionId: transaction.id,
+      }),
     selectedLedgerTransactionId,
     setSelectedLedgerTransactionId: (nextValue) => {
       setLedgerRegisterTabs((currentTabs) =>

@@ -240,3 +240,4 @@ The idea backlog is organized by track in `docs/ideas.md`:
 The next roadmap phase should promote a small number of these tracks into bounded implementation slices. See `docs/ideas.md` for the full list and promotion criteria.
 
 - I-008 complete (2026-04-11): COA + Account/+ Sub-account now uses inline account creation flow in web app.
+- I-010 Slice 4 complete (2026-04-11): Ledger keyboard workflow hardening now supports `e` to begin inline edit, Tab/Shift+Tab inline field traversal, and explicit hotkey suppression regression coverage.

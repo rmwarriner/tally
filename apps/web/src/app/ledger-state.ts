@@ -331,8 +331,24 @@ interface UseLedgerKeyboardAndSelectionSyncInput {
   activeView: BookView;
   filteredTransactions: ReturnType<typeof createLedgerBookModel>["filteredTransactions"];
   ledgerSearchInputRef: RefObject<HTMLInputElement | null>;
+  onBeginInlineEdit: (
+    transaction: ReturnType<typeof createLedgerBookModel>["filteredTransactions"][number],
+  ) => void;
   selectedLedgerTransactionId: string | null;
   setSelectedLedgerTransactionId: Dispatch<SetStateAction<string | null>>;
+}
+
+export function getLedgerRowHotkeyAction(input: {
+  key: string;
+  target: EventTarget | null;
+}): {
+  type: "begin-inline-edit" | "none";
+} {
+  if (input.key === "e" && shouldHandleLedgerHotkey(input.target)) {
+    return { type: "begin-inline-edit" };
+  }
+
+  return { type: "none" };
 }
 
 export function getLedgerHotkeySelectionUpdate(input: {
@@ -426,6 +442,21 @@ export function useLedgerKeyboardAndSelectionSync(input: UseLedgerKeyboardAndSel
     }
 
     function handleKeydown(event: KeyboardEvent) {
+      const rowHotkeyAction = getLedgerRowHotkeyAction({
+        key: event.key,
+        target: event.target,
+      });
+      if (rowHotkeyAction.type === "begin-inline-edit") {
+        const selectedTransaction = input.filteredTransactions.find(
+          (transaction) => transaction.id === input.selectedLedgerTransactionId,
+        );
+        if (selectedTransaction) {
+          event.preventDefault();
+          input.onBeginInlineEdit(selectedTransaction);
+        }
+        return;
+      }
+
       const hotkeyUpdate = getLedgerHotkeySelectionUpdate({
         eventKey: event.key,
         filteredTransactions: input.filteredTransactions,
@@ -452,7 +483,14 @@ export function useLedgerKeyboardAndSelectionSync(input: UseLedgerKeyboardAndSel
     return () => {
       window.removeEventListener("keydown", handleKeydown);
     };
-  }, [input.activeView, input.filteredTransactions, input.ledgerSearchInputRef, input.setSelectedLedgerTransactionId]);
+  }, [
+    input.activeView,
+    input.filteredTransactions,
+    input.ledgerSearchInputRef,
+    input.onBeginInlineEdit,
+    input.selectedLedgerTransactionId,
+    input.setSelectedLedgerTransactionId,
+  ]);
 
   useEffect(() => {
     const syncedSelectionId = getSyncedLedgerSelectionId({
