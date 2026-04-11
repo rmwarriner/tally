@@ -7,6 +7,7 @@ import {
   type DashboardResponse,
   type BookResponse,
 } from "./api";
+import type { FinanceBookDocument } from "@tally/book";
 
 interface UseBookRuntimeInput {
   range: { from: string; to: string };
@@ -14,6 +15,7 @@ interface UseBookRuntimeInput {
 }
 
 const LAST_BOOK_ID_STORAGE_KEY = "tally:last-book-id";
+export const LAST_ACCOUNT_ID_STORAGE_KEY = "tally:last-account-id";
 
 function readStoredBookId(): string | null {
   if (typeof window === "undefined") {
@@ -30,6 +32,60 @@ function writeStoredBookId(bookId: string): void {
   }
 
   window.localStorage.setItem(LAST_BOOK_ID_STORAGE_KEY, bookId);
+}
+
+export function readStoredAccountId(): string | null {
+  if (typeof window === "undefined") {
+    return null;
+  }
+
+  const value = window.localStorage.getItem(LAST_ACCOUNT_ID_STORAGE_KEY);
+  return value && value.trim().length > 0 ? value : null;
+}
+
+export function writeStoredAccountId(accountId: string): void {
+  if (typeof window === "undefined") {
+    return;
+  }
+
+  window.localStorage.setItem(LAST_ACCOUNT_ID_STORAGE_KEY, accountId);
+}
+
+export function clearStoredAccountId(): void {
+  if (typeof window === "undefined") {
+    return;
+  }
+
+  window.localStorage.removeItem(LAST_ACCOUNT_ID_STORAGE_KEY);
+}
+
+export function resolveInitialLedgerAccountId(input: {
+  accounts: FinanceBookDocument["accounts"];
+  storedAccountId: string | null;
+}): string | null {
+  const { accounts, storedAccountId } = input;
+  if (accounts.length === 0) {
+    return null;
+  }
+
+  if (storedAccountId && accounts.some((account) => account.id === storedAccountId)) {
+    return storedAccountId;
+  }
+
+  const firstAssetAccount = [...accounts]
+    .filter((account) => account.type === "asset")
+    .sort((left, right) => {
+      const codeCompare = (left.code ?? "").localeCompare(right.code ?? "");
+      if (codeCompare !== 0) {
+        return codeCompare;
+      }
+      return left.name.localeCompare(right.name);
+    })[0];
+  if (firstAssetAccount) {
+    return firstAssetAccount.id;
+  }
+
+  return accounts[0]?.id ?? null;
 }
 
 export function useBookRuntime(input: UseBookRuntimeInput) {
