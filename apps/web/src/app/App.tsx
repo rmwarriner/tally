@@ -1234,6 +1234,8 @@ export function App() {
       <ShellActivityBar activeView={activeView} onViewChange={setActiveView} />
       <CoaSidebar
         accounts={bookAccounts}
+        accountBalances={accountBalances}
+        formatCurrency={formatCurrency}
         selectedAccountId={selectedLedgerAccountId}
         onAccountSelect={setSelectedLedgerAccountId}
         onAddTransaction={openCoaAddTransactionFlow}

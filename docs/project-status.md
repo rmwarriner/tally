@@ -250,3 +250,5 @@ The next roadmap phase should promote a small number of these tracks into bounde
 - 2026-04-11: I-015 register-first landing — default view is ledger, last-used account restored from localStorage.
 
 - 2026-04-11: I-016 redesigned the shell inspector panel with collapsed-by-default behavior, keyboard/edge-strip toggles, account summary metrics, and selected-transaction audit/schedule detail.
+
+- 2026-04-11: I-017 applied a typography hierarchy pass with ledger register column alignment, active tab account identity styling, COA account code/balance typography, and refreshed overview/status text scale.

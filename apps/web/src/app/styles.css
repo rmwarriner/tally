@@ -47,6 +47,21 @@
   --display-font: "Geist", system-ui, sans-serif;
   --mono-font: "JetBrains Mono", monospace;
   --inspector-width: 280px;
+  --text-2xs: 10px;
+  --text-xs: 11px;
+  --text-sm: 12px;
+  --text-base: 13px;
+  --text-md: 14px;
+  --text-lg: 16px;
+  --text-xl: 20px;
+  --text-2xl: 24px;
+  --weight-normal: 400;
+  --weight-medium: 500;
+  --weight-semibold: 600;
+  --weight-bold: 700;
+  --date-col-width: 88px;
+  --amount-col-width: 100px;
+  --balance-col-width: 110px;
 }
 
 [data-theme="dark"] {
@@ -129,7 +144,7 @@
 
 :root,
 [data-density="comfortable"] {
-  --row-height: 48px;
+  --row-height: 40px;
   --cell-pad-y: 11px;
   --chip-pad-y: 5px;
   --form-pad-y: 10px;
@@ -138,7 +153,7 @@
 }
 
 [data-density="compact"] {
-  --row-height: 36px;
+  --row-height: 28px;
   --cell-pad-y: 7px;
   --chip-pad-y: 3px;
   --form-pad-y: 8px;
@@ -624,6 +639,38 @@ textarea:focus {
   color: var(--accent-warm-text);
 }
 
+.coa-account-type-heading {
+  font-size: var(--text-2xs);
+  font-weight: var(--weight-semibold);
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+.coa-account-primary {
+  display: grid;
+  gap: 2px;
+}
+
+.coa-account-name {
+  font-size: var(--text-sm);
+  font-weight: var(--weight-normal);
+  color: var(--text);
+}
+
+.coa-account-code {
+  font-family: var(--mono-font);
+  font-size: var(--text-xs);
+  color: var(--text-muted);
+}
+
+.coa-account-balance {
+  margin-left: auto;
+  text-align: right;
+  font-family: var(--mono-font);
+  font-size: var(--text-sm);
+}
+
 .metric-grid {
   display: grid;
   grid-template-columns: minmax(0, 1.2fr) repeat(3, auto);
@@ -946,9 +993,21 @@ textarea:focus {
 }
 
 .overview-card-metric {
-  font-size: 28px;
+  font-size: var(--text-2xl);
+  font-weight: var(--weight-bold);
   line-height: 1;
   font-family: var(--mono-font);
+}
+
+.overview-card-label {
+  font-size: var(--text-sm);
+  font-weight: var(--weight-medium);
+  color: var(--text-muted);
+}
+
+.overview-card-summary {
+  font-size: var(--text-xs);
+  color: var(--text-muted);
 }
 
 .metric-button {
@@ -1054,13 +1113,13 @@ textarea:focus {
 table {
   width: 100%;
   border-collapse: collapse;
-  font-size: 13px;
+  font-size: var(--text-base);
   line-height: 1.4;
 }
 
 th,
 td {
-  padding: var(--cell-pad-y) 0;
+  padding: var(--cell-pad-y) 12px;
   border-bottom: 1px solid color-mix(in srgb, var(--border) 55%, transparent);
   text-align: left;
 }
@@ -1068,7 +1127,7 @@ td {
 th {
   color: var(--text-muted);
   font-family: var(--mono-font);
-  font-size: 11px;
+  font-size: var(--text-xs);
   letter-spacing: 0.05em;
   text-transform: uppercase;
 }
@@ -1076,6 +1135,53 @@ th {
 .register-row {
   cursor: pointer;
   min-height: var(--row-height);
+}
+
+.register-table th,
+.register-table td {
+  border-bottom: 1px solid color-mix(in srgb, var(--border) 35%, transparent);
+}
+
+.register-col-date,
+.register-cell-date {
+  width: var(--date-col-width);
+  min-width: var(--date-col-width);
+  font-family: var(--mono-font);
+  font-size: var(--text-sm);
+  color: var(--text-muted);
+}
+
+.register-col-description,
+.register-cell-description {
+  font-size: var(--text-sm);
+  color: var(--text);
+}
+
+.register-col-payee,
+.register-cell-payee {
+  font-size: var(--text-sm);
+  color: var(--text-muted);
+}
+
+.register-col-amount,
+.register-cell-amount {
+  width: var(--amount-col-width);
+  min-width: var(--amount-col-width);
+  text-align: right;
+  font-family: var(--mono-font);
+  font-size: var(--text-sm);
+  font-variant-numeric: tabular-nums;
+}
+
+.register-col-balance,
+.register-cell-balance {
+  width: var(--balance-col-width);
+  min-width: var(--balance-col-width);
+  text-align: right;
+  font-family: var(--mono-font);
+  font-size: var(--text-sm);
+  font-variant-numeric: tabular-nums;
+  color: var(--text-muted);
 }
 
 .register-row:hover td {
@@ -1158,6 +1264,33 @@ th {
 .register-tab.active {
   border-color: var(--accent-warm-border);
   background: var(--accent-warm);
+}
+
+.register-tab-trigger {
+  padding: 2px 8px;
+}
+
+.register-tab-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.register-tab-account-name {
+  font-family: var(--display-font);
+  font-size: var(--text-xl);
+  font-weight: var(--weight-semibold);
+}
+
+.register-tab-account-type {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 8px;
+  border-radius: 999px;
+  font-size: var(--text-xs);
+  color: var(--text-muted);
+  background: color-mix(in srgb, var(--surface-input) 85%, transparent);
+  text-transform: lowercase;
 }
 
 .register-tab-actions {
@@ -1360,7 +1493,7 @@ th {
   border-radius: 999px;
   background: color-mix(in srgb, var(--surface-input) 95%, transparent);
   padding: 6px 10px;
-  font-size: 12px;
+  font-size: var(--text-xs);
   font-family: var(--mono-font);
 }
 
