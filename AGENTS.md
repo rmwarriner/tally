@@ -11,15 +11,21 @@ This file contains only Codex-specific operational instructions — session star
 Run these commands at the start of every session before reading any handoff or doing any work:
 
 ```bash
-cd /Users/robert/Projects/tally-codex
+cd /Users/robert/Projects/tally
 git fetch origin
 ```
 
-This updates all remote refs so that `origin/main` is current. Do not skip this step. Do not run `git checkout main` — `main` is permanently checked out in a separate worktree and cannot be checked out here.
+This updates all remote refs so that `origin/main` is current. Do not skip this step.
 
 ## Starting an Issue
 
 When told to "start on I-NNN", first run `git fetch origin` to ensure you have the latest handoff files, then read `docs/handoffs/I-NNN.md` for the full spec.
+
+## Ancillary Documents
+
+- `docs/project-status.md` — append a one-line completion entry on your feature branch before opening the PR. This is the only tracking doc Codex touches.
+- `docs/issues.md` — do not modify. Claude Code updates this on `main` after merge.
+- `docs/handoffs/` — do not modify. Claude Code owns these.
 
 Each handoff file is self-contained: it includes an explicit **First step** with the exact git commands to sync the worktree and create the branch. Execute that first step before doing anything else.
 

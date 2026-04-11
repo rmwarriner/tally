@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-CODEX_WORKTREE="/Users/robert/Projects/tally-codex"
+CODEX_WORKTREE="/Users/robert/Projects/tally"
 
 cd "$CODEX_WORKTREE"
 git fetch origin

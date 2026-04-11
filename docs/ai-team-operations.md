@@ -6,10 +6,10 @@ This document defines how the solo maintainer, Claude Code, and Codex work toget
 
 ## Role Separation
 
-| Agent | Worktree | Responsibilities |
+| Agent | Directory | Responsibilities |
 |---|---|---|
-| Claude Code | `tally/` (primary, always `main`) | analysis, planning, doc edits, PR review, Codex handoffs |
-| Codex | `tally-codex/` (feature branches) | all implementation, TDD, CI verification, PR authoring |
+| Claude Code | `tally/` (always `main`) | analysis, planning, doc edits, PR review, Codex handoffs |
+| Codex | `tally/` (feature branches only, never `main`) | all implementation, TDD, CI verification, PR authoring |
 
 ## Agent File Responsibilities
 
@@ -28,7 +28,7 @@ This document defines how the solo maintainer, Claude Code, and Codex work toget
 6. User asks Claude to review the PR if R2/R3; Claude fetches the PR branch for review
 7. After merge, Claude pulls `main` in `tally/` and updates `docs/issues.md`
 
-See `docs/git-workflow.md` → **Workspace Setup** for worktree paths and commands.
+Both agents work in the same `tally/` directory. Claude Code stays on `main`; Codex always branches from `origin/main` before making changes.
 
 ## Handoff File Format
 
