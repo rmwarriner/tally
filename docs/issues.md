@@ -154,6 +154,9 @@ This is the canonical issue tracker for day-to-day solo development.
 ## Blocked
 - [ ] (empty)
 ## Done
+- [x] I-011 Expand app-format test coverage for all exports
+  - status: done
+  - completed: 2026-04-11
 - [x] I-010 Ledger UI Slice 4 — keyboard-first workflow hardening
   - status: done
   - completed: 2026-04-11
