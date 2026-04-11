@@ -6,7 +6,7 @@ interface CoaSidebarProps {
   activeView: BookView;
   onAddTransaction: () => void;
   onAccountSelect: (accountId: string | null) => void;
-  onNewAccount: () => void;
+  onNewAccount: (parentAccountId: string | null) => void;
   onReconcile: () => void;
   selectedAccountId: string | null;
 }
@@ -35,12 +35,16 @@ export function CoaSidebar(props: CoaSidebarProps) {
             <button className="btn-secondary" type="button" onClick={props.onReconcile}>
               Reconcile
             </button>
-            <button className="btn-secondary" type="button" onClick={props.onNewAccount}>
+            <button
+              className="btn-secondary"
+              type="button"
+              onClick={() => props.onNewAccount(props.selectedAccountId)}
+            >
               + Sub-account
             </button>
           </>
         ) : (
-          <button className="btn-secondary" type="button" onClick={props.onNewAccount}>
+          <button className="btn-secondary" type="button" onClick={() => props.onNewAccount(null)}>
             + Account
           </button>
         )}

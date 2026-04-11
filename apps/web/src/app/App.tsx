@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import {
   deleteTransaction,
   postBaselineBudgetLine,
+  postAccount,
   postCsvImport,
   postEnvelope,
   postEnvelopeAllocation,
@@ -42,6 +43,11 @@ import {
   parseCsvRows,
 } from "./app-format";
 import {
+  canSaveCoaAccountDraft,
+  createCoaAccountDraft,
+  type CoaAccountDraft,
+} from "./coa-account-form";
+import {
   createTransactionEditorState,
   type TransactionEditorState,
   validateTransactionEditorState,
@@ -53,6 +59,7 @@ import { ShellTopbar } from "./ShellTopbar";
 import { ShellActivityBar } from "./ShellActivityBar";
 import { CoaSidebar } from "./CoaSidebar";
 import { ShellStatusBar } from "./ShellStatusBar";
+import type { AccountType } from "@tally/domain";
 import "../app/styles.css";
 
 function ShellState(props: { message: string; title: string }) {
@@ -93,6 +100,8 @@ interface LedgerRegisterTabState {
   selectedLedgerTransactionId: string | null;
 }
 
+const COA_ACCOUNT_TYPES: AccountType[] = ["asset", "liability", "income", "expense", "equity"];
+
 export function App() {
   const [activeView, setActiveView] = useState<BookView>("overview");
   const [currentPeriod, setCurrentPeriod] = useState(APRIL_RANGE);
@@ -100,6 +109,7 @@ export function App() {
   const [isLedgerDetailOpen, setIsLedgerDetailOpen] = useState(false);
   const [isLedgerOperationsOpen, setIsLedgerOperationsOpen] = useState(false);
   const [isCommandPaletteOpen, setIsCommandPaletteOpen] = useState(false);
+  const [coaAccountDraft, setCoaAccountDraft] = useState<CoaAccountDraft | null>(null);
   const [transactionEditor, setTransactionEditor] = useState<TransactionEditorState | null>(null);
   const [activePostingAccountSearchIndex, setActivePostingAccountSearchIndex] = useState<number | null>(
     null,
@@ -251,6 +261,7 @@ export function App() {
       : ledgerBook.isFiltered
         ? `showing ${ledgerBook.filteredTransactions.length} of ${ledgerBook.totalCount} · filtered total ${formatCurrency(filteredTotal)}`
         : `${ledgerBook.filteredTransactions.length} transactions · balance ${formatCurrency(runningBalance)}`;
+  const canSaveNewCoaAccount = coaAccountDraft ? canSaveCoaAccountDraft(coaAccountDraft) : false;
   const reconciliationBook = loadedBook
     ? createReconciliationBookModel({
         selectedAccountId: reconciliationForm.accountId,
@@ -911,9 +922,44 @@ export function App() {
     }
   }
 
-  function openCoaNewAccountFlow() {
-    // TODO(I-008): replace this temporary redirect with a dedicated account creation flow.
-    setActiveView("budget");
+  function openCoaNewAccountFlow(parentAccountId: string | null) {
+    const parentAccountType = parentAccountId
+      ? bookAccounts.find((account) => account.id === parentAccountId)?.type
+      : undefined;
+    setCoaAccountDraft(
+      createCoaAccountDraft({
+        parentAccountId,
+        parentAccountType,
+      }),
+    );
+  }
+
+  function closeCoaNewAccountFlow() {
+    setCoaAccountDraft(null);
+  }
+
+  function updateCoaAccountDraftField<Key extends keyof CoaAccountDraft>(
+    field: Key,
+    value: CoaAccountDraft[Key],
+  ) {
+    setCoaAccountDraft((current) => (current ? { ...current, [field]: value } : current));
+  }
+
+  async function saveCoaAccount() {
+    if (!coaAccountDraft || !canSaveCoaAccountDraft(coaAccountDraft)) {
+      return;
+    }
+
+    await runMutation("Account create", async () => {
+      await postAccount(activeBookId, {
+        id: createEntityId("acct-web"),
+        code: coaAccountDraft.code.trim(),
+        name: coaAccountDraft.name.trim(),
+        type: coaAccountDraft.type,
+        parentAccountId: coaAccountDraft.parentAccountId,
+      });
+    });
+    closeCoaNewAccountFlow();
   }
 
   function openCoaReconciliationFlow() {
@@ -1136,6 +1182,67 @@ export function App() {
       </aside>
 
       <ShellStatusBar apiStatus={apiStatus} registerStatus={registerStatus} />
+
+      {coaAccountDraft ? (
+        <div className="command-palette-overlay" role="dialog" aria-modal="true">
+          <div className="command-palette">
+            <div className="panel-header">
+              <span>
+                {coaAccountDraft.parentAccountId ? "Create sub-account" : "Create account"}
+              </span>
+              <span className="muted">Chart of accounts</span>
+            </div>
+            <div className="form-stack">
+              <label>
+                Code
+                <input
+                  type="text"
+                  value={coaAccountDraft.code}
+                  onChange={(event) => updateCoaAccountDraftField("code", event.target.value)}
+                />
+              </label>
+              <label>
+                Name
+                <input
+                  type="text"
+                  value={coaAccountDraft.name}
+                  onChange={(event) => updateCoaAccountDraftField("name", event.target.value)}
+                />
+              </label>
+              <label>
+                Type
+                <select
+                  value={coaAccountDraft.type}
+                  onChange={(event) =>
+                    updateCoaAccountDraftField("type", event.target.value as AccountType)
+                  }
+                >
+                  {COA_ACCOUNT_TYPES.map((type) => (
+                    <option key={type} value={type}>
+                      {type}
+                    </option>
+                  ))}
+                </select>
+              </label>
+            </div>
+            <div className="detail-stack">
+              <button
+                className="btn-primary"
+                disabled={!canSaveNewCoaAccount || busy !== null}
+                type="button"
+                onClick={() => {
+                  void saveCoaAccount();
+                }}
+              >
+                Save account
+              </button>
+              <button className="btn-secondary" type="button" onClick={closeCoaNewAccountFlow}>
+                Cancel
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
 
       {isCommandPaletteOpen ? (
         <div className="command-palette-overlay" role="dialog" aria-modal="true">

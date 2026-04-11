@@ -1,4 +1,5 @@
 import type {
+  Account,
   BaselineBudgetLine,
   Envelope,
   EnvelopeAllocation,
@@ -142,6 +143,22 @@ export async function postTransaction(
     method: "POST",
   });
   await ensureOk(response, "Failed to post transaction.");
+
+  return readJson<BookResponse>(response);
+}
+
+export async function postAccount(
+  bookId: string,
+  account: Account,
+): Promise<BookResponse> {
+  const response = await fetch(`/api/books/${bookId}/accounts`, {
+    body: JSON.stringify({ account }),
+    headers: {
+      "content-type": "application/json",
+    },
+    method: "POST",
+  });
+  await ensureOk(response, "Failed to post account.");
 
   return readJson<BookResponse>(response);
 }
