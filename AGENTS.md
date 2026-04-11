@@ -19,7 +19,7 @@ This updates all remote refs so that `origin/main` is current. Do not skip this 
 
 ## Starting an Issue
 
-When told to "start on I-NNN", read `docs/handoffs/I-NNN.md` for the full spec.
+When told to "start on I-NNN", first run `git fetch origin` to ensure you have the latest handoff files, then read `docs/handoffs/I-NNN.md` for the full spec.
 
 Each handoff file is self-contained: it includes an explicit **First step** with the exact git commands to sync the worktree and create the branch. Execute that first step before doing anything else.
 
