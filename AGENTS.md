@@ -23,7 +23,8 @@ This ensures the worktree is current with `main` before branching. Do not skip t
 
 When told to "start on I-NNN", read `docs/handoffs/I-NNN.md` for the full spec.
 
-1. Check the `**Dependencies:**` field first. If a listed issue is not yet merged into `main`, stop and prompt the user — do not proceed.
-2. Run the session-start sync above if not already done this session.
-3. Create the branch specified in `**Branch:**` from `origin/main`.
-4. Follow the spec exactly. Do not expand scope beyond the stated acceptance criteria.
+Each handoff file is self-contained: it includes an explicit **First step** with the exact git commands to sync the worktree and create the branch. Execute that first step before doing anything else.
+
+After the first step:
+1. Check the `**Dependencies:**` field. If a listed issue is not yet merged into `main`, stop and prompt the user — do not proceed.
+2. Follow the spec exactly. Do not expand scope beyond the stated acceptance criteria.
