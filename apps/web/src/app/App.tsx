@@ -186,7 +186,6 @@ export function App() {
     (account) => account.type === "asset" || account.type === "liability",
   );
   const fundingAccounts = bookAccounts.filter((account) => account.type === "asset");
-  const activeViewDefinition = getBookViewDefinition(activeView);
   const currentPeriodLabel = formatPeriodLabel(currentPeriod.from);
   const apiStatus = loading ? "unknown" : error ? "offline" : "online";
   const {
@@ -1171,7 +1170,6 @@ export function App() {
       <ShellActivityBar activeView={activeView} onViewChange={setActiveView} />
       <CoaSidebar
         accounts={bookAccounts}
-        activeView={activeView}
         selectedAccountId={selectedLedgerAccountId}
         onAccountSelect={setSelectedLedgerAccountId}
         onAddTransaction={openCoaAddTransactionFlow}
@@ -1184,10 +1182,6 @@ export function App() {
       </main>
 
       <aside className="inspector">
-        <div className="panel-header">
-          <span>Inspector</span>
-          <span className="muted">{activeViewDefinition.label}</span>
-        </div>
         {renderInspectorContent()}
       </aside>
 

@@ -1,3 +1,11 @@
+@font-face {
+  font-family: "Geist";
+  font-style: normal;
+  font-weight: 100 900;
+  font-display: swap;
+  src: url("geist/dist/fonts/geist-sans/Geist-Variable.woff2") format("woff2");
+}
+
 :root,
 [data-theme="light"] {
   --bg: #f0ece3;
@@ -36,8 +44,8 @@
   --gradient-top: #efe7d7;
   --gradient-bottom: #e6dece;
   --gradient-radial: #fff7d9;
-  --display-font: "IBM Plex Sans", "Avenir Next", sans-serif;
-  --mono-font: "IBM Plex Mono", "SFMono-Regular", monospace;
+  --display-font: "Geist", system-ui, sans-serif;
+  --mono-font: "JetBrains Mono", monospace;
 }
 
 [data-theme="dark"] {

@@ -1,5 +1,6 @@
 import React from "react";
 import ReactDOM from "react-dom/client";
+import "@fontsource/jetbrains-mono";
 import { App } from "./app/App";
 
 ReactDOM.createRoot(document.getElementById("root")!).render(

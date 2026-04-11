@@ -1,4 +1,15 @@
 import type { FinanceBookDocument, ReconciliationSession } from "@tally/book";
+import {
+  ArrowLineDown,
+  Book as Ledger,
+  CalendarBlank,
+  ChartLineUp,
+  Envelope,
+  Gear,
+  SquaresFour,
+  Target,
+  type Icon,
+} from "@phosphor-icons/react";
 
 export type BookView =
   | "overview"
@@ -14,9 +25,9 @@ export interface BookViewDefinition {
   description: string;
   detail: string;
   emptyMessage: string;
+  icon: Icon;
   id: BookView;
   label: string;
-  shortLabel: string;
   title: string;
 }
 
@@ -522,72 +533,72 @@ export const bookViews: BookViewDefinition[] = [
     description: "Cross-book operating picture with next actions and integrity status.",
     detail: "Command center",
     emptyMessage: "Overview keeps the current operating picture and next actions in one place.",
+    icon: SquaresFour,
     id: "overview",
     label: "Overview",
-    shortLabel: "OV",
     title: "Household operating picture",
   },
   {
     description: "Dense register and reconciliation flows for balanced ledger work.",
     detail: "Double-entry ledger",
     emptyMessage: "Register activity will appear here as transactions are captured.",
+    icon: Ledger,
     id: "ledger",
     label: "Ledger",
-    shortLabel: "LE",
     title: "Ledger register",
   },
   {
     description: "Baseline planning view for plan-of-record budget maintenance.",
     detail: "Plan of record",
     emptyMessage: "Budget lines will appear here once the baseline is configured.",
+    icon: Target,
     id: "budget",
     label: "Budget",
-    shortLabel: "BU",
     title: "Baseline budget",
   },
   {
     description: "Operational cash allocation and funding flows for envelope work.",
     detail: "Operational budgeting",
     emptyMessage: "Envelope funding state will appear here once categories are configured.",
+    icon: Envelope,
     id: "envelopes",
     label: "Envelopes",
-    shortLabel: "EN",
     title: "Envelope operations",
   },
   {
     description: "Imports and future interchange adapters routed through the service boundary.",
     detail: "Data interchange",
     emptyMessage: "Imports are not configured yet.",
+    icon: ArrowLineDown,
     id: "imports",
     label: "Imports",
-    shortLabel: "IM",
     title: "Import workbench",
   },
   {
     description: "Recurring templates, due items, and schedule maintenance.",
     detail: "Automation control",
     emptyMessage: "Scheduled workflows will appear here once recurring items are configured.",
+    icon: CalendarBlank,
     id: "automations",
     label: "Automations",
-    shortLabel: "AU",
     title: "Automation queue",
   },
   {
     description: "Reporting placeholder while close and reporting flows are still on the roadmap.",
     detail: "Reporting roadmap",
     emptyMessage: "Reporting is planned but not yet implemented.",
+    icon: ChartLineUp,
     id: "reports",
     label: "Reports",
-    shortLabel: "RE",
     title: "Reporting and close",
   },
   {
     description: "Display and workspace preferences for shell presentation defaults.",
     detail: "Workspace preferences",
     emptyMessage: "Display preferences control theme, density, and amount presentation.",
+    icon: Gear,
     id: "settings",
     label: "Settings",
-    shortLabel: "ST",
     title: "Display and workspace settings",
   },
 ];
