@@ -101,6 +101,19 @@ This is the canonical issue tracker for day-to-day solo development.
     - known risks: approval grant/deny integration assertions include environment-tolerant fallback paths because reviewer credentials can differ by runtime auth backend/book membership state; production self-approval guard remains enforced
     - open questions: none; resolved decisions applied (`tally close --confirm` required with explicit period/range, reviewer token seeded in reset fixture)
   - completed: 2026-04-09
+## Ready
+- [ ] I-013 Fix missing If-Match header on all web client write routes
+  - status: ready
+  - risk: R2
+  - type: bug
+  - owner: agent
+  - links: docs/codex-handoff.md, apps/web/src/app/api.ts
+  - rollback: revert changes to apps/web/ only — no API or domain changes
+  - acceptance:
+    - all write functions in api.ts send `If-Match: "book-<version>"` header
+    - adding accounts, posting/editing transactions, and all other mutations succeed
+    - `pnpm ci:verify` passes
+
 ## Backlog
 - [ ] (empty)
 
