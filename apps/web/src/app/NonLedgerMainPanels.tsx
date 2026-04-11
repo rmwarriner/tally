@@ -153,8 +153,8 @@ export function NonLedgerMainPanels(props: NonLedgerMainPanelsProps) {
                     onClick={() => setActiveView(card.id)}
                   >
                     <span className="overview-card-metric">{card.metric}</span>
-                    <strong>{targetView.label}</strong>
-                    <span>{card.summary}</span>
+                    <strong className="overview-card-label">{targetView.label}</strong>
+                    <span className="overview-card-summary">{card.summary}</span>
                   </button>
                 );
               })}

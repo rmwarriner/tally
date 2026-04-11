@@ -127,7 +127,8 @@ export function LedgerRegisterPanel(props: LedgerRegisterPanelProps) {
   const balanceAsOfDate = /^\d{4}-\d{2}-\d{2}$/.test(props.ledgerRange.to.trim())
     ? props.ledgerRange.to.trim()
     : formatDateAsYyyyMmDd(new Date());
-  const visibleColumnCount = props.isFiltered ? 7 : 8;
+  const visibleColumnCount = props.isFiltered ? 8 : 9;
+  const accountById = new Map(props.ledgerBook.availableAccounts.map((account) => [account.id, account]));
   const getTransactionAmount = (transaction: ReturnType<typeof createLedgerBookModel>["filteredTransactions"][number]) => {
     if (!props.selectedLedgerAccountId) {
       return 0;
@@ -270,12 +271,18 @@ export function LedgerRegisterPanel(props: LedgerRegisterPanelProps) {
         </div>
         <div className="register-tab-row">
           {props.ledgerRegisterTabs.map((tab, tabIndex) => (
-            <div
-              key={tab.id}
-              className={`register-tab${props.activeLedgerRegisterTabId === tab.id ? " active" : ""}`}
-            >
-              <button className="btn-ghost" type="button" onClick={() => props.onActivateLedgerRegisterTab(tab.id)}>
-                {tab.label}
+            <div key={tab.id} className={`register-tab${props.activeLedgerRegisterTabId === tab.id ? " active" : ""}`}>
+              <button className="btn-ghost register-tab-trigger" type="button" onClick={() => props.onActivateLedgerRegisterTab(tab.id)}>
+                <span className="register-tab-label">
+                  <strong className="register-tab-account-name">{tab.label}</strong>
+                  {tab.accountId ? (
+                    <span className="register-tab-account-type">
+                      {accountById.get(tab.accountId)?.type ?? "account"}
+                    </span>
+                  ) : (
+                    <span className="register-tab-account-type">all</span>
+                  )}
+                </span>
               </button>
               <div className="register-tab-actions">
                 <button
@@ -405,22 +412,23 @@ export function LedgerRegisterPanel(props: LedgerRegisterPanelProps) {
             status tokens.
           </p>
         </div>
-        <table>
+        <table className="register-table">
           <thead>
             <tr>
-              <th>Date</th>
+              <th className="register-col-date">Date</th>
               <th>Status</th>
-              <th>Description</th>
-              <th>Payee</th>
+              <th className="register-col-description">Description</th>
+              <th className="register-col-payee">Payee</th>
               <th>Accounts</th>
-              {!props.isFiltered ? <th>Balance</th> : null}
+              <th className="register-col-amount">Amount</th>
+              {!props.isFiltered ? <th className="register-col-balance">Balance</th> : null}
               <th>Tags</th>
               <th>Actions</th>
             </tr>
           </thead>
           <tbody>
             <tr className="register-row">
-              <td>
+              <td className="register-cell-date">
                 <input
                   value={newTransactionDraft.date}
                   onChange={(event) =>
@@ -434,7 +442,7 @@ export function LedgerRegisterPanel(props: LedgerRegisterPanelProps) {
               <td>
                 <span className="status-chip open">New</span>
               </td>
-              <td>
+              <td className="register-cell-description">
                 <input
                   value={newTransactionDraft.description}
                   placeholder="New transaction"
@@ -446,7 +454,7 @@ export function LedgerRegisterPanel(props: LedgerRegisterPanelProps) {
                   }
                 />
               </td>
-              <td>
+              <td className="register-cell-payee">
                 <input
                   value={newTransactionDraft.payee}
                   placeholder="Unassigned"
@@ -458,35 +466,35 @@ export function LedgerRegisterPanel(props: LedgerRegisterPanelProps) {
                   }
                 />
               </td>
-              <td>
-                <div className="form-inline">
-                  <select
-                    value={newTransactionDraft.expenseAccountId}
-                    onChange={(event) =>
-                      setNewTransactionDraft((current) => ({
-                        ...current,
-                        expenseAccountId: event.target.value,
-                      }))
-                    }
-                  >
-                    {props.expenseAccounts.map((account) => (
-                      <option key={account.id} value={account.id}>
-                        {account.name}
-                      </option>
-                    ))}
-                  </select>
-                  <input
-                    value={newTransactionDraft.amount}
-                    onChange={(event) =>
-                      setNewTransactionDraft((current) => ({
-                        ...current,
-                        amount: event.target.value,
-                      }))
-                    }
-                  />
-                </div>
+              <td className="register-cell-accounts">
+                <select
+                  value={newTransactionDraft.expenseAccountId}
+                  onChange={(event) =>
+                    setNewTransactionDraft((current) => ({
+                      ...current,
+                      expenseAccountId: event.target.value,
+                    }))
+                  }
+                >
+                  {props.expenseAccounts.map((account) => (
+                    <option key={account.id} value={account.id}>
+                      {account.name}
+                    </option>
+                  ))}
+                </select>
               </td>
-              {!props.isFiltered ? <td /> : null}
+              <td className="register-cell-amount">
+                <input
+                  value={newTransactionDraft.amount}
+                  onChange={(event) =>
+                    setNewTransactionDraft((current) => ({
+                      ...current,
+                      amount: event.target.value,
+                    }))
+                  }
+                />
+              </td>
+              {!props.isFiltered ? <td className="register-cell-balance" /> : null}
               <td>
                 {!newRowDateIsValid ? <div className="form-hint error-text">YYYY-MM-DD required.</div> : null}
                 {!newRowDescriptionIsValid ? (
@@ -583,7 +591,7 @@ export function LedgerRegisterPanel(props: LedgerRegisterPanelProps) {
                       ].filter(Boolean).join(" ")}
                       onClick={() => props.setSelectedLedgerTransactionId(transaction.id)}
                     >
-                      <td>
+                      <td className="register-cell-date">
                         {rowDraft ? (
                           <>
                             <input
@@ -629,7 +637,7 @@ export function LedgerRegisterPanel(props: LedgerRegisterPanelProps) {
                           {props.formatTransactionStatus(transaction.status)}
                         </span>
                       </td>
-                      <td>
+                      <td className="register-cell-description">
                         {rowDraft ? (
                           <>
                             <input
@@ -670,7 +678,7 @@ export function LedgerRegisterPanel(props: LedgerRegisterPanelProps) {
                           transaction.description
                         )}
                       </td>
-                      <td>
+                      <td className="register-cell-payee">
                         {rowDraft ? (
                           <input
                             data-testid={`ledger-inline-payee-${transaction.id}`}
@@ -705,9 +713,28 @@ export function LedgerRegisterPanel(props: LedgerRegisterPanelProps) {
                           transaction.payee ?? "Unassigned"
                         )}
                       </td>
-                      <td>{transaction.postings.map((posting) => posting.accountName).join(", ")}</td>
+                      <td className="register-cell-accounts">
+                        {transaction.postings.map((posting) => posting.accountName).join(", ")}
+                      </td>
+                      <td className="register-cell-amount">
+                        <strong
+                          className={
+                            getTransactionAmount(transaction) > 0
+                              ? "amount-positive"
+                              : getTransactionAmount(transaction) < 0
+                                ? "amount-negative"
+                                : "muted"
+                          }
+                        >
+                          {formatAmount(
+                            getTransactionAmount(transaction),
+                            props.formatCurrency,
+                            props.amountStyle,
+                          )}
+                        </strong>
+                      </td>
                       {!props.isFiltered ? (
-                        <td>
+                        <td className="register-cell-balance">
                           <strong
                             className={
                               (runningBalances.get(transaction.id) ?? 0) > 0
