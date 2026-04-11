@@ -102,8 +102,8 @@ This is the canonical issue tracker for day-to-day solo development.
     - open questions: none; resolved decisions applied (`tally close --confirm` required with explicit period/range, reviewer token seeded in reset fixture)
   - completed: 2026-04-09
 ## Backlog
-- [ ] I-010 Ledger UI Slice 4 — keyboard-first workflow hardening
-  - status: in-progress
+- [x] I-010 Ledger UI Slice 4 — keyboard-first workflow hardening
+  - status: done
   - risk: R2
   - type: feature
   - owner: agent
