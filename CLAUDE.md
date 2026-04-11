@@ -102,14 +102,13 @@ This repository is maintained by a solo developer. AI assistants and automation 
 
 These rules apply to every Codex task without exception.
 
-**Session start — handoff check**
-- Before doing anything else, check whether `docs/codex-handoff.md` exists
-- If it exists, read it and ask the user: "A handoff file is present — would you like me to execute it?"
-- Wait for confirmation before proceeding; do not execute automatically
-- If no handoff file is present, proceed normally
+**Session start**
+- Run the worktree sync from `AGENTS.md` before doing anything else
+- When told to "start on I-NNN", read `docs/handoffs/I-NNN.md` for the full spec
+- Check the `Dependencies:` field first — stop and prompt if any listed issue is not yet merged
 
 **Git discipline**
-- Branch from `main` before making any changes: `git checkout main && git pull && git checkout -b <type>/<description>`
+- Branch from `origin/main` before making any changes: `git checkout -B <type>/I-NNN-description origin/main`
 - Commit after each logical unit of work with a clear message
 - Push and open a PR when done: `gh pr create` using `.github/PULL_REQUEST_TEMPLATE.md`
 - Never push directly to `main`

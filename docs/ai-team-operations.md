@@ -12,26 +12,27 @@ This document defines how the solo maintainer, Claude Code, and Codex work toget
 | Codex | `tally-codex/` (feature branches) | all implementation, TDD, CI verification, PR authoring |
 
 **Handoff flow:**
-1. User asks Claude Code "what's next" or "prep a Codex handoff"
-2. Claude reads `docs/issues.md` and the roadmap, picks the next item, and writes the spec to `docs/codex-handoff.md`, then pushes to `main`
-3. User opens Codex in `tally-codex/`; Codex detects the handoff file at session start and asks whether to execute it
-4. User confirms; Codex checks out the branch, implements, and opens a PR
-5. User asks Claude to review the PR; Claude fetches and detach-checks out the PR branch — no changes pushed from `tally/`
-6. After merge, Claude pulls `main` in `tally/`, updates `docs/issues.md`, and deletes `docs/codex-handoff.md`
+1. User asks Claude Code "what's next" or "write up the next handoffs"
+2. Claude reads `docs/issues.md` and roadmap docs, drafts specs into `docs/handoffs/I-NNN.md`, pushes to `main`
+3. User tells Codex: "start on I-NNN" — Codex reads `docs/handoffs/I-NNN.md`, checks dependencies, syncs worktree, and begins
+4. While Codex executes, Claude can freely draft further handoffs in `docs/handoffs/` without interference
+5. Codex finishes and opens (or auto-merges) a PR
+6. User asks Claude to review the PR if R2/R3; Claude fetches the PR branch for review
+7. After merge, Claude pulls `main` in `tally/` and updates `docs/issues.md`
 
 See `docs/git-workflow.md` → **Workspace Setup** for worktree paths and commands.
 
 ## Handoff File Format
 
-`docs/codex-handoff.md` is the task spec passed from Claude Code to Codex. It is a temporary file — deleted as part of post-merge cleanup after every task.
+Handoffs live in `docs/handoffs/I-NNN.md` — permanent specs, never deleted. Codex reads them on demand when told "start on I-NNN".
 
 Structure:
 ```
-# Codex Handoff — <issue id>
+# Handoff — I-NNN: <short title>
 
-**Branch:** `feat/<branch-name>`
+**Branch:** `feat/I-NNN-description`
 
-**First step:** `git fetch origin && git checkout -B feat/<branch-name> origin/main`
+**Dependencies:** I-NNN merged  (or "none")
 
 **Context:** <why this work is being done>
 
@@ -53,7 +54,7 @@ Structure:
 Run these steps after every PR is squash-merged:
 
 1. Pull `main` in `tally/`: `git pull`
-2. If `docs/codex-handoff.md` exists, delete it: `git rm docs/codex-handoff.md && git commit -m "docs: remove stale codex handoff" && git push origin main`
+2. Update `docs/issues.md`: move the completed issue to Done
 
 Claude Code will prompt you to run these steps after confirming a merge.
 

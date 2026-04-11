@@ -1,14 +1,6 @@
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 
-const expectedAgents = `# AGENTS.md
-
-Canonical repository agent guidance lives in [CLAUDE.md](CLAUDE.md).
-
-This file is intentionally a thin pointer so Claude Code and Codex share one policy source of truth.
-Do not duplicate policy text here.
-`;
-
 const root = process.cwd();
 const agentsPath = resolve(root, "AGENTS.md");
 const claudePath = resolve(root, "CLAUDE.md");
@@ -30,12 +22,16 @@ try {
 
 try {
   const agents = readFileSync(agentsPath, "utf8");
-  if (agents !== expectedAgents) {
-    console.error(
-      "AGENTS.md has drifted. Keep AGENTS.md as the canonical pointer shim to CLAUDE.md.",
-    );
-    console.error("Expected AGENTS.md contents:\n");
-    console.error(expectedAgents);
+  if (!agents.includes("CLAUDE.md")) {
+    console.error("AGENTS.md must contain a pointer to CLAUDE.md as the canonical policy source.");
+    hasError = true;
+  }
+  if (!agents.includes("## Codex Session Start")) {
+    console.error("AGENTS.md must contain a '## Codex Session Start' section with worktree sync instructions.");
+    hasError = true;
+  }
+  if (!agents.includes("docs/handoffs/")) {
+    console.error("AGENTS.md must reference docs/handoffs/ as the handoff deck location.");
     hasError = true;
   }
 } catch (error) {

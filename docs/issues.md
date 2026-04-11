@@ -101,6 +101,33 @@ This is the canonical issue tracker for day-to-day solo development.
     - known risks: approval grant/deny integration assertions include environment-tolerant fallback paths because reviewer credentials can differ by runtime auth backend/book membership state; production self-approval guard remains enforced
     - open questions: none; resolved decisions applied (`tally close --confirm` required with explicit period/range, reviewer token seeded in reset fixture)
   - completed: 2026-04-09
+## Ready
+- [ ] I-015 Shell redesign slice 2 — register-first landing
+  - status: ready
+  - risk: R2
+  - type: feature
+  - owner: agent
+  - links: docs/handoffs/I-015.md, docs/shell-redesign-plan.md
+  - rollback: revert App.tsx and use-book-runtime.ts changes only
+
+- [ ] I-016 Shell redesign slice 3 — inspector panel redesign
+  - status: ready
+  - risk: R2
+  - type: feature
+  - owner: agent
+  - links: docs/handoffs/I-016.md, docs/shell-redesign-plan.md
+  - rollback: revert App.tsx, ShellSidePanels.tsx, styles.css only
+  - depends: I-015
+
+- [ ] I-017 Shell redesign slice 4 — typography hierarchy and register visual identity
+  - status: ready
+  - risk: R2
+  - type: feature
+  - owner: agent
+  - links: docs/handoffs/I-017.md, docs/shell-redesign-plan.md
+  - rollback: revert styles.css and minor className changes in apps/web/ only
+  - depends: I-016
+
 ## Backlog
 - [ ] (empty)
 
