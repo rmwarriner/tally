@@ -1,16 +1,8 @@
 import { useState, type Dispatch, type SetStateAction } from "react";
-import type { CsvImportRow } from "@tally/book";
-import type {
-  DashboardResponse,
-  BookResponse,
-  postBaselineBudgetLine,
-  postCsvImport,
-  postEnvelope,
-  postEnvelopeAllocation,
-  postScheduledTransaction,
-} from "./api";
+import { postBaselineBudgetLine, postCsvImport, postEnvelope, postEnvelopeAllocation, postScheduledTransaction } from "./api";
+import type { DashboardResponse, BookResponse } from "./api";
 import { BOOK_ID } from "./app-constants";
-import type { AmountStyle } from "./app-format";
+import { formatCurrency, parseCsvRows, createEntityId, type AmountStyle } from "./app-format";
 import type {
   BudgetLineFormState,
   CsvFormState,
@@ -18,7 +10,8 @@ import type {
   EnvelopeFormState,
   ScheduleFormState,
 } from "./non-ledger-state";
-import type { OverviewCard, BookView, BookViewDefinition } from "./shell";
+import { getBookViewDefinition } from "./shell";
+import type { OverviewCard, BookView } from "./shell";
 import type { AppPreferences, Density, Theme } from "./use-preferences";
 
 interface NonLedgerMainPanelsProps {
@@ -27,24 +20,15 @@ interface NonLedgerMainPanelsProps {
   bookVersion: number;
   budgetLineForm: BudgetLineFormState;
   busy: string | null;
-  createEntityId: (prefix: string) => string;
   csvForm: CsvFormState;
   dueTransactions: DashboardResponse["dashboard"]["dueTransactions"];
   envelopeAllocationForm: EnvelopeAllocationFormState;
   envelopeForm: EnvelopeFormState;
   envelopeSnapshot: DashboardResponse["dashboard"]["envelopeSnapshot"];
   expenseAccounts: BookResponse["book"]["accounts"];
-  formatCurrency: (amount: number) => string;
   fundingAccounts: BookResponse["book"]["accounts"];
-  getBookViewDefinition: (view: BookView) => BookViewDefinition;
   nextScheduledTransactions: BookResponse["book"]["scheduledTransactions"];
   overviewCards: OverviewCard[];
-  parseCsvRows: (input: string) => CsvImportRow[];
-  postBaselineBudgetLine: typeof postBaselineBudgetLine;
-  postCsvImport: typeof postCsvImport;
-  postEnvelope: typeof postEnvelope;
-  postEnvelopeAllocation: typeof postEnvelopeAllocation;
-  postScheduledTransaction: typeof postScheduledTransaction;
   recentTransactions: BookResponse["book"]["transactions"];
   runMutation: (label: string, operation: () => Promise<void>) => Promise<void>;
   scheduleForm: ScheduleFormState;
@@ -68,24 +52,15 @@ export function NonLedgerMainPanels(props: NonLedgerMainPanelsProps) {
     bookVersion,
     budgetLineForm,
     busy,
-    createEntityId,
     csvForm,
     dueTransactions,
     envelopeAllocationForm,
     envelopeForm,
     envelopeSnapshot,
     expenseAccounts,
-    formatCurrency,
     fundingAccounts,
-    getBookViewDefinition,
     nextScheduledTransactions,
     overviewCards,
-    parseCsvRows,
-    postBaselineBudgetLine,
-    postCsvImport,
-    postEnvelope,
-    postEnvelopeAllocation,
-    postScheduledTransaction,
     recentTransactions,
     runMutation,
     scheduleForm,

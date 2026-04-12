@@ -1,12 +1,7 @@
 import { useEffect, useRef, useState, type CSSProperties } from "react";
 import {
   deleteTransaction,
-  postBaselineBudgetLine,
   postAccount,
-  postCsvImport,
-  postEnvelope,
-  postEnvelopeAllocation,
-  postScheduledTransaction,
   postTransaction,
   putTransaction,
 } from "./api";
@@ -16,7 +11,6 @@ import {
   createLedgerBookModel,
   createOverviewCards,
   getPostingBalanceSummary,
-  getBookViewDefinition,
   movePostingIndex,
   shouldHandleLedgerHotkey,
   type PostingFocusField,
@@ -41,7 +35,6 @@ import {
   formatPeriodLabel,
   formatTransactionStatus,
   parsePeriodExpression,
-  parseCsvRows,
 } from "./app-format";
 import {
   canSaveCoaAccountDraft,
@@ -1155,24 +1148,15 @@ export function App() {
         bookVersion={bookVersion}
         budgetLineForm={budgetLineForm}
         busy={busy}
-        createEntityId={createEntityId}
         csvForm={csvForm}
         dueTransactions={dueTransactions}
         envelopeAllocationForm={envelopeAllocationForm}
         envelopeForm={envelopeForm}
         envelopeSnapshot={envelopeSnapshot}
         expenseAccounts={expenseAccounts}
-        formatCurrency={formatCurrency}
         fundingAccounts={fundingAccounts}
-        getBookViewDefinition={getBookViewDefinition}
         nextScheduledTransactions={nextScheduledTransactions}
         overviewCards={overviewCards}
-        parseCsvRows={parseCsvRows}
-        postBaselineBudgetLine={postBaselineBudgetLine}
-        postCsvImport={postCsvImport}
-        postEnvelope={postEnvelope}
-        postEnvelopeAllocation={postEnvelopeAllocation}
-        postScheduledTransaction={postScheduledTransaction}
         recentTransactions={recentTransactions}
         runMutation={runMutation}
         scheduleForm={scheduleForm}
