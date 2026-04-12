@@ -262,3 +262,5 @@ The next roadmap phase should promote a small number of these tracks into bounde
 - 2026-04-12: I-020 replaced register row text actions with compact caret/ellipsis icon controls, dropdown menu actions, double-click inline edit entry, and dirty-cancel discard confirmation.
 
 - 2026-04-12: I-022 added inline status controls (Uncleared/Cleared/Reconciled select) to register inline edit and new-transaction rows, wiring status through to cleared and reconciledAt on postings.
+
+- 2026-04-12: I-024 removed the register search bar and slash-focus shortcut, simplifying register state to range/status/account filters only.

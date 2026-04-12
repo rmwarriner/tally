@@ -94,7 +94,6 @@ function getAccountSideAmountForTransaction(input: {
 
 interface LedgerRegisterTabState {
   id: string;
-  ledgerSearchText: string;
   ledgerStatusFilter: "all" | "cleared" | "open" | "reconciled";
   selectedLedgerAccountId: string | null;
   selectedLedgerTransactionId: string | null;
@@ -120,7 +119,6 @@ export function App() {
     field: PostingFocusField;
     focusIndex: number;
   } | null>(null);
-  const ledgerSearchInputRef = useRef<HTMLInputElement | null>(null);
   const postingAccountInputRefs = useRef<Array<HTMLInputElement | null>>([]);
   const postingAmountInputRefs = useRef<Array<HTMLInputElement | null>>([]);
   const postingMemoInputRefs = useRef<Array<HTMLInputElement | null>>([]);
@@ -145,7 +143,6 @@ export function App() {
   const [ledgerRegisterTabs, setLedgerRegisterTabs] = useState<LedgerRegisterTabState[]>([
     {
       id: "tab-all",
-      ledgerSearchText: "",
       ledgerStatusFilter: "all",
       selectedLedgerAccountId: null,
       selectedLedgerTransactionId: null,
@@ -159,7 +156,6 @@ export function App() {
     0,
     ledgerRegisterTabs.findIndex((tab) => tab.id === activeLedgerRegisterTabId),
   );
-  const ledgerSearchText = activeLedgerRegisterTab?.ledgerSearchText ?? "";
   const ledgerStatusFilter = activeLedgerRegisterTab?.ledgerStatusFilter ?? "all";
   const selectedLedgerAccountId = activeLedgerRegisterTab?.selectedLedgerAccountId ?? null;
   const selectedLedgerTransactionId = activeLedgerRegisterTab?.selectedLedgerTransactionId ?? null;
@@ -227,7 +223,6 @@ export function App() {
         accountBalances,
         rangeEnd: currentPeriod.to,
         rangeStart: currentPeriod.from,
-        searchText: ledgerSearchText,
         statusFilter: ledgerStatusFilter,
         selectedAccountId: selectedLedgerAccountId,
         selectedTransactionId: selectedLedgerTransactionId,
@@ -327,7 +322,6 @@ export function App() {
   useLedgerKeyboardAndSelectionSync({
     activeView,
     filteredTransactions: ledgerBook.filteredTransactions,
-    ledgerSearchInputRef,
     onBeginInlineEdit: (transaction) =>
       startInlineEdit({
         ...getInlineRowPostingDraft(transaction),
@@ -607,21 +601,6 @@ export function App() {
     setCurrentPeriod((current) => (typeof nextValue === "function" ? nextValue(current) : nextValue));
   }
 
-  function setLedgerSearchText(nextValue: string | ((current: string) => string)) {
-    setLedgerRegisterTabs((currentTabs) =>
-      currentTabs.map((tab) => {
-        if (tab.id !== activeLedgerRegisterTabId) {
-          return tab;
-        }
-        return {
-          ...tab,
-          ledgerSearchText:
-            typeof nextValue === "function" ? nextValue(tab.ledgerSearchText) : nextValue,
-        };
-      }),
-    );
-  }
-
   function setLedgerStatusFilter(
     nextValue:
       | "all"
@@ -692,7 +671,6 @@ export function App() {
 
       const nextTab: LedgerRegisterTabState = {
         id: `tab-${accountId}-${currentTabs.length + 1}`,
-        ledgerSearchText: "",
         ledgerStatusFilter: "all",
         selectedLedgerAccountId: accountId,
         selectedLedgerTransactionId: null,
@@ -1215,8 +1193,6 @@ export function App() {
           isLedgerOperationsOpen={isLedgerOperationsOpen}
           ledgerRange={currentPeriod}
           ledgerRegisterTabs={labeledLedgerRegisterTabs}
-          ledgerSearchInputRef={ledgerSearchInputRef}
-          ledgerSearchText={ledgerSearchText}
           ledgerStatusFilter={ledgerStatusFilter}
           ledgerBook={ledgerBook}
           ledgerIsFiltered={ledgerBook.isFiltered}
@@ -1262,7 +1238,6 @@ export function App() {
           selectedLedgerAccountId={selectedLedgerAccountId}
           selectedLedgerTransactionId={selectedLedgerTransactionId}
           setLedgerRange={setLedgerRange}
-          setLedgerSearchText={setLedgerSearchText}
           setLedgerStatusFilter={setLedgerStatusFilter}
           setReconciliationForm={setReconciliationForm}
           setSelectedLedgerAccountId={setSelectedLedgerAccountId}
@@ -1438,16 +1413,6 @@ export function App() {
               <span className="muted">Register-first shortcuts</span>
             </div>
             <div className="detail-stack">
-              <button
-                type="button"
-                onClick={() => {
-                  setActiveView("ledger");
-                  setIsCommandPaletteOpen(false);
-                  ledgerSearchInputRef.current?.focus();
-                }}
-              >
-                Focus register search
-              </button>
               <button
                 type="button"
                 onClick={() => {

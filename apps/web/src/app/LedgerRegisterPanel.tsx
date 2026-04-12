@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type Dispatch, type RefObject, type SetStateAction } from "react";
+import { useEffect, useRef, useState, type Dispatch, type SetStateAction } from "react";
 import { CaretDown, Check, DotsThree, X } from "@phosphor-icons/react";
 import type { BookResponse } from "./api";
 import { formatAmount, formatSignedCurrency, type AmountStyle } from "./app-format";
@@ -50,8 +50,6 @@ interface LedgerRegisterPanelProps {
     id: string;
     label: string;
   }>;
-  ledgerSearchInputRef: RefObject<HTMLInputElement | null>;
-  ledgerSearchText: string;
   ledgerStatusFilter: "all" | "cleared" | "open" | "reconciled";
   ledgerBook: ReturnType<typeof createLedgerBookModel>;
   isFiltered: boolean;
@@ -75,7 +73,6 @@ interface LedgerRegisterPanelProps {
   selectedLedgerAccountId: string | null;
   selectedLedgerTransactionId: string | null;
   setLedgerRange: Dispatch<SetStateAction<{ from: string; to: string }>>;
-  setLedgerSearchText: Dispatch<SetStateAction<string>>;
   setLedgerStatusFilter: Dispatch<SetStateAction<"all" | "cleared" | "open" | "reconciled">>;
   setSelectedLedgerAccountId: Dispatch<SetStateAction<string | null>>;
   setSelectedLedgerTransactionId: Dispatch<SetStateAction<string | null>>;
@@ -411,16 +408,6 @@ export function LedgerRegisterPanel(props: LedgerRegisterPanelProps) {
           </div>
         </div>
         <div className="ledger-toolbar">
-          <label className="ledger-filter">
-            <span className="muted">Search register</span>
-            <input
-              ref={props.ledgerSearchInputRef}
-              data-testid="ledger-search-input"
-              value={props.ledgerSearchText}
-              placeholder="description, payee, account, tag, status"
-              onChange={(event) => props.setLedgerSearchText(event.target.value)}
-            />
-          </label>
           <div className="ledger-range-row">
             <label className="ledger-filter">
               <span className="muted">From</span>
@@ -478,11 +465,6 @@ export function LedgerRegisterPanel(props: LedgerRegisterPanelProps) {
               </button>
             ))}
           </div>
-          <p className="form-hint">
-            Hotkeys: `/` search, `j` or down move later, `k` or up move earlier, `Esc` clear
-            selection, `Ctrl/Cmd+Shift+[ ]` switch tabs. Search supports tags, account code/name, and
-            status tokens.
-          </p>
         </div>
         <table ref={registerTableRef} className="register-table">
           <thead>

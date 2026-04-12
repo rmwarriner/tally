@@ -68,12 +68,10 @@ describe("useLedgerKeyboardAndSelectionSync", () => {
     const transaction = createTransaction("txn-1");
     const onBeginInlineEdit = vi.fn();
     const setSelectedLedgerTransactionId = vi.fn();
-    const focusSearch = vi.fn();
 
     useLedgerKeyboardAndSelectionSync({
       activeView: "ledger",
       filteredTransactions: [transaction],
-      ledgerSearchInputRef: { current: { focus: focusSearch } as unknown as HTMLInputElement },
       onBeginInlineEdit,
       selectedLedgerTransactionId: transaction.id,
       setSelectedLedgerTransactionId,

@@ -51,21 +51,6 @@ function createTransaction(id: string): LedgerTransactionDetail {
 describe("getLedgerHotkeySelectionUpdate", () => {
   const transactions = [createTransaction("txn-1"), createTransaction("txn-2"), createTransaction("txn-3")];
 
-  it("returns focus intent for slash hotkey", () => {
-    expect(
-      getLedgerHotkeySelectionUpdate({
-        eventKey: "/",
-        filteredTransactions: transactions,
-        selectedLedgerTransactionId: "txn-1",
-        target: { tagName: "DIV" } as unknown as EventTarget,
-      }),
-    ).toEqual({
-      handled: true,
-      focusSearch: true,
-      nextSelectedLedgerTransactionId: "txn-1",
-    });
-  });
-
   it("moves selection down with j", () => {
     expect(
       getLedgerHotkeySelectionUpdate({
@@ -76,7 +61,6 @@ describe("getLedgerHotkeySelectionUpdate", () => {
       }),
     ).toMatchObject({
       handled: true,
-      focusSearch: false,
       nextSelectedLedgerTransactionId: "txn-2",
     });
   });
@@ -92,7 +76,6 @@ describe("getLedgerHotkeySelectionUpdate", () => {
       }),
     ).toEqual({
       handled: false,
-      focusSearch: false,
       nextSelectedLedgerTransactionId: "txn-1",
     });
   });

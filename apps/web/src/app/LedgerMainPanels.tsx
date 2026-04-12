@@ -1,4 +1,4 @@
-import type { Dispatch, ReactNode, RefObject, SetStateAction } from "react";
+import type { Dispatch, ReactNode, SetStateAction } from "react";
 import type { BookResponse } from "./api";
 import { LedgerOperationsPanels } from "./LedgerOperationsPanels";
 import { LedgerRegisterPanel } from "./LedgerRegisterPanel";
@@ -24,8 +24,6 @@ interface LedgerMainPanelsProps {
     id: string;
     label: string;
   }>;
-  ledgerSearchInputRef: RefObject<HTMLInputElement | null>;
-  ledgerSearchText: string;
   ledgerStatusFilter: "all" | "cleared" | "open" | "reconciled";
   ledgerBook: ReturnType<typeof createLedgerBookModel>;
   ledgerIsFiltered: boolean;
@@ -75,7 +73,6 @@ interface LedgerMainPanelsProps {
   selectedLedgerAccountId: string | null;
   selectedLedgerTransactionId: string | null;
   setLedgerRange: Dispatch<SetStateAction<{ from: string; to: string }>>;
-  setLedgerSearchText: Dispatch<SetStateAction<string>>;
   setLedgerStatusFilter: Dispatch<SetStateAction<"all" | "cleared" | "open" | "reconciled">>;
   setReconciliationForm: Dispatch<
     SetStateAction<{
@@ -105,8 +102,6 @@ export function LedgerMainPanels(props: LedgerMainPanelsProps) {
         inlineEditingTransactionId={props.inlineEditingTransactionId}
         ledgerRange={props.ledgerRange}
         ledgerRegisterTabs={props.ledgerRegisterTabs}
-        ledgerSearchInputRef={props.ledgerSearchInputRef}
-        ledgerSearchText={props.ledgerSearchText}
         ledgerStatusFilter={props.ledgerStatusFilter}
         ledgerBook={props.ledgerBook}
         isFiltered={props.ledgerIsFiltered}
@@ -128,7 +123,6 @@ export function LedgerMainPanels(props: LedgerMainPanelsProps) {
         selectedLedgerAccountId={props.selectedLedgerAccountId}
         selectedLedgerTransactionId={props.selectedLedgerTransactionId}
         setLedgerRange={props.setLedgerRange}
-        setLedgerSearchText={props.setLedgerSearchText}
         setLedgerStatusFilter={props.setLedgerStatusFilter}
         setSelectedLedgerAccountId={props.setSelectedLedgerAccountId}
         setSelectedLedgerTransactionId={props.setSelectedLedgerTransactionId}
