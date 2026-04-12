@@ -79,13 +79,6 @@ interface LedgerRegisterPanelProps {
   totalCount: number;
 }
 
-function formatDateAsYyyyMmDd(value: Date): string {
-  const year = value.getFullYear();
-  const month = String(value.getMonth() + 1).padStart(2, "0");
-  const day = String(value.getDate()).padStart(2, "0");
-  return `${year}-${month}-${day}`;
-}
-
 export function LedgerRegisterPanel(props: LedgerRegisterPanelProps) {
   const [expandedTransactionId, setExpandedTransactionId] = useState<string | null>(null);
   const [editingSplitTransactionId, setEditingSplitTransactionId] = useState<string | null>(null);
@@ -128,9 +121,6 @@ export function LedgerRegisterPanel(props: LedgerRegisterPanelProps) {
   const newRowAccountIsValid = newTransactionDraft.expenseAccountId.trim().length > 0;
   const newRowSaveDisabled =
     !newRowDateIsValid || !newRowDescriptionIsValid || !newRowAmountIsValid || !newRowAccountIsValid;
-  const balanceAsOfDate = /^\d{4}-\d{2}-\d{2}$/.test(props.ledgerRange.to.trim())
-    ? props.ledgerRange.to.trim()
-    : formatDateAsYyyyMmDd(new Date());
   const visibleColumnCount = props.isFiltered ? 8 : 9;
   const accountById = new Map(props.ledgerBook.availableAccounts.map((account) => [account.id, account]));
   const getTransactionAmount = (transaction: ReturnType<typeof createLedgerBookModel>["filteredTransactions"][number]) => {
@@ -1800,28 +1790,6 @@ export function LedgerRegisterPanel(props: LedgerRegisterPanelProps) {
             showing {props.ledgerBook.filteredTransactions.length} of {props.totalCount}
           </p>
         ) : null}
-      </article>
-
-      <article className="panel">
-        <div className="panel-header">
-          <span>Balances</span>
-          <span className="muted">As of {balanceAsOfDate}</span>
-        </div>
-        {props.ledgerBook.filteredBalances.map((balance) => (
-          <button
-            key={`${balance.accountId}:${balance.commodityCode}`}
-            className={`metric-button${props.selectedLedgerAccountId === balance.accountId ? " active" : ""}`}
-            type="button"
-            onClick={() =>
-              props.setSelectedLedgerAccountId((current) =>
-                current === balance.accountId ? null : balance.accountId,
-              )
-            }
-          >
-            <span>{balance.accountName}</span>
-            <strong>{props.formatCurrency(balance.balance)}</strong>
-          </button>
-        ))}
       </article>
     </>
   );

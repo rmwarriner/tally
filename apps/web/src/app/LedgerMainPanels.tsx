@@ -1,15 +1,13 @@
 import type { Dispatch, ReactNode, SetStateAction } from "react";
 import type { BookResponse } from "./api";
-import { LedgerOperationsPanels } from "./LedgerOperationsPanels";
 import { LedgerRegisterPanel } from "./LedgerRegisterPanel";
 import type { AmountStyle } from "./app-format";
 import type { LedgerInlineRowEditDraft } from "./ledger-state";
-import type { createLedgerBookModel, createReconciliationBookModel } from "./shell";
+import type { createLedgerBookModel } from "./shell";
 
 interface LedgerMainPanelsProps {
   activeLedgerRegisterTabId: string;
   amountStyle: AmountStyle;
-  bookVersion: number;
   busy: string | null;
   expenseAccounts: BookResponse["book"]["accounts"];
   formatCurrency: (amount: number) => string;
@@ -17,7 +15,6 @@ interface LedgerMainPanelsProps {
   inlineEditDraft: LedgerInlineRowEditDraft | null;
   inlineEditingTransactionId: string | null;
   isLedgerDetailOpen: boolean;
-  isLedgerOperationsOpen: boolean;
   ledgerRange: { from: string; to: string };
   ledgerRegisterTabs: Array<{
     accountId: string | null;
@@ -61,29 +58,13 @@ interface LedgerMainPanelsProps {
     transaction: ReturnType<typeof createLedgerBookModel>["filteredTransactions"][number],
   ) => void;
   onToggleLedgerDetailOpen: () => void;
-  onToggleLedgerOperationsOpen: () => void;
   onUpdateInlineEditField: (field: keyof LedgerInlineRowEditDraft, value: string) => void;
-  reconciliationForm: {
-    accountId: string;
-    statementBalance: string;
-    statementDate: string;
-  };
-  reconciliationBook: ReturnType<typeof createReconciliationBookModel>;
-  runMutation: (label: string, operation: () => Promise<void>) => Promise<void>;
   selectedLedgerAccountId: string | null;
   selectedLedgerTransactionId: string | null;
   setLedgerRange: Dispatch<SetStateAction<{ from: string; to: string }>>;
   setLedgerStatusFilter: Dispatch<SetStateAction<"all" | "cleared" | "open" | "reconciled">>;
-  setReconciliationForm: Dispatch<
-    SetStateAction<{
-      accountId: string;
-      statementBalance: string;
-      statementDate: string;
-    }>
-  >;
   setSelectedLedgerAccountId: Dispatch<SetStateAction<string | null>>;
   setSelectedLedgerTransactionId: Dispatch<SetStateAction<string | null>>;
-  setSelectedReconciliationTransactionIds: Dispatch<SetStateAction<Record<string, boolean>>>;
   ledgerTotalCount: number;
   transactionEditorPanel: ReactNode;
 }
@@ -138,45 +119,7 @@ export function LedgerMainPanels(props: LedgerMainPanelsProps) {
           </div>
           {props.transactionEditorPanel}
         </>
-      ) : (
-        <article className="panel">
-          <div className="panel-header">
-            <span>Advanced editor</span>
-            <span className="muted">Optional</span>
-          </div>
-          <p className="form-hint">
-            Inline row editing is the default. Use the row-level Advanced action only when you need
-            split-level editing details.
-          </p>
-        </article>
-      )}
-      <article className="panel">
-        <div className="panel-header">
-          <span>Ledger operations</span>
-          <span className="muted">Reconciliation and statement matching</span>
-        </div>
-        <div className="posting-editor-row">
-          <button type="button" onClick={props.onToggleLedgerOperationsOpen}>
-            {props.isLedgerOperationsOpen ? "Hide reconciliation panel" : "Open reconciliation panel"}
-          </button>
-        </div>
-        {props.isLedgerOperationsOpen ? (
-          <LedgerOperationsPanels
-            bookVersion={props.bookVersion}
-            busy={props.busy}
-            liquidAccounts={props.liquidAccounts}
-            reconciliationForm={props.reconciliationForm}
-            reconciliationBook={props.reconciliationBook}
-            runMutation={props.runMutation}
-            setReconciliationForm={props.setReconciliationForm}
-            setSelectedReconciliationTransactionIds={props.setSelectedReconciliationTransactionIds}
-          />
-        ) : (
-          <p className="form-hint">
-            Reconciliation is available on demand so routine editing stays register-first.
-          </p>
-        )}
-      </article>
+      ) : null}
     </>
   );
 }
