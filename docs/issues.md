@@ -167,6 +167,109 @@ This is the canonical issue tracker for day-to-day solo development.
     - existing API tests remain green; new test covers the malformed-date rejection case
     - `pnpm ci:verify` passes
 
+- [ ] I-024 Remove register search bar
+  - status: backlog
+  - risk: R1
+  - type: feature
+  - owner: agent
+  - rollback: revert removal of search input and related state from LedgerRegisterPanel.tsx — no other files affected
+  - note: duplicates the command palette / spotlight entry in the upper right; may return later as a per-tab floating finder (results in a temporary overlay that dismisses after selection) — design not settled, do not pre-build
+  - acceptance:
+    - the search/filter input bar above the register is removed from LedgerRegisterPanel
+    - any associated filter state and handlers are removed from LedgerRegisterPanel, LedgerMainPanels, and App.tsx
+    - the register renders cleanly without the bar; no empty space left behind
+    - `pnpm --filter @tally/web typecheck` passes
+    - `pnpm ci:verify` passes
+
+- [ ] I-025 Remove bottom panels — Ledger Operations, Balances, Advanced Editor
+  - status: backlog
+  - risk: R2
+  - type: feature
+  - owner: agent
+  - rollback: revert removal of panel components and their wiring in LedgerMainPanels.tsx and App.tsx
+  - note: register-first redesign — the tab content should be essentially just a register; these panels are being removed, not relocated; Advanced Editor functionality remains accessible via the row ellipsis menu ("Advanced")
+  - acceptance:
+    - LedgerOperationsPanels (reconciliation), the Balances card, and the Advanced Editor panel are no longer rendered in the ledger tab content area
+    - the register fills the available vertical space previously occupied by these panels
+    - props and state wiring for removed panels are cleaned up in App.tsx and LedgerMainPanels.tsx
+    - the "Advanced" ellipsis menu item still opens the advanced editor (modal or side panel — existing behavior retained)
+    - `pnpm --filter @tally/web typecheck` passes
+    - `pnpm ci:verify` passes
+
+- [ ] I-026 Replace status filter button row with minimal selector
+  - status: backlog
+  - risk: R1
+  - type: feature
+  - owner: agent
+  - rollback: revert selector component and restore original button row in LedgerRegisterPanel.tsx
+  - note: current "All statuses / open / cleared / reconciled" button row is visually heavy; replace with a compact selector; exact placement TBD — inline with the register header is the likely candidate
+  - acceptance:
+    - the four status filter buttons are replaced with a single compact selector (dropdown or segmented control) offering the same four options
+    - filter behavior is unchanged — selecting a status filters the register rows identically to the old buttons
+    - the selector fits without adding significant vertical height to the register header area
+    - `pnpm --filter @tally/web typecheck` passes
+    - `pnpm ci:verify` passes
+
+- [ ] I-027 Real account tab bar — genuine tabs with minimal plus button
+  - status: backlog
+  - risk: R2
+  - type: feature
+  - owner: agent
+  - rollback: revert tab bar component changes in ShellTopbar.tsx (or equivalent) and App.tsx tab state
+  - note: depends on I-025 (panels removed) for clean tab content area; the account dropdown in the tab bar is also removed here — COA panel is the sole navigation source (see I-028)
+  - acceptance:
+    - open account tabs render as genuine tabs (not simulated buttons), visually consistent with the VS Code-inspired shell aesthetic
+    - a minimal `+` icon button sits immediately to the right of the last open tab — no label, no dropdown
+    - clicking `+` opens a new empty tab (or prompts via command palette to choose an account — TBD)
+    - the account selector dropdown that previously lived in the tab bar is removed
+    - tab close, reorder (if existing), and active-tab switching are unaffected
+    - `pnpm --filter @tally/web typecheck` passes
+    - `pnpm ci:verify` passes
+
+- [ ] I-028 COA panel as tab navigation — click and right-click to open ledger
+  - status: backlog
+  - risk: R2
+  - type: feature
+  - owner: agent
+  - depends: I-027 (real tabs must exist first)
+  - rollback: revert click/right-click handler changes in CoaSidebar.tsx and tab-open wiring in App.tsx
+  - acceptance:
+    - single-clicking an account in the COA panel opens that account's ledger in the currently active tab
+    - right-clicking an account shows a context menu with at minimum "Open in new tab"; selecting it opens the ledger in a new tab which becomes the active tab
+    - the previously selected account in the tab bar dropdown is no longer the mechanism for choosing which ledger to display
+    - `pnpm --filter @tally/web typecheck` passes
+    - `pnpm ci:verify` passes
+
+- [ ] I-029 COA panel redesign — collapsible account-type sections with disclosure rows
+  - status: backlog
+  - risk: R2
+  - type: feature
+  - owner: agent
+  - rollback: revert CoaSidebar.tsx to previous flat list rendering
+  - note: can be done independently of I-027/I-028 but should ship around the same time for a coherent experience
+  - acceptance:
+    - accounts are grouped into collapsible sections by major account type (Assets, Liabilities, Equity, Income, Expenses)
+    - each section header shows the type label and its rolled-up balance total inline
+    - sections can be individually collapsed/expanded; state persists across navigation (localStorage or equivalent)
+    - sub-accounts render as indented disclosure rows under their parent — parent has a caret/triangle that toggles child visibility; children indent proportionally to depth
+    - overall vertical spacing is tighter than current — less padding between rows
+    - `pnpm --filter @tally/web typecheck` passes
+    - `pnpm ci:verify` passes
+
+- [ ] I-030 Bottom status bar — configurable pending/available balance display
+  - status: backlog
+  - risk: R1
+  - type: feature
+  - owner: agent
+  - rollback: revert status bar component changes — no domain or API changes
+  - note: current status bar shows transaction count and total; expand to support three display modes: pending/uncleared balance+count, available balance+count, or both; user preference persisted to localStorage
+  - acceptance:
+    - status bar shows at minimum: transaction count, and one or both of (a) pending/uncleared balance with its transaction count, (b) available balance with its transaction count
+    - a user control (toggle or selector) switches between the three display modes; preference is persisted to localStorage
+    - figures update reactively as register filters change
+    - `pnpm --filter @tally/web typecheck` passes
+    - `pnpm ci:verify` passes
+
 - [x] I-021 Activity bar icon backgrounds — fix droopy bottom extension
   - status: done
   - risk: R1
