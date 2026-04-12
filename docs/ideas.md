@@ -259,6 +259,28 @@ Parked as an architectural stance idea that should be captured before ad hoc int
 - Should AI support be one unified service boundary or multiple feature-local integrations?
 - What privacy and data-handling controls are required if external AI providers are used?
 
+### Local LLM categorization via Ollama during import
+
+When importing transactions from CSV, OFX, QFX, or GnuCash, payee descriptions are noisy (`SQ *COFFEE SHOP 1234`, `AMZN MKTP US*AB123`, `ACH PYMT UTIL CO 883`). A locally-running Ollama model could suggest an account assignment for each imported row based on the payee/description and the book's chart of accounts. Suggestions surface in the import review flow — the user confirms or overrides before anything posts to the ledger. If Ollama is not configured, the feature is simply absent; nothing breaks.
+
+This is the only AI-assist scenario where financial data **must not leave the machine** — local execution is the correct architectural choice, not a convenience. It implements the "AI as optional assistive layer" principle already captured above.
+
+**Intended architecture:**
+- Optional `TALLY_OLLAMA_URL` env var (e.g. `http://localhost:11434`); if absent, the feature is disabled
+- During import, the API calls Ollama once per row with the payee, description, and a compact COA listing; receives a suggested `accountId` and a confidence signal
+- Suggestions are returned alongside parsed rows — the import review UI shows the suggestion and lets the user accept, change, or skip it; nothing is auto-posted
+- No new dependency for users who don't run Ollama; existing import paths are unaffected
+- Payee normalization (e.g. `SQ *COFFEE HOUSE #4 PORTLAND OR` → `Coffee House`) could run as a second optional pass through the same Ollama endpoint, producing cleaner ledger descriptions before review
+
+**Key open questions:**
+- Which model to recommend: Llama 3.1 8B and Phi-4 are the current leading candidates for local quality vs. speed; the prompt contract should be model-agnostic
+- How should suggestions surface in the import review UI — inline alongside each row, as a bulk pre-fill with edit affordance, or as a separate confirmation step?
+- What is the prompt contract: how is the COA passed (full list, top-N by usage frequency, or account types only)?
+- Should categorization history (user overrides) feed back into future prompts as few-shot examples?
+- How does this interact with the rule engine idea below — should Ollama suggestions become rules after the user confirms them a configurable number of times?
+
+**Promotion criteria:** promote when the import review workflow UI is further defined and an Ollama integration spike has validated the prompt contract and latency against a real book.
+
 ### SimpleFIN Bridge integration for automated transaction download
 SimpleFIN Bridge (used by Actual Budget and Lunch Money) offers a token-based HTTP API for automated bank transaction download without the compliance complexity of Plaid or direct bank APIs. Transactions would map into the existing import model with deduplication.
 
