@@ -105,7 +105,36 @@ This is the canonical issue tracker for day-to-day solo development.
 - [ ] (empty)
 
 ## Backlog
-- [ ] (empty)
+- [ ] I-021 Activity bar icon backgrounds — fix droopy bottom extension
+  - status: backlog
+  - risk: R1
+  - type: bug
+  - owner: agent
+  - rollback: revert CSS changes in styles.css only
+  - acceptance:
+    - activity bar icon active/hover backgrounds are visually square or evenly rounded — not elongated downward
+    - the background shape sits flush and centered around the icon at all sizes
+    - no regression in other activity bar states (inactive, hover, active)
+    - `pnpm --filter @tally/web typecheck` passes
+    - `pnpm ci:verify` passes
+
+- [ ] I-020 Register row actions — progressive disclosure
+  - status: backlog
+  - risk: R2
+  - type: feature
+  - owner: agent
+  - rollback: revert className and CSS changes in LedgerRegisterPanel.tsx and styles.css only
+  - note: blocks full density verification of I-019 — button height forces rows tall regardless of --row-height, making compact vs. comfortable indistinguishable in practice
+  - acceptance:
+    - action buttons (Delete, Edit, Show splits, Link tabs, Advanced) are not visible on unselected, unhovered rows
+    - on hover: a condensed affordance appears (icon button or `⋯` trigger) that reveals the full action set
+    - on selected: full actions are visible inline, since the user has explicitly focused the row
+    - the actions column no longer occupies fixed horizontal space on every row in the default state
+    - keyboard workflow is unaffected: `e` still begins inline edit, delete still works via existing hotkeys
+    - compact vs. comfortable density modes produce a perceptible row height difference with actions hidden
+    - no regression in existing LedgerRegisterPanel tests
+    - `pnpm --filter @tally/web typecheck` passes
+    - `pnpm ci:verify` passes
 
 - [x] I-006 Complete envelope operations layer (rollover wiring + cover-overspend command)
   - status: done

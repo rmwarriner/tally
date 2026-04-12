@@ -1131,7 +1131,21 @@ th {
 
 .register-table th,
 .register-table td {
+  padding: var(--cell-pad-y) 8px;
+  vertical-align: middle;
   border-bottom: 1px solid color-mix(in srgb, var(--border) 35%, transparent);
+}
+
+.register-table th {
+  padding-top: 6px;
+  padding-bottom: 6px;
+  font-family: var(--mono-font);
+  font-size: var(--text-xs);
+  font-weight: var(--weight-semibold);
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  white-space: nowrap;
 }
 
 .register-col-date,
@@ -1146,6 +1160,7 @@ th {
 .register-col-description,
 .register-cell-description {
   font-size: var(--text-sm);
+  font-weight: var(--weight-medium);
   color: var(--text);
 }
 
@@ -1184,10 +1199,60 @@ th {
   background: var(--surface-selected);
 }
 
+.register-row td:first-child {
+  position: relative;
+}
+
+.register-row.selected td:first-child::before {
+  content: "";
+  position: absolute;
+  left: 1px;
+  top: 6px;
+  bottom: 6px;
+  width: 3px;
+  border-radius: 999px;
+  background: var(--accent);
+}
+
+.register-row-new td {
+  background: color-mix(in srgb, var(--accent-soft) 45%, var(--surface));
+  border-top: 1px dashed color-mix(in srgb, var(--accent) 45%, transparent);
+}
+
+.register-row-new td:first-child::before {
+  content: "";
+  position: absolute;
+  left: 1px;
+  top: 6px;
+  bottom: 6px;
+  width: 3px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--accent) 65%, transparent);
+}
+
 .register-row.editing td {
+  background: var(--surface-selected);
+}
+
+.register-row.saving td {
   background: var(--accent-soft);
-  outline: 1px solid var(--accent);
-  outline-offset: -1px;
+  opacity: 0.55;
+  pointer-events: none;
+}
+
+.register-row input:not([type="checkbox"]) {
+  background: transparent;
+  border: none;
+  border-radius: 0;
+  border-bottom: 1px solid color-mix(in srgb, var(--accent) 55%, transparent);
+  padding: 2px 4px;
+  width: 100%;
+  font-size: var(--text-sm);
+}
+
+.register-row input:not([type="checkbox"]):focus {
+  outline: none;
+  border-bottom-color: var(--accent);
 }
 
 .table-empty-state {

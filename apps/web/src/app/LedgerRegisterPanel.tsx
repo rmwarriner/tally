@@ -98,6 +98,8 @@ export function LedgerRegisterPanel(props: LedgerRegisterPanelProps) {
   const splitAmountInputRefs = useRef<Array<HTMLInputElement | null>>([]);
   const splitClearedInputRefs = useRef<Array<HTMLInputElement | null>>([]);
   const splitSaveButtonRef = useRef<HTMLButtonElement | null>(null);
+  const registerTableRef = useRef<HTMLTableElement | null>(null);
+  const autoScrolledRegisterTabIdsRef = useRef<Set<string>>(new Set());
   const [newTransactionDraft, setNewTransactionDraft] = useState<InlineNewTransactionDraft>({
     amount: "0.00",
     date: "2026-04-03",
@@ -209,6 +211,40 @@ export function LedgerRegisterPanel(props: LedgerRegisterPanelProps) {
       setHighlightedSplitAccountMatchIndex(0);
     }
   }, [editingSplitTransactionId, props.ledgerBook.filteredTransactions]);
+
+  useEffect(() => {
+    if (autoScrolledRegisterTabIdsRef.current.has(props.activeLedgerRegisterTabId)) {
+      return;
+    }
+
+    const animationFrameId = window.requestAnimationFrame(() => {
+      const tableElement = registerTableRef.current;
+      if (!tableElement) {
+        return;
+      }
+
+      const scrollHost = tableElement.closest(".editor-area");
+      if (scrollHost instanceof HTMLElement) {
+        scrollHost.scrollTop = scrollHost.scrollHeight;
+      } else {
+        tableElement.scrollIntoView({ block: "end" });
+      }
+
+      autoScrolledRegisterTabIdsRef.current.add(props.activeLedgerRegisterTabId);
+    });
+
+    return () => {
+      window.cancelAnimationFrame(animationFrameId);
+    };
+  }, [props.activeLedgerRegisterTabId]);
+
+  function toggleSplitPreview(transactionId: string) {
+    setExpandedTransactionId((current) => (current === transactionId ? null : transactionId));
+    setEditingSplitTransactionId((current) => (current === transactionId ? null : current));
+    if (editingSplitTransactionId === transactionId) {
+      setEditingSplitDraft(null);
+    }
+  }
 
   function formatSplitAccountLabel(account: BookResponse["book"]["accounts"][number]): string {
     return account.code ? `${account.name} (${account.code})` : account.name;
@@ -412,7 +448,7 @@ export function LedgerRegisterPanel(props: LedgerRegisterPanelProps) {
             status tokens.
           </p>
         </div>
-        <table className="register-table">
+        <table ref={registerTableRef} className="register-table">
           <thead>
             <tr>
               <th className="register-col-date">Date</th>
@@ -427,115 +463,31 @@ export function LedgerRegisterPanel(props: LedgerRegisterPanelProps) {
             </tr>
           </thead>
           <tbody>
-            <tr className="register-row">
-              <td className="register-cell-date">
-                <input
-                  value={newTransactionDraft.date}
-                  onChange={(event) =>
-                    setNewTransactionDraft((current) => ({
-                      ...current,
-                      date: event.target.value,
-                    }))
-                  }
-                />
-              </td>
-              <td>
-                <span className="status-chip open">New</span>
-              </td>
-              <td className="register-cell-description">
-                <input
-                  value={newTransactionDraft.description}
-                  placeholder="New transaction"
-                  onChange={(event) =>
-                    setNewTransactionDraft((current) => ({
-                      ...current,
-                      description: event.target.value,
-                    }))
-                  }
-                />
-              </td>
-              <td className="register-cell-payee">
-                <input
-                  value={newTransactionDraft.payee}
-                  placeholder="Unassigned"
-                  onChange={(event) =>
-                    setNewTransactionDraft((current) => ({
-                      ...current,
-                      payee: event.target.value,
-                    }))
-                  }
-                />
-              </td>
-              <td className="register-cell-accounts">
-                <select
-                  value={newTransactionDraft.expenseAccountId}
-                  onChange={(event) =>
-                    setNewTransactionDraft((current) => ({
-                      ...current,
-                      expenseAccountId: event.target.value,
-                    }))
-                  }
-                >
-                  {props.expenseAccounts.map((account) => (
-                    <option key={account.id} value={account.id}>
-                      {account.name}
-                    </option>
-                  ))}
-                </select>
-              </td>
-              <td className="register-cell-amount">
-                <input
-                  value={newTransactionDraft.amount}
-                  onChange={(event) =>
-                    setNewTransactionDraft((current) => ({
-                      ...current,
-                      amount: event.target.value,
-                    }))
-                  }
-                />
-              </td>
-              {!props.isFiltered ? <td className="register-cell-balance" /> : null}
-              <td>
-                {!newRowDateIsValid ? <div className="form-hint error-text">YYYY-MM-DD required.</div> : null}
-                {!newRowDescriptionIsValid ? (
-                  <div className="form-hint error-text">Description required.</div>
-                ) : null}
-                {!newRowAmountIsValid ? <div className="form-hint error-text">Amount must be positive.</div> : null}
-              </td>
-              <td>
-                <button
-                  className="btn-primary"
-                  data-testid="ledger-post-transaction"
-                  disabled={newRowSaveDisabled || props.busy !== null}
-                  type="button"
-                  onClick={() => {
-                    if (newRowSaveDisabled) {
-                      return;
-                    }
-
-                    props.onCreateInlineTransaction({
-                      amount: newTransactionDraft.amount.trim(),
-                      date: newTransactionDraft.date.trim(),
-                      description: newTransactionDraft.description.trim(),
-                      expenseAccountId: newTransactionDraft.expenseAccountId.trim(),
-                      payee: newTransactionDraft.payee.trim(),
-                    });
-                    setNewTransactionDraft((current) => ({
-                      ...current,
-                      amount: "0.00",
-                      description: "",
-                      payee: "",
-                    }));
-                  }}
-                >
-                  {props.busy === "Transaction post" ? "Posting..." : "Post"}
-                </button>
-              </td>
-            </tr>
             {props.ledgerBook.filteredTransactions.length > 0 ? (
               props.ledgerBook.filteredTransactions.map((transaction) => {
                 const isEditingRow = props.inlineEditingTransactionId === transaction.id;
                 const rowDraft = isEditingRow && props.inlineEditDraft ? props.inlineEditDraft : null;
+                const canInlineEditCounterparty =
+                  rowDraft !== null &&
+                  props.selectedLedgerAccountId !== null &&
+                  transaction.postings.length === 2 &&
+                  transaction.postings.some(
+                    (posting) => posting.accountId === props.selectedLedgerAccountId,
+                  ) &&
+                  transaction.postings.some(
+                    (posting) => posting.accountId !== props.selectedLedgerAccountId,
+                  );
+                const inlineCounterpartyAccountOptions = canInlineEditCounterparty
+                  ? props.ledgerBook.availableAccounts.filter(
+                      (account) => account.id !== props.selectedLedgerAccountId,
+                    )
+                  : [];
+                const inlineCounterpartyAccountValid =
+                  !canInlineEditCounterparty || rowDraft.counterpartyAccountId.trim().length > 0;
+                const inlineCounterpartyAmountValid =
+                  !canInlineEditCounterparty || Number.isFinite(Number.parseFloat(rowDraft.accountAmount));
+                const inlineRowSaveDisabled =
+                  inlineSaveDisabled || !inlineCounterpartyAccountValid || !inlineCounterpartyAmountValid;
                 const focusInlineField = (field: "date" | "description" | "payee") => {
                   const fieldInput = document.querySelector<HTMLInputElement>(
                     `[data-testid="ledger-inline-${field}-${transaction.id}"]`,
@@ -588,6 +540,7 @@ export function LedgerRegisterPanel(props: LedgerRegisterPanelProps) {
                         "register-row",
                         props.selectedLedgerTransactionId === transaction.id ? "selected" : "",
                         isEditingRow ? "editing" : "",
+                        isEditingRow && props.busy !== null ? "saving" : "",
                       ].filter(Boolean).join(" ")}
                       onClick={() => props.setSelectedLedgerTransactionId(transaction.id)}
                     >
@@ -613,7 +566,7 @@ export function LedgerRegisterPanel(props: LedgerRegisterPanelProps) {
 
                                 if (event.key === "Enter") {
                                   event.preventDefault();
-                                  if (!inlineSaveDisabled) {
+                                  if (!inlineRowSaveDisabled) {
                                     props.onSaveInlineEdit(transaction.id);
                                   }
                                 }
@@ -659,7 +612,7 @@ export function LedgerRegisterPanel(props: LedgerRegisterPanelProps) {
 
                                 if (event.key === "Enter") {
                                   event.preventDefault();
-                                  if (!inlineSaveDisabled) {
+                                  if (!inlineRowSaveDisabled) {
                                     props.onSaveInlineEdit(transaction.id);
                                   }
                                 }
@@ -691,14 +644,14 @@ export function LedgerRegisterPanel(props: LedgerRegisterPanelProps) {
                                 event.preventDefault();
                                 if (event.shiftKey) {
                                   focusInlineField("description");
-                                } else if (!inlineSaveDisabled) {
+                                } else if (!inlineRowSaveDisabled) {
                                   props.onSaveInlineEdit(transaction.id);
                                 }
                               }
 
                               if (event.key === "Enter") {
                                 event.preventDefault();
-                                if (!inlineSaveDisabled) {
+                                if (!inlineRowSaveDisabled) {
                                   props.onSaveInlineEdit(transaction.id);
                                 }
                               }
@@ -714,24 +667,65 @@ export function LedgerRegisterPanel(props: LedgerRegisterPanelProps) {
                         )}
                       </td>
                       <td className="register-cell-accounts">
-                        {transaction.postings.map((posting) => posting.accountName).join(", ")}
+                        {canInlineEditCounterparty ? (
+                          <select
+                            data-testid={`ledger-inline-account-${transaction.id}`}
+                            value={rowDraft.counterpartyAccountId}
+                            onClick={(event) => event.stopPropagation()}
+                            onChange={(event) =>
+                              props.onUpdateInlineEditField("counterpartyAccountId", event.target.value)
+                            }
+                          >
+                            {inlineCounterpartyAccountOptions.map((account) => (
+                              <option key={account.id} value={account.id}>
+                                {account.code ? `${account.name} (${account.code})` : account.name}
+                              </option>
+                            ))}
+                          </select>
+                        ) : (
+                          transaction.postings.map((posting) => posting.accountName).join(", ")
+                        )}
                       </td>
                       <td className="register-cell-amount">
-                        <strong
-                          className={
-                            getTransactionAmount(transaction) > 0
-                              ? "amount-positive"
-                              : getTransactionAmount(transaction) < 0
-                                ? "amount-negative"
-                                : "muted"
-                          }
-                        >
-                          {formatAmount(
-                            getTransactionAmount(transaction),
-                            props.formatCurrency,
-                            props.amountStyle,
-                          )}
-                        </strong>
+                        {canInlineEditCounterparty ? (
+                          <input
+                            data-testid={`ledger-inline-amount-${transaction.id}`}
+                            value={rowDraft.accountAmount}
+                            onClick={(event) => event.stopPropagation()}
+                            onChange={(event) =>
+                              props.onUpdateInlineEditField("accountAmount", event.target.value)
+                            }
+                            onKeyDown={(event) => {
+                              if (event.key === "Enter") {
+                                event.preventDefault();
+                                if (!inlineRowSaveDisabled) {
+                                  props.onSaveInlineEdit(transaction.id);
+                                }
+                              }
+
+                              if (event.key === "Escape") {
+                                event.preventDefault();
+                                props.onCancelInlineEdit();
+                              }
+                            }}
+                          />
+                        ) : (
+                          <strong
+                            className={
+                              getTransactionAmount(transaction) > 0
+                                ? "amount-positive"
+                                : getTransactionAmount(transaction) < 0
+                                  ? "amount-negative"
+                                  : "muted"
+                            }
+                          >
+                            {formatAmount(
+                              getTransactionAmount(transaction),
+                              props.formatCurrency,
+                              props.amountStyle,
+                            )}
+                          </strong>
+                        )}
                       </td>
                       {!props.isFiltered ? (
                         <td className="register-cell-balance">
@@ -757,18 +751,28 @@ export function LedgerRegisterPanel(props: LedgerRegisterPanelProps) {
                         {rowDraft ? (
                           <div className="posting-editor-row">
                             <button
-                              className="btn-primary"
-                              data-testid={`ledger-save-${transaction.id}`}
-                              disabled={inlineSaveDisabled}
+                              className="btn-secondary"
                               type="button"
                               onClick={(event) => {
                                 event.stopPropagation();
-                                if (!inlineSaveDisabled) {
+                                toggleSplitPreview(transaction.id);
+                              }}
+                            >
+                              {isExpandedRow ? "Hide splits" : "Edit splits"}
+                            </button>
+                            <button
+                              className="btn-primary"
+                              data-testid={`ledger-save-${transaction.id}`}
+                              disabled={inlineRowSaveDisabled}
+                              type="button"
+                              onClick={(event) => {
+                                event.stopPropagation();
+                                if (!inlineRowSaveDisabled) {
                                   props.onSaveInlineEdit(transaction.id);
                                 }
                               }}
                             >
-                              Save
+                              {isEditingRow && props.busy !== null ? "Saving…" : "Save"}
                             </button>
                             <button
                               className="btn-secondary"
@@ -813,15 +817,7 @@ export function LedgerRegisterPanel(props: LedgerRegisterPanelProps) {
                               type="button"
                               onClick={(event) => {
                                 event.stopPropagation();
-                                setExpandedTransactionId((current) =>
-                                  current === transaction.id ? null : transaction.id,
-                                );
-                                setEditingSplitTransactionId((current) =>
-                                  current === transaction.id ? null : current,
-                                );
-                                if (editingSplitTransactionId === transaction.id) {
-                                  setEditingSplitDraft(null);
-                                }
+                                toggleSplitPreview(transaction.id);
                               }}
                             >
                               {isExpandedRow ? "Hide splits" : "Show splits"}
@@ -1582,6 +1578,105 @@ export function LedgerRegisterPanel(props: LedgerRegisterPanelProps) {
                 </td>
               </tr>
             )}
+            <tr className="register-row register-row-new">
+              <td className="register-cell-date">
+                <input
+                  value={newTransactionDraft.date}
+                  onChange={(event) =>
+                    setNewTransactionDraft((current) => ({
+                      ...current,
+                      date: event.target.value,
+                    }))
+                  }
+                />
+              </td>
+              <td>
+                <span className="status-chip open">New</span>
+              </td>
+              <td className="register-cell-description">
+                <input
+                  value={newTransactionDraft.description}
+                  placeholder="New transaction"
+                  onChange={(event) =>
+                    setNewTransactionDraft((current) => ({
+                      ...current,
+                      description: event.target.value,
+                    }))
+                  }
+                />
+              </td>
+              <td className="register-cell-payee">
+                <input
+                  value={newTransactionDraft.payee}
+                  placeholder="Unassigned"
+                  onChange={(event) =>
+                    setNewTransactionDraft((current) => ({
+                      ...current,
+                      payee: event.target.value,
+                    }))
+                  }
+                />
+              </td>
+              <td className="register-cell-accounts">
+                <select
+                  value={newTransactionDraft.expenseAccountId}
+                  onChange={(event) =>
+                    setNewTransactionDraft((current) => ({
+                      ...current,
+                      expenseAccountId: event.target.value,
+                    }))
+                  }
+                >
+                  {props.expenseAccounts.map((account) => (
+                    <option key={account.id} value={account.id}>
+                      {account.name}
+                    </option>
+                  ))}
+                </select>
+              </td>
+              <td className="register-cell-amount">
+                <input
+                  value={newTransactionDraft.amount}
+                  onChange={(event) =>
+                    setNewTransactionDraft((current) => ({
+                      ...current,
+                      amount: event.target.value,
+                    }))
+                  }
+                />
+              </td>
+              {!props.isFiltered ? <td className="register-cell-balance" /> : null}
+              <td />
+              <td>
+                <button
+                  className="btn-primary"
+                  data-testid="ledger-post-transaction"
+                  disabled={newRowSaveDisabled || props.busy !== null}
+                  type="button"
+                  onClick={() => {
+                    if (newRowSaveDisabled) {
+                      return;
+                    }
+
+                    props.onCreateInlineTransaction({
+                      amount: newTransactionDraft.amount.trim(),
+                      date: newTransactionDraft.date.trim(),
+                      description: newTransactionDraft.description.trim(),
+                      expenseAccountId: newTransactionDraft.expenseAccountId.trim(),
+                      payee: newTransactionDraft.payee.trim(),
+                    });
+                    setNewTransactionDraft((current) => ({
+                      ...current,
+                      amount: "0.00",
+                      description: "",
+                      payee: "",
+                    }));
+                  }}
+                >
+                  {props.busy === "Transaction post" ? "Posting..." : "Post"}
+                </button>
+              </td>
+            </tr>
           </tbody>
         </table>
         {props.isFiltered ? (
