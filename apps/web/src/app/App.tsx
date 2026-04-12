@@ -659,6 +659,19 @@ export function App() {
     });
   }
 
+  function openNewRegisterTab() {
+    setLedgerRegisterTabs((currentTabs) => {
+      const nextTab: LedgerRegisterTabState = {
+        id: `tab-all-${Date.now()}`,
+        ledgerStatusFilter: "all",
+        selectedLedgerAccountId: null,
+        selectedLedgerTransactionId: null,
+      };
+      setActiveLedgerRegisterTabId(nextTab.id);
+      return [...currentTabs, nextTab];
+    });
+  }
+
   function openLinkedRegisterTabsForTransaction(transactionId: string) {
     const transaction = ledgerBook.filteredTransactions.find((candidate) => candidate.id === transactionId);
     if (!transaction) {
@@ -1184,7 +1197,7 @@ export function App() {
           onDeleteInlineTransaction={(transactionId) => {
             void deleteInlineLedgerTransaction(transactionId);
           }}
-          onMoveLedgerRegisterTab={moveLedgerRegisterTab}
+          onOpenNewTab={openNewRegisterTab}
           onOpenAdvancedEditor={() => setIsLedgerDetailOpen(true)}
           onOpenLedgerRegisterTabForAccount={openLedgerRegisterTabForAccount}
           onOpenLinkedRegisterTabs={openLinkedRegisterTabsForTransaction}

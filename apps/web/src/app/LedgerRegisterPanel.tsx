@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, type Dispatch, type SetStateAction } from "react";
-import { CaretDown, Check, DotsThree, X } from "@phosphor-icons/react";
+import { CaretDown, Check, DotsThree, Plus, X } from "@phosphor-icons/react";
 import type { BookResponse } from "./api";
 import { formatAmount, formatSignedCurrency, type AmountStyle } from "./app-format";
 import {
@@ -60,7 +60,7 @@ interface LedgerRegisterPanelProps {
   onCloseLedgerRegisterTab: (tabId: string) => void;
   onCreateInlineTransaction: (draft: InlineNewTransactionDraft) => void;
   onDeleteInlineTransaction: (transactionId: string) => void;
-  onMoveLedgerRegisterTab: (direction: "left" | "right", tabId: string) => void;
+  onOpenNewTab: () => void;
   onOpenLinkedRegisterTabs: (transactionId: string) => void;
   onOpenLedgerRegisterTabForAccount: (accountId: string) => void;
   onOpenAdvancedEditor: (transactionId: string) => void;
@@ -102,9 +102,6 @@ export function LedgerRegisterPanel(props: LedgerRegisterPanelProps) {
     payee: "",
     status: "open",
   });
-  const [newRegisterTabAccountId, setNewRegisterTabAccountId] = useState(
-    props.liquidAccounts[0]?.id ?? "",
-  );
   const inlineDateIsValid = props.inlineEditDraft
     ? /^\d{4}-\d{2}-\d{2}$/.test(props.inlineEditDraft.occurredOn.trim())
     : false;
@@ -122,7 +119,6 @@ export function LedgerRegisterPanel(props: LedgerRegisterPanelProps) {
   const newRowSaveDisabled =
     !newRowDateIsValid || !newRowDescriptionIsValid || !newRowAmountIsValid || !newRowAccountIsValid;
   const visibleColumnCount = props.isFiltered ? 8 : 9;
-  const accountById = new Map(props.ledgerBook.availableAccounts.map((account) => [account.id, account]));
   const getTransactionAmount = (transaction: ReturnType<typeof createLedgerBookModel>["filteredTransactions"][number]) => {
     if (!props.selectedLedgerAccountId) {
       return 0;
@@ -159,19 +155,6 @@ export function LedgerRegisterPanel(props: LedgerRegisterPanelProps) {
       expenseAccountId: fallbackAccount,
     }));
   }, [newTransactionDraft.expenseAccountId, props.expenseAccounts]);
-
-  useEffect(() => {
-    if (newRegisterTabAccountId) {
-      return;
-    }
-
-    const fallbackAccount = props.liquidAccounts[0]?.id ?? "";
-    if (!fallbackAccount) {
-      return;
-    }
-
-    setNewRegisterTabAccountId(fallbackAccount);
-  }, [newRegisterTabAccountId, props.liquidAccounts]);
 
   useEffect(() => {
     if (!expandedTransactionId) {
@@ -328,74 +311,38 @@ export function LedgerRegisterPanel(props: LedgerRegisterPanelProps) {
           <span>Register</span>
           <span className="muted">Double-entry ledger</span>
         </div>
-        <div className="register-tab-row">
-          {props.ledgerRegisterTabs.map((tab, tabIndex) => (
+        <div className="register-tab-bar">
+          {props.ledgerRegisterTabs.map((tab) => (
             <div key={tab.id} className={`register-tab${props.activeLedgerRegisterTabId === tab.id ? " active" : ""}`}>
-              <button className="btn-ghost register-tab-trigger" type="button" onClick={() => props.onActivateLedgerRegisterTab(tab.id)}>
-                <span className="register-tab-label">
-                  <strong className="register-tab-account-name">{tab.label}</strong>
-                  {tab.accountId ? (
-                    <span className="register-tab-account-type">
-                      {accountById.get(tab.accountId)?.type ?? "account"}
-                    </span>
-                  ) : (
-                    <span className="register-tab-account-type">all</span>
-                  )}
-                </span>
+              <button
+                className="register-tab-trigger"
+                type="button"
+                onClick={() => props.onActivateLedgerRegisterTab(tab.id)}
+              >
+                {tab.label}
               </button>
-              <div className="register-tab-actions">
-                <button
-                  className="btn-ghost"
-                  disabled={tabIndex === 0}
-                  type="button"
-                  onClick={() => props.onMoveLedgerRegisterTab("left", tab.id)}
-                >
-                  ←
-                </button>
-                <button
-                  className="btn-ghost"
-                  disabled={tabIndex + 1 >= props.ledgerRegisterTabs.length}
-                  type="button"
-                  onClick={() => props.onMoveLedgerRegisterTab("right", tab.id)}
-                >
-                  →
-                </button>
-                <button
-                  className="btn-ghost"
-                  disabled={props.ledgerRegisterTabs.length <= 1 || tab.id === "tab-all"}
-                  type="button"
-                  onClick={() => props.onCloseLedgerRegisterTab(tab.id)}
-                >
-                  ×
-                </button>
-              </div>
+              <button
+                className="register-tab-close"
+                disabled={props.ledgerRegisterTabs.length <= 1 || tab.id === "tab-all"}
+                title="Close tab"
+                type="button"
+                onClick={(event) => {
+                  event.stopPropagation();
+                  props.onCloseLedgerRegisterTab(tab.id);
+                }}
+              >
+                <X size={12} />
+              </button>
             </div>
           ))}
-          <div className="register-tab-new">
-            <select
-              value={newRegisterTabAccountId}
-              onChange={(event) => setNewRegisterTabAccountId(event.target.value)}
-            >
-              {props.liquidAccounts.map((account) => (
-                <option key={account.id} value={account.id}>
-                  {account.name}
-                </option>
-              ))}
-            </select>
-            <button
-              className="btn-secondary"
-              disabled={!newRegisterTabAccountId}
-              type="button"
-              onClick={() => {
-                if (!newRegisterTabAccountId) {
-                  return;
-                }
-                props.onOpenLedgerRegisterTabForAccount(newRegisterTabAccountId);
-              }}
-            >
-              Open tab
-            </button>
-          </div>
+          <button
+            className="register-tab-add"
+            title="New tab"
+            type="button"
+            onClick={() => props.onOpenNewTab()}
+          >
+            <Plus size={14} />
+          </button>
         </div>
         <div className="ledger-toolbar">
           <div className="ledger-range-row">
