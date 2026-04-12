@@ -105,7 +105,21 @@ This is the canonical issue tracker for day-to-day solo development.
 - [ ] (empty)
 
 ## Backlog
-- [ ] (empty)
+- [ ] I-020 Register row actions — progressive disclosure
+  - status: backlog
+  - risk: R2
+  - type: feature
+  - owner: agent
+  - rollback: revert className and CSS changes in LedgerRegisterPanel.tsx and styles.css only
+  - acceptance:
+    - action buttons (Delete, Edit, Show splits, Link tabs, Advanced) are not visible on unselected, unhovered rows
+    - on hover: a condensed affordance appears (icon button or `⋯` trigger) that reveals the full action set
+    - on selected: full actions are visible inline, since the user has explicitly focused the row
+    - the actions column no longer occupies fixed horizontal space on every row in the default state
+    - keyboard workflow is unaffected: `e` still begins inline edit, delete still works via existing hotkeys
+    - no regression in existing LedgerRegisterPanel tests
+    - `pnpm --filter @tally/web typecheck` passes
+    - `pnpm ci:verify` passes
 
 - [x] I-006 Complete envelope operations layer (rollover wiring + cover-overspend command)
   - status: done
