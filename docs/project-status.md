@@ -266,3 +266,5 @@ The next roadmap phase should promote a small number of these tracks into bounde
 - 2026-04-12: I-024 removed the register search bar and slash-focus shortcut, simplifying register state to range/status/account filters only.
 
 - 2026-04-12: I-026 replaced register status chips with a compact status selector (All/Uncleared/Cleared/Reconciled) while keeping filter behavior unchanged.
+
+- 2026-04-12: I-025 removed persistent bottom ledger panels (Balances and Ledger Operations) and made Advanced Editor render only when explicitly opened.

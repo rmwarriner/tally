@@ -7,7 +7,6 @@ import {
 } from "./api";
 import {
   findAccountSearchExactMatch,
-  createReconciliationBookModel,
   createLedgerBookModel,
   createOverviewCards,
   getPostingBalanceSummary,
@@ -106,7 +105,6 @@ export function App() {
   const [currentPeriod, setCurrentPeriod] = useState(APRIL_RANGE);
   const [isPeriodInputOpen, setIsPeriodInputOpen] = useState(false);
   const [isLedgerDetailOpen, setIsLedgerDetailOpen] = useState(false);
-  const [isLedgerOperationsOpen, setIsLedgerOperationsOpen] = useState(false);
   const [isInspectorOpen, setIsInspectorOpen] = useState(false);
   const [isCommandPaletteOpen, setIsCommandPaletteOpen] = useState(false);
   const [coaAccountDraft, setCoaAccountDraft] = useState<CoaAccountDraft | null>(null);
@@ -129,16 +127,13 @@ export function App() {
     csvForm,
     envelopeAllocationForm,
     envelopeForm,
-    reconciliationForm,
     scheduleForm,
-    selectedReconciliationTransactionIds,
     setBudgetLineForm,
     setCsvForm,
     setEnvelopeAllocationForm,
     setEnvelopeForm,
     setReconciliationForm,
     setScheduleForm,
-    setSelectedReconciliationTransactionIds,
   } = useNonLedgerFormState();
   const [ledgerRegisterTabs, setLedgerRegisterTabs] = useState<LedgerRegisterTabState[]>([
     {
@@ -258,22 +253,6 @@ export function App() {
         ? `showing ${ledgerBook.filteredTransactions.length} of ${ledgerBook.totalCount} · filtered total ${formatCurrency(filteredTotal)}`
         : `${ledgerBook.filteredTransactions.length} transactions · balance ${formatCurrency(runningBalance)}`;
   const canSaveNewCoaAccount = coaAccountDraft ? canSaveCoaAccountDraft(coaAccountDraft) : false;
-  const reconciliationBook = loadedBook
-    ? createReconciliationBookModel({
-        selectedAccountId: reconciliationForm.accountId,
-        selectedTransactionIds: selectedReconciliationTransactionIds,
-        statementBalanceText: reconciliationForm.statementBalance,
-        statementDate: reconciliationForm.statementDate,
-        book: loadedBook,
-      })
-    : {
-        candidateTransactions: [],
-        clearedTotal: 0,
-        difference: null,
-        latestSession: undefined,
-        selectedAccount: null,
-        statementBalance: null,
-      };
   const transactionEditorErrors = transactionEditor ? validateTransactionEditorState(transactionEditor) : [];
   const postingBalanceSummary = transactionEditor
     ? getPostingBalanceSummary(transactionEditor.postings.map((posting) => posting.amount))
@@ -1082,7 +1061,6 @@ export function App() {
   function openCoaAddTransactionFlow() {
     setActiveView("ledger");
     setIsLedgerDetailOpen(false);
-    setIsLedgerOperationsOpen(false);
     if (selectedLedgerAccountId) {
       openLedgerRegisterTabForAccount(selectedLedgerAccountId);
     }
@@ -1130,7 +1108,6 @@ export function App() {
 
   function openCoaReconciliationFlow() {
     setActiveView("ledger");
-    setIsLedgerOperationsOpen(true);
     if (selectedLedgerAccountId) {
       openLedgerRegisterTabForAccount(selectedLedgerAccountId);
       setReconciliationForm((current) => ({
@@ -1190,7 +1167,6 @@ export function App() {
           inlineEditDraft={inlineEditDraft}
           inlineEditingTransactionId={inlineEditingTransactionId}
           isLedgerDetailOpen={isLedgerDetailOpen}
-          isLedgerOperationsOpen={isLedgerOperationsOpen}
           ledgerRange={currentPeriod}
           ledgerRegisterTabs={labeledLedgerRegisterTabs}
           ledgerStatusFilter={ledgerStatusFilter}
@@ -1198,7 +1174,6 @@ export function App() {
           ledgerIsFiltered={ledgerBook.isFiltered}
           ledgerOpeningBalance={ledgerBook.openingBalance}
           ledgerTotalCount={ledgerBook.totalCount}
-          bookVersion={bookVersion}
           liquidAccounts={liquidAccounts}
           onActivateLedgerRegisterTab={setActiveLedgerRegisterTabId}
           onCancelInlineEdit={cancelInlineEdit}
@@ -1230,19 +1205,13 @@ export function App() {
             })
           }
           onToggleLedgerDetailOpen={() => setIsLedgerDetailOpen(false)}
-          onToggleLedgerOperationsOpen={() => setIsLedgerOperationsOpen((current) => !current)}
           onUpdateInlineEditField={setInlineDraftField}
-          reconciliationForm={reconciliationForm}
-          reconciliationBook={reconciliationBook}
-          runMutation={runMutation}
           selectedLedgerAccountId={selectedLedgerAccountId}
           selectedLedgerTransactionId={selectedLedgerTransactionId}
           setLedgerRange={setLedgerRange}
           setLedgerStatusFilter={setLedgerStatusFilter}
-          setReconciliationForm={setReconciliationForm}
           setSelectedLedgerAccountId={setSelectedLedgerAccountId}
           setSelectedLedgerTransactionId={setSelectedLedgerTransactionId}
-          setSelectedReconciliationTransactionIds={setSelectedReconciliationTransactionIds}
           transactionEditorPanel={renderTransactionEditorPanel()}
         />
       );
@@ -1422,16 +1391,6 @@ export function App() {
                 }}
               >
                 Toggle advanced editor
-              </button>
-              <button
-                type="button"
-                onClick={() => {
-                  setActiveView("ledger");
-                  setIsLedgerOperationsOpen((current) => !current);
-                  setIsCommandPaletteOpen(false);
-                }}
-              >
-                Toggle reconciliation workspace
               </button>
               <button
                 disabled={!selectedLedgerTransactionId}
