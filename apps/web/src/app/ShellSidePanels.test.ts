@@ -115,7 +115,6 @@ const book: FinanceBookDocument = {
 
 const ledgerBook = createLedgerBookModel({
   accountBalances: [],
-  searchText: "",
   selectedAccountId: "acct-checking",
   selectedTransactionId: "txn-1",
   book,
@@ -148,7 +147,6 @@ describe("Shell side panels", () => {
   it("renders no-selection account summary state in ledger view", () => {
     const noSelectionLedgerBook = createLedgerBookModel({
       accountBalances: [],
-      searchText: "",
       selectedAccountId: "acct-checking",
       selectedTransactionId: null,
       book,

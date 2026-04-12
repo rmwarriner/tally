@@ -654,16 +654,14 @@ export function createLedgerBookModel(input: {
   accountBalances: LedgerBalanceSummary[];
   rangeEnd?: string;
   rangeStart?: string;
-  searchText: string;
   statusFilter?: "all" | "cleared" | "open" | "reconciled";
   selectedAccountId: string | null;
   selectedTransactionId: string | null;
   book: FinanceBookDocument;
 }): LedgerBookModel {
-  const searchTokens = normalizeSearchTokens(input.searchText);
-  const isFiltered = searchTokens.length > 0;
+  const isFiltered = false;
   const accountById = new Map(input.book.accounts.map((account) => [account.id, account]));
-  const candidateTransactions = input.book.transactions
+  const filteredTransactions = input.book.transactions
     .map((transaction) => {
       const matchedAccountIds = transaction.postings.map((posting) => posting.accountId);
       const postings = transaction.postings.map((posting) => {
@@ -711,30 +709,7 @@ export function createLedgerBookModel(input: {
       return true;
     })
     .sort((left, right) => right.occurredOn.localeCompare(left.occurredOn));
-
-  const totalCount = candidateTransactions.length;
-  const filteredTransactions = candidateTransactions.filter((transaction) => {
-    if (searchTokens.length === 0) {
-      return true;
-    }
-
-    const searchCorpus = normalizeAccountSearchValue(
-      [
-        transaction.id,
-        transaction.description,
-        transaction.payee ?? "",
-        transaction.occurredOn,
-        transaction.status,
-        transaction.tags.join(" "),
-        ...transaction.postings.map(
-          (posting) =>
-            `${posting.accountId} ${posting.accountCode ?? ""} ${posting.accountName} ${posting.memo ?? ""}`,
-        ),
-      ].join(" "),
-    );
-
-    return searchTokens.every((token) => searchCorpus.includes(token));
-  });
+  const totalCount = filteredTransactions.length;
 
   const filteredBalances = input.accountBalances.filter((balance) => {
     if (!input.selectedAccountId) {

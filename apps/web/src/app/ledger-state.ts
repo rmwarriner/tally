@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState, type Dispatch, type RefObject, type SetStateAction } from "react";
+import { useCallback, useEffect, useState, type Dispatch, type SetStateAction } from "react";
 import {
   createLedgerBookModel,
   getNextLedgerTransactionId,
@@ -342,7 +342,6 @@ export function useLedgerInlineRowEditState() {
 interface UseLedgerKeyboardAndSelectionSyncInput {
   activeView: BookView;
   filteredTransactions: ReturnType<typeof createLedgerBookModel>["filteredTransactions"];
-  ledgerSearchInputRef: RefObject<HTMLInputElement | null>;
   onBeginInlineEdit: (
     transaction: ReturnType<typeof createLedgerBookModel>["filteredTransactions"][number],
   ) => void;
@@ -370,21 +369,11 @@ export function getLedgerHotkeySelectionUpdate(input: {
   target: EventTarget | null;
 }): {
   handled: boolean;
-  focusSearch: boolean;
   nextSelectedLedgerTransactionId: string | null;
 } {
   if (!shouldHandleLedgerHotkey(input.target)) {
     return {
       handled: false,
-      focusSearch: false,
-      nextSelectedLedgerTransactionId: input.selectedLedgerTransactionId,
-    };
-  }
-
-  if (input.eventKey === "/") {
-    return {
-      handled: true,
-      focusSearch: true,
       nextSelectedLedgerTransactionId: input.selectedLedgerTransactionId,
     };
   }
@@ -392,7 +381,6 @@ export function getLedgerHotkeySelectionUpdate(input: {
   if (input.eventKey === "Escape") {
     return {
       handled: true,
-      focusSearch: false,
       nextSelectedLedgerTransactionId: null,
     };
   }
@@ -400,7 +388,6 @@ export function getLedgerHotkeySelectionUpdate(input: {
   if (input.eventKey === "ArrowDown" || input.eventKey === "j") {
     return {
       handled: true,
-      focusSearch: false,
       nextSelectedLedgerTransactionId: getNextLedgerTransactionId({
         direction: "next",
         selectedTransactionId: input.selectedLedgerTransactionId,
@@ -412,7 +399,6 @@ export function getLedgerHotkeySelectionUpdate(input: {
   if (input.eventKey === "ArrowUp" || input.eventKey === "k") {
     return {
       handled: true,
-      focusSearch: false,
       nextSelectedLedgerTransactionId: getNextLedgerTransactionId({
         direction: "previous",
         selectedTransactionId: input.selectedLedgerTransactionId,
@@ -423,7 +409,6 @@ export function getLedgerHotkeySelectionUpdate(input: {
 
   return {
     handled: false,
-    focusSearch: false,
     nextSelectedLedgerTransactionId: input.selectedLedgerTransactionId,
   };
 }
@@ -481,12 +466,6 @@ export function useLedgerKeyboardAndSelectionSync(input: UseLedgerKeyboardAndSel
       }
 
       event.preventDefault();
-
-      if (hotkeyUpdate.focusSearch) {
-        input.ledgerSearchInputRef.current?.focus();
-        return;
-      }
-
       input.setSelectedLedgerTransactionId(hotkeyUpdate.nextSelectedLedgerTransactionId);
     }
 
@@ -498,7 +477,6 @@ export function useLedgerKeyboardAndSelectionSync(input: UseLedgerKeyboardAndSel
   }, [
     input.activeView,
     input.filteredTransactions,
-    input.ledgerSearchInputRef,
     input.onBeginInlineEdit,
     input.selectedLedgerTransactionId,
     input.setSelectedLedgerTransactionId,

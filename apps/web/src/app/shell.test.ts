@@ -93,7 +93,6 @@ describe("web shell view model", () => {
           commodityCode: "USD",
         },
       ],
-      searchText: "market",
       selectedAccountId: "acct-checking",
       selectedTransactionId: "txn-grocery-1",
       book: {
@@ -160,8 +159,11 @@ describe("web shell view model", () => {
         commodityCode: "USD",
       },
     ]);
-    expect(model.filteredTransactions.map((transaction) => transaction.id)).toEqual(["txn-grocery-1"]);
-    expect(model.isFiltered).toBe(true);
+    expect(model.filteredTransactions.map((transaction) => transaction.id)).toEqual([
+      "txn-grocery-1",
+      "txn-paycheck-1",
+    ]);
+    expect(model.isFiltered).toBe(false);
     expect(model.totalCount).toBe(2);
     expect(model.openingBalance).toBe(0);
     expect(model.selectedAccount).toMatchObject({
@@ -542,12 +544,11 @@ describe("web shell view model", () => {
     expect(model.latestSession?.statementDate).toBe("2026-03-31");
   });
 
-  it("matches ledger searches across multiple tokens and date range filters", () => {
+  it("applies date range filters to ledger transactions", () => {
     const model = createLedgerBookModel({
       accountBalances: [],
       rangeEnd: "2026-04-15",
       rangeStart: "2026-04-01",
-      searchText: "checking 1000 household cleared",
       selectedAccountId: "acct-checking",
       selectedTransactionId: "txn-grocery-1",
       book: {
@@ -613,12 +614,11 @@ describe("web shell view model", () => {
     expect(model.totalCount).toBe(1);
   });
 
-  it("computes opening balance and total count before text filtering", () => {
+  it("computes opening balance and total count for date-scoped account transactions", () => {
     const model = createLedgerBookModel({
       accountBalances: [],
       rangeEnd: "2026-04-30",
       rangeStart: "2026-04-01",
-      searchText: "landlord",
       selectedAccountId: "acct-checking",
       selectedTransactionId: null,
       book: {
@@ -679,16 +679,18 @@ describe("web shell view model", () => {
       },
     });
 
-    expect(model.isFiltered).toBe(true);
+    expect(model.isFiltered).toBe(false);
     expect(model.openingBalance).toBe(1000);
     expect(model.totalCount).toBe(2);
-    expect(model.filteredTransactions.map((transaction) => transaction.id)).toEqual(["txn-rent"]);
+    expect(model.filteredTransactions.map((transaction) => transaction.id)).toEqual([
+      "txn-coffee",
+      "txn-rent",
+    ]);
   });
 
   it("filters ledger transactions by explicit status filter", () => {
     const model = createLedgerBookModel({
       accountBalances: [],
-      searchText: "",
       selectedAccountId: "acct-checking",
       selectedTransactionId: null,
       statusFilter: "cleared",
