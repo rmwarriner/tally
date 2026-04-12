@@ -38,7 +38,7 @@ interface LedgerMainPanelsProps {
     status: "cleared" | "open" | "reconciled";
   }) => void;
   onDeleteInlineTransaction: (transactionId: string) => void;
-  onMoveLedgerRegisterTab: (direction: "left" | "right", tabId: string) => void;
+  onOpenNewTab: () => void;
   onOpenAdvancedEditor: () => void;
   onOpenLinkedRegisterTabs: (transactionId: string) => void;
   onOpenLedgerRegisterTabForAccount: (accountId: string) => void;
@@ -93,7 +93,7 @@ export function LedgerMainPanels(props: LedgerMainPanelsProps) {
         onCloseLedgerRegisterTab={props.onCloseLedgerRegisterTab}
         onCreateInlineTransaction={props.onCreateInlineTransaction}
         onDeleteInlineTransaction={props.onDeleteInlineTransaction}
-        onMoveLedgerRegisterTab={props.onMoveLedgerRegisterTab}
+        onOpenNewTab={props.onOpenNewTab}
         onOpenAdvancedEditor={props.onOpenAdvancedEditor}
         onOpenLedgerRegisterTabForAccount={props.onOpenLedgerRegisterTabForAccount}
         onOpenLinkedRegisterTabs={props.onOpenLinkedRegisterTabs}

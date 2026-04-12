@@ -1545,70 +1545,98 @@ th {
   gap: 10px;
 }
 
-.register-tab-row {
+.register-tab-bar {
   display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
+  align-items: stretch;
+  gap: 2px;
   margin-bottom: 10px;
+  border-bottom: 1px solid var(--border);
 }
 
 .register-tab {
   display: inline-flex;
   align-items: center;
-  gap: 6px;
-  padding: 4px;
-  border: 1px solid color-mix(in srgb, var(--border) 70%, transparent);
-  border-radius: 12px;
-  background: color-mix(in srgb, var(--surface-input) 80%, transparent);
+  gap: 4px;
+  padding: 0 4px 0 10px;
+  border: 1px solid transparent;
+  border-bottom: none;
+  border-radius: 6px 6px 0 0;
+  background: transparent;
+  color: var(--text-muted);
+  font-size: var(--text-sm);
+  position: relative;
+  bottom: -1px;
+}
+
+.register-tab:hover {
+  background: var(--surface-hover);
+  color: var(--text);
 }
 
 .register-tab.active {
-  border-color: var(--accent-warm-border);
-  background: var(--accent-warm);
+  background: var(--surface);
+  border-color: var(--border);
+  color: var(--text);
 }
 
 .register-tab-trigger {
-  padding: 2px 8px;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  padding: 6px 0;
+  cursor: pointer;
+  font-size: inherit;
+  white-space: nowrap;
 }
 
-.register-tab-label {
-  display: inline-flex;
+.register-tab-close {
+  display: flex;
   align-items: center;
-  gap: 8px;
-}
-
-.register-tab-account-name {
-  font-family: var(--display-font);
-  font-size: var(--text-xl);
-  font-weight: var(--weight-semibold);
-}
-
-.register-tab-account-type {
-  display: inline-flex;
-  align-items: center;
-  padding: 2px 8px;
-  border-radius: 999px;
-  font-size: var(--text-xs);
+  justify-content: center;
+  width: 18px;
+  height: 18px;
+  padding: 0;
+  border: 0;
+  border-radius: 4px;
+  background: transparent;
   color: var(--text-muted);
-  background: color-mix(in srgb, var(--surface-input) 85%, transparent);
-  text-transform: lowercase;
+  cursor: pointer;
+  opacity: 0;
 }
 
-.register-tab-actions {
-  display: inline-flex;
-  gap: 4px;
+.register-tab:hover .register-tab-close,
+.register-tab.active .register-tab-close {
+  opacity: 1;
 }
 
-.register-tab-actions button {
-  min-width: 28px;
-  padding: var(--chip-pad-y) 6px;
+.register-tab-close:hover {
+  background: var(--surface-hover);
+  color: var(--text);
 }
 
-.register-tab-new {
-  display: inline-flex;
+.register-tab-close:disabled {
+  opacity: 0;
+  pointer-events: none;
+}
+
+.register-tab-add {
+  display: flex;
   align-items: center;
-  gap: 8px;
+  justify-content: center;
+  width: 28px;
+  align-self: center;
+  margin-bottom: 2px;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--text-muted);
+  cursor: pointer;
   padding: 4px;
+}
+
+.register-tab-add:hover {
+  background: var(--surface-hover);
+  color: var(--text);
 }
 
 .posting-card {

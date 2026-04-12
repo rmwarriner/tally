@@ -270,3 +270,5 @@ The next roadmap phase should promote a small number of these tracks into bounde
 - 2026-04-12: I-025 removed persistent bottom ledger panels (Balances and Ledger Operations) and made Advanced Editor render only when explicitly opened.
 
 - 2026-04-12: I-029 redesigned the COA sidebar into collapsible account-type sections with per-section totals and hierarchical disclosure rows for parent/child accounts.
+
+- 2026-04-12: I-027 replaced the ledger register pill row with a real tab strip and trailing + new-tab action, removing the account selector/open-tab controls while preserving close/link behaviors.
