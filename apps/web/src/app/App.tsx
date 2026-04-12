@@ -144,6 +144,10 @@ export function App() {
     },
   ]);
   const [activeLedgerRegisterTabId, setActiveLedgerRegisterTabId] = useState("tab-all");
+  const [statusBarMode, setStatusBarMode] = useState<"total" | "available" | "both">(() => {
+    const stored = localStorage.getItem("tally:statusBarMode");
+    return stored === "available" || stored === "both" ? stored : "total";
+  });
   const { preferences, setAmountStyle, setDensity, setTheme } = usePreferences();
   const activeLedgerRegisterTab =
     ledgerRegisterTabs.find((tab) => tab.id === activeLedgerRegisterTabId) ?? ledgerRegisterTabs[0];
@@ -244,14 +248,28 @@ export function App() {
     );
   }, 0);
   const runningBalance = ledgerBook.openingBalance + filteredTotal;
-  const registerStatus =
-    selectedLedgerAccountId === null
-      ? ledgerBook.isFiltered
-        ? `showing ${ledgerBook.filteredTransactions.length} of ${ledgerBook.totalCount} · select an account to see filtered total`
-        : `${ledgerBook.filteredTransactions.length} transactions · select an account to see balance`
-      : ledgerBook.isFiltered
-        ? `showing ${ledgerBook.filteredTransactions.length} of ${ledgerBook.totalCount} · filtered total ${formatCurrency(filteredTotal)}`
-        : `${ledgerBook.filteredTransactions.length} transactions · balance ${formatCurrency(runningBalance)}`;
+  const clearedFilteredTotal = selectedLedgerAccountId
+    ? ledgerBook.filteredTransactions
+        .filter((transaction) => transaction.status !== "open")
+        .reduce(
+          (sum, transaction) =>
+            sum +
+            getAccountSideAmountForTransaction({ selectedAccountId: selectedLedgerAccountId, transaction }),
+          0,
+        )
+    : 0;
+  const availableBalance = ledgerBook.openingBalance + clearedFilteredTotal;
+  const unclearedTransactions = ledgerBook.filteredTransactions.filter(
+    (transaction) => transaction.status === "open",
+  );
+  const unclearedTotal = selectedLedgerAccountId
+    ? unclearedTransactions.reduce(
+        (sum, transaction) =>
+          sum +
+          getAccountSideAmountForTransaction({ selectedAccountId: selectedLedgerAccountId, transaction }),
+        0,
+      )
+    : 0;
   const canSaveNewCoaAccount = coaAccountDraft ? canSaveCoaAccountDraft(coaAccountDraft) : false;
   const transactionEditorErrors = transactionEditor ? validateTransactionEditorState(transactionEditor) : [];
   const postingBalanceSummary = transactionEditor
@@ -1086,6 +1104,14 @@ export function App() {
     });
   }
 
+  function cycleStatusBarMode() {
+    setStatusBarMode((current) => {
+      const next = current === "total" ? "available" : current === "available" ? "both" : "total";
+      localStorage.setItem("tally:statusBarMode", next);
+      return next;
+    });
+  }
+
   function openCoaAddTransactionFlow() {
     setActiveView("ledger");
     setIsLedgerDetailOpen(false);
@@ -1340,7 +1366,16 @@ export function App() {
         {renderInspectorContent()}
       </aside>
 
-      <ShellStatusBar apiStatus={apiStatus} registerStatus={registerStatus} />
+      <ShellStatusBar
+        apiStatus={apiStatus}
+        availableBalance={selectedLedgerAccountId ? availableBalance : null}
+        onCycleMode={cycleStatusBarMode}
+        runningBalance={selectedLedgerAccountId ? runningBalance : null}
+        statusBarMode={statusBarMode}
+        totalCount={ledgerBook.filteredTransactions.length}
+        unclearedCount={unclearedTransactions.length}
+        unclearedTotal={selectedLedgerAccountId ? unclearedTotal : null}
+      />
 
       {coaAccountDraft ? (
         <div className="command-palette-overlay" role="dialog" aria-modal="true">
