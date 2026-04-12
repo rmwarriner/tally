@@ -588,6 +588,7 @@ export function LedgerRegisterPanel(props: LedgerRegisterPanelProps) {
                         "register-row",
                         props.selectedLedgerTransactionId === transaction.id ? "selected" : "",
                         isEditingRow ? "editing" : "",
+                        isEditingRow && props.busy !== null ? "saving" : "",
                       ].filter(Boolean).join(" ")}
                       onClick={() => props.setSelectedLedgerTransactionId(transaction.id)}
                     >
@@ -768,7 +769,7 @@ export function LedgerRegisterPanel(props: LedgerRegisterPanelProps) {
                                 }
                               }}
                             >
-                              Save
+                              {isEditingRow && props.busy !== null ? "Saving…" : "Save"}
                             </button>
                             <button
                               className="btn-secondary"

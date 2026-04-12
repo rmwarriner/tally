@@ -254,3 +254,5 @@ The next roadmap phase should promote a small number of these tracks into bounde
 - 2026-04-11: I-017 applied a typography hierarchy pass with ledger register column alignment, active tab account identity styling, COA account code/balance typography, and refreshed overview/status text scale.
 
 - 2026-04-12: I-018 completed deferred web cleanup by expanding `LedgerOperationsPanels` reconciliation rendering tests and narrowing `NonLedgerMainPanels` by importing utility/API dependencies directly instead of passthrough props.
+
+- 2026-04-12: I-019 refined register visual identity with density-driven cell padding, styled headers, stronger description weight, embedded inline/new-row register inputs, and a saving-row visual state with inline Save label feedback.
