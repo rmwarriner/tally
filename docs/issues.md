@@ -257,11 +257,12 @@ This is the canonical issue tracker for day-to-day solo development.
     - `pnpm --filter @tally/web typecheck` passes
     - `pnpm ci:verify` passes
 
-- [ ] I-030 Bottom status bar — configurable pending/available balance display
-  - status: backlog
+- [x] I-030 Bottom status bar — configurable pending/available balance display
+  - status: done
   - risk: R1
   - type: feature
   - owner: agent
+  - links: https://github.com/rmwarriner/tally/pull/101
   - rollback: revert status bar component changes — no domain or API changes
   - note: current status bar shows transaction count and total; expand to support three display modes: pending/uncleared balance+count, available balance+count, or both; user preference persisted to localStorage
   - acceptance:
