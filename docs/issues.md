@@ -210,13 +210,13 @@ This is the canonical issue tracker for day-to-day solo development.
     - `pnpm --filter @tally/web typecheck` passes
     - `pnpm ci:verify` passes
 
-- [ ] I-027 Real account tab bar — genuine tabs with minimal plus button
-  - status: backlog
+- [x] I-027 Real account tab bar — genuine tabs with minimal plus button
+  - status: done
   - risk: R2
   - type: feature
   - owner: agent
-  - rollback: revert tab bar component changes in ShellTopbar.tsx (or equivalent) and App.tsx tab state
-  - note: depends on I-025 (panels removed) for clean tab content area; the account dropdown in the tab bar is also removed here — COA panel is the sole navigation source (see I-028)
+  - links: https://github.com/rmwarriner/tally/pull/96
+  - rollback: revert LedgerRegisterPanel.tsx, LedgerMainPanels.tsx, App.tsx, and tab bar CSS in styles.css
   - acceptance:
     - open account tabs render as genuine tabs (not simulated buttons), visually consistent with the VS Code-inspired shell aesthetic
     - a minimal `+` icon button sits immediately to the right of the last open tab — no label, no dropdown
@@ -227,10 +227,11 @@ This is the canonical issue tracker for day-to-day solo development.
     - `pnpm ci:verify` passes
 
 - [ ] I-028 COA panel as tab navigation — click and right-click to open ledger
-  - status: backlog
+  - status: done
   - risk: R2
   - type: feature
   - owner: agent
+  - links: https://github.com/rmwarriner/tally/pull/99
   - depends: I-027 (real tabs must exist first)
   - rollback: revert click/right-click handler changes in CoaSidebar.tsx and tab-open wiring in App.tsx
   - acceptance:
