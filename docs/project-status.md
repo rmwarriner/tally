@@ -264,3 +264,5 @@ The next roadmap phase should promote a small number of these tracks into bounde
 - 2026-04-12: I-022 added inline status controls (Uncleared/Cleared/Reconciled select) to register inline edit and new-transaction rows, wiring status through to cleared and reconciledAt on postings.
 
 - 2026-04-12: I-024 removed the register search bar and slash-focus shortcut, simplifying register state to range/status/account filters only.
+
+- 2026-04-12: I-026 replaced register status chips with a compact status selector (All/Uncleared/Cleared/Reconciled) while keeping filter behavior unchanged.
