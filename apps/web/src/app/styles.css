@@ -1245,6 +1245,120 @@ th {
   pointer-events: none;
 }
 
+.register-cell-actions {
+  width: 80px;
+  min-width: 80px;
+  white-space: nowrap;
+}
+
+.row-actions {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  justify-content: flex-end;
+}
+
+.row-action-button {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  padding: 0;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--text-muted);
+  cursor: pointer;
+}
+
+.row-action-button:hover {
+  background: var(--surface-hover);
+  color: var(--text);
+}
+
+.row-action-button.save {
+  color: var(--amount-positive);
+}
+
+.row-action-button.save:hover {
+  background: color-mix(in srgb, var(--amount-positive) 12%, transparent);
+}
+
+.row-action-button.discard {
+  color: var(--text-muted);
+}
+
+.row-action-menu-anchor {
+  position: relative;
+}
+
+.row-action-menu {
+  position: absolute;
+  top: calc(100% + 4px);
+  right: 0;
+  z-index: 20;
+  min-width: 140px;
+  padding: 4px;
+  background: var(--surface);
+  border: 1px solid color-mix(in srgb, var(--border) 70%, transparent);
+  border-radius: 10px;
+  box-shadow: 0 4px 16px color-mix(in srgb, var(--bg) 60%, transparent);
+}
+
+.row-action-menu-item {
+  display: block;
+  width: 100%;
+  padding: 6px 10px;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--text);
+  font-size: var(--text-sm);
+  text-align: left;
+  cursor: pointer;
+}
+
+.row-action-menu-item:hover {
+  background: var(--surface-hover);
+}
+
+.row-action-menu-item.danger {
+  color: var(--danger);
+}
+
+.row-action-menu-item:disabled {
+  opacity: 0.45;
+  pointer-events: none;
+}
+
+.row-action-menu-separator {
+  height: 1px;
+  margin: 4px 6px;
+  background: color-mix(in srgb, var(--border) 55%, transparent);
+}
+
+.row-action-confirm-label {
+  font-size: var(--text-xs);
+  color: var(--text-muted);
+  white-space: nowrap;
+}
+
+.row-action-text-btn {
+  border: 0;
+  background: transparent;
+  color: var(--text-muted);
+  font-size: var(--text-xs);
+  cursor: pointer;
+  padding: 2px 4px;
+  border-radius: 4px;
+}
+
+.row-action-text-btn:hover {
+  color: var(--text);
+  background: var(--surface-hover);
+}
+
 .register-row input:not([type="checkbox"]) {
   background: transparent;
   border: none;

@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState, type Dispatch, type RefObject, type SetStateAction } from "react";
+import { CaretDown, Check, DotsThree, X } from "@phosphor-icons/react";
 import type { BookResponse } from "./api";
 import { formatAmount, formatSignedCurrency, type AmountStyle } from "./app-format";
 import {
@@ -93,6 +94,8 @@ export function LedgerRegisterPanel(props: LedgerRegisterPanelProps) {
   const [activeSplitAccountSearchIndex, setActiveSplitAccountSearchIndex] = useState<number | null>(null);
   const [highlightedSplitAccountMatchIndex, setHighlightedSplitAccountMatchIndex] = useState(0);
   const [editingSplitDraft, setEditingSplitDraft] = useState<InlineSplitDraft[] | null>(null);
+  const [openMenuTransactionId, setOpenMenuTransactionId] = useState<string | null>(null);
+  const [confirmingDiscardTransactionId, setConfirmingDiscardTransactionId] = useState<string | null>(null);
   const splitAccountInputRefs = useRef<Array<HTMLInputElement | null>>([]);
   const splitMemoInputRefs = useRef<Array<HTMLInputElement | null>>([]);
   const splitAmountInputRefs = useRef<Array<HTMLInputElement | null>>([]);
@@ -237,6 +240,37 @@ export function LedgerRegisterPanel(props: LedgerRegisterPanelProps) {
       window.cancelAnimationFrame(animationFrameId);
     };
   }, [props.activeLedgerRegisterTabId]);
+
+  useEffect(() => {
+    if (!openMenuTransactionId) {
+      return;
+    }
+
+    function handleOutsideClick(event: MouseEvent) {
+      const menu = document.querySelector(`[data-menu-id="${openMenuTransactionId}"]`);
+      if (menu && !menu.contains(event.target as Node)) {
+        setOpenMenuTransactionId(null);
+      }
+    }
+
+    document.addEventListener("mousedown", handleOutsideClick);
+    return () => document.removeEventListener("mousedown", handleOutsideClick);
+  }, [openMenuTransactionId]);
+
+  useEffect(() => {
+    if (!openMenuTransactionId) {
+      return;
+    }
+
+    function handleEscape(event: KeyboardEvent) {
+      if (event.key === "Escape") {
+        setOpenMenuTransactionId(null);
+      }
+    }
+
+    document.addEventListener("keydown", handleEscape);
+    return () => document.removeEventListener("keydown", handleEscape);
+  }, [openMenuTransactionId]);
 
   function toggleSplitPreview(transactionId: string) {
     setExpandedTransactionId((current) => (current === transactionId ? null : transactionId));
@@ -488,6 +522,20 @@ export function LedgerRegisterPanel(props: LedgerRegisterPanelProps) {
                   !canInlineEditCounterparty || Number.isFinite(Number.parseFloat(rowDraft.accountAmount));
                 const inlineRowSaveDisabled =
                   inlineSaveDisabled || !inlineCounterpartyAccountValid || !inlineCounterpartyAmountValid;
+                const isDirty =
+                  rowDraft !== null &&
+                  (rowDraft.occurredOn !== transaction.occurredOn ||
+                    rowDraft.description !== transaction.description ||
+                    (rowDraft.payee ?? "") !== (transaction.payee ?? ""));
+                function handleCancelAttempt() {
+                  setOpenMenuTransactionId(null);
+                  if (isDirty) {
+                    setConfirmingDiscardTransactionId(transaction.id);
+                  } else {
+                    setConfirmingDiscardTransactionId(null);
+                    props.onCancelInlineEdit();
+                  }
+                }
                 const focusInlineField = (field: "date" | "description" | "payee") => {
                   const fieldInput = document.querySelector<HTMLInputElement>(
                     `[data-testid="ledger-inline-${field}-${transaction.id}"]`,
@@ -543,6 +591,10 @@ export function LedgerRegisterPanel(props: LedgerRegisterPanelProps) {
                         isEditingRow && props.busy !== null ? "saving" : "",
                       ].filter(Boolean).join(" ")}
                       onClick={() => props.setSelectedLedgerTransactionId(transaction.id)}
+                      onDoubleClick={() => {
+                        props.setSelectedLedgerTransactionId(transaction.id);
+                        props.onStartInlineEdit(transaction);
+                      }}
                     >
                       <td className="register-cell-date">
                         {rowDraft ? (
@@ -573,7 +625,7 @@ export function LedgerRegisterPanel(props: LedgerRegisterPanelProps) {
 
                                 if (event.key === "Escape") {
                                   event.preventDefault();
-                                  props.onCancelInlineEdit();
+                                  handleCancelAttempt();
                                 }
                               }}
                             />
@@ -619,7 +671,7 @@ export function LedgerRegisterPanel(props: LedgerRegisterPanelProps) {
 
                                 if (event.key === "Escape") {
                                   event.preventDefault();
-                                  props.onCancelInlineEdit();
+                                  handleCancelAttempt();
                                 }
                               }}
                             />
@@ -658,7 +710,7 @@ export function LedgerRegisterPanel(props: LedgerRegisterPanelProps) {
 
                               if (event.key === "Escape") {
                                 event.preventDefault();
-                                props.onCancelInlineEdit();
+                                handleCancelAttempt();
                               }
                             }}
                           />
@@ -747,102 +799,146 @@ export function LedgerRegisterPanel(props: LedgerRegisterPanelProps) {
                         </td>
                       ) : null}
                       <td>{transaction.tags.join(", ")}</td>
-                      <td>
-                        {rowDraft ? (
-                          <div className="posting-editor-row">
+                      <td className="register-cell-actions" style={{ position: "relative" }}>
+                        {isEditingRow && confirmingDiscardTransactionId === transaction.id ? (
+                          <div className="row-actions">
+                            <span className="row-action-confirm-label">Discard changes?</span>
                             <button
-                              className="btn-secondary"
+                              className="row-action-text-btn"
                               type="button"
                               onClick={(event) => {
                                 event.stopPropagation();
-                                toggleSplitPreview(transaction.id);
-                              }}
-                            >
-                              {isExpandedRow ? "Hide splits" : "Edit splits"}
-                            </button>
-                            <button
-                              className="btn-primary"
-                              data-testid={`ledger-save-${transaction.id}`}
-                              disabled={inlineRowSaveDisabled}
-                              type="button"
-                              onClick={(event) => {
-                                event.stopPropagation();
-                                if (!inlineRowSaveDisabled) {
-                                  props.onSaveInlineEdit(transaction.id);
-                                }
-                              }}
-                            >
-                              {isEditingRow && props.busy !== null ? "Saving…" : "Save"}
-                            </button>
-                            <button
-                              className="btn-secondary"
-                              data-testid={`ledger-cancel-${transaction.id}`}
-                              type="button"
-                              onClick={(event) => {
-                                event.stopPropagation();
+                                setConfirmingDiscardTransactionId(null);
                                 props.onCancelInlineEdit();
                               }}
                             >
-                              Cancel
+                              Discard
+                            </button>
+                            <button
+                              className="row-action-text-btn"
+                              type="button"
+                              onClick={(event) => {
+                                event.stopPropagation();
+                                setConfirmingDiscardTransactionId(null);
+                              }}
+                            >
+                              Keep editing
                             </button>
                           </div>
                         ) : (
-                          <div className="posting-editor-row">
+                          <div className="row-actions">
+                            {isEditingRow ? (
+                              <>
+                                <button
+                                  className="row-action-button save"
+                                  data-testid={`ledger-save-${transaction.id}`}
+                                  disabled={inlineRowSaveDisabled}
+                                  title="Save"
+                                  type="button"
+                                  onClick={(event) => {
+                                    event.stopPropagation();
+                                    if (!inlineRowSaveDisabled) {
+                                      setConfirmingDiscardTransactionId(null);
+                                      props.onSaveInlineEdit(transaction.id);
+                                    }
+                                  }}
+                                >
+                                  <Check size={14} />
+                                </button>
+                                <button
+                                  className="row-action-button discard"
+                                  data-testid={`ledger-cancel-${transaction.id}`}
+                                  title="Cancel"
+                                  type="button"
+                                  onClick={(event) => {
+                                    event.stopPropagation();
+                                    handleCancelAttempt();
+                                  }}
+                                >
+                                  <X size={14} />
+                                </button>
+                              </>
+                            ) : null}
                             <button
-                              className="btn-secondary"
-                              data-testid={`ledger-delete-${transaction.id}`}
-                              disabled={props.busy !== null}
-                              type="button"
-                              onClick={(event) => {
-                                event.stopPropagation();
-                                props.onDeleteInlineTransaction(transaction.id);
-                              }}
-                            >
-                              Delete
-                            </button>
-                            <button
-                              className="btn-secondary"
-                              data-testid={`ledger-edit-${transaction.id}`}
-                              type="button"
-                              onClick={(event) => {
-                                event.stopPropagation();
-                                props.setSelectedLedgerTransactionId(transaction.id);
-                                props.onStartInlineEdit(transaction);
-                              }}
-                            >
-                              Edit
-                            </button>
-                            <button
-                              className="btn-secondary"
+                              className="row-action-button"
+                              title={isExpandedRow ? "Hide splits" : "Show splits"}
                               type="button"
                               onClick={(event) => {
                                 event.stopPropagation();
                                 toggleSplitPreview(transaction.id);
                               }}
                             >
-                              {isExpandedRow ? "Hide splits" : "Show splits"}
+                              <CaretDown size={14} />
                             </button>
-                            <button
-                              className="btn-secondary"
-                              type="button"
-                              onClick={(event) => {
-                                event.stopPropagation();
-                                props.onOpenLinkedRegisterTabs(transaction.id);
-                              }}
-                            >
-                              Link tabs
-                            </button>
-                            <button
-                              className="btn-secondary"
-                              type="button"
-                              onClick={(event) => {
-                                event.stopPropagation();
-                                props.setSelectedLedgerTransactionId(transaction.id);
-                                props.onOpenAdvancedEditor(transaction.id);
-                              }}
-                            >
-                              Advanced
-                            </button>
+                            <div className="row-action-menu-anchor" data-menu-id={transaction.id}>
+                              <button
+                                className="row-action-button"
+                                title="More actions"
+                                type="button"
+                                onClick={(event) => {
+                                  event.stopPropagation();
+                                  setOpenMenuTransactionId((current) =>
+                                    current === transaction.id ? null : transaction.id,
+                                  );
+                                }}
+                              >
+                                <DotsThree size={14} />
+                              </button>
+                              {openMenuTransactionId === transaction.id ? (
+                                <div className="row-action-menu">
+                                  <button
+                                    className="row-action-menu-item"
+                                    data-testid={`ledger-edit-${transaction.id}`}
+                                    type="button"
+                                    onClick={(event) => {
+                                      event.stopPropagation();
+                                      setOpenMenuTransactionId(null);
+                                      props.setSelectedLedgerTransactionId(transaction.id);
+                                      props.onStartInlineEdit(transaction);
+                                    }}
+                                  >
+                                    Edit
+                                  </button>
+                                  <button
+                                    className="row-action-menu-item"
+                                    type="button"
+                                    onClick={(event) => {
+                                      event.stopPropagation();
+                                      setOpenMenuTransactionId(null);
+                                      props.onOpenLinkedRegisterTabs(transaction.id);
+                                    }}
+                                  >
+                                    Link tabs
+                                  </button>
+                                  <button
+                                    className="row-action-menu-item"
+                                    type="button"
+                                    onClick={(event) => {
+                                      event.stopPropagation();
+                                      setOpenMenuTransactionId(null);
+                                      props.setSelectedLedgerTransactionId(transaction.id);
+                                      props.onOpenAdvancedEditor(transaction.id);
+                                    }}
+                                  >
+                                    Advanced
+                                  </button>
+                                  <div className="row-action-menu-separator" />
+                                  <button
+                                    className="row-action-menu-item danger"
+                                    data-testid={`ledger-delete-${transaction.id}`}
+                                    disabled={props.busy !== null}
+                                    type="button"
+                                    onClick={(event) => {
+                                      event.stopPropagation();
+                                      setOpenMenuTransactionId(null);
+                                      props.onDeleteInlineTransaction(transaction.id);
+                                    }}
+                                  >
+                                    Delete
+                                  </button>
+                                </div>
+                              ) : null}
+                            </div>
                           </div>
                         )}
                       </td>
