@@ -544,6 +544,22 @@ The register is the heart of the product and its primary visual statement. Curre
 
 ---
 
+### Register column customization — visibility and order
+
+Allow users to choose which columns appear in the register and in what order. The current fixed column set (Date, Status, Description, Payee, Accounts, Amount, Balance, Tags, Actions) is appropriate as a default but not every user needs every column, and some may want to reorder for their workflow.
+
+**Visibility:** users can hide columns they don't use (e.g. Tags, Payee, Balance in filtered mode). Hidden columns persist to localStorage alongside density and theme preferences.
+
+**Order:** users can drag or configure the column sequence. Date and Actions should likely be locked (date always first, actions always last) but the middle columns are fair game.
+
+**Key open questions:**
+- Where does the column configurator live — a gear icon in the register toolbar, a right-click on a column header, or in Settings?
+- Should column config be per-account-tab or global across all register tabs?
+- How does column order interact with the keyboard Tab traversal during inline editing?
+- Are any columns non-hideable (Date, Description, Amount seem like candidates)?
+
+---
+
 ### Designed empty states
 
 Every primary surface that can be empty needs a deliberate visual treatment. Currently blank states are unstyled or absent. A designed empty state signals craft and guides the user forward.
