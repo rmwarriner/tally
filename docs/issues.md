@@ -1,5 +1,5 @@
 # Local Issue Queue
-Last reviewed: 2026-04-11
+Last reviewed: 2026-04-12
 This is the canonical issue tracker for day-to-day solo development.
 ## How To Use
 - add new work to `Backlog` with the next `I-###` id
@@ -44,6 +44,39 @@ This is the canonical issue tracker for day-to-day solo development.
     - local issue queue documented
     - agent guidance updated to reference local queue
 ## Ready
+- [ ] I-018 Deferred cleanup: LedgerOperationsPanels test gaps + NonLedgerMainPanels prop surface
+  - status: ready
+  - risk: R1
+  - type: refactor
+  - owner: agent
+  - links: /Users/robert/Projects/tally/docs/ledger-ui-rebuild-plan.md
+  - rollback: no behavioral changes; revert commits to apps/web/src/app/ only
+  - acceptance:
+    - `LedgerOperationsPanels.test.ts` expanded: busy prop disables submit button; difference warning state renders distinct styling when unbalanced; transaction checkbox selection reflects in rendered output; at minimum three total test cases cover these states
+    - `NonLedgerMainPanels` no longer receives these props from `App.tsx`: `formatCurrency`, `parseCsvRows`, `createEntityId`, `getBookViewDefinition`, `postBaselineBudgetLine`, `postCsvImport`, `postEnvelope`, `postEnvelopeAllocation`, `postScheduledTransaction` — each is imported directly inside the component
+    - `NonLedgerMainPanelsProps` interface is narrowed accordingly; `App.tsx` call site removes the corresponding prop bindings
+    - `pnpm --filter @tally/web typecheck` passes
+    - `pnpm --filter @tally/web test` passes (all existing tests green, new tests green)
+    - `pnpm ci:verify` passes
+
+- [ ] I-019 Register visual identity
+  - status: ready
+  - risk: R2
+  - type: feature
+  - owner: agent
+  - links: /Users/robert/Projects/tally/docs/ideas.md (Track 7), /Users/robert/Projects/tally/docs/ledger-ui-rebuild-plan.md, /Users/robert/Projects/tally/docs/desktop-ui-direction.md
+  - rollback: CSS-only changes; revert commits to apps/web/src/app/styles.css and LedgerRegisterPanel.tsx — no data or service impact
+  - acceptance:
+    - Row rhythm: register rows have explicit height and vertical padding defined via CSS custom properties for both compact and comfortable density modes; values do not rely on browser table defaults
+    - Amount typography: all amount values in register rows use `font-variant-numeric: tabular-nums`; amount columns are right-aligned; the running balance column uses `--font-mono`; positive and negative amounts use `--amount-positive` / `--amount-negative` with consistent sign display
+    - Row states: hover, selected, inline-editing, and saving states are visually distinct; inline-editing state uses a subtle background shift rather than a full form replacement; saving state has a visible but non-disruptive indicator
+    - Inline edit fields: inputs within register rows are styled to appear embedded (borderless or minimal border, background matches row); they do not look like form inputs dropped into a table
+    - Balance callout: the split-editor out-of-balance warning uses the semantic color tokens (`--warning` or `--danger`), is concise, and does not render as a raw validation error block
+    - Density: compact mode reduces register row height and font size relative to comfortable mode; the delta is perceptible and intentional, not incidental
+    - Manual UI review checklist run against the register in both density modes and both light/dark themes
+    - `pnpm --filter @tally/web typecheck` passes
+    - `pnpm ci:verify` passes
+
 - [x] I-003 Implement tally CLI — Phase 2 (data operations)
   - status: done
   - risk: R2
