@@ -1863,9 +1863,19 @@ th {
 .shell-status-right {
   right: 10px;
   max-width: min(50vw, 600px);
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
   overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  cursor: pointer;
+}
+
+.shell-status-right:hover {
+  border-color: var(--border);
+}
+
+.status-bar-sep {
+  color: var(--text-muted);
 }
 
 .status-dot {
