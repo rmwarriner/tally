@@ -111,12 +111,14 @@ This is the canonical issue tracker for day-to-day solo development.
   - type: feature
   - owner: agent
   - rollback: revert className and CSS changes in LedgerRegisterPanel.tsx and styles.css only
+  - note: blocks full density verification of I-019 — button height forces rows tall regardless of --row-height, making compact vs. comfortable indistinguishable in practice
   - acceptance:
     - action buttons (Delete, Edit, Show splits, Link tabs, Advanced) are not visible on unselected, unhovered rows
     - on hover: a condensed affordance appears (icon button or `⋯` trigger) that reveals the full action set
     - on selected: full actions are visible inline, since the user has explicitly focused the row
     - the actions column no longer occupies fixed horizontal space on every row in the default state
     - keyboard workflow is unaffected: `e` still begins inline edit, delete still works via existing hotkeys
+    - compact vs. comfortable density modes produce a perceptible row height difference with actions hidden
     - no regression in existing LedgerRegisterPanel tests
     - `pnpm --filter @tally/web typecheck` passes
     - `pnpm ci:verify` passes
