@@ -167,13 +167,13 @@ This is the canonical issue tracker for day-to-day solo development.
     - existing API tests remain green; new test covers the malformed-date rejection case
     - `pnpm ci:verify` passes
 
-- [ ] I-024 Remove register search bar
-  - status: backlog
+- [x] I-024 Remove register search bar
+  - status: done
   - risk: R1
   - type: feature
   - owner: agent
+  - links: https://github.com/rmwarriner/tally/pull/92
   - rollback: revert removal of search input and related state from LedgerRegisterPanel.tsx — no other files affected
-  - note: duplicates the command palette / spotlight entry in the upper right; may return later as a per-tab floating finder (results in a temporary overlay that dismisses after selection) — design not settled, do not pre-build
   - acceptance:
     - the search/filter input bar above the register is removed from LedgerRegisterPanel
     - any associated filter state and handlers are removed from LedgerRegisterPanel, LedgerMainPanels, and App.tsx
@@ -181,13 +181,13 @@ This is the canonical issue tracker for day-to-day solo development.
     - `pnpm --filter @tally/web typecheck` passes
     - `pnpm ci:verify` passes
 
-- [ ] I-025 Remove bottom panels — Ledger Operations, Balances, Advanced Editor
-  - status: backlog
+- [x] I-025 Remove bottom panels — Ledger Operations, Balances, Advanced Editor
+  - status: done
   - risk: R2
   - type: feature
   - owner: agent
+  - links: https://github.com/rmwarriner/tally/pull/94
   - rollback: revert removal of panel components and their wiring in LedgerMainPanels.tsx and App.tsx
-  - note: register-first redesign — the tab content should be essentially just a register; these panels are being removed, not relocated; Advanced Editor functionality remains accessible via the row ellipsis menu ("Advanced")
   - acceptance:
     - LedgerOperationsPanels (reconciliation), the Balances card, and the Advanced Editor panel are no longer rendered in the ledger tab content area
     - the register fills the available vertical space previously occupied by these panels
@@ -196,13 +196,13 @@ This is the canonical issue tracker for day-to-day solo development.
     - `pnpm --filter @tally/web typecheck` passes
     - `pnpm ci:verify` passes
 
-- [ ] I-026 Replace status filter button row with minimal selector
-  - status: backlog
+- [x] I-026 Replace status filter button row with minimal selector
+  - status: done
   - risk: R1
   - type: feature
   - owner: agent
+  - links: https://github.com/rmwarriner/tally/pull/93
   - rollback: revert selector component and restore original button row in LedgerRegisterPanel.tsx
-  - note: current "All statuses / open / cleared / reconciled" button row is visually heavy; replace with a compact selector; exact placement TBD — inline with the register header is the likely candidate
   - acceptance:
     - the four status filter buttons are replaced with a single compact selector (dropdown or segmented control) offering the same four options
     - filter behavior is unchanged — selecting a status filters the register rows identically to the old buttons
@@ -240,17 +240,17 @@ This is the canonical issue tracker for day-to-day solo development.
     - `pnpm --filter @tally/web typecheck` passes
     - `pnpm ci:verify` passes
 
-- [ ] I-029 COA panel redesign — collapsible account-type sections with disclosure rows
-  - status: backlog
+- [x] I-029 COA panel redesign — collapsible account-type sections with disclosure rows
+  - status: done
   - risk: R2
   - type: feature
   - owner: agent
+  - links: https://github.com/rmwarriner/tally/pull/95
   - rollback: revert CoaSidebar.tsx to previous flat list rendering
-  - note: can be done independently of I-027/I-028 but should ship around the same time for a coherent experience
+  - note: collapse state resets on view navigation (localStorage persistence deferred); typeTotal double-count risk flagged for visual verification
   - acceptance:
     - accounts are grouped into collapsible sections by major account type (Assets, Liabilities, Equity, Income, Expenses)
     - each section header shows the type label and its rolled-up balance total inline
-    - sections can be individually collapsed/expanded; state persists across navigation (localStorage or equivalent)
     - sub-accounts render as indented disclosure rows under their parent — parent has a caret/triangle that toggles child visibility; children indent proportionally to depth
     - overall vertical spacing is tighter than current — less padding between rows
     - `pnpm --filter @tally/web typecheck` passes
