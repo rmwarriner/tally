@@ -256,3 +256,5 @@ The next roadmap phase should promote a small number of these tracks into bounde
 - 2026-04-12: I-018 completed deferred web cleanup by expanding `LedgerOperationsPanels` reconciliation rendering tests and narrowing `NonLedgerMainPanels` by importing utility/API dependencies directly instead of passthrough props.
 
 - 2026-04-12: I-019 refined register visual identity with density-driven cell padding, styled headers, stronger description weight, embedded inline/new-row register inputs, and a saving-row visual state with inline Save label feedback.
+
+- 2026-04-12: I-021 fixed activity bar icon background shape by converting nav/settings controls to centered 36x36 square buttons and removing settings width stretch override.

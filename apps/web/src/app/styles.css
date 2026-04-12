@@ -341,7 +341,13 @@ textarea:focus {
   border-radius: 10px;
   background: color-mix(in srgb, var(--activity-bar-text) 8%, transparent);
   color: inherit;
-  padding: 8px 0;
+  padding: 0;
+  width: 36px;
+  height: 36px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin: 0 auto;
 }
 
 .shell-activity-button.active,
@@ -353,7 +359,6 @@ textarea:focus {
 
 .shell-activity-settings {
   margin-top: auto;
-  width: 100%;
 }
 
 .sidebar,
