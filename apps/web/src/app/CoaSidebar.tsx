@@ -1,3 +1,4 @@
+import React, { useState } from "react";
 import type { FinanceBookDocument } from "@tally/book";
 
 interface CoaSidebarProps {
@@ -23,9 +24,102 @@ const accountTypeOrder: Array<FinanceBookDocument["accounts"][number]["type"]> =
 ];
 
 export function CoaSidebar(props: CoaSidebarProps) {
+  const [collapsedTypes, setCollapsedTypes] = useState<Set<string>>(new Set());
+  const [collapsedAccounts, setCollapsedAccounts] = useState<Set<string>>(new Set());
   const balanceByAccountId = new Map(
     props.accountBalances.map((balance) => [balance.accountId, balance.balance]),
   );
+  const childrenByParentId = new Map<string, FinanceBookDocument["accounts"]>();
+  const rootAccounts: FinanceBookDocument["accounts"] = [];
+  for (const account of props.accounts) {
+    if (account.parentAccountId) {
+      const siblings = childrenByParentId.get(account.parentAccountId) ?? [];
+      siblings.push(account);
+      childrenByParentId.set(account.parentAccountId, siblings);
+    } else {
+      rootAccounts.push(account);
+    }
+  }
+
+  function toggleType(type: string) {
+    setCollapsedTypes((current) => {
+      const next = new Set(current);
+      if (next.has(type)) {
+        next.delete(type);
+      } else {
+        next.add(type);
+      }
+      return next;
+    });
+  }
+
+  function toggleAccount(accountId: string) {
+    setCollapsedAccounts((current) => {
+      const next = new Set(current);
+      if (next.has(accountId)) {
+        next.delete(accountId);
+      } else {
+        next.add(accountId);
+      }
+      return next;
+    });
+  }
+
+  function typeTotal(type: (typeof accountTypeOrder)[number]): number {
+    return props.accounts
+      .filter((account) => account.type === type)
+      .reduce((sum, account) => sum + (balanceByAccountId.get(account.id) ?? 0), 0);
+  }
+
+  function renderAccountRow(
+    account: FinanceBookDocument["accounts"][number],
+    depth: number,
+  ): React.ReactNode {
+    const children = childrenByParentId.get(account.id) ?? [];
+    const hasChildren = children.length > 0;
+    const isExpanded = !collapsedAccounts.has(account.id);
+    const balance = balanceByAccountId.get(account.id) ?? 0;
+
+    return (
+      <React.Fragment key={account.id}>
+        <button
+          className={`coa-row${props.selectedAccountId === account.id ? " active" : ""}`}
+          style={{ paddingLeft: `${8 + depth * 16}px` }}
+          type="button"
+          onClick={() =>
+            props.onAccountSelect(props.selectedAccountId === account.id ? null : account.id)
+          }
+        >
+          {hasChildren ? (
+            <span
+              className={`coa-row-caret${isExpanded ? " expanded" : ""}`}
+              onClick={(event) => {
+                event.stopPropagation();
+                toggleAccount(account.id);
+              }}
+            >
+              ▸
+            </span>
+          ) : (
+            <span className="coa-row-caret-spacer" />
+          )}
+          <span className="coa-row-name">{account.name}</span>
+          <span className="coa-row-code">{account.code ?? ""}</span>
+          <span
+            className={[
+              "coa-row-balance",
+              balance > 0 ? "amount-positive" : balance < 0 ? "amount-negative" : "muted",
+            ].join(" ")}
+          >
+            {props.formatCurrency(balance)}
+          </span>
+        </button>
+        {hasChildren && isExpanded
+          ? children.map((child) => renderAccountRow(child, depth + 1))
+          : null}
+      </React.Fragment>
+    );
+  }
 
   return (
     <section className="sidebar coa-sidebar">
@@ -52,52 +146,35 @@ export function CoaSidebar(props: CoaSidebarProps) {
           </button>
         )}
       </div>
-      <div className="tree-section">
-        <button
-          className={`tree-button${props.selectedAccountId === null ? " active" : ""}`}
-          type="button"
-          onClick={() => props.onAccountSelect(null)}
-        >
-          <span>All accounts</span>
-          <span className="muted">{props.accounts.length}</span>
-        </button>
-      </div>
       {accountTypeOrder.map((type) => {
-        const groupAccounts = props.accounts.filter((account) => account.type === type);
-        if (groupAccounts.length === 0) {
+        const typeRootAccounts = rootAccounts.filter((account) => account.type === type);
+        if (typeRootAccounts.length === 0) {
           return null;
         }
+        const isCollapsed = collapsedTypes.has(type);
+        const total = typeTotal(type);
 
         return (
-          <div key={type} className="tree-section">
-            <h3 className="coa-account-type-heading">{type}</h3>
-            {groupAccounts.map((account) => (
-              <button
-                key={account.id}
-                className={`tree-button${props.selectedAccountId === account.id ? " active" : ""}`}
-                type="button"
-                onClick={() =>
-                  props.onAccountSelect(props.selectedAccountId === account.id ? null : account.id)
-                }
+          <div key={type} className="coa-section">
+            <button
+              className="coa-section-header"
+              type="button"
+              onClick={() => toggleType(type)}
+            >
+              <span className={`coa-section-caret${isCollapsed ? "" : " expanded"}`}>▸</span>
+              <span className="coa-section-label">{type}</span>
+              <span
+                className={[
+                  "coa-section-total",
+                  total > 0 ? "amount-positive" : total < 0 ? "amount-negative" : "muted",
+                ].join(" ")}
               >
-                <span className="coa-account-primary">
-                  <span className="coa-account-name">{account.name}</span>
-                  <span className="coa-account-code">{account.code ?? account.id}</span>
-                </span>
-                <span
-                  className={[
-                    "coa-account-balance",
-                    (balanceByAccountId.get(account.id) ?? 0) > 0
-                      ? "amount-positive"
-                      : (balanceByAccountId.get(account.id) ?? 0) < 0
-                        ? "amount-negative"
-                        : "muted",
-                  ].join(" ")}
-                >
-                  {props.formatCurrency(balanceByAccountId.get(account.id) ?? 0)}
-                </span>
-              </button>
-            ))}
+                {props.formatCurrency(total)}
+              </span>
+            </button>
+            {!isCollapsed
+              ? typeRootAccounts.map((account) => renderAccountRow(account, 0))
+              : null}
           </div>
         );
       })}
