@@ -238,6 +238,7 @@ export interface LedgerInlineRowEditDraft {
   description: string;
   occurredOn: string;
   payee: string;
+  status: "cleared" | "open" | "reconciled";
 }
 
 export function createLedgerInlineRowEditDraft(input: {
@@ -246,6 +247,7 @@ export function createLedgerInlineRowEditDraft(input: {
   description: string;
   occurredOn: string;
   payee: string | null;
+  status: "cleared" | "open" | "reconciled";
 }): LedgerInlineRowEditDraft {
   return {
     accountAmount: input.accountAmount,
@@ -253,6 +255,7 @@ export function createLedgerInlineRowEditDraft(input: {
     description: input.description,
     occurredOn: input.occurredOn,
     payee: input.payee ?? "",
+    status: input.status,
   };
 }
 
@@ -295,6 +298,7 @@ export function useLedgerInlineRowEditState() {
     description: string;
     occurredOn: string;
     payee: string | null;
+    status: "cleared" | "open" | "reconciled";
     transactionId: string;
   }) => {
     setEditingTransactionId(input.transactionId);

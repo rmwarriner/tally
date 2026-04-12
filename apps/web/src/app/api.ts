@@ -132,6 +132,7 @@ export async function postTransaction(
         accountId: string;
         amount: { commodityCode: string; quantity: number };
         cleared?: boolean;
+        reconciledAt?: string;
       }>;
     };
   },
@@ -183,6 +184,7 @@ export async function putTransaction(
         amount: { commodityCode: string; quantity: number };
         cleared?: boolean;
         memo?: string;
+        reconciledAt?: string;
       }>;
       tags?: string[];
     };

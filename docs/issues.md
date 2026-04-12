@@ -138,11 +138,27 @@ This is the canonical issue tracker for day-to-day solo development.
 - [ ] (empty)
 
 ## Backlog
-- [ ] I-021 Activity bar icon backgrounds — fix droopy bottom extension
-  - status: backlog
+- [ ] I-022 Inline register status controls — set cleared/reconciled from row edit
+  - status: ready
+  - risk: R2
+  - type: feature
+  - owner: agent
+  - links: feat/I-022-inline-status-controls
+  - rollback: revert changes to LedgerRegisterPanel.tsx, ledger-state.ts, App.tsx, api.ts — no domain or book changes
+  - acceptance:
+    - inline edit row shows a status select (Uncleared / Cleared / Reconciled) in place of the static status chip while editing
+    - new-transaction row shows the same status select instead of the hardcoded "New" chip
+    - saving a cleared or reconciled transaction sets the correct `cleared` and `reconciledAt` values on all postings
+    - changing status is detected by the dirty-state check — cancelling after a status change prompts "Discard changes?"
+    - `pnpm --filter @tally/web typecheck` passes
+    - `pnpm ci:verify` passes
+
+- [x] I-021 Activity bar icon backgrounds — fix droopy bottom extension
+  - status: done
   - risk: R1
   - type: bug
   - owner: agent
+  - links: https://github.com/rmwarriner/tally/pull/88
   - rollback: revert CSS changes in styles.css only
   - acceptance:
     - activity bar icon active/hover backgrounds are visually square or evenly rounded — not elongated downward
@@ -151,13 +167,13 @@ This is the canonical issue tracker for day-to-day solo development.
     - `pnpm --filter @tally/web typecheck` passes
     - `pnpm ci:verify` passes
 
-- [ ] I-020 Register row actions — progressive disclosure
-  - status: backlog
+- [x] I-020 Register row actions — progressive disclosure
+  - status: done
   - risk: R2
   - type: feature
   - owner: agent
+  - links: https://github.com/rmwarriner/tally/pull/90
   - rollback: revert className and CSS changes in LedgerRegisterPanel.tsx and styles.css only
-  - note: blocks full density verification of I-019 — button height forces rows tall regardless of --row-height, making compact vs. comfortable indistinguishable in practice
   - acceptance:
     - action buttons (Delete, Edit, Show splits, Link tabs, Advanced) are not visible on unselected, unhovered rows
     - on hover: a condensed affordance appears (icon button or `⋯` trigger) that reveals the full action set

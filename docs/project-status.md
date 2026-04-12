@@ -260,3 +260,5 @@ The next roadmap phase should promote a small number of these tracks into bounde
 - 2026-04-12: I-021 fixed activity bar icon background shape by converting nav/settings controls to centered 36x36 square buttons and removing settings width stretch override.
 
 - 2026-04-12: I-020 replaced register row text actions with compact caret/ellipsis icon controls, dropdown menu actions, double-click inline edit entry, and dirty-cancel discard confirmation.
+
+- 2026-04-12: I-022 added inline status controls (Uncleared/Cleared/Reconciled select) to register inline edit and new-transaction rows, wiring status through to cleared and reconciledAt on postings.
