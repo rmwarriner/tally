@@ -434,18 +434,20 @@ export function LedgerRegisterPanel(props: LedgerRegisterPanelProps) {
               </div>
             ) : null}
           </div>
-          <div className="ledger-chip-row">
-            {(["all", "open", "cleared", "reconciled"] as const).map((status) => (
-              <button
-                key={status}
-                className={`ledger-chip${props.ledgerStatusFilter === status ? " active" : ""}`}
-                type="button"
-                onClick={() => props.setLedgerStatusFilter(status)}
-              >
-                {status === "all" ? "All statuses" : status}
-              </button>
-            ))}
-          </div>
+          <select
+            className="ledger-status-select"
+            value={props.ledgerStatusFilter}
+            onChange={(event) =>
+              props.setLedgerStatusFilter(
+                event.target.value as "all" | "cleared" | "open" | "reconciled",
+              )
+            }
+          >
+            <option value="all">All statuses</option>
+            <option value="open">Uncleared</option>
+            <option value="cleared">Cleared</option>
+            <option value="reconciled">Reconciled</option>
+          </select>
           <div className="ledger-chip-row">
             <button
               className={`ledger-chip${props.selectedLedgerAccountId === null ? " active" : ""}`}
