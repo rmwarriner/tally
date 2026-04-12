@@ -1,4 +1,4 @@
-import { useEffect, useState, type Dispatch, type RefObject, type SetStateAction } from "react";
+import { useCallback, useEffect, useState, type Dispatch, type RefObject, type SetStateAction } from "react";
 import {
   createLedgerBookModel,
   getNextLedgerTransactionId,
@@ -233,17 +233,23 @@ interface UseLedgerFiltersAndSelectionInput {
 }
 
 export interface LedgerInlineRowEditDraft {
+  accountAmount: string;
+  counterpartyAccountId: string;
   description: string;
   occurredOn: string;
   payee: string;
 }
 
 export function createLedgerInlineRowEditDraft(input: {
+  accountAmount: string;
+  counterpartyAccountId: string;
   description: string;
   occurredOn: string;
   payee: string | null;
 }): LedgerInlineRowEditDraft {
   return {
+    accountAmount: input.accountAmount,
+    counterpartyAccountId: input.counterpartyAccountId,
     description: input.description,
     occurredOn: input.occurredOn,
     payee: input.payee ?? "",
@@ -283,27 +289,29 @@ export function useLedgerInlineRowEditState() {
   const [editingTransactionId, setEditingTransactionId] = useState<string | null>(null);
   const [editingDraft, setEditingDraft] = useState<LedgerInlineRowEditDraft | null>(null);
 
-  function startInlineEdit(input: {
+  const startInlineEdit = useCallback((input: {
+    accountAmount: string;
+    counterpartyAccountId: string;
     description: string;
     occurredOn: string;
     payee: string | null;
     transactionId: string;
-  }) {
+  }) => {
     setEditingTransactionId(input.transactionId);
     setEditingDraft(createLedgerInlineRowEditDraft(input));
-  }
+  }, []);
 
-  function cancelInlineEdit() {
+  const cancelInlineEdit = useCallback(() => {
     setEditingTransactionId(null);
     setEditingDraft(null);
-  }
+  }, []);
 
-  function finishInlineEdit() {
+  const finishInlineEdit = useCallback(() => {
     setEditingTransactionId(null);
     setEditingDraft(null);
-  }
+  }, []);
 
-  function setInlineDraftField(field: keyof LedgerInlineRowEditDraft, value: string) {
+  const setInlineDraftField = useCallback((field: keyof LedgerInlineRowEditDraft, value: string) => {
     setEditingDraft((current) => {
       if (!current) {
         return current;
@@ -315,7 +323,7 @@ export function useLedgerInlineRowEditState() {
         value,
       });
     });
-  }
+  }, []);
 
   return {
     cancelInlineEdit,

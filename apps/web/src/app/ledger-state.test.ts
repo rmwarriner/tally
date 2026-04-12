@@ -144,11 +144,15 @@ describe("ledger inline row edit draft", () => {
   it("creates a draft and normalizes null payee to empty string", () => {
     expect(
       createLedgerInlineRowEditDraft({
+        accountAmount: "-20",
+        counterpartyAccountId: "acct-expense",
         description: "Groceries",
         occurredOn: "2026-04-01",
         payee: null,
       }),
     ).toEqual({
+      accountAmount: "-20",
+      counterpartyAccountId: "acct-expense",
       description: "Groceries",
       occurredOn: "2026-04-01",
       payee: "",
@@ -159,6 +163,8 @@ describe("ledger inline row edit draft", () => {
     expect(
       updateLedgerInlineRowEditDraft({
         draft: {
+          accountAmount: "-20",
+          counterpartyAccountId: "acct-expense",
           description: "Groceries",
           occurredOn: "2026-04-01",
           payee: "",
@@ -167,6 +173,8 @@ describe("ledger inline row edit draft", () => {
         value: "Market groceries",
       }),
     ).toEqual({
+      accountAmount: "-20",
+      counterpartyAccountId: "acct-expense",
       description: "Market groceries",
       occurredOn: "2026-04-01",
       payee: "",

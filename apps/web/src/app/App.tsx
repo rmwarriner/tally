@@ -287,12 +287,50 @@ export function App() {
         defaultAmount: "0",
         isBalanced: false,
       };
+
+  function getInlineRowPostingDraft(
+    transaction: ReturnType<typeof createLedgerBookModel>["filteredTransactions"][number],
+  ) {
+    if (!selectedLedgerAccountId || transaction.postings.length !== 2) {
+      return {
+        accountAmount: "",
+        counterpartyAccountId: "",
+      };
+    }
+
+    const selectedPosting = transaction.postings.find(
+      (posting) => posting.accountId === selectedLedgerAccountId,
+    );
+    if (!selectedPosting) {
+      return {
+        accountAmount: "",
+        counterpartyAccountId: "",
+      };
+    }
+
+    const counterpartyPosting = transaction.postings.find(
+      (posting) => posting.accountId !== selectedLedgerAccountId,
+    );
+    if (!counterpartyPosting) {
+      return {
+        accountAmount: "",
+        counterpartyAccountId: "",
+      };
+    }
+
+    return {
+      accountAmount: String(selectedPosting.amount),
+      counterpartyAccountId: counterpartyPosting.accountId,
+    };
+  }
+
   useLedgerKeyboardAndSelectionSync({
     activeView,
     filteredTransactions: ledgerBook.filteredTransactions,
     ledgerSearchInputRef,
     onBeginInlineEdit: (transaction) =>
       startInlineEdit({
+        ...getInlineRowPostingDraft(transaction),
         description: transaction.description,
         occurredOn: transaction.occurredOn,
         payee: transaction.payee,
@@ -858,14 +896,62 @@ export function App() {
     }
 
     await runMutation("Transaction update", async () => {
-      await putTransaction(activeBookId, bookVersion, sourceTransaction.id, {
-        actor: "Primary",
-        transaction: {
-          description: trimmedDescription,
-          id: sourceTransaction.id,
-          occurredOn: trimmedDate,
-          payee: inlineEditDraft.payee.trim() || undefined,
-          postings: sourceTransaction.postings.map((posting) => ({
+      let nextPostings = sourceTransaction.postings.map((posting) => ({
+        accountId: posting.accountId.trim(),
+        amount: {
+          commodityCode: posting.amount.commodityCode,
+          quantity: posting.amount.quantity,
+        },
+        cleared: posting.cleared || undefined,
+        memo: posting.memo?.trim() || undefined,
+      }));
+
+      const trimmedCounterpartyAccountId = inlineEditDraft.counterpartyAccountId.trim();
+      const parsedInlineAmount = Number.parseFloat(inlineEditDraft.accountAmount);
+      const selectedPostingIndex = selectedLedgerAccountId
+        ? sourceTransaction.postings.findIndex((posting) => posting.accountId === selectedLedgerAccountId)
+        : -1;
+      const counterpartyPostingIndex =
+        selectedPostingIndex >= 0
+          ? sourceTransaction.postings.findIndex(
+              (posting, postingIndex) =>
+                postingIndex !== selectedPostingIndex && posting.accountId !== selectedLedgerAccountId,
+            )
+          : -1;
+
+      if (
+        sourceTransaction.postings.length === 2 &&
+        selectedPostingIndex >= 0 &&
+        counterpartyPostingIndex >= 0 &&
+        trimmedCounterpartyAccountId.length > 0 &&
+        Number.isFinite(parsedInlineAmount)
+      ) {
+        nextPostings = sourceTransaction.postings.map((posting, postingIndex) => {
+          if (postingIndex === selectedPostingIndex) {
+            return {
+              accountId: posting.accountId.trim(),
+              amount: {
+                commodityCode: posting.amount.commodityCode,
+                quantity: parsedInlineAmount,
+              },
+              cleared: posting.cleared || undefined,
+              memo: posting.memo?.trim() || undefined,
+            };
+          }
+
+          if (postingIndex === counterpartyPostingIndex) {
+            return {
+              accountId: trimmedCounterpartyAccountId,
+              amount: {
+                commodityCode: posting.amount.commodityCode,
+                quantity: -parsedInlineAmount,
+              },
+              cleared: posting.cleared || undefined,
+              memo: posting.memo?.trim() || undefined,
+            };
+          }
+
+          return {
             accountId: posting.accountId.trim(),
             amount: {
               commodityCode: posting.amount.commodityCode,
@@ -873,7 +959,18 @@ export function App() {
             },
             cleared: posting.cleared || undefined,
             memo: posting.memo?.trim() || undefined,
-          })),
+          };
+        });
+      }
+
+      await putTransaction(activeBookId, bookVersion, sourceTransaction.id, {
+        actor: "Primary",
+        transaction: {
+          description: trimmedDescription,
+          id: sourceTransaction.id,
+          occurredOn: trimmedDate,
+          payee: inlineEditDraft.payee.trim() || undefined,
+          postings: nextPostings,
           tags: sourceTransaction.tags ?? [],
         },
       });
@@ -1115,6 +1212,7 @@ export function App() {
           }}
           onStartInlineEdit={(transaction) =>
             startInlineEdit({
+              ...getInlineRowPostingDraft(transaction),
               description: transaction.description,
               occurredOn: transaction.occurredOn,
               payee: transaction.payee,

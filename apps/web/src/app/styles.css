@@ -1199,10 +1199,39 @@ th {
   background: var(--surface-selected);
 }
 
+.register-row td:first-child {
+  position: relative;
+}
+
+.register-row.selected td:first-child::before {
+  content: "";
+  position: absolute;
+  left: 1px;
+  top: 6px;
+  bottom: 6px;
+  width: 3px;
+  border-radius: 999px;
+  background: var(--accent);
+}
+
+.register-row-new td {
+  background: color-mix(in srgb, var(--accent-soft) 45%, var(--surface));
+  border-top: 1px dashed color-mix(in srgb, var(--accent) 45%, transparent);
+}
+
+.register-row-new td:first-child::before {
+  content: "";
+  position: absolute;
+  left: 1px;
+  top: 6px;
+  bottom: 6px;
+  width: 3px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--accent) 65%, transparent);
+}
+
 .register-row.editing td {
-  background: var(--accent-soft);
-  outline: 1px solid var(--accent);
-  outline-offset: -1px;
+  background: var(--surface-selected);
 }
 
 .register-row.saving td {
