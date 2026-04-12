@@ -138,12 +138,12 @@ This is the canonical issue tracker for day-to-day solo development.
 - [ ] (empty)
 
 ## Backlog
-- [ ] I-022 Inline register status controls — set cleared/reconciled from row edit
-  - status: ready
+- [x] I-022 Inline register status controls — set cleared/reconciled from row edit
+  - status: done
   - risk: R2
   - type: feature
   - owner: agent
-  - links: feat/I-022-inline-status-controls
+  - links: https://github.com/rmwarriner/tally/pull/91
   - rollback: revert changes to LedgerRegisterPanel.tsx, ledger-state.ts, App.tsx, api.ts — no domain or book changes
   - acceptance:
     - inline edit row shows a status select (Uncleared / Cleared / Reconciled) in place of the static status chip while editing
@@ -151,6 +151,20 @@ This is the canonical issue tracker for day-to-day solo development.
     - saving a cleared or reconciled transaction sets the correct `cleared` and `reconciledAt` values on all postings
     - changing status is detected by the dirty-state check — cancelling after a status change prompts "Discard changes?"
     - `pnpm --filter @tally/web typecheck` passes
+    - `pnpm ci:verify` passes
+
+- [ ] I-023 Add API/domain format validation for posting.reconciledAt
+  - status: backlog
+  - risk: R1
+  - type: ops
+  - owner: agent
+  - rollback: revert validation additions in apps/api only — no domain or client changes
+  - note: reconciledAt is currently accepted but not format-validated at the API boundary; confirmed by review of apps/api/src/types.ts:121, packages/domain/src/types.ts:34, apps/api/src/http.ts:1569,2840, apps/api/src/service.ts:728, packages/book/src/commands.ts:324, packages/domain/src/ledger.ts:45
+  - acceptance:
+    - POST and PUT transaction endpoints reject payloads where posting.reconciledAt is present but not a valid ISO 8601 date string
+    - valid reconciledAt values continue to be accepted and persisted
+    - rejection returns a 400 with a clear validation message
+    - existing API tests remain green; new test covers the malformed-date rejection case
     - `pnpm ci:verify` passes
 
 - [x] I-021 Activity bar icon backgrounds — fix droopy bottom extension
