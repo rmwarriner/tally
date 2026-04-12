@@ -334,6 +334,7 @@ export function App() {
         description: transaction.description,
         occurredOn: transaction.occurredOn,
         payee: transaction.payee,
+        status: transaction.status,
         transactionId: transaction.id,
       }),
     selectedLedgerTransactionId,
@@ -902,7 +903,14 @@ export function App() {
           commodityCode: posting.amount.commodityCode,
           quantity: posting.amount.quantity,
         },
-        cleared: posting.cleared || undefined,
+        cleared:
+          inlineEditDraft.status === "open"
+            ? undefined
+            : true,
+        reconciledAt:
+          inlineEditDraft.status === "reconciled"
+            ? posting.reconciledAt ?? trimmedDate
+            : undefined,
         memo: posting.memo?.trim() || undefined,
       }));
 
@@ -934,7 +942,14 @@ export function App() {
                 commodityCode: posting.amount.commodityCode,
                 quantity: parsedInlineAmount,
               },
-              cleared: posting.cleared || undefined,
+              cleared:
+                inlineEditDraft.status === "open"
+                  ? undefined
+                  : true,
+              reconciledAt:
+                inlineEditDraft.status === "reconciled"
+                  ? posting.reconciledAt ?? trimmedDate
+                  : undefined,
               memo: posting.memo?.trim() || undefined,
             };
           }
@@ -946,7 +961,14 @@ export function App() {
                 commodityCode: posting.amount.commodityCode,
                 quantity: -parsedInlineAmount,
               },
-              cleared: posting.cleared || undefined,
+              cleared:
+                inlineEditDraft.status === "open"
+                  ? undefined
+                  : true,
+              reconciledAt:
+                inlineEditDraft.status === "reconciled"
+                  ? posting.reconciledAt ?? trimmedDate
+                  : undefined,
               memo: posting.memo?.trim() || undefined,
             };
           }
@@ -957,7 +979,14 @@ export function App() {
               commodityCode: posting.amount.commodityCode,
               quantity: posting.amount.quantity,
             },
-            cleared: posting.cleared || undefined,
+            cleared:
+              inlineEditDraft.status === "open"
+                ? undefined
+                : true,
+            reconciledAt:
+              inlineEditDraft.status === "reconciled"
+                ? posting.reconciledAt ?? trimmedDate
+                : undefined,
             memo: posting.memo?.trim() || undefined,
           };
         });
@@ -985,6 +1014,7 @@ export function App() {
     description: string;
     expenseAccountId: string;
     payee: string;
+    status: "cleared" | "open" | "reconciled";
   }) {
     await runMutation("Transaction post", async () => {
       const amount = Number.parseFloat(input.amount);
@@ -999,11 +1029,14 @@ export function App() {
             {
               accountId: input.expenseAccountId,
               amount: { commodityCode: "USD", quantity: amount },
+              cleared: input.status === "open" ? undefined : true,
+              reconciledAt: input.status === "reconciled" ? input.date : undefined,
             },
             {
               accountId: "acct-checking",
               amount: { commodityCode: "USD", quantity: -amount },
-              cleared: true,
+              cleared: input.status === "open" ? undefined : true,
+              reconciledAt: input.status === "reconciled" ? input.date : undefined,
             },
           ],
         },
@@ -1216,6 +1249,7 @@ export function App() {
               description: transaction.description,
               occurredOn: transaction.occurredOn,
               payee: transaction.payee,
+              status: transaction.status,
               transactionId: transaction.id,
             })
           }

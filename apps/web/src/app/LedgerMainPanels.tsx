@@ -40,6 +40,7 @@ interface LedgerMainPanelsProps {
     description: string;
     expenseAccountId: string;
     payee: string;
+    status: "cleared" | "open" | "reconciled";
   }) => void;
   onDeleteInlineTransaction: (transactionId: string) => void;
   onMoveLedgerRegisterTab: (direction: "left" | "right", tabId: string) => void;

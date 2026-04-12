@@ -25,6 +25,7 @@ interface InlineNewTransactionDraft {
   description: string;
   expenseAccountId: string;
   payee: string;
+  status: "cleared" | "open" | "reconciled";
 }
 
 interface InlineSplitDraft {
@@ -109,6 +110,7 @@ export function LedgerRegisterPanel(props: LedgerRegisterPanelProps) {
     description: "",
     expenseAccountId: props.expenseAccounts[0]?.id ?? "",
     payee: "",
+    status: "open",
   });
   const [newRegisterTabAccountId, setNewRegisterTabAccountId] = useState(
     props.liquidAccounts[0]?.id ?? "",
@@ -526,7 +528,8 @@ export function LedgerRegisterPanel(props: LedgerRegisterPanelProps) {
                   rowDraft !== null &&
                   (rowDraft.occurredOn !== transaction.occurredOn ||
                     rowDraft.description !== transaction.description ||
-                    (rowDraft.payee ?? "") !== (transaction.payee ?? ""));
+                    (rowDraft.payee ?? "") !== (transaction.payee ?? "") ||
+                    rowDraft.status !== transaction.status);
                 function handleCancelAttempt() {
                   setOpenMenuTransactionId(null);
                   if (isDirty) {
@@ -638,9 +641,27 @@ export function LedgerRegisterPanel(props: LedgerRegisterPanelProps) {
                         )}
                       </td>
                       <td>
-                        <span className={`status-chip ${transaction.status}`}>
-                          {props.formatTransactionStatus(transaction.status)}
-                        </span>
+                        {rowDraft ? (
+                          <select
+                            data-testid={`ledger-inline-status-${transaction.id}`}
+                            value={rowDraft.status}
+                            onClick={(event) => event.stopPropagation()}
+                            onChange={(event) =>
+                              props.onUpdateInlineEditField(
+                                "status",
+                                event.target.value as "cleared" | "open" | "reconciled",
+                              )
+                            }
+                          >
+                            <option value="open">Uncleared</option>
+                            <option value="cleared">Cleared</option>
+                            <option value="reconciled">Reconciled</option>
+                          </select>
+                        ) : (
+                          <span className={`status-chip ${transaction.status}`}>
+                            {props.formatTransactionStatus(transaction.status)}
+                          </span>
+                        )}
                       </td>
                       <td className="register-cell-description">
                         {rowDraft ? (
@@ -1687,7 +1708,20 @@ export function LedgerRegisterPanel(props: LedgerRegisterPanelProps) {
                 />
               </td>
               <td>
-                <span className="status-chip open">New</span>
+                <select
+                  data-testid="ledger-new-status"
+                  value={newTransactionDraft.status}
+                  onChange={(event) =>
+                    setNewTransactionDraft((current) => ({
+                      ...current,
+                      status: event.target.value as "cleared" | "open" | "reconciled",
+                    }))
+                  }
+                >
+                  <option value="open">Uncleared</option>
+                  <option value="cleared">Cleared</option>
+                  <option value="reconciled">Reconciled</option>
+                </select>
               </td>
               <td className="register-cell-description">
                 <input
@@ -1760,12 +1794,14 @@ export function LedgerRegisterPanel(props: LedgerRegisterPanelProps) {
                       description: newTransactionDraft.description.trim(),
                       expenseAccountId: newTransactionDraft.expenseAccountId.trim(),
                       payee: newTransactionDraft.payee.trim(),
+                      status: newTransactionDraft.status,
                     });
                     setNewTransactionDraft((current) => ({
                       ...current,
                       amount: "0.00",
                       description: "",
                       payee: "",
+                      status: "open",
                     }));
                   }}
                 >

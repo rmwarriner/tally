@@ -149,6 +149,7 @@ describe("ledger inline row edit draft", () => {
         description: "Groceries",
         occurredOn: "2026-04-01",
         payee: null,
+        status: "open",
       }),
     ).toEqual({
       accountAmount: "-20",
@@ -156,6 +157,7 @@ describe("ledger inline row edit draft", () => {
       description: "Groceries",
       occurredOn: "2026-04-01",
       payee: "",
+      status: "open",
     });
   });
 
@@ -168,6 +170,7 @@ describe("ledger inline row edit draft", () => {
           description: "Groceries",
           occurredOn: "2026-04-01",
           payee: "",
+          status: "open",
         },
         field: "description",
         value: "Market groceries",
@@ -178,6 +181,31 @@ describe("ledger inline row edit draft", () => {
       description: "Market groceries",
       occurredOn: "2026-04-01",
       payee: "",
+      status: "open",
+    });
+  });
+
+  it("updates status without mutating other draft fields", () => {
+    expect(
+      updateLedgerInlineRowEditDraft({
+        draft: {
+          accountAmount: "-20",
+          counterpartyAccountId: "acct-expense",
+          description: "Groceries",
+          occurredOn: "2026-04-01",
+          payee: "",
+          status: "open",
+        },
+        field: "status",
+        value: "cleared",
+      }),
+    ).toEqual({
+      accountAmount: "-20",
+      counterpartyAccountId: "acct-expense",
+      description: "Groceries",
+      occurredOn: "2026-04-01",
+      payee: "",
+      status: "cleared",
     });
   });
 });
