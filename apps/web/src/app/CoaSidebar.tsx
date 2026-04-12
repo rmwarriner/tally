@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import type { FinanceBookDocument } from "@tally/book";
 
 interface CoaSidebarProps {
@@ -9,7 +9,8 @@ interface CoaSidebarProps {
   }>;
   formatCurrency: (amount: number) => string;
   onAddTransaction: () => void;
-  onAccountSelect: (accountId: string | null) => void;
+  onOpenInActiveTab: (accountId: string) => void;
+  onOpenInNewTab: (accountId: string) => void;
   onNewAccount: (parentAccountId: string | null) => void;
   onReconcile: () => void;
   selectedAccountId: string | null;
@@ -26,6 +27,11 @@ const accountTypeOrder: Array<FinanceBookDocument["accounts"][number]["type"]> =
 export function CoaSidebar(props: CoaSidebarProps) {
   const [collapsedTypes, setCollapsedTypes] = useState<Set<string>>(new Set());
   const [collapsedAccounts, setCollapsedAccounts] = useState<Set<string>>(new Set());
+  const [contextMenu, setContextMenu] = useState<{
+    accountId: string;
+    x: number;
+    y: number;
+  } | null>(null);
   const balanceByAccountId = new Map(
     props.accountBalances.map((balance) => [balance.accountId, balance.balance]),
   );
@@ -71,6 +77,19 @@ export function CoaSidebar(props: CoaSidebarProps) {
       .reduce((sum, account) => sum + (balanceByAccountId.get(account.id) ?? 0), 0);
   }
 
+  useEffect(() => {
+    if (!contextMenu) {
+      return;
+    }
+
+    function handleClick() {
+      setContextMenu(null);
+    }
+
+    document.addEventListener("mousedown", handleClick);
+    return () => document.removeEventListener("mousedown", handleClick);
+  }, [contextMenu]);
+
   function renderAccountRow(
     account: FinanceBookDocument["accounts"][number],
     depth: number,
@@ -86,9 +105,11 @@ export function CoaSidebar(props: CoaSidebarProps) {
           className={`coa-row${props.selectedAccountId === account.id ? " active" : ""}`}
           style={{ paddingLeft: `${8 + depth * 16}px` }}
           type="button"
-          onClick={() =>
-            props.onAccountSelect(props.selectedAccountId === account.id ? null : account.id)
-          }
+          onClick={() => props.onOpenInActiveTab(account.id)}
+          onContextMenu={(event) => {
+            event.preventDefault();
+            setContextMenu({ accountId: account.id, x: event.clientX, y: event.clientY });
+          }}
         >
           {hasChildren ? (
             <span
@@ -178,6 +199,24 @@ export function CoaSidebar(props: CoaSidebarProps) {
           </div>
         );
       })}
+      {contextMenu ? (
+        <div
+          className="coa-context-menu"
+          style={{ position: "fixed", top: contextMenu.y, left: contextMenu.x }}
+          onMouseDown={(event) => event.stopPropagation()}
+        >
+          <button
+            className="coa-context-menu-item"
+            type="button"
+            onClick={() => {
+              props.onOpenInNewTab(contextMenu.accountId);
+              setContextMenu(null);
+            }}
+          >
+            Open in new tab
+          </button>
+        </div>
+      ) : null}
     </section>
   );
 }

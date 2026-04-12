@@ -272,3 +272,5 @@ The next roadmap phase should promote a small number of these tracks into bounde
 - 2026-04-12: I-029 redesigned the COA sidebar into collapsible account-type sections with per-section totals and hierarchical disclosure rows for parent/child accounts.
 
 - 2026-04-12: I-027 replaced the ledger register pill row with a real tab strip and trailing + new-tab action, removing the account selector/open-tab controls while preserving close/link behaviors.
+
+- 2026-04-12: I-028 wired COA account click to load into the active register tab and added right-click context-menu navigation to open accounts in new ledger tabs.

@@ -659,6 +659,21 @@ export function App() {
     });
   }
 
+  function loadAccountInActiveTab(accountId: string) {
+    setLedgerRegisterTabs((currentTabs) =>
+      currentTabs.map((tab) =>
+        tab.id === activeLedgerRegisterTabId
+          ? {
+              ...tab,
+              selectedLedgerAccountId: accountId,
+              selectedLedgerTransactionId: null,
+            }
+          : tab,
+      ),
+    );
+    setSelectedLedgerAccountId(accountId);
+  }
+
   function openNewRegisterTab() {
     setLedgerRegisterTabs((currentTabs) => {
       const nextTab: LedgerRegisterTabState = {
@@ -1310,7 +1325,8 @@ export function App() {
         accountBalances={accountBalances}
         formatCurrency={formatCurrency}
         selectedAccountId={selectedLedgerAccountId}
-        onAccountSelect={setSelectedLedgerAccountId}
+        onOpenInActiveTab={loadAccountInActiveTab}
+        onOpenInNewTab={openLedgerRegisterTabForAccount}
         onAddTransaction={openCoaAddTransactionFlow}
         onNewAccount={openCoaNewAccountFlow}
         onReconcile={openCoaReconciliationFlow}
