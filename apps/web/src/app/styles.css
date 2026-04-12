@@ -771,6 +771,33 @@ textarea:focus {
   flex-shrink: 0;
 }
 
+.coa-context-menu {
+  z-index: 30;
+  min-width: 160px;
+  padding: 4px;
+  background: var(--surface);
+  border: 1px solid color-mix(in srgb, var(--border) 70%, transparent);
+  border-radius: 10px;
+  box-shadow: 0 4px 16px color-mix(in srgb, var(--bg) 60%, transparent);
+}
+
+.coa-context-menu-item {
+  display: block;
+  width: 100%;
+  padding: 6px 10px;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--text);
+  font-size: var(--text-sm);
+  text-align: left;
+  cursor: pointer;
+}
+
+.coa-context-menu-item:hover {
+  background: var(--surface-hover);
+}
+
 .metric-grid {
   display: grid;
   grid-template-columns: minmax(0, 1.2fr) repeat(3, auto);
