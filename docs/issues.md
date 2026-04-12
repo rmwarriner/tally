@@ -105,6 +105,19 @@ This is the canonical issue tracker for day-to-day solo development.
 - [ ] (empty)
 
 ## Backlog
+- [ ] I-021 Activity bar icon backgrounds — fix droopy bottom extension
+  - status: backlog
+  - risk: R1
+  - type: bug
+  - owner: agent
+  - rollback: revert CSS changes in styles.css only
+  - acceptance:
+    - activity bar icon active/hover backgrounds are visually square or evenly rounded — not elongated downward
+    - the background shape sits flush and centered around the icon at all sizes
+    - no regression in other activity bar states (inactive, hover, active)
+    - `pnpm --filter @tally/web typecheck` passes
+    - `pnpm ci:verify` passes
+
 - [ ] I-020 Register row actions — progressive disclosure
   - status: backlog
   - risk: R2
