@@ -1,0 +1,50 @@
+name: Claude Review
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+  issue_comment:
+    types: [created]
+
+permissions:
+  contents: read
+  pull-requests: write
+  issues: write
+
+jobs:
+  claude:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    if: |
+      github.event_name == 'pull_request' ||
+      (github.event_name == 'issue_comment' && contains(github.event.comment.body, '@claude'))
+
+    steps:
+      - uses: anthropics/claude-code-action@v1
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          api_key: ${{ secrets.ANTHROPIC_API_KEY }}
+          prompt: |
+            You are reviewing a pull request for Tally, a personal finance system built on strict
+            double-entry accounting. Focus your review on the following concerns, in priority order:
+
+            1. **Audit events** — Any mutation path (commands, API handlers, book writes) must emit
+               a structured audit event. Flag any added or modified mutation that skips this.
+
+            2. **Domain layer purity** — `packages/domain` and `packages/book` must have no I/O or
+               side effects unless the file is explicitly at an operational boundary. Flag violations.
+
+            3. **TDD compliance** — Production `.ts` changes in `apps/` or `packages/` should be
+               accompanied by `.test.ts` changes. If tests are absent and the PR template doesn't
+               mark "no test needed", note it.
+
+            4. **Double-entry integrity** — Any ledger or transaction logic must preserve the
+               invariant that debits equal credits. Flag any change that could break balanced entries.
+
+            5. **Security** — Check for command injection, untrusted input flowing into dangerous
+               sinks, client-supplied actor identity being trusted, or secrets exposed in logs.
+
+            6. **General quality** — Obvious bugs, unhandled error paths, incorrect TypeScript types,
+               or logic that contradicts the stated intent of the change.
+
+            Be concise. Lead with any blocking issues. Skip praise for things that are simply correct.

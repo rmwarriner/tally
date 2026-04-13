@@ -42,21 +42,18 @@ jobs:
       - name: Secret scan
         run: pnpm security:secrets
 
-  codeql:
+  semgrep:
     runs-on: ubuntu-latest
     timeout-minutes: 30
+    container:
+      image: semgrep/semgrep
+    if: github.actor != 'dependabot[bot]'
 
     steps:
       - name: Check out repository
         uses: actions/checkout@v6
 
-      - name: Initialize CodeQL
-        uses: github/codeql-action/init@v4
-        with:
-          languages: javascript-typescript
-
-      - name: Autobuild
-        uses: github/codeql-action/autobuild@v4
-
-      - name: Analyze
-        uses: github/codeql-action/analyze@v4
+      - name: Semgrep CI
+        run: semgrep ci
+        env:
+          SEMGREP_APP_TOKEN: ${{ secrets.SEMGREP_APP_TOKEN }}
