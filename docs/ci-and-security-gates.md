@@ -1,6 +1,6 @@
 # CI And Security Gates
 
-Last reviewed: 2026-04-09
+Last reviewed: 2026-04-13
 
 ## Policy
 
@@ -26,6 +26,11 @@ It enforces:
   - either tests were added/updated
   - or `no-test-needed` is selected with rationale and a linked test debt issue
 
+**Trigger policy:**
+- Runs on `pull_request` only — not on push to main (redundant after merge)
+- Skipped entirely when only `*.md`, `docs/**`, or `.github/` files change (path filter)
+- Concurrency group `ci-verify-<ref>` cancels in-progress runs when a new commit is pushed to the same PR
+
 ## Security Workflow
 
 The security workflow is defined in `.github/workflows/security.yml`.
@@ -35,6 +40,23 @@ It enforces:
 - production dependency audit with `pnpm audit --prod --audit-level high`
 - repository secret scanning
 - CodeQL analysis for JavaScript/TypeScript
+
+**Trigger policy:**
+- Runs on `pull_request` and weekly schedule (`0 6 * * 1`) — not on push to main
+- Skipped when only `*.md` or `docs/**` files change (path filter)
+- Weekly schedule catches newly disclosed vulnerabilities in unchanged dependencies
+- Concurrency groups cancel in-progress runs on rapid PR updates
+
+## Claude Review Workflow
+
+The review workflow is defined in `.github/workflows/claude-review.yml` and `scripts/claude-review.mjs`.
+
+It provides:
+
+- Automated PR review on every `pull_request` event via direct Anthropic API call; review is posted as a PR comment
+- Interactive `@claude` mention support in PR and issue comments via `anthropics/claude-code-action`
+
+The review prompt prioritises: audit event compliance, domain layer purity, TDD compliance, double-entry integrity, security, and general quality — in that order.
 
 ## Dependency Update Workflow
 

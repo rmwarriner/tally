@@ -2,9 +2,9 @@ name: Security
 
 on:
   pull_request:
-  push:
-    branches:
-      - main
+    paths-ignore:
+      - "**.md"
+      - "docs/**"
   schedule:
     - cron: "0 6 * * 1"
 
@@ -17,6 +17,9 @@ jobs:
   dependency-audit:
     runs-on: ubuntu-latest
     timeout-minutes: 15
+    concurrency:
+      group: dependency-audit-${{ github.ref }}
+      cancel-in-progress: true
 
     steps:
       - name: Check out repository
@@ -45,6 +48,9 @@ jobs:
   codeql:
     runs-on: ubuntu-latest
     timeout-minutes: 30
+    concurrency:
+      group: codeql-${{ github.ref }}
+      cancel-in-progress: true
 
     steps:
       - name: Check out repository

@@ -2,9 +2,12 @@ name: Quality Gates
 
 on:
   pull_request:
-  push:
-    branches:
-      - main
+    paths-ignore:
+      - "**.md"
+      - "docs/**"
+      - ".github/*.yml"
+      - ".github/ISSUE_TEMPLATE/**"
+      - ".github/PULL_REQUEST_TEMPLATE.md"
 
 permissions:
   contents: read
@@ -12,7 +15,6 @@ permissions:
 
 jobs:
   pr-policy:
-    if: github.event_name == 'pull_request'
     runs-on: ubuntu-latest
     timeout-minutes: 5
     permissions:
@@ -84,9 +86,12 @@ jobs:
 
   ci-verify:
     needs: [pr-policy]
-    if: always() && (github.event_name != 'pull_request' || needs.pr-policy.result == 'success')
+    if: always() && needs.pr-policy.result == 'success'
     runs-on: ubuntu-latest
     timeout-minutes: 15
+    concurrency:
+      group: ci-verify-${{ github.ref }}
+      cancel-in-progress: true
 
     steps:
       - name: Check out repository
@@ -112,7 +117,6 @@ jobs:
         run: pnpm ci:verify
 
       - name: Diff coverage
-        if: github.event_name == 'pull_request'
         env:
           DIFF_BASE_REF: origin/${{ github.event.pull_request.base.ref }}
           DIFF_COVERAGE_THRESHOLD: "85"
