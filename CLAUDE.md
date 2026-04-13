@@ -84,7 +84,7 @@ Test placement by concern:
 - Run `pnpm ci:verify` before merge for broad changes
 - Prefer squash merges; direct pushes to `main` are blocked by branch protection
 - GitHub Issues is the canonical execution queue; use `gh issue list` to see open work
-- Ideas not ready for execution go to `docs/ideas.md`, not directly to GitHub Issues
+- Ideas not ready for execution go to GitHub Issues with the `idea` label, not directly into the active queue
 
 See `docs/git-workflow.md` for the full workflow and `docs/ci-and-security-gates.md` for merge gate details.
 

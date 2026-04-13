@@ -59,15 +59,14 @@ Pull requests should:
 
 Not every idea belongs on the roadmap immediately.
 
-Use `docs/ideas.md` as the authoritative idea inbox for work that is still exploratory, underspecified, or not yet prioritized. Ideas are organized there by track.
+Use GitHub Issues with the `idea` label for work that is still exploratory, underspecified, or not yet prioritized.
 
 To add a new idea:
 
-- add an entry to the relevant track in `docs/ideas.md`
+- open a GitHub Issue with the `idea` label
 - include: the problem or opportunity, why it is parked, and the key open questions
-- commit directly to `main` if it is a small admin change
 
-Promote an idea to a GitHub Issue only when:
+Promote an idea (remove `idea` label, add appropriate type label) only when:
 
 - the outcome is clear enough to execute
 - the rough implementation area is known
