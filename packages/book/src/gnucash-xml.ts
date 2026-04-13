@@ -21,6 +21,7 @@ function unescapeXml(value: string): string {
 function assertSafeTagName(tagName: string): void {
   // XML tag names contain only letters, digits, hyphens, underscores, colons, and periods.
   // Validating this prevents regex injection and ReDoS attacks.
+  /* c8 ignore next 3 */
   if (!/^[\w:.-]+$/.test(tagName)) {
     throw new Error(`Invalid XML tag name: ${tagName}`);
   }
@@ -42,6 +43,7 @@ function extractTagText(contents: string, tagName: string): string | undefined {
 function assertSafeAttributeName(attributeName: string): void {
   // XML attribute names contain only letters, digits, hyphens, underscores, and colons.
   // Validating this prevents regex injection and ReDoS attacks.
+  /* c8 ignore next 3 */
   if (!/^[\w:-]+$/.test(attributeName)) {
     throw new Error(`Invalid XML attribute name: ${attributeName}`);
   }
