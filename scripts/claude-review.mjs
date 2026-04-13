@@ -81,7 +81,10 @@ async function callClaude(diff, title) {
   return data.content[0].text;
 }
 
+console.log(`PR_NUMBER=${PR_NUMBER} GITHUB_REPOSITORY=${GITHUB_REPOSITORY}`);
+
 const diff = gh("pr", "diff", PR_NUMBER);
+console.log(`Diff length: ${diff.length} chars`);
 
 if (!diff.trim()) {
   console.log("No diff found — skipping review.");
@@ -92,7 +95,8 @@ const title = gh("pr", "view", PR_NUMBER, "--json", "title", "--jq", ".title").t
 console.log(`Reviewing PR #${PR_NUMBER}: ${title}`);
 
 const review = await callClaude(diff, title);
-console.log("Review generated, posting comment...");
+console.log(`Review length: ${review.length} chars`);
+console.log("Posting comment...");
 
 gh("pr", "comment", PR_NUMBER, "--body", `### Claude Review\n\n${review}`);
 console.log("Done.");
