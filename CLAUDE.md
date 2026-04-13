@@ -80,9 +80,9 @@ Test placement by concern:
 ## Git Workflow
 
 - Branch from `main` per issue: `feat/5-metrics-and-tracing`, `fix/42-auth-validation`, etc.
-- PRs required for all code changes; small docs/admin changes may go directly to `main`
+- PRs required for all code changes — no exceptions, including trivial changes. Branch protection on `main` enforces this at the GitHub level.
 - Run `pnpm ci:verify` before merge for broad changes
-- Prefer squash merges; no direct pushes to `main`
+- Prefer squash merges; direct pushes to `main` are blocked by branch protection
 - Local execution queue is `docs/issues.md`; GitHub issues are optional mirrors when needed
 - Ideas not ready for execution go to `docs/ideas.md`, not directly to the roadmap
 
@@ -119,6 +119,13 @@ These rules apply to every Codex task without exception.
 - Append a one-line completion entry to `docs/project-status.md` before opening the PR
 - If risk tier is **R1 or R2**: run `gh pr merge --squash --delete-branch` immediately after `gh pr create` — local `pnpm ci:verify` is the gate, no waiting for remote CI
 - If risk tier is **R3**: leave the PR open for maintainer review — do not merge
+- Expect a Claude automated review comment on every PR — this is informational, not a merge gate
+
+**Repository context**
+- The repository is public on GitHub
+- Branch protection is enforced on `main`: direct pushes and force pushes are blocked, `pr-policy` and `ci-verify` must pass before merge
+- CI runs on PRs only — not on push to main. Docs-only changes skip CI via path filters.
+- CodeQL runs on every PR and on a weekly schedule; findings appear in the GitHub Security tab
 
 **Non-negotiables**
 - TDD: write the failing test before the implementation for any logic changes
