@@ -566,6 +566,226 @@ The register is the heart of the product and its primary visual statement. Curre
 
 ---
 
+### Global spacing — tighter margins throughout the application
+
+The application currently uses margins and padding that are too generous for a data-heavy interface. Whitespace has value, but screen real estate is finite and every pixel of unnecessary margin is a pixel taken from account names, amounts, and transaction rows.
+
+The target reference is Zed — a dense, precise editor UI that uses very tight internal margins (in the low single-digit pixel range) without feeling cramped, because the spacing is consistent and intentional rather than loose and default.
+
+**Applies to:** all surfaces — the COA sidebar, register rows, toolbar strips, status bar, panel headers, form inputs, and split editors.
+
+**Approach:** define a tighter base spacing unit and apply it consistently via CSS custom properties rather than patching individual surfaces. This is a design language system concern and should be addressed alongside or as part of that effort.
+
+**Observed Zed metrics (from screenshot):** ~22px row height, ~4px vertical padding per row, ~6px left-edge item padding, ~12px indent per nesting level. The density comes from a consistent 4px micro-unit applied everywhere — not any single tight surface.
+
+**Key open questions:**
+- Do compact and comfortable density modes both shift down, or does compact mode become the new baseline and comfortable mode gets the current tight spacing?
+- Are there any surfaces (e.g. modals, onboarding) where tighter spacing would feel wrong and should be exempted?
+
+---
+
+### COA sidebar — horizontal scroll and tighter margins
+
+The COA sidebar is not wide enough to display deeply nested account names without truncation. Two fixes:
+
+1. **Horizontal scroll:** the sidebar tree should scroll horizontally when account names exceed the panel width rather than clipping or wrapping.
+2. **Tighter margins:** reduce horizontal padding/indentation in the tree so more name is visible at the default panel width before scrolling is needed.
+
+**Key open questions:**
+- Should the panel also be user-resizable (drag handle on the right edge), or is scroll sufficient?
+- How does horizontal scroll interact with the pinned Favorites section at the top?
+
+---
+
+### Remove "Register" and "Double-entry ledger" titles from the register header
+
+The panel title and subtitle at the top of the register should be removed. The user knows what they are looking at. The titles occupy header space that could be reclaimed entirely.
+
+If a label is ever needed for orientation, the fallback is to enrich the tab text rather than add header chrome — e.g. the tab becomes "Checking Ledger" instead of just "Checking". That approach costs nothing in panel space and keeps the surface clean.
+
+---
+
+### Remove active balance indicator from the top of the register
+
+The balance indicator displayed at the top of the register panel should be removed. Balance is already surfaced in the status bar; the in-register duplicate adds visual weight to the header without earning its space.
+
+---
+
+### Remove date range selectors from the register panel
+
+The date range selectors on the register panel toolbar should be removed for the same reason as the "All statuses" filter — they occupy toolbar space without a settled design home. The period selector already exists as a global shell context; local date filtering in the register panel can be revisited later once a coherent filter story is defined.
+
+---
+
+### Remove "All statuses" filter selector from the register panel
+
+The "All statuses" dropdown on the register panel toolbar should be removed. It occupies prime toolbar space and has no clear home at this stage of the design. May be reintroduced later once a better placement is identified (e.g. a filter popover, command palette, or column header interaction).
+
+---
+
+### Command palette — natural language input with Spotlight-style dropdown
+
+The command palette should be a centered floating text input with a dropdown results panel expanding below it, in the style of macOS Spotlight or Raycast. The input accepts free-form natural language; the dropdown surfaces matched commands, accounts, transactions, and navigation targets as the user types.
+
+**Interaction model:**
+- Appears centered on screen (not anchored to a toolbar) on hotkey activation
+- Single text input — no mode switching, no prefixes required
+- Results dropdown groups matches by type (e.g. Commands, Accounts, Transactions) with keyboard navigation (arrow keys, Enter to confirm, Escape to dismiss)
+- Click-outside dismisses
+
+**Result types to consider:**
+- Shell commands (e.g. "New transaction", "Reconcile", "Open Settings")
+- Account navigation (e.g. typing "Check" surfaces Checking accounts)
+- Transaction search (e.g. typing an amount or payee name finds matching transactions)
+- Future: AI-assisted query ("show me all grocery spending this month")
+
+**Key open questions:**
+- Should results be purely client-side filtered or query the API for transaction search?
+- What is the result cap per group before a "show more" affordance appears?
+- Does the palette remember recent commands across sessions?
+
+---
+
+### Command palette — hotkey activation
+
+The command palette / spotlight control should be activatable via a keyboard shortcut without requiring the mouse. This is table-stakes for a keyboard-first shell.
+
+Conventional default: `Cmd+K` (Mac) / `Ctrl+K` (Windows/Linux), consistent with VS Code, Linear, Vercel, and most modern tools. The hotkey should be configurable if a keybinding system is ever introduced.
+
+**Key open questions:**
+- `Cmd+K` vs `Cmd+P` vs `Cmd+Shift+P` — which feels most natural given the shell's VS Code lineage?
+- Should the palette close on `Escape` only, or also on click-outside?
+
+---
+
+### Resizable COA and right panels
+
+Both the COA sidebar and the right panel should be user-resizable via a drag handle on their inner edge. The last width set by the user persists to `localStorage` and restores when the panel is re-pinned after being collapsed.
+
+**Key open questions:**
+- Should there be a minimum and maximum width constraint, or is it unconstrained?
+- Does the drag handle appear on hover only, or always visible?
+- When a panel is in hover-reveal (collapsed/popup) state, does resizing it also update the persisted pinned width?
+
+---
+
+### Right panel — collapsible with hover-reveal and pin toggle (default collapsed)
+
+The right panel should support the same collapsed/pinned behaviour as the COA sidebar — a narrow edge affordance when collapsed, hover-reveal as a floating popup, and a pin icon in the upper-right to persist it open.
+
+The key difference from the COA sidebar: the right panel defaults to **collapsed**. The register gets full width out of the box; users who want the right panel visible pin it explicitly.
+
+Pin state persisted to `localStorage` alongside other shell preferences.
+
+---
+
+### COA sidebar — collapsible with hover-reveal and pin toggle
+
+The COA sidebar should support two states:
+
+- **Pinned (visible):** the sidebar occupies its normal position. A pin icon in the upper-right corner of the panel indicates the pinned state. Clicking it unpins and collapses the sidebar.
+- **Collapsed (hover-reveal):** the sidebar collapses to a narrow edge affordance. Hovering over that edge reveals the sidebar as a floating popup overlay without shifting the register layout. A pin icon in the popup's upper-right corner allows the user to pin it back to the persistent position.
+
+This pattern matches VS Code's activity bar panel behaviour and preserves maximum register width for users who primarily navigate via keyboard or rarely switch accounts.
+
+Pin state persisted to `localStorage` alongside other shell preferences.
+
+**Key open questions:**
+- What is the collapsed edge affordance — a thin strip, a tab, or just a hover-sensitive dead zone at the left edge?
+- Should the hover-reveal popup have a delay before appearing to avoid accidental triggers?
+- Does the popup close on mouse-out immediately, or with a short grace period?
+- How does this interact with the planned resizable panel width — does the last pinned width restore when re-pinning?
+
+---
+
+### COA sidebar — replace inline buttons with a minimal icon toolbar
+
+The "+ txn", "Reconcile", and "+ Sub-account" buttons currently inline in the COA sidebar should be replaced with a compact horizontal floating toolbar pinned to the top of the sidebar panel. Actions are icon-only, with descriptive tooltips on hover for discoverability.
+
+This reduces visual clutter in the sidebar, aligns with the iconography direction already planned for the shell, and keeps the account tree as the visual focus rather than text buttons.
+
+**Key open questions:**
+- Should the toolbar be context-sensitive (e.g. "+ Sub-account" only active when an account is selected, greyed or hidden otherwise)?
+- Icon library to use — consistent with whatever is chosen for the broader iconography effort?
+- Should the toolbar float above the tree with a subtle shadow/border, or sit flush as a borderless strip?
+
+---
+
+### Remove accounts button row from the register panel
+
+The register panel currently has a row of account buttons for navigation. This duplicates the COA side panel, which is already the canonical place to navigate accounts. The button row should be removed entirely.
+
+The COA panel handles account selection; the register panel should own only the transaction list and entry row.
+
+---
+
+### Transaction status column — compact single-character display
+
+The status column does not need full text labels. Replace with single-character indicators to reduce column width and visual noise:
+
+- `R` — Reconciled
+- `C` — Cleared
+- *(blank)* — Uncleared / Pending
+
+The column can shrink significantly with this change, giving back horizontal space to description and amount. Tooltips on hover can still surface the full label for discoverability.
+
+**Key open questions:**
+- Should the character be styled (e.g. muted color for blank, accent for R) or plain text?
+- Does clicking the status cell still cycle through states, or does that interaction change?
+
+---
+
+### Register alternating row colors (zebra striping)
+
+Allow the user to enable alternating row background colors in the register. The alternating color should be derived from the active theme's token set rather than hardcoded, so it works correctly across all themes including Gruvbox and any future additions.
+
+Persisted to `localStorage` alongside density and theme preferences.
+
+**Key open questions:**
+- Should this be a standalone toggle in Settings (Appearance), or part of a broader register display options panel?
+- How does alternating color interact with row states — hover, selected, inline-editing? The state color should win.
+- Does the new transaction row participate in the alternating pattern or always use a fixed background?
+
+---
+
+### Register column sorting with pinned new transaction row
+
+Allow users to sort the register by clicking column headers (date, description, amount, balance, etc.). The new transaction row must remain pinned at the bottom regardless of the active sort — it is not a transaction and should never be reordered into the sorted list.
+
+**Key open questions:**
+- Should sort state persist across sessions (localStorage) or reset on navigation?
+- Should multiple columns be sortable simultaneously (shift-click secondary sort), or single-column only to start?
+- How does the running balance column behave under a non-date sort — hide it, show it as static, or disable sorting on that column entirely?
+
+---
+
+### New transaction row — allow split editing before first save
+
+The split editor is currently only accessible after a transaction has been saved at least once. The new transaction row should allow the user to open the split editor inline on first entry, without requiring a save-then-reopen cycle.
+
+This is a workflow friction bug as much as a feature gap — split transactions are common and forcing an intermediate save breaks the entry flow.
+
+**Key open questions:**
+- Should the split editor open in the same inline row expansion used for existing transactions, or a different affordance for unsaved rows?
+- How does the out-of-balance warning behave on an unsaved split — same as existing rows?
+
+---
+
+### New transaction row visual treatment
+
+The new transaction row needs two visual corrections to distinguish it clearly from existing rows:
+
+1. **Separator bar:** a visible divider between the new transaction row and the transaction list above it, so the entry surface reads as a distinct zone rather than just another row appended to the list.
+2. **No left-edge selection indicator:** the new transaction row currently shows the same left-side active indicator as a selected existing row. It shouldn't — the new row is always in an entry state, not a selection state, and the indicator misleads.
+
+Both are purely presentational and can be addressed with targeted CSS against the row's existing state class.
+
+**Key open questions:**
+- Should the separator be a simple border, a gap, or a labelled rule (e.g. a faint "New transaction" label)?
+- Does the separator need to adapt between compact and comfortable density modes?
+
+---
+
 ### Register column customization — visibility and order
 
 Allow users to choose which columns appear in the register and in what order. The current fixed column set (Date, Status, Description, Payee, Accounts, Amount, Balance, Tags, Actions) is appropriate as a default but not every user needs every column, and some may want to reorder for their workflow.
@@ -634,3 +854,20 @@ The identity is already available on the book response via household member reco
 - Raw actor identifier or resolved household member display name?
 - How does it render when the shell is unauthenticated or the API is offline?
 - Same left status node alongside API status, or a separate node?
+
+---
+
+### Pinned favorite accounts in the COA sidebar
+
+Allow users to pin frequently used accounts so they surface at the top of the COA side panel. Pinned accounts appear in a collapsed/expandable section styled like the primary account dropdowns — a labelled disclosure frame (e.g. "Favorites") that sits above the full account tree and shows only pinned items.
+
+**Interaction model:**
+- Right-click (or long-press on mobile) an account in the COA tree → "Pin to Favorites" / "Unpin"
+- Pinned section is collapsed by default if empty, expanded by default once items are added
+- Pin state persisted to `localStorage` alongside other shell preferences (density, theme)
+- Pinned section respects the same click/right-click navigation behavior as the rest of the COA tree
+
+**Key open questions:**
+- Should pinned accounts also appear at the top of account picker dropdowns (entry form, split editor), or only in the COA sidebar?
+- Is there a cap on how many accounts can be pinned, or is it unconstrained?
+- How does a pinned account render if it is later archived — greyed out and unpin-able, or silently removed?
