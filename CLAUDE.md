@@ -117,8 +117,9 @@ These rules apply to every Codex task without exception.
 - Fill out every section of `.github/PULL_REQUEST_TEMPLATE.md` including risk tier, rollback plan, and handoff packet
 - `pnpm ci:verify` must pass before the PR is opened
 - Append a one-line completion entry to `docs/project-status.md` before opening the PR
-- If risk tier is **R1 or R2**: run `gh pr merge --squash --delete-branch` immediately after `gh pr create` — local `pnpm ci:verify` is the gate, no waiting for remote CI
-- If risk tier is **R3**: leave the PR open for maintainer review — do not merge
+- If risk tier is **R1**: run `gh pr merge --squash --delete-branch` immediately after `gh pr create` — local `pnpm ci:verify` is the gate, no waiting for remote CI
+- If risk tier is **R2**: open the PR and leave it open for maintainer review — do not merge
+- If risk tier is **R3**: open the PR and leave it open for maintainer review — do not merge
 - Expect a Claude automated review comment on every PR — this is informational, not a merge gate
 
 **Repository context**
