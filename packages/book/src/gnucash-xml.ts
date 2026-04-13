@@ -18,21 +18,41 @@ function unescapeXml(value: string): string {
     .replace(/&amp;/g, "&");
 }
 
+function assertSafeTagName(tagName: string): void {
+  if (!/^[\w:.-]+$/.test(tagName)) {
+    throw new Error(`Invalid XML tag name: ${tagName}`);
+  }
+}
+
 function extractBlocks(contents: string, tagName: string): string[] {
+  assertSafeTagName(tagName);
   return [...contents.matchAll(new RegExp(`<${tagName}\\b[^>]*>([\\s\\S]*?)<\\/${tagName}>`, "g"))].map(
     (match) => match[1] ?? "",
   );
 }
 
 function extractTagText(contents: string, tagName: string): string | undefined {
+  assertSafeTagName(tagName);
   const match = contents.match(new RegExp(`<${tagName}\\b[^>]*>([\\s\\S]*?)<\\/${tagName}>`));
   return match?.[1] ? unescapeXml(match[1].trim()) : undefined;
 }
 
+function assertSafeAttributeName(attributeName: string): void {
+  if (!/^[\w:-]+$/.test(attributeName)) {
+    throw new Error(`Invalid XML attribute name: ${attributeName}`);
+  }
+}
+
 function extractAttribute(contents: string, attributeName: string): string | undefined {
+  assertSafeAttributeName(attributeName);
   const match = contents.match(new RegExp(`${attributeName}="([^"]*)"`));
   return match?.[1] ? unescapeXml(match[1]) : undefined;
 }
+
+export const __testOnly = {
+  assertSafeAttributeName,
+  assertSafeTagName,
+};
 
 function extractBooleanAttribute(contents: string, attributeName: string): boolean | undefined {
   const value = extractAttribute(contents, attributeName);

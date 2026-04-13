@@ -1,8 +1,20 @@
 import { describe, expect, it } from "vitest";
 import { createDemoBook } from "./factory";
-import { buildGnuCashXmlExport, parseGnuCashXml } from "./gnucash-xml";
+import { __testOnly, buildGnuCashXmlExport, parseGnuCashXml } from "./gnucash-xml";
 
 describe("gnucash xml adapter", () => {
+  it("rejects unsafe tag and attribute names used for dynamic regex extraction", () => {
+    expect(() => __testOnly.assertSafeTagName("ws:transaction")).not.toThrow();
+    expect(() => __testOnly.assertSafeAttributeName("occurredOn")).not.toThrow();
+
+    expect(() => __testOnly.assertSafeTagName("ws:transaction(")).toThrow(
+      "Invalid XML tag name: ws:transaction(",
+    );
+    expect(() => __testOnly.assertSafeAttributeName("quantity|.*")).toThrow(
+      "Invalid XML attribute name: quantity|.*",
+    );
+  });
+
   it("exports and parses a book snapshot", () => {
     const book = createDemoBook();
     const exported = buildGnuCashXmlExport({ book });
