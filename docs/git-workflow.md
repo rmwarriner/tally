@@ -19,7 +19,7 @@ Work tracking is GitHub-first:
 
 Ideas not ready for execution should be tracked as GitHub Issues labeled `idea`.
 
-This repository's CI and security gates are defined in [docs/ci-and-security-gates.md](/Users/robert/Projects/tally/docs/ci-and-security-gates.md) and [docs/security-standards.md](/Users/robert/Projects/tally/docs/security-standards.md).
+This repository's CI and security gates are defined in [docs/ci-and-security-gates.md](docs/ci-and-security-gates.md) and [docs/security-standards.md](docs/security-standards.md).
 
 ## Agent Guidance Source Of Truth
 

@@ -35,6 +35,7 @@ This repository currently includes:
 - 2026-04-11: shipped named-theme support in web preferences with a new Gruvbox theme option and persisted selection
 - 2026-04-13: completed register visual identity pass with explicit row rhythm, density-aware register typography, embedded inline edit fields, and semantic warning/danger split-balance callouts
 - 2026-04-13: added API boundary validation for optional `posting.reconciledAt` to reject malformed ISO 8601 timestamps on POST/PUT transaction payloads with new validation and HTTP coverage
+- 2026-04-13: completed GitHub-Issues workflow docs refresh by fixing stale absolute links in `docs/git-workflow.md` and confirming archive/migration references for `docs/issues.md` and `docs/ideas.md`
 - 2026-04-13: migrated workflow docs from local queue files to GitHub-Issues-first execution and idea tracking, with `docs/issues.md` and `docs/ideas.md` converted to archive stubs
 
 ## Completed
