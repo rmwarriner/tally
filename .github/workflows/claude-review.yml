@@ -1,7 +1,7 @@
 name: Claude Review
 
 on:
-  pull_request_target:
+  pull_request:
     types: [opened, synchronize, reopened]
   issue_comment:
     types: [created]
@@ -16,28 +16,18 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 15
     if: |
-      github.event_name == 'pull_request_target' ||
+      github.event_name == 'pull_request' ||
       (github.event_name == 'issue_comment' && contains(github.event.comment.body, '@claude'))
 
     steps:
-      - uses: actions/checkout@v6
-        with:
-          ref: ${{ github.event.pull_request.head.sha }}
-          fetch-depth: 0
-
       - uses: anthropics/claude-code-action@v1
         with:
-          github_token: ${{ secrets.GITHUB_TOKEN }}
           anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
+          github_token: ${{ secrets.GITHUB_TOKEN }}
           allowed_bots: '*'
-          claude_args: --allowedTools "Bash(gh pr comment:*),Bash(gh pr diff:*),Bash(gh pr view:*)"
           prompt: |
-            REPO: ${{ github.repository }}
-            PR NUMBER: ${{ github.event.pull_request.number }}
-
             Review this pull request for Tally, a personal finance system built on strict
-            double-entry accounting. Post your review as a top-level comment using
-            `gh pr comment`. Focus on the following concerns, in priority order:
+            double-entry accounting. Focus on the following concerns, in priority order:
 
             1. **Audit events** — Any mutation path (commands, API handlers, book writes) must emit
                a structured audit event. Flag any added or modified mutation that skips this.
