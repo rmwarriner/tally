@@ -24,6 +24,7 @@ jobs:
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
           api_key: ${{ secrets.ANTHROPIC_API_KEY }}
+          allowed_bots: semgrep-code-rmwarriner,codex[bot],github-actions[bot]
           prompt: |
             You are reviewing a pull request for Tally, a personal finance system built on strict
             double-entry accounting. Focus your review on the following concerns, in priority order:
