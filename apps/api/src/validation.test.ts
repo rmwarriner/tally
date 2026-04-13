@@ -102,6 +102,52 @@ describe("api request validation", () => {
     expect(result.errors).toContain("transaction.deletion is managed by the service and cannot be supplied.");
   });
 
+  it("validates posting reconciledAt when provided", () => {
+    const valid = validateTransactionRequestBody({
+      transaction: {
+        description: "Reconciled posting",
+        id: "txn-valid-reconciled-at",
+        occurredOn: "2026-04-04",
+        postings: [
+          {
+            accountId: "acct-expense-groceries",
+            amount: { commodityCode: "USD", quantity: 45.12 },
+            reconciledAt: "2026-04-04T12:00:00.000Z",
+          },
+          {
+            accountId: "acct-checking",
+            amount: { commodityCode: "USD", quantity: -45.12 },
+            reconciledAt: "2026-04-04T12:00:00.000Z",
+          },
+        ],
+      },
+    });
+    expect(valid.errors).toEqual([]);
+
+    const invalid = validateTransactionRequestBody({
+      transaction: {
+        description: "Invalid reconciledAt",
+        id: "txn-invalid-reconciled-at",
+        occurredOn: "2026-04-04",
+        postings: [
+          {
+            accountId: "acct-expense-groceries",
+            amount: { commodityCode: "USD", quantity: 45.12 },
+            reconciledAt: "not-a-date",
+          },
+          {
+            accountId: "acct-checking",
+            amount: { commodityCode: "USD", quantity: -45.12 },
+          },
+        ],
+      },
+    });
+
+    expect(invalid.errors).toContain(
+      "transaction.postings[0].reconciledAt must be a valid ISO 8601 date string.",
+    );
+  });
+
   it("accepts valid reconciliation payloads and rejects invalid optional ids", () => {
     const valid = validateReconciliationRequestBody({
       payload: {

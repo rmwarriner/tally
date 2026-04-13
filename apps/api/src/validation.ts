@@ -174,6 +174,12 @@ export function validateTransactionRequestBody(body: unknown): {
       if (!isFiniteNumber(posting.amount.quantity)) {
         errors.push(`transaction.postings[${index}].amount.quantity must be a finite number.`);
       }
+
+      if (posting.reconciledAt !== undefined && !isIsoTimestamp(posting.reconciledAt)) {
+        errors.push(
+          `transaction.postings[${index}].reconciledAt must be a valid ISO 8601 date string.`,
+        );
+      }
     }
   }
 
