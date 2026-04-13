@@ -1,6 +1,6 @@
 # Git Workflow
 
-Last reviewed: 2026-04-09
+Last reviewed: 2026-04-13
 
 ## Policy
 
@@ -9,16 +9,15 @@ This repository uses a light trunk-based workflow:
 - `main` is the integration branch and should remain releasable
 - all feature, fix, refactor, and documentation work starts on a short-lived branch
 - changes merge through pull requests, not direct pushes to `main`
+- branch protection enforces PR-based merges for all changes
 
-Work tracking is local-first for solo development:
+Work tracking is GitHub-first:
 
-- `docs/issues.md` is the canonical execution queue
-- GitHub issues are optional and used when collaboration, external visibility, or automation integrations require them
+- GitHub Issues are the canonical execution queue
+- use `gh issue list` for queue view and `gh issue view <number>` for full specs
+- execution work should be tied to an issue number
 
-Exception:
-
-- small administrative or documentation-only changes may go directly to `main`
-- documentation or admin changes that are part of a significant feature should stay on that feature branch and land with the feature work
+Ideas not ready for execution should be tracked as GitHub Issues labeled `idea`.
 
 This repository's CI and security gates are defined in [docs/ci-and-security-gates.md](/Users/robert/Projects/tally/docs/ci-and-security-gates.md) and [docs/security-standards.md](/Users/robert/Projects/tally/docs/security-standards.md).
 
@@ -39,14 +38,14 @@ Repository agent policy is canonical in [CLAUDE.md](/Users/robert/Projects/tally
 
 Recommended branch names:
 
-- `feat/5-metrics-and-tracing`
-- `fix/42-auth-header-validation`
-- `refactor/6-mobile-action-cards`
-- `docs/git-workflow`
+- `feat/111-ledger-ops`
+- `fix/113-reconciled-at-validation`
+- `refactor/112-register-visual-identity`
+- `docs/139-github-issues-workflow`
 
 ## Pull Requests
 
-Every code change should land through a pull request.
+Every change should land through a pull request.
 
 Pull requests should:
 
@@ -57,33 +56,24 @@ Pull requests should:
 - follow the repository pull request template in `.github/PULL_REQUEST_TEMPLATE.md`
 - include a test plan selection in the PR template; if `No test needed` is selected, provide rationale and link a `test-debt` issue
 - include risk tier, rollback plan, and handoff packet in the PR template
+- include `Closes #NNN` in the PR body for issue-linked work
 
-## Idea Intake Before Roadmap
+## Idea Intake
 
-Not every idea belongs on the roadmap immediately.
+Use GitHub Issues with the `idea` label for exploratory or underspecified work.
 
-Use `docs/ideas.md` as the authoritative idea inbox for work that is still exploratory, underspecified, or not yet prioritized. Ideas are organized there by track.
-
-To add a new idea:
-
-- add an entry to the relevant track in `docs/ideas.md`
-- include: the problem or opportunity, why it is parked, and the key open questions
-- commit directly to `main` if it is a small admin change
-
-Promote an idea to `docs/issues.md` execution work only when:
+Promote an idea to execution when:
 
 - the outcome is clear enough to execute
 - the rough implementation area is known
 - it can be prioritized against current roadmap work
 - someone is ready to work it in the near term
 
-When needed, mirror an execution item to a GitHub issue using the appropriate template (bug, feat, refactor). There is no requirement to create a GitHub issue for every local execution item.
-
 ## Merge Style
 
 - prefer squash merges to keep `main` readable
 - use an imperative PR title and squash-merge commit title
-- include the issue number in the branch name, PR title, or commit title when practical
+- include the issue number in branch name, PR title, or commit title when practical
 
 ## Commit And Push Cadence
 
@@ -92,7 +82,6 @@ When needed, mirror an execution item to a GitHub issue using the appropriate te
 - prefer small, reviewable commits that preserve a clear implementation story
 - avoid waiting until the end of a long session to save all local work
 - verify Git state sequentially after commit and push operations instead of running `git push` and `git status` in parallel
-- after a push, run a fresh `git status --short --branch`; if needed, confirm with `git rev-parse HEAD` and `git rev-parse origin/main`
 
 ## Workspace Setup
 
@@ -100,81 +89,42 @@ Both Claude Code and Codex work in the same directory: `/Users/robert/Projects/t
 
 | Agent | Directory | Branch |
 |---|---|---|
-| Claude Code | `/Users/robert/Projects/tally` | always `main` |
-| Codex | `/Users/robert/Projects/tally` | feature branches only, never `main` |
-
-**Claude Code** stays on `main` at all times. For PR review, `gh pr diff <number>` is sufficient — no checkout needed.
-
-**Codex** fetches and creates a feature branch before any work:
-```bash
-cd /Users/robert/Projects/tally
-git fetch origin
-git checkout -B feat/<task> origin/main
-```
-
-After a Codex PR merges, Claude Code pulls `main`:
-```bash
-git pull
-```
+| Claude Code | `/Users/robert/Projects/tally` | `main` |
+| Codex | `/Users/robert/Projects/tally` | feature branches only |
 
 ## Local Workflow
 
-1. update `main`
-2. create a focused branch
+1. `git fetch origin`
+2. `git checkout -B <type>/NNN-short-description origin/main`
 3. implement the change with tests
 4. commit at a reasonable milestone
 5. run local verification
 6. push the branch
-7. open a pull request
-8. squash merge after review and CI pass
+7. open a pull request with `.github/PULL_REQUEST_TEMPLATE.md`
+8. merge after required checks and review policy
 9. delete the branch
 
 Example:
 
 ```bash
-git checkout main
-git pull --ff-only
-git checkout -b feat/5-metrics-and-tracing
+git fetch origin
+git checkout -B feat/111-ledger-ops origin/main
 pnpm ci:verify
-git push -u origin feat/5-metrics-and-tracing
+git push -u origin feat/111-ledger-ops
 ```
 
 ## Weekly Review Cadence
 
 At least once a week:
 
-- review `docs/ideas.md` and either keep ideas parked, promote them to execution items, or remove stale ones
-- re-rank `docs/issues.md` items against current priorities
-- review open Dependabot pull requests and ensure patch/minor updates are flowing through CI-based merge automation
-- convert major dependency updates into tracked upgrade issues when they are deferred
+- review open GitHub Issues and re-rank by priority
+- triage `idea`-labeled issues and promote ready items into execution issues
+- review open Dependabot pull requests and ensure patch/minor updates flow through CI
+- convert deferred major dependency updates into tracked GitHub issues
 - check CI status so repeated failures do not become background noise
-- close or relabel local execution items whose scope has changed
 
 See [docs/ai-team-operations.md](/Users/robert/Projects/tally/docs/ai-team-operations.md) for definition of done, escalation boundaries, do-not-touch zones, handoff template, and weekly AI ops review.
 
-## Current Constraint
+## Repository Status
 
-Branch protection is not currently available for this private repository on the active GitHub plan, so the no-direct-push rule for `main` is a team process requirement rather than an enforced GitHub setting.
-
-Native GitHub auto-merge may also be unavailable on the active plan. Dependency update flow therefore uses a CI-driven merge workflow (`.github/workflows/dependabot-auto-merge.yml`) rather than relying on the repository auto-merge toggle.
-
-## GitHub Rename Checklist (External Steps)
-
-When executing the repository rename to `rmwarriner/tally`, complete this checklist in GitHub UI/admin settings:
-
-1. Rename repository from `rmwarriner/gnucash-ng` to `rmwarriner/tally`.
-2. Rename the roadmap project title from `Tally Roadmap` to the finalized title if needed.
-3. Verify branch protection and required status checks still target the same workflows.
-4. Verify GitHub Actions, Dependabot, and any webhook/app integrations still run against the renamed repository.
-5. Update local clones:
-   - `git remote set-url origin https://github.com/rmwarriner/tally.git`
-6. Verify CI on a fresh PR after rename to confirm no hidden repository-name coupling.
-
-### Rename Execution Status (2026-04-07)
-
-- completed: repository renamed to `rmwarriner/tally`
-- completed: roadmap project created and titled `Tally Roadmap`
-- completed: local clone `origin` updated to `rmwarriner/tally`
-- pending verification: branch protection and required checks after rename
-- pending verification: Actions, Dependabot, and webhook/app integrations after rename
-- pending verification: CI pass on a fresh PR after rename
+Branch protection is active on `main`; PR-based workflow and required status checks are enforced by repository rules.
