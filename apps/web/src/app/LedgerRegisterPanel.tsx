@@ -1514,7 +1514,9 @@ export function LedgerRegisterPanel(props: LedgerRegisterPanelProps) {
                                       </div>
                                     </div>
                                   ) : (
-                                    <div className="editor-balance-callout warning">
+                                    <div
+                                      className={`editor-balance-callout ${splitAmountsAreValid ? "warning" : "danger"}`}
+                                    >
                                       <div className="editor-balance-callout-header">
                                         {splitAmountsAreValid ? (
                                           <span>

@@ -138,6 +138,8 @@
 [data-density="comfortable"] {
   --row-height: 40px;
   --cell-pad-y: 11px;
+  --register-cell-font-size: var(--text-sm);
+  --register-header-font-size: var(--text-xs);
   --chip-pad-y: 5px;
   --form-pad-y: 10px;
   --gap-sm: 8px;
@@ -147,6 +149,8 @@
 [data-density="compact"] {
   --row-height: 28px;
   --cell-pad-y: 7px;
+  --register-cell-font-size: var(--text-xs);
+  --register-header-font-size: var(--text-2xs);
   --chip-pad-y: 3px;
   --form-pad-y: 8px;
   --gap-sm: 6px;
@@ -1283,6 +1287,7 @@ th {
 
 .register-row {
   cursor: pointer;
+  height: var(--row-height);
   min-height: var(--row-height);
 }
 
@@ -1297,7 +1302,7 @@ th {
   padding-top: 6px;
   padding-bottom: 6px;
   font-family: var(--mono-font);
-  font-size: var(--text-xs);
+  font-size: var(--register-header-font-size);
   font-weight: var(--weight-semibold);
   color: var(--text-muted);
   text-transform: uppercase;
@@ -1310,20 +1315,20 @@ th {
   width: var(--date-col-width);
   min-width: var(--date-col-width);
   font-family: var(--mono-font);
-  font-size: var(--text-sm);
+  font-size: var(--register-cell-font-size);
   color: var(--text-muted);
 }
 
 .register-col-description,
 .register-cell-description {
-  font-size: var(--text-sm);
+  font-size: var(--register-cell-font-size);
   font-weight: var(--weight-medium);
   color: var(--text);
 }
 
 .register-col-payee,
 .register-cell-payee {
-  font-size: var(--text-sm);
+  font-size: var(--register-cell-font-size);
   color: var(--text-muted);
 }
 
@@ -1333,7 +1338,7 @@ th {
   min-width: var(--amount-col-width);
   text-align: right;
   font-family: var(--mono-font);
-  font-size: var(--text-sm);
+  font-size: var(--register-cell-font-size);
   font-variant-numeric: tabular-nums;
 }
 
@@ -1343,7 +1348,7 @@ th {
   min-width: var(--balance-col-width);
   text-align: right;
   font-family: var(--mono-font);
-  font-size: var(--text-sm);
+  font-size: var(--register-cell-font-size);
   font-variant-numeric: tabular-nums;
   color: var(--text-muted);
 }
@@ -1518,7 +1523,7 @@ th {
   border-bottom: 1px solid color-mix(in srgb, var(--accent) 55%, transparent);
   padding: 2px 4px;
   width: 100%;
-  font-size: var(--text-sm);
+  font-size: var(--register-cell-font-size);
 }
 
 .register-row input:not([type="checkbox"]):focus {
@@ -1790,8 +1795,13 @@ th {
 }
 
 .editor-balance-callout.warning {
-  background: color-mix(in srgb, var(--accent-warm) 90%, transparent);
-  border-color: var(--accent-warm-border);
+  background: color-mix(in srgb, var(--warning) 15%, transparent);
+  border-color: color-mix(in srgb, var(--warning) 45%, transparent);
+}
+
+.editor-balance-callout.danger {
+  background: color-mix(in srgb, var(--danger) 15%, transparent);
+  border-color: color-mix(in srgb, var(--danger) 45%, transparent);
 }
 
 .editor-balance-callout-header {
