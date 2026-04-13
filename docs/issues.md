@@ -1,81 +1,19 @@
-# Local Issue Queue
-Last reviewed: 2026-04-12
-This is the canonical issue tracker for day-to-day solo development.
-## How To Use
-- add new work to `Backlog` with the next `I-###` id
-- move an item to `Ready` when scope and outcome are clear
-- keep only one item in `In Progress` at a time unless explicitly parallelized
-- move completed items to `Done` with completion date
-- if an item needs external collaboration, convert or mirror it to a GitHub issue
-- run `pnpm issues:next` to print the current actionable item (`in-progress` first, then `ready`)
-- run `pnpm issue:start I-###` to mark an item in progress
-- run `pnpm issue:close I-###` to mark an item done and stamp completion date
-## Risk Tiers
+# Issue Archive
+
+Archived: 2026-04-13
+
+This file was the canonical execution queue until the repository moved to GitHub Issues.
+Active work is now tracked at github.com/rmwarriner/tally/issues.
+
+Open items were migrated:
+- I-018 → #111
+- I-019 → #112
+- I-023 → #113
+
+## Risk Tiers (reference)
 - `R1`: low risk (safe refactor, docs, non-behavioral changes)
 - `R2`: medium risk (behavioral changes with bounded impact)
 - `R3`: high risk (security, auth, data model, persistence, audit, destructive operations)
-## Item Template
-```md
-- [ ] I-000 Short title
-  - status: backlog | ready | in-progress | blocked | done
-  - risk: R1 | R2 | R3
-  - type: feature | bug | refactor | docs | ops
-  - owner: robert | agent
-  - links: (optional PR/doc/issue links)
-  - rollback: one-line safe rollback plan
-  - acceptance:
-    - clear observable outcome
-    - verification command(s) or review evidence
-  - handoff:
-    - current state:
-    - next step:
-    - commands run:
-    - known risks:
-    - open questions:
-```
-## In Progress
-- [ ] I-001 Define local-first issue workflow
-  - status: in-progress
-  - risk: R1
-  - type: docs
-  - owner: agent
-  - links: /Users/robert/Projects/tally/docs/git-workflow.md
-  - acceptance:
-    - local issue queue documented
-    - agent guidance updated to reference local queue
-## Ready
-- [ ] I-018 Deferred cleanup: LedgerOperationsPanels test gaps + NonLedgerMainPanels prop surface
-  - status: ready
-  - risk: R1
-  - type: refactor
-  - owner: agent
-  - links: /Users/robert/Projects/tally/docs/ledger-ui-rebuild-plan.md
-  - rollback: no behavioral changes; revert commits to apps/web/src/app/ only
-  - acceptance:
-    - `LedgerOperationsPanels.test.ts` expanded: busy prop disables submit button; difference warning state renders distinct styling when unbalanced; transaction checkbox selection reflects in rendered output; at minimum three total test cases cover these states
-    - `NonLedgerMainPanels` no longer receives these props from `App.tsx`: `formatCurrency`, `parseCsvRows`, `createEntityId`, `getBookViewDefinition`, `postBaselineBudgetLine`, `postCsvImport`, `postEnvelope`, `postEnvelopeAllocation`, `postScheduledTransaction` — each is imported directly inside the component
-    - `NonLedgerMainPanelsProps` interface is narrowed accordingly; `App.tsx` call site removes the corresponding prop bindings
-    - `pnpm --filter @tally/web typecheck` passes
-    - `pnpm --filter @tally/web test` passes (all existing tests green, new tests green)
-    - `pnpm ci:verify` passes
-
-- [ ] I-019 Register visual identity
-  - status: ready
-  - risk: R2
-  - type: feature
-  - owner: agent
-  - links: /Users/robert/Projects/tally/docs/ideas.md (Track 7), /Users/robert/Projects/tally/docs/ledger-ui-rebuild-plan.md, /Users/robert/Projects/tally/docs/desktop-ui-direction.md
-  - rollback: CSS-only changes; revert commits to apps/web/src/app/styles.css and LedgerRegisterPanel.tsx — no data or service impact
-  - acceptance:
-    - Row rhythm: register rows have explicit height and vertical padding defined via CSS custom properties for both compact and comfortable density modes; values do not rely on browser table defaults
-    - Amount typography: all amount values in register rows use `font-variant-numeric: tabular-nums`; amount columns are right-aligned; the running balance column uses `--font-mono`; positive and negative amounts use `--amount-positive` / `--amount-negative` with consistent sign display
-    - Row states: hover, selected, inline-editing, and saving states are visually distinct; inline-editing state uses a subtle background shift rather than a full form replacement; saving state has a visible but non-disruptive indicator
-    - Inline edit fields: inputs within register rows are styled to appear embedded (borderless or minimal border, background matches row); they do not look like form inputs dropped into a table
-    - Balance callout: the split-editor out-of-balance warning uses the semantic color tokens (`--warning` or `--danger`), is concise, and does not render as a raw validation error block
-    - Density: compact mode reduces register row height and font size relative to comfortable mode; the delta is perceptible and intentional, not incidental
-    - Manual UI review checklist run against the register in both density modes and both light/dark themes
-    - `pnpm --filter @tally/web typecheck` passes
-    - `pnpm ci:verify` passes
 
 - [x] I-003 Implement tally CLI — Phase 2 (data operations)
   - status: done

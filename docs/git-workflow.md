@@ -1,6 +1,6 @@
 # Git Workflow
 
-Last reviewed: 2026-04-09
+Last reviewed: 2026-04-13
 
 ## Policy
 
@@ -10,14 +10,11 @@ This repository uses a light trunk-based workflow:
 - all feature, fix, refactor, and documentation work starts on a short-lived branch
 - changes merge through pull requests, not direct pushes to `main`
 
-Work tracking is local-first for solo development:
-
-- `docs/issues.md` is the canonical execution queue
-- GitHub issues are optional and used when collaboration, external visibility, or automation integrations require them
+Work tracking uses GitHub Issues as the canonical execution queue. All actionable work — features, bugs, refactors, ops — is tracked there.
 
 Exception:
 
-- small administrative or documentation-only changes may go directly to `main`
+- all changes must go through a pull request; branch protection on `main` enforces this
 - documentation or admin changes that are part of a significant feature should stay on that feature branch and land with the feature work
 
 This repository's CI and security gates are defined in [docs/ci-and-security-gates.md](/Users/robert/Projects/tally/docs/ci-and-security-gates.md) and [docs/security-standards.md](/Users/robert/Projects/tally/docs/security-standards.md).
@@ -37,11 +34,11 @@ Repository agent policy is canonical in [CLAUDE.md](/Users/robert/Projects/tally
 - rebase or merge `main` into the branch if it drifts
 - delete branches after merge
 
-Recommended branch names:
+Recommended branch names (use the GitHub issue number):
 
-- `feat/5-metrics-and-tracing`
-- `fix/42-auth-header-validation`
-- `refactor/6-mobile-action-cards`
+- `feat/111-ledger-operations-test-gaps`
+- `fix/113-reconciled-at-validation`
+- `refactor/112-register-visual-identity`
 - `docs/git-workflow`
 
 ## Pull Requests
@@ -70,14 +67,14 @@ To add a new idea:
 - include: the problem or opportunity, why it is parked, and the key open questions
 - commit directly to `main` if it is a small admin change
 
-Promote an idea to `docs/issues.md` execution work only when:
+Promote an idea to a GitHub Issue only when:
 
 - the outcome is clear enough to execute
 - the rough implementation area is known
 - it can be prioritized against current roadmap work
 - someone is ready to work it in the near term
 
-When needed, mirror an execution item to a GitHub issue using the appropriate template (bug, feat, refactor). There is no requirement to create a GitHub issue for every local execution item.
+Use the appropriate GitHub Issue template (bug, feat, refactor, ops) and include acceptance criteria, risk tier, and rollback plan in the issue body.
 
 ## Merge Style
 
@@ -143,38 +140,17 @@ git push -u origin feat/5-metrics-and-tracing
 
 At least once a week:
 
-- review `docs/ideas.md` and either keep ideas parked, promote them to execution items, or remove stale ones
-- re-rank `docs/issues.md` items against current priorities
+- review `docs/ideas.md` and either keep ideas parked, promote them to GitHub Issues, or remove stale ones
+- re-rank open GitHub Issues against current priorities
 - review open Dependabot pull requests and ensure patch/minor updates are flowing through CI-based merge automation
-- convert major dependency updates into tracked upgrade issues when they are deferred
+- convert major dependency updates into tracked GitHub Issues when deferred
 - check CI status so repeated failures do not become background noise
-- close or relabel local execution items whose scope has changed
+- close or relabel GitHub Issues whose scope has changed
 
 See [docs/ai-team-operations.md](/Users/robert/Projects/tally/docs/ai-team-operations.md) for definition of done, escalation boundaries, do-not-touch zones, handoff template, and weekly AI ops review.
 
-## Current Constraint
+## Repository Status
 
-Branch protection is not currently available for this private repository on the active GitHub plan, so the no-direct-push rule for `main` is a team process requirement rather than an enforced GitHub setting.
-
-Native GitHub auto-merge may also be unavailable on the active plan. Dependency update flow therefore uses a CI-driven merge workflow (`.github/workflows/dependabot-auto-merge.yml`) rather than relying on the repository auto-merge toggle.
-
-## GitHub Rename Checklist (External Steps)
-
-When executing the repository rename to `rmwarriner/tally`, complete this checklist in GitHub UI/admin settings:
-
-1. Rename repository from `rmwarriner/gnucash-ng` to `rmwarriner/tally`.
-2. Rename the roadmap project title from `Tally Roadmap` to the finalized title if needed.
-3. Verify branch protection and required status checks still target the same workflows.
-4. Verify GitHub Actions, Dependabot, and any webhook/app integrations still run against the renamed repository.
-5. Update local clones:
-   - `git remote set-url origin https://github.com/rmwarriner/tally.git`
-6. Verify CI on a fresh PR after rename to confirm no hidden repository-name coupling.
-
-### Rename Execution Status (2026-04-07)
-
-- completed: repository renamed to `rmwarriner/tally`
-- completed: roadmap project created and titled `Tally Roadmap`
-- completed: local clone `origin` updated to `rmwarriner/tally`
-- pending verification: branch protection and required checks after rename
-- pending verification: Actions, Dependabot, and webhook/app integrations after rename
-- pending verification: CI pass on a fresh PR after rename
+- Repository is public at `github.com/rmwarriner/tally`
+- Branch protection is enforced on `main`: direct pushes and force pushes are blocked; `pr-policy` and `ci-verify` must pass before merge
+- Dependency updates flow through `.github/workflows/dependabot-auto-merge.yml` (patch/minor auto-merge after CI passes)

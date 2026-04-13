@@ -83,8 +83,8 @@ Test placement by concern:
 - PRs required for all code changes — no exceptions, including trivial changes. Branch protection on `main` enforces this at the GitHub level.
 - Run `pnpm ci:verify` before merge for broad changes
 - Prefer squash merges; direct pushes to `main` are blocked by branch protection
-- Local execution queue is `docs/issues.md`; GitHub issues are optional mirrors when needed
-- Ideas not ready for execution go to `docs/ideas.md`, not directly to the roadmap
+- GitHub Issues is the canonical execution queue; use `gh issue list` to see open work
+- Ideas not ready for execution go to `docs/ideas.md`, not directly to GitHub Issues
 
 See `docs/git-workflow.md` for the full workflow and `docs/ci-and-security-gates.md` for merge gate details.
 
@@ -104,14 +104,15 @@ These rules apply to every Codex task without exception.
 
 **Session start**
 - Run `git fetch origin` before doing anything else
-- When told to "start on I-NNN", read `docs/handoffs/I-NNN.md` for the full spec
-- Check the `Dependencies:` field first — stop and prompt if any listed issue is not yet merged
+- When told to "start on #NNN", read the GitHub issue with `gh issue view NNN` for the full spec
+- Check for any issues referenced as dependencies in the issue body — stop and prompt if any are not yet closed
 
 **Git discipline**
-- Branch from `origin/main` before making any changes: `git checkout -B <type>/I-NNN-description origin/main`
+- Branch from `origin/main` before making any changes: `git checkout -B <type>/NNN-short-description origin/main`
 - Commit after each logical unit of work with a clear message
+- Reference the issue in the PR body with `Closes #NNN` so GitHub closes it on merge
 - Push and open a PR when done: `gh pr create` using `.github/PULL_REQUEST_TEMPLATE.md`
-- Never push directly to `main`
+- Never push directly to `main` — branch protection enforces this
 
 **PR requirements**
 - Fill out every section of `.github/PULL_REQUEST_TEMPLATE.md` including risk tier, rollback plan, and handoff packet
