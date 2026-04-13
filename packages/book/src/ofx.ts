@@ -47,8 +47,20 @@ function sanitizeField(value: string): string {
   return value.replace(/\s+/g, " ").trim();
 }
 
-function extractTagValue(block: string, tagName: string): string | undefined {
-  const match = block.match(new RegExp(`<${tagName}>([^\\n<]+)`, "i"));
+const TAG_PATTERNS = {
+  DTPOSTED: /<DTPOSTED>([^\n<]+)/i,
+  TRNAMT: /<TRNAMT>([^\n<]+)/i,
+  FITID: /<FITID>([^\n<]+)/i,
+  MEMO: /<MEMO>([^\n<]+)/i,
+  NAME: /<NAME>([^\n<]+)/i,
+  TRNTYPE: /<TRNTYPE>([^\n<]+)/i,
+} as const;
+
+type TagName = keyof typeof TAG_PATTERNS;
+
+function extractTagValue(block: string, tagName: TagName): string | undefined {
+  const pattern = TAG_PATTERNS[tagName];
+  const match = block.match(pattern);
   return match?.[1]?.trim();
 }
 
