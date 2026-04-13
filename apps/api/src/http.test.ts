@@ -1785,6 +1785,71 @@ Lacct-expense-utilities
     await fixture.cleanup();
   });
 
+  it("returns 400 for malformed posting.reconciledAt on transaction POST and PUT", async () => {
+    const fixture = await createFixture();
+    const service = createBookService({
+      repository: createFileSystemBookRepository({ rootDirectory: fixture.directory }),
+    });
+    const handler = createTestHttpHandler({ service });
+
+    const invalidPostResponse = await handler(
+      new Request(`http://localhost/api/books/${fixture.book.id}/transactions`, {
+        body: JSON.stringify({
+          transaction: {
+            id: "txn-bad-reconciled-at",
+            occurredOn: "2026-04-03",
+            description: "Bad reconciledAt",
+            postings: [
+              {
+                accountId: "acct-expense-utilities",
+                amount: { commodityCode: "USD", quantity: 25 },
+                reconciledAt: "not-a-date",
+              },
+              {
+                accountId: "acct-checking",
+                amount: { commodityCode: "USD", quantity: -25 },
+              },
+            ],
+          },
+        }),
+        headers: { "content-type": "application/json" },
+        method: "POST",
+      }),
+    );
+    const invalidPostBody = await invalidPostResponse.json();
+
+    expect(invalidPostResponse.status).toBe(400);
+    expect(invalidPostBody.error.code).toBe("validation.failed");
+    expect(invalidPostBody.errors).toContain(
+      "transaction.postings[0].reconciledAt must be a valid ISO 8601 date string.",
+    );
+
+    const existingTransaction = fixture.book.transactions[0]!;
+    const invalidPutResponse = await handler(
+      new Request(`http://localhost/api/books/${fixture.book.id}/transactions/${existingTransaction.id}`, {
+        body: JSON.stringify({
+          transaction: {
+            ...existingTransaction,
+            postings: existingTransaction.postings.map((posting, index) =>
+              index === 0 ? { ...posting, reconciledAt: "still-not-iso" } : posting,
+            ),
+          },
+        }),
+        headers: { "content-type": "application/json" },
+        method: "PUT",
+      }),
+    );
+    const invalidPutBody = await invalidPutResponse.json();
+
+    expect(invalidPutResponse.status).toBe(400);
+    expect(invalidPutBody.error.code).toBe("validation.failed");
+    expect(invalidPutBody.errors).toContain(
+      "transaction.postings[0].reconciledAt must be a valid ISO 8601 date string.",
+    );
+
+    await fixture.cleanup();
+  });
+
   it("returns 400 for malformed export requests and 404 for missing restores", async () => {
     const fixture = await createFixture();
     const service = createBookService({

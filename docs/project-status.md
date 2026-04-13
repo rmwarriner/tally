@@ -34,6 +34,7 @@ This repository currently includes:
 - CSS custom property theme architecture with light and dark themes; user-selectable density (compact/comfortable) and amount display style (colour+sign, colour only, sign only) persisted to localStorage; component polish across buttons, inputs, register rows, and status chips
 - 2026-04-11: shipped named-theme support in web preferences with a new Gruvbox theme option and persisted selection
 - 2026-04-13: completed register visual identity pass with explicit row rhythm, density-aware register typography, embedded inline edit fields, and semantic warning/danger split-balance callouts
+- 2026-04-13: added API boundary validation for optional `posting.reconciledAt` to reject malformed ISO 8601 timestamps on POST/PUT transaction payloads with new validation and HTTP coverage
 
 ## Completed
 
