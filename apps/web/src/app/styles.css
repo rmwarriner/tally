@@ -384,15 +384,42 @@ textarea:focus {
   overflow: auto;
 }
 
-.coa-quick-actions {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-  margin-bottom: 16px;
+.coa-toolbar {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  margin-bottom: 12px;
+  padding: 2px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--surface-input);
 }
 
-.coa-quick-actions button {
-  flex: 1 1 auto;
+.coa-toolbar-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  padding: 0;
+  border: 0;
+  border-radius: 4px;
+  background: transparent;
+  color: var(--text);
+  cursor: pointer;
+}
+
+.coa-toolbar-btn:hover {
+  background: var(--surface-hover);
+}
+
+.coa-toolbar-btn:active {
+  background: var(--surface-selected);
+}
+
+.coa-toolbar-btn:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
 }
 
 .inspector {
