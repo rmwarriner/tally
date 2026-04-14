@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from "react";
+import { ArrowsClockwise, Plus, TreeStructure, PencilSimpleLine } from "@phosphor-icons/react";
 import type { FinanceBookDocument } from "@tally/book";
 
 interface CoaSidebarProps {
@@ -144,26 +145,46 @@ export function CoaSidebar(props: CoaSidebarProps) {
 
   return (
     <section className="sidebar coa-sidebar">
-      <div className="coa-quick-actions">
+      <div className="coa-toolbar">
         {props.selectedAccountId ? (
           <>
-            <button className="btn-secondary" type="button" onClick={props.onAddTransaction}>
-              + Txn
-            </button>
-            <button className="btn-secondary" type="button" onClick={props.onReconcile}>
-              Reconcile
+            <button
+              aria-label="Add transaction"
+              className="coa-toolbar-btn"
+              title="Add transaction"
+              type="button"
+              onClick={props.onAddTransaction}
+            >
+              <PencilSimpleLine size={16} weight="light" />
             </button>
             <button
-              className="btn-secondary"
+              aria-label="Reconcile"
+              className="coa-toolbar-btn"
+              title="Reconcile"
+              type="button"
+              onClick={props.onReconcile}
+            >
+              <ArrowsClockwise size={16} weight="light" />
+            </button>
+            <button
+              aria-label="Add sub-account"
+              className="coa-toolbar-btn"
+              title="Add sub-account"
               type="button"
               onClick={() => props.onNewAccount(props.selectedAccountId)}
             >
-              + Sub-account
+              <TreeStructure size={16} weight="light" />
             </button>
           </>
         ) : (
-          <button className="btn-secondary" type="button" onClick={() => props.onNewAccount(null)}>
-            + Account
+          <button
+            aria-label="Add account"
+            className="coa-toolbar-btn"
+            title="Add account"
+            type="button"
+            onClick={() => props.onNewAccount(null)}
+          >
+            <Plus size={16} weight="light" />
           </button>
         )}
       </div>

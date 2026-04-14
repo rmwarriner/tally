@@ -292,3 +292,5 @@ The next roadmap phase should promote a small number of these tracks into bounde
 - 2026-04-14: I-133 removed register panel title chrome plus active-balance/date-range/status toolbar controls, leaving account chips as the only in-panel register filter UI.
 
 - 2026-04-14: I-130 tightened global web density tokens (comfortable + compact) and reduced COA tree indentation to improve data-first information density.
+
+- 2026-04-14: I-159 replaced COA sidebar text quick-actions with a compact icon toolbar (tooltips, Phosphor icons, preserved selection-based action sets).
