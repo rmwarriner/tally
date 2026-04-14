@@ -15,13 +15,11 @@ interface LedgerMainPanelsProps {
   inlineEditDraft: LedgerInlineRowEditDraft | null;
   inlineEditingTransactionId: string | null;
   isLedgerDetailOpen: boolean;
-  ledgerRange: { from: string; to: string };
   ledgerRegisterTabs: Array<{
     accountId: string | null;
     id: string;
     label: string;
   }>;
-  ledgerStatusFilter: "all" | "cleared" | "open" | "reconciled";
   ledgerBook: ReturnType<typeof createLedgerBookModel>;
   ledgerIsFiltered: boolean;
   liquidAccounts: BookResponse["book"]["accounts"];
@@ -61,8 +59,6 @@ interface LedgerMainPanelsProps {
   onUpdateInlineEditField: (field: keyof LedgerInlineRowEditDraft, value: string) => void;
   selectedLedgerAccountId: string | null;
   selectedLedgerTransactionId: string | null;
-  setLedgerRange: Dispatch<SetStateAction<{ from: string; to: string }>>;
-  setLedgerStatusFilter: Dispatch<SetStateAction<"all" | "cleared" | "open" | "reconciled">>;
   setSelectedLedgerAccountId: Dispatch<SetStateAction<string | null>>;
   setSelectedLedgerTransactionId: Dispatch<SetStateAction<string | null>>;
   ledgerTotalCount: number;
@@ -81,9 +77,7 @@ export function LedgerMainPanels(props: LedgerMainPanelsProps) {
         formatTransactionStatus={props.formatTransactionStatus}
         inlineEditDraft={props.inlineEditDraft}
         inlineEditingTransactionId={props.inlineEditingTransactionId}
-        ledgerRange={props.ledgerRange}
         ledgerRegisterTabs={props.ledgerRegisterTabs}
-        ledgerStatusFilter={props.ledgerStatusFilter}
         ledgerBook={props.ledgerBook}
         isFiltered={props.ledgerIsFiltered}
         liquidAccounts={props.liquidAccounts}
@@ -103,8 +97,6 @@ export function LedgerMainPanels(props: LedgerMainPanelsProps) {
         onUpdateInlineEditField={props.onUpdateInlineEditField}
         selectedLedgerAccountId={props.selectedLedgerAccountId}
         selectedLedgerTransactionId={props.selectedLedgerTransactionId}
-        setLedgerRange={props.setLedgerRange}
-        setLedgerStatusFilter={props.setLedgerStatusFilter}
         setSelectedLedgerAccountId={props.setSelectedLedgerAccountId}
         setSelectedLedgerTransactionId={props.setSelectedLedgerTransactionId}
         totalCount={props.ledgerTotalCount}

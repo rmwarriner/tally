@@ -44,13 +44,11 @@ interface LedgerRegisterPanelProps {
   expenseAccounts: BookResponse["book"]["accounts"];
   formatCurrency: (amount: number) => string;
   formatTransactionStatus: (status: "cleared" | "open" | "reconciled") => string;
-  ledgerRange: { from: string; to: string };
   ledgerRegisterTabs: Array<{
     accountId: string | null;
     id: string;
     label: string;
   }>;
-  ledgerStatusFilter: "all" | "cleared" | "open" | "reconciled";
   ledgerBook: ReturnType<typeof createLedgerBookModel>;
   isFiltered: boolean;
   liquidAccounts: BookResponse["book"]["accounts"];
@@ -72,8 +70,6 @@ interface LedgerRegisterPanelProps {
   inlineEditingTransactionId: string | null;
   selectedLedgerAccountId: string | null;
   selectedLedgerTransactionId: string | null;
-  setLedgerRange: Dispatch<SetStateAction<{ from: string; to: string }>>;
-  setLedgerStatusFilter: Dispatch<SetStateAction<"all" | "cleared" | "open" | "reconciled">>;
   setSelectedLedgerAccountId: Dispatch<SetStateAction<string | null>>;
   setSelectedLedgerTransactionId: Dispatch<SetStateAction<string | null>>;
   totalCount: number;
@@ -307,10 +303,6 @@ export function LedgerRegisterPanel(props: LedgerRegisterPanelProps) {
   return (
     <>
       <article className="panel register-panel">
-        <div className="panel-header">
-          <span>Register</span>
-          <span className="muted">Double-entry ledger</span>
-        </div>
         <div className="register-tab-bar">
           {props.ledgerRegisterTabs.map((tab) => (
             <div key={tab.id} className={`register-tab${props.activeLedgerRegisterTabId === tab.id ? " active" : ""}`}>
@@ -345,46 +337,6 @@ export function LedgerRegisterPanel(props: LedgerRegisterPanelProps) {
           </button>
         </div>
         <div className="ledger-toolbar">
-          <div className="ledger-range-row">
-            <label className="ledger-filter">
-              <span className="muted">From</span>
-              <input
-                value={props.ledgerRange.from}
-                onChange={(event) =>
-                  props.setLedgerRange((current) => ({ ...current, from: event.target.value }))
-                }
-              />
-            </label>
-            <label className="ledger-filter">
-              <span className="muted">To</span>
-              <input
-                value={props.ledgerRange.to}
-                onChange={(event) =>
-                  props.setLedgerRange((current) => ({ ...current, to: event.target.value }))
-                }
-              />
-            </label>
-            {props.ledgerBook.selectedAccountBalance ? (
-              <div className="ledger-balance-chip">
-                <span>Active balance</span>
-                <strong>{props.formatCurrency(props.ledgerBook.selectedAccountBalance.balance)}</strong>
-              </div>
-            ) : null}
-          </div>
-          <select
-            className="ledger-status-select"
-            value={props.ledgerStatusFilter}
-            onChange={(event) =>
-              props.setLedgerStatusFilter(
-                event.target.value as "all" | "cleared" | "open" | "reconciled",
-              )
-            }
-          >
-            <option value="all">All statuses</option>
-            <option value="open">Uncleared</option>
-            <option value="cleared">Cleared</option>
-            <option value="reconciled">Reconciled</option>
-          </select>
           <div className="ledger-chip-row">
             <button
               className={`ledger-chip${props.selectedLedgerAccountId === null ? " active" : ""}`}
