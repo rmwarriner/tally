@@ -6,6 +6,10 @@ const issueId = process.argv[3];
 const ownerArg = process.argv.find((arg) => arg.startsWith("--owner="));
 const owner = ownerArg ? ownerArg.slice("--owner=".length).trim() : "";
 
+function escapeRegExp(value) {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
 if (!mode || !["start", "close"].includes(mode)) {
   console.error("Usage: node scripts/issue-lifecycle.mjs <start|close> I-### [--owner=name]");
   process.exit(1);
@@ -16,12 +20,14 @@ if (!issueId || !/^I-\d{3,}$/.test(issueId)) {
   process.exit(1);
 }
 
+const safeIssueId = escapeRegExp(issueId);
+
 const issuesPath = resolve(process.cwd(), "docs/issues.md");
 const lines = readFileSync(issuesPath, "utf8").split(/\r?\n/);
 
 let startIndex = -1;
 for (let i = 0; i < lines.length; i += 1) {
-  if (new RegExp(`^- \\[[ x]\\] ${issueId}\\b`).test(lines[i])) {
+  if (new RegExp(`^- \\[[ x]\\] ${safeIssueId}\\b`).test(lines[i])) {
     startIndex = i;
     break;
   }
