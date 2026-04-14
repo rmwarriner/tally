@@ -103,7 +103,7 @@ export function CoaSidebar(props: CoaSidebarProps) {
       <React.Fragment key={account.id}>
         <button
           className={`coa-row${props.selectedAccountId === account.id ? " active" : ""}`}
-          style={{ paddingLeft: `${8 + depth * 16}px` }}
+          style={{ paddingLeft: `${6 + depth * 12}px` }}
           type="button"
           onClick={() => props.onOpenInActiveTab(account.id)}
           onContextMenu={(event) => {

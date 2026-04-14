@@ -136,25 +136,25 @@
 
 :root,
 [data-density="comfortable"] {
-  --row-height: 40px;
-  --cell-pad-y: 11px;
+  --row-height: 32px;
+  --cell-pad-y: 8px;
   --register-cell-font-size: var(--text-sm);
   --register-header-font-size: var(--text-xs);
-  --chip-pad-y: 5px;
-  --form-pad-y: 10px;
-  --gap-sm: 8px;
-  --gap-md: 14px;
-}
-
-[data-density="compact"] {
-  --row-height: 28px;
-  --cell-pad-y: 7px;
-  --register-cell-font-size: var(--text-xs);
-  --register-header-font-size: var(--text-2xs);
-  --chip-pad-y: 3px;
+  --chip-pad-y: 4px;
   --form-pad-y: 8px;
   --gap-sm: 6px;
   --gap-md: 10px;
+}
+
+[data-density="compact"] {
+  --row-height: 24px;
+  --cell-pad-y: 4px;
+  --register-cell-font-size: var(--text-xs);
+  --register-header-font-size: var(--text-2xs);
+  --chip-pad-y: 2px;
+  --form-pad-y: 6px;
+  --gap-sm: 4px;
+  --gap-md: 8px;
 }
 
 [data-amount-style="sign"] {

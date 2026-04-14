@@ -290,3 +290,5 @@ The next roadmap phase should promote a small number of these tracks into bounde
 - 2026-04-14: streamlined GitHub PR automation with context-aware required gating (required-gate), docs-only fast paths, PR concurrency cancellation, and a new docs-lint workflow; documented remaining GitHub automation backlog items.
 
 - 2026-04-14: I-133 removed register panel title chrome plus active-balance/date-range/status toolbar controls, leaving account chips as the only in-panel register filter UI.
+
+- 2026-04-14: I-130 tightened global web density tokens (comfortable + compact) and reduced COA tree indentation to improve data-first information density.
