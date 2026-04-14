@@ -1,0 +1,15 @@
+{
+  "hooks": {
+    "UserPromptSubmit": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "input=$(cat); issue=$(printf \"%s\" \"$input\" | jq -r \".prompt // empty\" | grep -oiE \"start( on)? #[0-9]+\" | grep -oE \"[0-9]+\" | head -1); [ -n \"$issue\" ] && cd /Users/robert/Projects/tally && pnpm --silent start-issue \"$issue\" 2>&1 || true",
+            "statusMessage": "Setting up branch..."
+          }
+        ]
+      }
+    ]
+  }
+}
