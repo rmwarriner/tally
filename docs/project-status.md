@@ -1,6 +1,6 @@
 # Project Status
 
-Last reviewed: 2026-04-11
+Last reviewed: 2026-04-15
 
 ## Current State
 
@@ -40,6 +40,9 @@ This repository currently includes:
 - 2026-04-14: tightened GitHub PR gates — docs-only PRs skip ci:verify/CodeQL/audit via dynamic `change-scope` job; added `docs-lint.yml` for markdown hygiene; `security.yml` now schedule/dispatch only; `required-gate` job aggregates all quality-gates results
 - 2026-04-14: updated AGENTS.md and ai-team-operations.md to reflect GitHub Issues as canonical handoff queue (replaced docs/handoffs/I-NNN.md flow)
 - 2026-04-14: updated ci-and-security-gates.md to reflect current workflow topology; converted github-automation-backlog.md items to GitHub Issues #147, #148, #149
+- 2026-04-14: removed register panel title, balance chip, date-range selector, and status filter from LedgerRegisterPanel (#133); account chips remain as the primary in-panel filter UI
+- 2026-04-14: added prompt caching to claude-review.mjs (#154); system prompt cached with `cache_control: ephemeral` to reduce per-review API cost
+- 2026-04-14: removed CodeQL from PR required gates (#156); CodeQL now runs on weekly schedule only via security.yml
 
 ## Completed
 

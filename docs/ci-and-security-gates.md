@@ -1,6 +1,6 @@
 # CI And Security Gates
 
-Last reviewed: 2026-04-14
+Last reviewed: 2026-04-15
 
 ## Policy
 
@@ -28,7 +28,7 @@ It enforces:
 
 **Trigger policy:**
 - Runs on `pull_request` only — not on push to main (redundant after merge)
-- A `change-scope` job runs first and detects whether the PR touches only `*.md` / `docs/**` files. All heavy jobs (`ci-verify`, `dependency-audit`, `codeql`) skip when `docs_only == true`.
+- A `change-scope` job runs first and detects whether the PR touches only `*.md` / `docs/**` files. All heavy jobs (`ci-verify`, `dependency-audit`) skip when `docs_only == true`.
 - A `required-gate` job aggregates all job results; branch protection requires this job to pass.
 - Concurrency group `quality-gates-pr-<number>` cancels in-progress runs when a new commit is pushed to the same PR
 
@@ -43,10 +43,9 @@ It enforces:
 - CodeQL analysis for JavaScript/TypeScript
 
 **Trigger policy:**
-- Runs on `pull_request` and weekly schedule (`0 6 * * 1`)
-- Uses the same `change-scope` pattern as quality-gates: docs-only PRs skip `dependency-audit` and `codeql`
-- Weekly schedule catches newly disclosed vulnerabilities in unchanged dependencies
-- Job-level concurrency groups (`dependency-audit-<ref>`, `codeql-<ref>`) cancel in-progress runs on rapid PR updates
+- Runs on weekly schedule (`0 6 * * 1`) only — not on pull requests
+- Weekly schedule catches newly disclosed vulnerabilities in unchanged dependencies and provides scheduled CodeQL analysis
+- Job-level concurrency groups (`dependency-audit-<ref>`, `codeql-<ref>`) cancel in-progress runs on rapid schedule overlaps
 
 ## Docs Lint Workflow
 
@@ -72,6 +71,8 @@ It provides:
 - Interactive `@claude` mention support in PR and issue comments via `anthropics/claude-code-action`
 
 The review prompt prioritises: audit event compliance, domain layer purity, TDD compliance, double-entry integrity, security, and general quality — in that order.
+
+The review script uses prompt caching (`cache_control: { type: "ephemeral" }` with the `anthropic-beta: prompt-caching-2024-07-31` header) so the static system prompt is cached across repeated reviews, reducing API cost and latency.
 
 ## Dependency Update Workflow
 
