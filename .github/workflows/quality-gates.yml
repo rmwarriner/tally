@@ -2,12 +2,48 @@ name: Quality Gates
 
 on:
   pull_request:
+    types:
+      - opened
+      - synchronize
+      - reopened
+      - edited
+      - ready_for_review
 
 permissions:
   contents: read
   pull-requests: read
 
 jobs:
+  change-scope:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      docs_only: ${{ steps.scope.outputs.docs_only }}
+    steps:
+      - name: Detect docs-only changes
+        id: scope
+        uses: actions/github-script@v8
+        with:
+          script: |
+            const owner = context.repo.owner;
+            const repo = context.repo.repo;
+            const pullNumber = context.payload.pull_request?.number;
+
+            const changedFiles = await github.paginate(github.rest.pulls.listFiles, {
+              owner,
+              repo,
+              pull_number: pullNumber,
+              per_page: 100,
+            });
+
+            const isDocsOnlyFile = (path) => path.endsWith(".md") || path.startsWith("docs/");
+            const docsOnly =
+              changedFiles.length > 0 && changedFiles.every((file) => isDocsOnlyFile(file.filename));
+
+            core.info(`Changed files: ${changedFiles.length}`);
+            core.info(`docs_only=${docsOnly}`);
+            core.setOutput("docs_only", String(docsOnly));
+
   pr-policy:
     runs-on: ubuntu-latest
     timeout-minutes: 5
@@ -79,7 +115,7 @@ jobs:
             );
 
   ci-verify:
-    needs: [pr-policy]
+    needs: [change-scope, pr-policy]
     if: always() && needs.pr-policy.result == 'success'
     runs-on: ubuntu-latest
     timeout-minutes: 15
@@ -88,29 +124,39 @@ jobs:
       cancel-in-progress: true
 
     steps:
+      - name: Skip ci:verify for docs-only change
+        if: needs.change-scope.outputs.docs_only == 'true'
+        run: echo "Skipping ci:verify for docs-only PR."
+
       - name: Check out repository
+        if: needs.change-scope.outputs.docs_only != 'true'
         uses: actions/checkout@v6
         with:
           fetch-depth: 0
 
       - name: Set up pnpm
+        if: needs.change-scope.outputs.docs_only != 'true'
         uses: pnpm/action-setup@v5
         with:
           version: 10.0.0
 
       - name: Set up Node.js
+        if: needs.change-scope.outputs.docs_only != 'true'
         uses: actions/setup-node@v6
         with:
           cache: pnpm
           node-version: 22
 
       - name: Install dependencies
+        if: needs.change-scope.outputs.docs_only != 'true'
         run: pnpm install --frozen-lockfile
 
       - name: CI Verify
+        if: needs.change-scope.outputs.docs_only != 'true'
         run: pnpm ci:verify
 
       - name: Diff coverage
+        if: needs.change-scope.outputs.docs_only != 'true'
         env:
           DIFF_BASE_REF: origin/${{ github.event.pull_request.base.ref }}
           DIFF_COVERAGE_THRESHOLD: "85"
