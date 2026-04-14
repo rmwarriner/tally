@@ -298,3 +298,5 @@ The next roadmap phase should promote a small number of these tracks into bounde
 - 2026-04-14: I-131 made COA sidebar horizontally resizable, pinned toolbar above a dedicated scrollable tree region, and enabled horizontal scrolling for deep account names without ellipsis clipping.
 
 - 2026-04-14: I-127 standardized web design language typography and corner shape tokens by wiring Geist as `--display-font` and replacing hardcoded register/UI border-radius values with semantic radius variables.
+
+- 2026-04-14: I-168 aligned COA sidebar account-name/code/balance columns with fixed code and balance widths, plus a section-header code spacer so totals line up with row balances.
