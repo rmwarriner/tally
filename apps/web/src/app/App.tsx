@@ -1221,9 +1221,7 @@ export function App() {
           inlineEditDraft={inlineEditDraft}
           inlineEditingTransactionId={inlineEditingTransactionId}
           isLedgerDetailOpen={isLedgerDetailOpen}
-          ledgerRange={currentPeriod}
           ledgerRegisterTabs={labeledLedgerRegisterTabs}
-          ledgerStatusFilter={ledgerStatusFilter}
           ledgerBook={ledgerBook}
           ledgerIsFiltered={ledgerBook.isFiltered}
           ledgerOpeningBalance={ledgerBook.openingBalance}
@@ -1262,8 +1260,6 @@ export function App() {
           onUpdateInlineEditField={setInlineDraftField}
           selectedLedgerAccountId={selectedLedgerAccountId}
           selectedLedgerTransactionId={selectedLedgerTransactionId}
-          setLedgerRange={setLedgerRange}
-          setLedgerStatusFilter={setLedgerStatusFilter}
           setSelectedLedgerAccountId={setSelectedLedgerAccountId}
           setSelectedLedgerTransactionId={setSelectedLedgerTransactionId}
           transactionEditorPanel={renderTransactionEditorPanel()}
