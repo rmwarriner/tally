@@ -1,6 +1,6 @@
 # CI And Security Gates
 
-Last reviewed: 2026-04-13
+Last reviewed: 2026-04-14
 
 ## Policy
 
@@ -28,8 +28,9 @@ It enforces:
 
 **Trigger policy:**
 - Runs on `pull_request` only — not on push to main (redundant after merge)
-- Skipped entirely when only `*.md`, `docs/**`, or `.github/` files change (path filter)
-- Concurrency group `ci-verify-<ref>` cancels in-progress runs when a new commit is pushed to the same PR
+- A `change-scope` job runs first and detects whether the PR touches only `*.md` / `docs/**` files. All heavy jobs (`ci-verify`, `dependency-audit`, `codeql`) skip when `docs_only == true`.
+- A `required-gate` job aggregates all job results; branch protection requires this job to pass.
+- Concurrency group `quality-gates-pr-<number>` cancels in-progress runs when a new commit is pushed to the same PR
 
 ## Security Workflow
 
@@ -42,10 +43,24 @@ It enforces:
 - CodeQL analysis for JavaScript/TypeScript
 
 **Trigger policy:**
-- Runs on `pull_request` and weekly schedule (`0 6 * * 1`) — not on push to main
-- Skipped when only `*.md` or `docs/**` files change (path filter)
+- Runs on `pull_request` and weekly schedule (`0 6 * * 1`)
+- Uses the same `change-scope` pattern as quality-gates: docs-only PRs skip `dependency-audit` and `codeql`
 - Weekly schedule catches newly disclosed vulnerabilities in unchanged dependencies
-- Concurrency groups cancel in-progress runs on rapid PR updates
+- Job-level concurrency groups (`dependency-audit-<ref>`, `codeql-<ref>`) cancel in-progress runs on rapid PR updates
+
+## Docs Lint Workflow
+
+The docs lint workflow is defined in `.github/workflows/docs-lint.yml`.
+
+It enforces:
+
+- No tab characters in changed markdown files
+- No trailing whitespace in changed markdown files
+
+**Trigger policy:**
+- Runs on `pull_request` when any `*.md` or `docs/**` file changes (path filter)
+- Only lints files changed in the PR (not the full repo)
+- Concurrency group `docs-lint-pr-<number>` cancels in-progress runs on rapid PR updates
 
 ## Claude Review Workflow
 

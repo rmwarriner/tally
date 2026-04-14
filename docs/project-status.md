@@ -37,6 +37,9 @@ This repository currently includes:
 - 2026-04-13: added API boundary validation for optional `posting.reconciledAt` to reject malformed ISO 8601 timestamps on POST/PUT transaction payloads with new validation and HTTP coverage
 - 2026-04-13: completed GitHub-Issues workflow docs refresh by fixing stale absolute links in `docs/git-workflow.md` and confirming archive/migration references for `docs/issues.md` and `docs/ideas.md`
 - 2026-04-13: migrated workflow docs from local queue files to GitHub-Issues-first execution and idea tracking, with `docs/issues.md` and `docs/ideas.md` converted to archive stubs
+- 2026-04-14: tightened GitHub PR gates — docs-only PRs skip ci:verify/CodeQL/audit via dynamic `change-scope` job; added `docs-lint.yml` for markdown hygiene; `security.yml` now schedule/dispatch only; `required-gate` job aggregates all quality-gates results
+- 2026-04-14: updated AGENTS.md and ai-team-operations.md to reflect GitHub Issues as canonical handoff queue (replaced docs/handoffs/I-NNN.md flow)
+- 2026-04-14: updated ci-and-security-gates.md to reflect current workflow topology; converted github-automation-backlog.md items to GitHub Issues #147, #148, #149
 
 ## Completed
 
