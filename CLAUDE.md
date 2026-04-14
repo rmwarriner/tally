@@ -109,7 +109,7 @@ These rules apply to every Codex task without exception.
 - Check dependency notes in the issue body first — stop and prompt if any referenced prerequisite issue is not yet merged
 
 **Git discipline**
-- Branch from `origin/main` before making any changes: `git checkout -B <type>/NNN-short-description origin/main`
+- Always create a fresh branch from `origin/main` for each issue — regardless of what branch is currently checked out: `git checkout -B <type>/NNN-short-description origin/main`. Never build on a leftover feature branch from a previous task.
 - Commit after each logical unit of work with a clear message
 - Push and open a PR when done: `gh pr create` using `.github/PULL_REQUEST_TEMPLATE.md`
 - Reference the issue in the PR body with `Closes #NNN`
