@@ -30,8 +30,12 @@ try {
     console.error("AGENTS.md must contain a '## Starting an Issue' section.");
     hasError = true;
   }
-  if (!agents.includes("docs/handoffs/")) {
-    console.error("AGENTS.md must reference docs/handoffs/ as the handoff deck location.");
+  if (!agents.includes("start on #NNN")) {
+    console.error("AGENTS.md must describe issue startup using the 'start on #NNN' phrasing.");
+    hasError = true;
+  }
+  if (!agents.includes("gh issue view NNN")) {
+    console.error("AGENTS.md must reference 'gh issue view NNN' as the issue-spec entrypoint.");
     hasError = true;
   }
 } catch (error) {

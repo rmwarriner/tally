@@ -8,7 +8,7 @@ This file contains only Codex-specific operational instructions — handoff mech
 
 ## Starting an Issue
 
-When told to "start on I-NNN", first run `git fetch origin` to ensure you have the latest handoff files, then read `docs/handoffs/I-NNN.md` for the full spec.
+When told to "start on #NNN", first run `git fetch origin`, then read the issue body with `gh issue view NNN` for the full spec.
 
 ## One-Off Fixes
 
@@ -29,10 +29,7 @@ Do not append to `docs/project-status.md` for one-off fixes unless the change is
 
 - `docs/project-status.md` — append a one-line completion entry on your feature branch before opening the PR. This is the only tracking doc Codex touches.
 - `docs/issues.md` — do not modify. Claude Code updates this on `main` after merge.
-- `docs/handoffs/` — do not modify. Claude Code owns these.
 
-Each handoff file is self-contained: it includes an explicit **First step** with the exact git commands to fetch and create the branch. Execute that first step before doing anything else.
-
-After the first step:
-1. Check the `**Dependencies:**` field. If a listed issue is not yet merged into `main`, stop and prompt the user — do not proceed.
+After fetching the issue:
+1. Check the issue body for any **Dependencies** note. If a listed issue is not yet merged into `main`, stop and prompt the user — do not proceed.
 2. Follow the spec exactly. Do not expand scope beyond the stated acceptance criteria.
