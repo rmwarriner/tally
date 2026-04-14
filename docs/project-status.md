@@ -280,3 +280,5 @@ The next roadmap phase should promote a small number of these tracks into bounde
 - 2026-04-12: I-028 wired COA account click to load into the active register tab and added right-click context-menu navigation to open accounts in new ledger tabs.
 
 - 2026-04-12: I-030 added clickable status-bar balance modes (total/available/both) with persisted localStorage preference and pending-balance detail display.
+
+- 2026-04-14: streamlined GitHub PR automation with context-aware required gating (required-gate), docs-only fast paths, PR concurrency cancellation, and a new docs-lint workflow; documented remaining GitHub automation backlog items.
