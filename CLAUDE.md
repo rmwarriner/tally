@@ -101,15 +101,17 @@ This repository is maintained by a solo developer. AI assistants and automation 
 
 ## Codex Execution Rules
 
+_Last updated: 2026-04-14_
+
 These rules apply to every Codex task without exception.
 
 **Session start**
-- Run `git fetch origin` before doing anything else
-- When told to "start on #NNN", read the issue body with `gh issue view NNN` for the full spec
+- When told to "start on #NNN", run `pnpm start-issue NNN` first — this fetches origin, reads the issue, and creates a correctly named branch from `origin/main` automatically. Do not manually fetch or create branches.
+- After `pnpm start-issue NNN` completes, read the issue body with `gh issue view NNN` for the full spec
 - Check dependency notes in the issue body first — stop and prompt if any referenced prerequisite issue is not yet merged
 
 **Git discipline**
-- Branch from `origin/main` before making any changes: `git checkout -B <type>/NNN-short-description origin/main`
+- Always use `pnpm start-issue NNN` (alias: `pnpm issue:start NNN`) to begin work on any issue — never manually create branches or build on a leftover branch from a previous task.
 - Commit after each logical unit of work with a clear message
 - Push and open a PR when done: `gh pr create` using `.github/PULL_REQUEST_TEMPLATE.md`
 - Reference the issue in the PR body with `Closes #NNN`
