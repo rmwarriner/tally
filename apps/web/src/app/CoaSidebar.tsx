@@ -208,6 +208,7 @@ export function CoaSidebar(props: CoaSidebarProps) {
               >
                 <span className={`coa-section-caret${isCollapsed ? "" : " expanded"}`}>▸</span>
                 <span className="coa-section-label">{type}</span>
+                <span className="coa-section-code-spacer" />
                 <span
                   className={[
                     "coa-section-total",
