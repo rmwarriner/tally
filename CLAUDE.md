@@ -76,6 +76,7 @@ Test placement by concern:
 - `camelCase` for variables/functions, `PascalCase` for components and exported types
 - Keep `packages/domain` and `packages/book` side-effect free unless the file is explicitly at an operational boundary
 - No linter/formatter config is checked in — match surrounding code style closely
+- **Icons:** use `@phosphor-icons/react` throughout the web app. Do not add a second icon library. Inline SVGs are acceptable only when a Phosphor icon does not exist for the specific use case.
 
 ## Git Workflow
 

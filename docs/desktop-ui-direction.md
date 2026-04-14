@@ -156,7 +156,7 @@ Visual quality is not a phase that comes after workflow stabilises — it is a p
 - **Motion and transitions** — subtle and functional, not decorative. Row expansion, save states, error appearance, panel open/close — these should feel smooth, not janky or instantaneous.
 - **Designed empty states** — a blank register, a new book, an empty envelope list should each have a considered visual treatment. Blank white space with no message signals an unfinished product.
 - **Loading and async states** — skeleton rows or subtle spinners instead of layout shifts. The interface should never feel broken while it waits.
-- **Iconography** — intentional, consistent icons that reinforce meaning rather than decorate. A custom or carefully curated icon set distinguishes the product from a generic web app.
+- **Iconography** — intentional, consistent icons that reinforce meaning rather than decorate. The project uses **Phosphor Icons** (`@phosphor-icons/react`) as the sole icon library. Use `weight="light"` for inactive states and `weight="regular"` for active/selected states. Do not introduce a second icon library; inline SVGs are acceptable only when Phosphor has no suitable icon.
 
 ### The register as a precision instrument
 
