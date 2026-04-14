@@ -17,52 +17,19 @@ This document defines how the solo maintainer, Claude Code, and Codex work toget
 |---|---|---|
 | `CLAUDE.md` | Shared policy | Canonical source of truth for all agents — rules, conventions, non-negotiables, PR requirements |
 | `AGENTS.md` | Codex-specific | Operational instructions for Codex only (handoff mechanics, document ownership). Always references `CLAUDE.md` as policy source. Never duplicates or overrides policy. |
-| `docs/handoffs/I-NNN.md` | Claude Code | Task specs drafted by Claude Code, read by Codex on demand |
+
+GitHub Issues is the canonical execution queue. Handoff specs are written as comments on the relevant issue; there are no local handoff files.
 
 **Handoff flow:**
-1. User asks Claude Code "what's next" or "write up the next handoffs"
-2. Claude reads `docs/issues.md` and roadmap docs, drafts specs into `docs/handoffs/I-NNN.md`, pushes to `main`
-3. User tells Codex: "start on I-NNN" — Codex fetches origin, reads `docs/handoffs/I-NNN.md`, checks dependencies, and begins
-4. While Codex executes, Claude can freely draft further handoffs in `docs/handoffs/` without interference
-5. Codex finishes and opens (or auto-merges) a PR
-6. User asks Claude to review the PR if R2/R3; Claude fetches the PR branch for review
-7. After merge, Claude pulls `main` in `tally/` and updates `docs/issues.md`
+1. User asks Claude Code to write up an issue for implementation
+2. Claude reads the issue, posts a detailed spec as a comment on the GitHub issue
+3. User tells Codex: "start on #NNN" — Codex fetches origin, reads the issue with `gh issue view NNN`, checks dependencies, and begins
+4. Codex finishes and opens (or auto-merges) a PR with `Closes #NNN` in the body
+5. User asks Claude to review the PR if R2/R3; Claude fetches the PR branch for review
+6. After merge, Claude pulls `main` in `tally/` and updates `docs/issues.md`
 
 Both agents work in the same `tally/` directory. Claude Code stays on `main`; Codex always branches from `origin/main` before making changes.
 
-## Handoff File Format
-
-Handoffs live in `docs/handoffs/I-NNN.md` — permanent specs, never deleted. Codex reads them on demand when told "start on I-NNN".
-
-Structure:
-```
-# Handoff — I-NNN: <short title>
-
-**Branch:** `feat/I-NNN-description`
-
-**First step — sync and create branch:**
-```bash
-cd /Users/robert/Projects/tally
-git fetch origin
-git checkout -B feat/I-NNN-description origin/main
-```
-
-**Dependencies:** I-NNN merged  (or "none")
-
-**Context:** <why this work is being done>
-
-**Acceptance criteria:** <numbered list of observable outcomes and verification commands>
-
-**Key files:** <file paths and what to change in each>
-
-**Risk:** <R1/R2/R3>
-
-**Rollback:** <one-line revert plan>
-
-**Final step:** push the branch and open a PR using `.github/PULL_REQUEST_TEMPLATE.md`. Fill out all sections. `pnpm ci:verify` must pass before opening the PR. Append a one-line completion entry to `docs/project-status.md` before opening the PR.
-- If risk tier is **R1 or R2**: run `gh pr merge --squash --delete-branch` immediately after `gh pr create`. Local `pnpm ci:verify` is the gate; no waiting for remote CI.
-- If risk tier is **R3**: leave the PR open for maintainer review. Do not merge.
-```
 
 ## Post-Merge Checklist
 
