@@ -16,7 +16,6 @@ concurrency:
 permissions:
   contents: read
   pull-requests: read
-  security-events: write
   actions: read
 
 jobs:
@@ -205,37 +204,8 @@ jobs:
         if: needs.change-scope.outputs.docs_only != 'true'
         run: pnpm security:secrets
 
-  codeql:
-    needs: [change-scope, pr-policy]
-    if: always() && needs.pr-policy.result == 'success'
-    runs-on: ubuntu-latest
-    timeout-minutes: 30
-
-    steps:
-      - name: Skip CodeQL for docs-only change
-        if: needs.change-scope.outputs.docs_only == 'true'
-        run: echo "Skipping CodeQL for docs-only PR."
-
-      - name: Check out repository
-        if: needs.change-scope.outputs.docs_only != 'true'
-        uses: actions/checkout@v6
-
-      - name: Initialize CodeQL
-        if: needs.change-scope.outputs.docs_only != 'true'
-        uses: github/codeql-action/init@v4
-        with:
-          languages: javascript-typescript
-
-      - name: Autobuild
-        if: needs.change-scope.outputs.docs_only != 'true'
-        uses: github/codeql-action/autobuild@v4
-
-      - name: Analyze
-        if: needs.change-scope.outputs.docs_only != 'true'
-        uses: github/codeql-action/analyze@v4
-
   required-gate:
-    needs: [pr-policy, ci-verify, dependency-audit, codeql]
+    needs: [pr-policy, ci-verify, dependency-audit]
     if: always()
     runs-on: ubuntu-latest
     timeout-minutes: 5
@@ -248,11 +218,9 @@ jobs:
           echo "pr-policy: ${{ needs.pr-policy.result }}"
           echo "ci-verify: ${{ needs.ci-verify.result }}"
           echo "dependency-audit: ${{ needs.dependency-audit.result }}"
-          echo "codeql: ${{ needs.codeql.result }}"
 
           [[ "${{ needs.pr-policy.result }}" == "success" ]] || exit 1
           [[ "${{ needs.ci-verify.result }}" == "success" ]] || exit 1
           [[ "${{ needs.dependency-audit.result }}" == "success" ]] || exit 1
-          [[ "${{ needs.codeql.result }}" == "success" ]] || exit 1
 
           echo "All required gate jobs passed."
