@@ -145,81 +145,85 @@ export function CoaSidebar(props: CoaSidebarProps) {
 
   return (
     <section className="sidebar coa-sidebar">
-      <div className="coa-toolbar">
-        {props.selectedAccountId ? (
-          <>
-            <button
-              aria-label="Add transaction"
-              className="coa-toolbar-btn"
-              title="Add transaction"
-              type="button"
-              onClick={props.onAddTransaction}
-            >
-              <PencilSimpleLine size={16} weight="light" />
-            </button>
-            <button
-              aria-label="Reconcile"
-              className="coa-toolbar-btn"
-              title="Reconcile"
-              type="button"
-              onClick={props.onReconcile}
-            >
-              <ArrowsClockwise size={16} weight="light" />
-            </button>
-            <button
-              aria-label="Add sub-account"
-              className="coa-toolbar-btn"
-              title="Add sub-account"
-              type="button"
-              onClick={() => props.onNewAccount(props.selectedAccountId)}
-            >
-              <TreeStructure size={16} weight="light" />
-            </button>
-          </>
-        ) : (
-          <button
-            aria-label="Add account"
-            className="coa-toolbar-btn"
-            title="Add account"
-            type="button"
-            onClick={() => props.onNewAccount(null)}
-          >
-            <Plus size={16} weight="light" />
-          </button>
-        )}
-      </div>
-      {accountTypeOrder.map((type) => {
-        const typeRootAccounts = rootAccounts.filter((account) => account.type === type);
-        if (typeRootAccounts.length === 0) {
-          return null;
-        }
-        const isCollapsed = collapsedTypes.has(type);
-        const total = typeTotal(type);
-
-        return (
-          <div key={type} className="coa-section">
-            <button
-              className="coa-section-header"
-              type="button"
-              onClick={() => toggleType(type)}
-            >
-              <span className={`coa-section-caret${isCollapsed ? "" : " expanded"}`}>▸</span>
-              <span className="coa-section-label">{type}</span>
-              <span
-                className={[
-                  "coa-section-total",
-                  total > 0 ? "amount-positive" : total < 0 ? "amount-negative" : "muted",
-                ].join(" ")}
+      <div className="coa-toolbar-wrap">
+        <div className="coa-toolbar">
+          {props.selectedAccountId ? (
+            <>
+              <button
+                aria-label="Add transaction"
+                className="coa-toolbar-btn"
+                title="Add transaction"
+                type="button"
+                onClick={props.onAddTransaction}
               >
-                {props.formatCurrency(total)}
-              </span>
+                <PencilSimpleLine size={16} weight="light" />
+              </button>
+              <button
+                aria-label="Reconcile"
+                className="coa-toolbar-btn"
+                title="Reconcile"
+                type="button"
+                onClick={props.onReconcile}
+              >
+                <ArrowsClockwise size={16} weight="light" />
+              </button>
+              <button
+                aria-label="Add sub-account"
+                className="coa-toolbar-btn"
+                title="Add sub-account"
+                type="button"
+                onClick={() => props.onNewAccount(props.selectedAccountId)}
+              >
+                <TreeStructure size={16} weight="light" />
+              </button>
+            </>
+          ) : (
+            <button
+              aria-label="Add account"
+              className="coa-toolbar-btn"
+              title="Add account"
+              type="button"
+              onClick={() => props.onNewAccount(null)}
+            >
+              <Plus size={16} weight="light" />
             </button>
-            {!isCollapsed
-              ? typeRootAccounts.map((account) => renderAccountRow(account, 0))
-              : null}
-          </div>
-        );
-      })}
+          )}
+        </div>
+      </div>
+      <div className="coa-tree-scroll">
+        {accountTypeOrder.map((type) => {
+          const typeRootAccounts = rootAccounts.filter((account) => account.type === type);
+          if (typeRootAccounts.length === 0) {
+            return null;
+          }
+          const isCollapsed = collapsedTypes.has(type);
+          const total = typeTotal(type);
+
+          return (
+            <div key={type} className="coa-section">
+              <button
+                className="coa-section-header"
+                type="button"
+                onClick={() => toggleType(type)}
+              >
+                <span className={`coa-section-caret${isCollapsed ? "" : " expanded"}`}>▸</span>
+                <span className="coa-section-label">{type}</span>
+                <span
+                  className={[
+                    "coa-section-total",
+                    total > 0 ? "amount-positive" : total < 0 ? "amount-negative" : "muted",
+                  ].join(" ")}
+                >
+                  {props.formatCurrency(total)}
+                </span>
+              </button>
+              {!isCollapsed
+                ? typeRootAccounts.map((account) => renderAccountRow(account, 0))
+                : null}
+            </div>
+          );
+        })}
+      </div>
       {contextMenu ? (
         <div
           className="coa-context-menu"

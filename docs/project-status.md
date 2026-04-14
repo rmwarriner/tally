@@ -294,3 +294,5 @@ The next roadmap phase should promote a small number of these tracks into bounde
 - 2026-04-14: I-130 tightened global web density tokens (comfortable + compact) and reduced COA tree indentation to improve data-first information density.
 
 - 2026-04-14: I-159 replaced COA sidebar text quick-actions with a compact icon toolbar (tooltips, Phosphor icons, preserved selection-based action sets).
+
+- 2026-04-14: I-131 made COA sidebar horizontally resizable, pinned toolbar above a dedicated scrollable tree region, and enabled horizontal scrolling for deep account names without ellipsis clipping.

@@ -381,18 +381,36 @@ textarea:focus {
 .coa-sidebar {
   grid-column: 2;
   grid-row: 2;
+  display: flex;
+  flex-direction: column;
+  padding: 0;
+  min-width: 160px;
+  max-width: 480px;
+  resize: horizontal;
   overflow: auto;
+}
+
+.coa-toolbar-wrap {
+  flex: 0 0 auto;
+  padding: 8px 8px 4px;
 }
 
 .coa-toolbar {
   display: inline-flex;
   align-items: center;
   gap: 2px;
-  margin-bottom: 12px;
+  margin-bottom: 0;
   padding: 2px;
   border: 1px solid var(--border);
   border-radius: 6px;
   background: var(--surface-input);
+}
+
+.coa-tree-scroll {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-x: auto;
+  overflow-y: auto;
 }
 
 .coa-toolbar-btn {
@@ -700,6 +718,7 @@ textarea:focus {
 
 .coa-section {
   border-bottom: 1px solid color-mix(in srgb, var(--border) 40%, transparent);
+  min-width: max-content;
 }
 
 .coa-section-header {
@@ -707,6 +726,7 @@ textarea:focus {
   align-items: center;
   gap: 6px;
   width: 100%;
+  min-width: max-content;
   padding: 6px 8px;
   border: 0;
   background: transparent;
@@ -758,6 +778,7 @@ textarea:focus {
   align-items: center;
   gap: 6px;
   width: 100%;
+  min-width: max-content;
   padding-top: 4px;
   padding-bottom: 4px;
   padding-right: 8px;
@@ -784,8 +805,6 @@ textarea:focus {
 .coa-row-name {
   flex: 1;
   font-size: var(--text-sm);
-  overflow: hidden;
-  text-overflow: ellipsis;
   white-space: nowrap;
 }
 
