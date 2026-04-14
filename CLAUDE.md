@@ -127,7 +127,7 @@ These rules apply to every Codex task without exception.
 - The repository is public on GitHub
 - Branch protection is enforced on `main`: direct pushes and force pushes are blocked, `pr-policy` and `ci-verify` must pass before merge
 - CI runs on PRs only — not on push to main. Docs-only changes skip CI via path filters.
-- CodeQL runs on every PR and on a weekly schedule; findings appear in the GitHub Security tab
+- CodeQL runs on a weekly schedule; findings appear in the GitHub Security tab
 
 **Non-negotiables**
 - TDD: write the failing test before the implementation for any logic changes
