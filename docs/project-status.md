@@ -43,6 +43,7 @@ This repository currently includes:
 - 2026-04-14: removed register panel title, balance chip, date-range selector, and status filter from LedgerRegisterPanel (#133); account chips remain as the primary in-panel filter UI
 - 2026-04-14: added prompt caching to claude-review.mjs (#154); system prompt cached with `cache_control: ephemeral` to reduce per-review API cost
 - 2026-04-14: removed CodeQL from PR required gates (#156); CodeQL now runs on weekly schedule only via security.yml
+- 2026-04-14: aligned COA sidebar code and balance columns with fixed-width tokens; replaced native CSS resize with custom drag handle persisting width to localStorage (#170, I-168)
 
 ## Completed
 
