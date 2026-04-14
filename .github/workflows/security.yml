@@ -2,9 +2,6 @@ name: Security
 
 on:
   pull_request:
-    paths-ignore:
-      - "**.md"
-      - "docs/**"
   schedule:
     - cron: "0 6 * * 1"
 
@@ -12,9 +9,47 @@ permissions:
   contents: read
   security-events: write
   actions: read
+  pull-requests: read
 
 jobs:
+  change-scope:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      docs_only: ${{ steps.scope.outputs.docs_only }}
+    steps:
+      - name: Detect docs-only changes
+        id: scope
+        uses: actions/github-script@v8
+        with:
+          script: |
+            if (context.eventName !== "pull_request") {
+              core.info("Non-PR event detected; running full security checks.");
+              core.setOutput("docs_only", "false");
+              return;
+            }
+
+            const owner = context.repo.owner;
+            const repo = context.repo.repo;
+            const pullNumber = context.payload.pull_request?.number;
+
+            const changedFiles = await github.paginate(github.rest.pulls.listFiles, {
+              owner,
+              repo,
+              pull_number: pullNumber,
+              per_page: 100,
+            });
+
+            const isDocsOnlyFile = (path) => path.endsWith(".md") || path.startsWith("docs/");
+            const docsOnly =
+              changedFiles.length > 0 && changedFiles.every((file) => isDocsOnlyFile(file.filename));
+
+            core.info(`Changed files: ${changedFiles.length}`);
+            core.info(`docs_only=${docsOnly}`);
+            core.setOutput("docs_only", String(docsOnly));
+
   dependency-audit:
+    needs: [change-scope]
     runs-on: ubuntu-latest
     timeout-minutes: 15
     concurrency:
@@ -22,30 +57,41 @@ jobs:
       cancel-in-progress: true
 
     steps:
+      - name: Skip dependency audit for docs-only change
+        if: needs.change-scope.outputs.docs_only == 'true'
+        run: echo "Skipping dependency audit for docs-only PR."
+
       - name: Check out repository
+        if: needs.change-scope.outputs.docs_only != 'true'
         uses: actions/checkout@v6
 
       - name: Set up pnpm
+        if: needs.change-scope.outputs.docs_only != 'true'
         uses: pnpm/action-setup@v5
         with:
           version: 10.0.0
 
       - name: Set up Node.js
+        if: needs.change-scope.outputs.docs_only != 'true'
         uses: actions/setup-node@v6
         with:
           cache: pnpm
           node-version: 22
 
       - name: Install dependencies
+        if: needs.change-scope.outputs.docs_only != 'true'
         run: pnpm install --frozen-lockfile
 
       - name: Audit production dependencies
+        if: needs.change-scope.outputs.docs_only != 'true'
         run: pnpm audit --prod --audit-level high
 
       - name: Secret scan
+        if: needs.change-scope.outputs.docs_only != 'true'
         run: pnpm security:secrets
 
   codeql:
+    needs: [change-scope]
     runs-on: ubuntu-latest
     timeout-minutes: 30
     concurrency:
@@ -53,16 +99,24 @@ jobs:
       cancel-in-progress: true
 
     steps:
+      - name: Skip CodeQL for docs-only change
+        if: needs.change-scope.outputs.docs_only == 'true'
+        run: echo "Skipping CodeQL for docs-only PR."
+
       - name: Check out repository
+        if: needs.change-scope.outputs.docs_only != 'true'
         uses: actions/checkout@v6
 
       - name: Initialize CodeQL
+        if: needs.change-scope.outputs.docs_only != 'true'
         uses: github/codeql-action/init@v4
         with:
           languages: javascript-typescript
 
       - name: Autobuild
+        if: needs.change-scope.outputs.docs_only != 'true'
         uses: github/codeql-action/autobuild@v4
 
       - name: Analyze
+        if: needs.change-scope.outputs.docs_only != 'true'
         uses: github/codeql-action/analyze@v4
