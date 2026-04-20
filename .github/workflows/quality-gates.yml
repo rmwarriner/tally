@@ -27,7 +27,7 @@ jobs:
     steps:
       - name: Detect docs-only changes
         id: scope
-        uses: actions/github-script@v8
+        uses: actions/github-script@v9
         with:
           script: |
             const owner = context.repo.owner;
@@ -58,7 +58,7 @@ jobs:
 
     steps:
       - name: Enforce PR test policy
-        uses: actions/github-script@v8
+        uses: actions/github-script@v9
         with:
           script: |
             const body = context.payload.pull_request?.body ?? "";
@@ -138,7 +138,7 @@ jobs:
 
       - name: Set up pnpm
         if: needs.change-scope.outputs.docs_only != 'true'
-        uses: pnpm/action-setup@v5
+        uses: pnpm/action-setup@v6
         with:
           version: 10.0.0
 
@@ -181,7 +181,7 @@ jobs:
 
       - name: Set up pnpm
         if: needs.change-scope.outputs.docs_only != 'true'
-        uses: pnpm/action-setup@v5
+        uses: pnpm/action-setup@v6
         with:
           version: 10.0.0
 
