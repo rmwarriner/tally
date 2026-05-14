@@ -24,6 +24,14 @@ const accountTypeOrder: Array<FinanceBookDocument["accounts"][number]["type"]> =
   "expense",
   "equity",
 ];
+const coaSidebarWidthStorageKey = "tally:coaSidebarWidth";
+const coaSidebarMinWidth = 160;
+const coaSidebarMaxWidth = 480;
+const coaSidebarDefaultWidth = 220;
+
+function clampCoaSidebarWidth(width: number): number {
+  return Math.max(coaSidebarMinWidth, Math.min(coaSidebarMaxWidth, width));
+}
 
 export function CoaSidebar(props: CoaSidebarProps) {
   const [collapsedTypes, setCollapsedTypes] = useState<Set<string>>(new Set());
@@ -79,6 +87,19 @@ export function CoaSidebar(props: CoaSidebarProps) {
   }
 
   useEffect(() => {
+    const stored = localStorage.getItem(coaSidebarWidthStorageKey);
+    if (!stored) {
+      return;
+    }
+    const parsed = Number.parseInt(stored, 10);
+    if (Number.isNaN(parsed)) {
+      return;
+    }
+    const nextWidth = clampCoaSidebarWidth(parsed);
+    document.documentElement.style.setProperty("--coa-sidebar-width", `${nextWidth}px`);
+  }, []);
+
+  useEffect(() => {
     if (!contextMenu) {
       return;
     }
@@ -90,6 +111,32 @@ export function CoaSidebar(props: CoaSidebarProps) {
     document.addEventListener("mousedown", handleClick);
     return () => document.removeEventListener("mousedown", handleClick);
   }, [contextMenu]);
+
+  function handleResizeMouseDown(event: React.MouseEvent<HTMLDivElement>) {
+    event.preventDefault();
+    const startX = event.clientX;
+    const currentWidthValue = getComputedStyle(document.documentElement).getPropertyValue(
+      "--coa-sidebar-width",
+    );
+    const parsedCurrentWidth = Number.parseInt(currentWidthValue, 10);
+    const startWidth = Number.isNaN(parsedCurrentWidth)
+      ? coaSidebarDefaultWidth
+      : clampCoaSidebarWidth(parsedCurrentWidth);
+
+    function handleMouseMove(moveEvent: MouseEvent) {
+      const nextWidth = clampCoaSidebarWidth(startWidth + (moveEvent.clientX - startX));
+      document.documentElement.style.setProperty("--coa-sidebar-width", `${nextWidth}px`);
+      localStorage.setItem(coaSidebarWidthStorageKey, String(nextWidth));
+    }
+
+    function handleMouseUp() {
+      document.removeEventListener("mousemove", handleMouseMove);
+      document.removeEventListener("mouseup", handleMouseUp);
+    }
+
+    document.addEventListener("mousemove", handleMouseMove);
+    document.addEventListener("mouseup", handleMouseUp);
+  }
 
   function renderAccountRow(
     account: FinanceBookDocument["accounts"][number],
@@ -243,6 +290,7 @@ export function CoaSidebar(props: CoaSidebarProps) {
           </button>
         </div>
       ) : null}
+      <div className="coa-resize-handle" onMouseDown={handleResizeMouseDown} />
     </section>
   );
 }

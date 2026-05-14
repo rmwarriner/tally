@@ -50,6 +50,7 @@
   --radius-md: 6px;
   --radius-lg: 12px;
   --radius-pill: 999px;
+  --coa-sidebar-width: 220px;
   --inspector-width: 280px;
   --text-2xs: 10px;
   --text-xs: 11px;
@@ -252,7 +253,7 @@ textarea:focus {
 .workspace {
   display: grid;
   grid-template-rows: 36px 1fr;
-  grid-template-columns: 46px 220px minmax(0, 1fr) var(--inspector-width);
+  grid-template-columns: 46px var(--coa-sidebar-width) minmax(0, 1fr) var(--inspector-width);
   height: 100vh;
   background: transparent;
 }
@@ -395,13 +396,25 @@ textarea:focus {
 .coa-sidebar {
   grid-column: 2;
   grid-row: 2;
+  position: relative;
   display: flex;
   flex-direction: column;
   padding: 0;
-  min-width: 160px;
-  max-width: 480px;
-  resize: horizontal;
   overflow: auto;
+}
+
+.coa-resize-handle {
+  position: absolute;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  width: 4px;
+  cursor: col-resize;
+}
+
+.coa-resize-handle:hover {
+  background: var(--accent);
+  opacity: 0.5;
 }
 
 .coa-toolbar-wrap {
